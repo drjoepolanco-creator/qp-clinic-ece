@@ -32,6 +32,7 @@ const SB = createClient(
 
 // ── ESTADO GLOBAL ─────────────────────────────────────────
 const P="#1565C0",PD="#0D47A1",PL="#E3F2FD",AC="#0288D1",SU="#2E7D32",DA="#C62828",BR="#CFD8DC",TX="#1A237E",MU="#546E7A",WA="#25D366";
+const WA_CLINICA="525644237028"; // WhatsApp oficial QP Clinic
 let STATE={
   user:null, userProfile:null,
   page:"login", pat:null,
@@ -65,7 +66,7 @@ const PLANTILLAS_PAT=[{lbl:"Hipertensión",txt:"Hipertensión Arterial Sistémic
 // ── HELPERS UI ────────────────────────────────────────────
 const RR=()=>document.getElementById("R");
 function go(pg,ex={}){Object.assign(STATE,{page:pg,...ex});draw();}
-function draw(){RR().innerHTML="";RR().className="fade";({login:pgLogin,agenda:pgAgenda,buscar:pgBuscar,expediente:pgExp,nuevo:pgNuevo,consulta:pgConsulta}[STATE.page]||pgLogin)();}
+function draw(){RR().innerHTML="";RR().className="fade";({login:pgLogin,agenda:pgAgenda,buscar:pgBuscar,expediente:pgExp,nuevo:pgNuevo,consulta:pgConsulta,perfil:pgPerfil,medicos:pgMedicos}[STATE.page]||pgLogin)();}
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
 function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">`;}
 function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
@@ -81,6 +82,13 @@ function nav(){
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
     ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:12px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    <div style="position:relative" id="cfg-menu-wrap">
+      <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["perfil","medicos"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:12px;border-bottom:${["perfil","medicos"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
+      <div id="cfg-menu" style="display:none;position:absolute;top:46px;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000025;min-width:200px;z-index:100;overflow:hidden">
+        <button onclick="go('perfil');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#263238;display:flex;align-items:center;gap:8px">👨‍⚕️ Mi perfil médico</button>
+        <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Médicos del sistema</button>
+      </div>
+    </div>
     <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
       ${p?`<button onclick="go('expediente')" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 9px;color:#fff;cursor:pointer;font-size:10px">📋 ${p.nombre} ${p.apellido_paterno}</button>`:""}
       <span style="color:rgba(255,255,255,.8);font-size:11px">${u?u.nombre+" "+u.apellidos:"Dr. Polanco F."}</span>
@@ -259,7 +267,7 @@ Sitio web: www.qpclinic.org</p>
 <p>Usted tiene derecho a <strong>Acceder, Rectificar, Cancelar u Oponerse</strong> al tratamiento de sus datos personales. Para ejercer estos derechos deberá presentar solicitud por escrito a:</p>
 <p style="background:#E3F2FD;padding:10px 14px;border-radius:7px;margin:8px 0"><strong>Correo:</strong> recepcion@qpclinic.mx<br>
 <strong>Domicilio:</strong> Insurgentes Sur 933, CDMX<br>
-<strong>Horario:</strong> Lunes a viernes de 9:00 a 18:00 hrs</p>
+<strong>Horario:</strong> Lunes a viernes de 8:00 a 20:00 horas</p>
 <p>Su solicitud deberá contener: nombre completo, domicilio, copia de identificación oficial y descripción clara de los datos y el derecho que desea ejercer. QP Clinic responderá en un plazo máximo de <strong>20 días hábiles</strong>.</p>
 
 <h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">VI. SEGURIDAD DE LOS DATOS</h3>
@@ -1043,7 +1051,21 @@ async function renderDocsAnexos(ab){
         <div style="background:${PL};border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:${TX}">El paciente recibirá un enlace por WhatsApp o correo para leer y firmar los documentos desde su celular. Los documentos firmados se guardan automáticamente en PDF en el expediente.</div>
         <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:10px">DOCUMENTOS PARA FIRMA</p>
         <div style="background:#F8F9FA;border-radius:8px;padding:10px;margin-bottom:14px">
-          ${["AVISO DE PRIVACIDAD","CONSENTIMIENTO INFORMADO GENERAL","CONSENTIMIENTO DE TELEMEDICINA","CARTA COMPROMISO DE TRATAMIENTO","SEGUIMIENTO MÉDICO-DEPORTIVO"].map(d=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:5px 0;border-bottom:1px solid ${BR}"><input type="checkbox" style="accent-color:${P};width:14px;height:14px"> ${d}</label>`).join("")}
+          ${[
+            ["general","Consentimiento Informado General"],
+            ["privacidad","Aviso de Privacidad"],
+            ["telemedicina","Consentimiento de Telemedicina"],
+            ["qpclinic","Consentimiento QP Clinic — Tratamiento Médico-Deportivo"],
+            ["seguimiento","Carta Compromiso — Seguimiento Médico-Deportivo"],
+            ["eaa","Consentimiento Uso de EAA"],
+            ["infiltraciones","Consentimiento para Infiltraciones"],
+            ["esfuerzo","Consentimiento Prueba de Esfuerzo"],
+            ["glp1","Consentimiento GLP-1 (Ozempic® / Mounjaro®)"],
+          ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:5px 0;border-bottom:1px solid ${BR}"><input type="checkbox" data-doc="${k}" style="accent-color:${P};width:14px;height:14px"> ${l}</label>`).join("")}
+        </div>
+        <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:11px;color:#1B5E20">
+          📱 <b>Se enviará desde:</b> WhatsApp QP Clinic <b>+52 5644237028</b><br>
+          <span style="font-size:10px;color:#2E7D32">Asegúrese de abrir el enlace desde el celular con ese número</span>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:12px">
           ${btn("💬 Enviar por WhatsApp","enviarFirmaWA()","wa")}
@@ -1101,7 +1123,31 @@ window.verPDF=async function(docId){
   }else showToast("No hay archivo adjunto para este documento",false);
 }
 window.descargarDoc=function(docId){verPDF(docId);}
-window.enviarFirmaWA=function(){showToast("✓ Enlace enviado por WhatsApp a "+gv("fcel"));ocultarModalFirma();}
+window.enviarFirmaWA=async function(){
+  const cel=gv("fcel");const pid=STATE.pat?.id;
+  if(!cel){showToast("Ingresa el celular del paciente",false);return;}
+  const checks=document.querySelectorAll("#modal-firma input[type=checkbox]:checked");
+  if(checks.length===0){showToast("Selecciona al menos un documento",false);return;}
+  const docs=Array.from(checks).map(c=>c.dataset.doc);
+  const codigo=Math.random().toString(36).substring(2,8).toUpperCase();
+  await SB.from("anexos").insert(docs.map(d=>({
+    paciente_id:pid,
+    titulo:"PENDIENTE FIRMA: "+d.toUpperCase(),
+    tipo_documento:"firma_pendiente",
+    origen:"digital",
+    firmado:false,
+  })));
+  const celLimpio=cel.replace(/\D/g,"");
+  const url=`https://qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}`;
+  const nomPac=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno}`:"Paciente";
+  const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\n_Su información es tratada con absoluta confidencialidad._\n_QP Clinic — Especialistas en Salud Integral_`;
+  // Abrir WhatsApp desde el número de la clínica
+  // El enlace se abre en el dispositivo donde está logueado +52 5644237028
+  const waUrl=`https://wa.me/${celLimpio.length===10?"52"+celLimpio:celLimpio}?text=${encodeURIComponent(msg)}`;
+  window.open(waUrl,"_blank");
+  showToast("✓ Abre WhatsApp en el celular de QP Clinic (+52 5644237028) para enviar");
+  ocultarModalFirma();
+}
 window.enviarFirmaEmail=function(){showToast("✓ Enlace enviado por correo al paciente");ocultarModalFirma();}
 
 async function renderAnotaciones(ab){
@@ -1262,6 +1308,321 @@ function calcEdad(fnac){
   if(hoy.getDate()<nac.getDate())meses--;
   if(meses<0){años--;meses+=12;}
   return años>0?`${años}a ${meses}m`:`${meses} meses`;
+}
+
+// ── CONFIGURACIÓN MENU ───────────────────────────────────
+window.toggleCfgMenu=function(){
+  const m=document.getElementById("cfg-menu");
+  if(m)m.style.display=m.style.display==="none"?"block":"none";
+}
+document.addEventListener("click",function(e){
+  const w=document.getElementById("cfg-menu-wrap");
+  const m=document.getElementById("cfg-menu");
+  if(m&&w&&!w.contains(e.target))m.style.display="none";
+});
+
+// ── MI PERFIL MÉDICO ──────────────────────────────────────
+function pgPerfil(){
+  const u=STATE.userProfile||{};
+  RR().innerHTML=nav()+`
+  <div style="max-width:800px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX}">Mi Perfil Médico</h2>
+        <p style="color:${MU};font-size:12px;margin-top:2px">Estos datos aparecerán en los documentos y consentimientos que generes</p>
+      </div>
+      ${btn("💾 Guardar perfil","guardarPerfil()","ok",1)}
+    </div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:24px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+        ${fld("Título",sel("pf_titulo",["Dr.","Dra.","Lic.","M.C.","M.N.","Esp.","M.D.","PhD"],u.titulo||"Dr."))}
+        ${fld("Nombre(s) *",inp("pf_nom",u.nombre||""),1)}
+        ${fld("Apellidos *",inp("pf_ap",u.apellidos||""),1)}
+      </div>
+      <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
+        <p style="font-size:11px;font-weight:700;color:${P};margin-bottom:12px;text-transform:uppercase">Cédulas profesionales</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          ${fld("Título de grado (Médico Cirujano, etc.)",inp("pf_esp1",u.especialidad_1||"","Ej: Médico Cirujano"))}
+          ${fld("Cédula profesional de grado",inp("pf_ced1",u.cedula_medico||"","Ej: 6382840"))}
+          ${fld("Especialidad",inp("pf_esp2",u.especialidad_2||"","Ej: Medicina del Deporte"))}
+          ${fld("Cédula de especialidad",inp("pf_ced2",u.cedula_esp_1||"","Ej: 10861477"))}
+          ${fld("Subespecialidad (si aplica)",inp("pf_subesp",u.subespecialidad||""))}
+          ${fld("Cédula de subespecialidad",inp("pf_cedsubesp",u.cedula_subesp||""))}
+        </div>
+      </div>
+      <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
+        <p style="font-size:11px;font-weight:700;color:${P};margin-bottom:12px;text-transform:uppercase">Datos de contacto y clínica</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          ${fld("Institución / Clínica",inp("pf_inst",u.institucion||"QP Clinic — Especialistas en Salud Integral"))}
+          ${fld("Dirección de la clínica",inp("pf_dir",u.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX"))}
+          ${fld("Teléfono",inp("pf_tel",u.telefono||"","55XXXXXXXX","tel"))}
+          ${fld("Correo electrónico",inp("pf_mail",u.email||"","","email"))}
+        </div>
+      </div>
+      <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
+        <p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;text-transform:uppercase">Vista previa — encabezado de documentos</p>
+        <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between">
+          <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:48px">
+          <div style="text-align:right;font-size:12px;line-height:1.8">
+            <b id="prev_nombre">${u.titulo||"Dr."} ${u.nombre||""} ${u.apellidos||""}</b><br>
+            <span id="prev_esp1" style="color:${MU}">${u.especialidad_1||"Médico Cirujano"}</span><br>
+            <span id="prev_esp2" style="color:${MU}">${u.especialidad_2?u.especialidad_2+" | ":""}</span>
+            <span id="prev_ced" style="color:${MU}">Céd. Prof. ${u.cedula_medico||"—"}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  // Live preview
+  ["pf_titulo","pf_nom","pf_ap","pf_esp1","pf_esp2","pf_ced1"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.addEventListener("input",actualizarPreview);
+  });
+}
+function actualizarPreview(){
+  const t=gv("pf_titulo"),n=gv("pf_nom"),a=gv("pf_ap"),e1=gv("pf_esp1"),e2=gv("pf_esp2"),c=gv("pf_ced1");
+  const pn=document.getElementById("prev_nombre");const pe1=document.getElementById("prev_esp1");const pe2=document.getElementById("prev_esp2");const pc=document.getElementById("prev_ced");
+  if(pn)pn.textContent=`${t} ${n} ${a}`;
+  if(pe1)pe1.textContent=e1;
+  if(pe2)pe2.textContent=e2?e2+" | ":"";
+  if(pc)pc.textContent=`Céd. Prof. ${c||"—"}`;
+}
+window.guardarPerfil=async function(){
+  const uid=STATE.user?.id;if(!uid)return;
+  loading(true,"Guardando perfil...");
+  const payload={
+    titulo:gv("pf_titulo"),
+    nombre:gv("pf_nom").trim(),
+    apellidos:gv("pf_ap").trim(),
+    especialidad_1:gv("pf_esp1").trim(),
+    cedula_medico:gv("pf_ced1").trim(),
+    especialidad_2:gv("pf_esp2").trim(),
+    cedula_esp_1:gv("pf_ced2").trim(),
+    subespecialidad:gv("pf_subesp").trim(),
+    cedula_subesp:gv("pf_cedsubesp").trim(),
+    institucion:gv("pf_inst").trim(),
+    direccion_clinica:gv("pf_dir").trim(),
+    telefono:gv("pf_tel").trim(),
+    email:gv("pf_mail").trim(),
+  };
+  const {data,error}=await SB.from("usuarios").update(payload).eq("id",uid).select().single();
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  STATE.userProfile=data;
+  showToast("✓ Perfil médico actualizado");
+}
+
+// ── MÉDICOS DEL SISTEMA ────────────────────────────────────
+async function pgMedicos(){
+  RR().innerHTML=nav()+`
+  <div style="max-width:960px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX}">Médicos del Sistema</h2>
+        <p style="color:${MU};font-size:12px;margin-top:2px">Usuarios con acceso a QP Clinic ECE</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${btn("➕ Invitar nuevo médico","invitarMedico()","p",1)}
+      </div>
+    </div>
+    <div id="medicos-lista"><div style="text-align:center;padding:32px;color:${MU}"><span class="spin" style="font-size:24px;display:block;margin-bottom:8px">⚙️</span>Cargando...</div></div>
+  </div>`;
+  await cargarMedicos();
+}
+async function cargarMedicos(){
+  const {data,error}=await SB.from("usuarios").select("*").eq("activo",true).order("apellidos");
+  const ml=document.getElementById("medicos-lista");if(!ml)return;
+  if(error||!data||data.length===0){ml.innerHTML=`<div style="background:#fff;border-radius:10px;padding:32px;text-align:center;color:${MU}">No hay médicos registrados aún</div>`;return;}
+  ml.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    ${data.map(m=>`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;display:flex;align-items:flex-start;gap:14px">
+      <div style="width:48px;height:48px;border-radius:50%;background:${PL};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${m.titulo==="Dra."?"👩‍⚕️":"👨‍⚕️"}</div>
+      <div style="flex:1">
+        <p style="font-weight:700;font-size:13px;color:${TX}">${m.titulo||"Dr."} ${m.nombre||""} ${m.apellidos||""}</p>
+        ${m.especialidad_1?`<p style="font-size:11px;color:${MU}">${m.especialidad_1}</p>`:""}
+        ${m.especialidad_2?`<p style="font-size:11px;color:${MU}">${m.especialidad_2}</p>`:""}
+        ${m.cedula_medico?`<p style="font-size:10px;color:${MU};margin-top:3px">Céd. ${m.cedula_medico}${m.cedula_esp_1?" · Esp. "+m.cedula_esp_1:""}</p>`:""}
+        <p style="font-size:11px;color:${MU}">${m.email||""}</p>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <span style="background:${m.cedula_medico?"#C8E6C9":"#FFF3E0"};color:${m.cedula_medico?"#1B5E20":"#E65100"};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700">${m.cedula_medico?"✓ Cédulas registradas":"⚠️ Sin cédulas"}</span>
+          ${STATE.user?.id===m.id?`<span style="background:${PL};color:${P};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700">• Tú</span>`:""}
+        </div>
+      </div>
+    </div>`).join("")}
+  </div>`;
+}
+window.invitarMedico=function(){
+  showToast("Para agregar un médico, ve a Supabase → Authentication → Users → Add user");
+}
+
+// ── HELPER: DATOS DEL MÉDICO ACTUAL ──────────────────────
+function getMedicoData(){
+  const u=STATE.userProfile||{};
+  return {
+    nombre_completo:`${u.titulo||"Dr."} ${u.nombre||""} ${u.apellidos||""}`.trim(),
+    titulo:u.titulo||"Dr.",
+    nombre:u.nombre||"",
+    apellidos:u.apellidos||"",
+    especialidad_1:u.especialidad_1||"Médico Cirujano",
+    cedula_medico:u.cedula_medico||"",
+    especialidad_2:u.especialidad_2||"",
+    cedula_esp_1:u.cedula_esp_1||"",
+    subespecialidad:u.subespecialidad||"",
+    cedula_subesp:u.cedula_subesp||"",
+    institucion:u.institucion||"QP Clinic — Especialistas en Salud Integral",
+    direccion:u.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX, C.P. 03810",
+    telefono:u.telefono||"",
+    email:u.email||"",
+  };
+}
+
+// ── DOCUMENTOS LEGALES MEJORADOS (NOM-004, LGS) ──────────
+function getDocumentoHTML(tipo, paciente){
+  const m=getMedicoData();
+  const p=paciente||STATE.pat||{};
+  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"});
+  const nomPac=`${p.nombre||"_____________"} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim();
+  const edadPac=p.fecha_nacimiento?calcEdad(p.fecha_nacimiento):"___";
+  const creds=`${m.especialidad_1}${m.cedula_medico?" — Céd. Prof. "+m.cedula_medico:""}${m.especialidad_2?"\n"+m.especialidad_2+(m.cedula_esp_1?" — Céd. Esp. "+m.cedula_esp_1:""):""}`;
+
+  const header=`<div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid #1565C0;padding-bottom:10px;margin-bottom:16px">
+    <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:52px">
+    <div style="text-align:right;font-size:11px;line-height:1.7;color:#263238">
+      <b style="font-size:12px">${m.nombre_completo}</b><br>
+      ${m.especialidad_1}${m.cedula_medico?" | Céd. Prof. "+m.cedula_medico:""}<br>
+      ${m.especialidad_2?m.especialidad_2+(m.cedula_esp_1?" | Céd. Esp. "+m.cedula_esp_1:"")+"<br>":""}
+      ${m.institucion}<br>
+      ${m.direccion}
+    </div>
+  </div>
+  <p style="font-size:10px;color:#546E7A;text-align:right;margin-bottom:14px">Ciudad de México, ${hoy}</p>`;
+
+  const footer=`<div style="margin-top:28px;border-top:1px solid #CFD8DC;padding-top:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
+      <div style="text-align:center">
+        <div style="border-bottom:1px solid #263238;min-height:50px;margin-bottom:6px"></div>
+        <p style="font-size:11px;font-weight:700">Nombre y firma del paciente</p>
+        <p style="font-size:10px;color:#546E7A">${nomPac}</p>
+      </div>
+      <div style="text-align:center">
+        <div style="border-bottom:1px solid #263238;min-height:50px;margin-bottom:6px"></div>
+        <p style="font-size:11px;font-weight:700">Nombre y firma del médico</p>
+        <p style="font-size:10px;color:#546E7A">${m.nombre_completo}</p>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <div style="border-bottom:1px solid #263238;width:50%;margin:0 auto 6px"></div>
+      <p style="font-size:11px;font-weight:700">Nombre y firma del testigo</p>
+    </div>
+    <p style="font-size:9px;color:#90A4AE;text-align:center;margin-top:12px">Documento generado conforme a la NOM-004-SSA3-2012 del Expediente Clínico y los Arts. 80-84 del Reglamento de la Ley General de Salud en Materia de Prestación de Servicios de Atención Médica.</p>
+  </div>`;
+
+  const titulo=(t,sub="")=>`<div style="text-align:center;margin-bottom:16px"><h2 style="font-size:15px;font-weight:800;color:#1A237E;text-transform:uppercase">${t}</h2>${sub?`<p style="font-size:11px;color:#546E7A;margin-top:3px">${sub}</p>`:""}</div>`;
+
+  const sec=(t,body)=>`<div style="margin-bottom:12px"><p style="font-size:12px;font-weight:700;color:#1565C0;margin-bottom:4px">${t}</p><p style="font-size:12px;line-height:1.8;color:#263238">${body}</p></div>`;
+
+  const docs={
+
+    // 1. CONSENTIMIENTO INFORMADO GENERAL
+    "general":`${header}
+    ${titulo("Consentimiento Informado General","NOM-004-SSA3-2012 | Ley General de Salud Art. 51 Bis 1")}
+    <p style="font-size:12px;margin-bottom:10px">Yo, <b>${nomPac}</b>, con ${edadPac} de edad, manifiesto lo siguiente:</p>
+    ${sec("1. Información recibida","He recibido información clara, precisa y suficiente sobre mi condición de salud, la enfermedad, lesión o estado físico diagnosticado y el plan de tratamiento propuesto por ${m.nombre_completo}. He tenido la oportunidad de formular todas las preguntas que consideré necesarias y he recibido respuestas satisfactorias a las mismas.")}
+    ${sec("2. Información sobre alternativas y riesgos","He sido informado(a) de los tratamientos alternativos posibles, así como de los efectos secundarios o adversos que puede tener el tratamiento propuesto. Comprendo que ningún tratamiento médico está exento de riesgos y que los resultados pueden variar según las características individuales de cada paciente.")}
+    ${sec("3. Interacción con el médico tratante","He hablado directamente con ${m.nombre_completo} y/o miembros de su equipo. Entiendo que las indicaciones emitidas lo fueron de acuerdo a criterio médico-científico fundamentado y que el cumplimiento de las mismas es voluntario, siendo la efectividad del tratamiento proporcional al apego a las indicaciones.")}
+    ${sec("4. Derecho a retirar el consentimiento","Entiendo que puedo abandonar el plan de tratamiento propuesto en cualquier momento, de conformidad con el Art. 51 Bis 1 de la Ley General de Salud. Comprendo que el abandono del tratamiento puede implicar consecuencias adversas para mi salud, sobre las cuales he sido debidamente informado(a).")}
+    ${sec("5. Confidencialidad","Toda la información relacionada con mi atención médica será tratada con estricta confidencialidad, conforme a la NOM-004-SSA3-2012 y la Ley Federal de Protección de Datos Personales en Posesión de los Particulares.")}
+    ${footer}`,
+
+    // 2. CONSENTIMIENTO TELEMEDICINA
+    "telemedicina":`${header}
+    ${titulo("Consentimiento Informado para Servicios de Telemedicina / Telesalud","NOM-024-SSA3-2012 | NOM-004-SSA3-2012")}
+    <p style="font-size:12px;margin-bottom:10px">Yo, <b>${nomPac}</b>, con ${edadPac} de edad, habiendo sido informado(a) por <b>${m.nombre_completo}</b> sobre los servicios de Telemedicina/Telesalud, manifiesto:</p>
+    ${sec("Definición","La Telemedicina implica el uso de comunicaciones electrónicas para permitir que los proveedores de atención médica en diferentes lugares compartan información médica individual del paciente con el fin de mejorar su atención, mediante equipos de telecomunicaciones interactivos que permiten comunicación bidireccional en tiempo real.")}
+    ${sec("Beneficios esperados","• Mejora del acceso a la atención desde un sitio remoto.<br>• Evaluación y gestión médica y sanitaria más eficientes.<br>• Diagnóstico y tratamiento oportunos que pueden contribuir a mejores resultados clínicos.")}
+    ${sec("Riesgos potenciales","• La transmisión de información médica podría verse alterada por fallas técnicas.<br>• La información médica podría ser interrumpida o accedida por personas no autorizadas (a pesar de medidas de protección).<br>• Los servicios de telemedicina pueden no ser tan completos como los servicios presenciales.<br>• En casos poco frecuentes, la información transmitida puede ser insuficiente para la toma de decisiones.<br>• En casos excepcionales, los protocolos de seguridad pueden fallar.")}
+    ${sec("Declaraciones","1. Entiendo que mi información de atención médica puede ser compartida con fines de tratamiento conforme a la LFPDPPP.<br>2. Tengo el derecho de negar o retirar mi consentimiento en cualquier momento sin afectar mi derecho a recibir atención presencial futura.<br>3. Existen métodos alternativos de atención, incluida la interacción presencial, y puedo elegirlos en cualquier momento.<br>4. Las leyes que protegen la confidencialidad de mi información médica aplican también a la telemedicina.<br>5. La transmisión de vídeo puede ser retenida con fines de documentación clínica.<br>6. No se garantizan los mismos resultados que en consulta presencial.")}
+    ${footer}`,
+
+    // 3. CONSENTIMIENTO QP CLINIC DR.
+    "qpclinic":`${header}
+    ${titulo("Consentimiento Informado para Tratamiento Médico-Deportivo","NOM-004-SSA3-2012 | Ley General de Salud")}
+    <p style="font-size:12px;margin-bottom:10px">Yo, <b>${nomPac}</b>, con ${edadPac} de edad, manifiesto que <b>${m.nombre_completo}</b>${m.especialidad_1?", "+m.especialidad_1:""}${m.cedula_medico?", Céd. Prof. "+m.cedula_medico:""}${m.especialidad_2?", "+m.especialidad_2:""}${m.cedula_esp_1?", Céd. Esp. "+m.cedula_esp_1:""} me ha informado sobre el tratamiento médico-deportivo que implementará.</p>
+    ${sec("Descripción del tratamiento","El tratamiento consiste en la prescripción y modificación evolutiva de ejercicio físico, así como la prescripción y modificación evolutiva de un plan alimenticio, individualizados a mi condición de salud, objetivos y evaluaciones periódicas.")}
+    ${sec("Riesgos potenciales","Se me notifica que dicho tratamiento puede generar posibles efectos adversos tales como: problemas digestivos (náuseas, vómitos, diarreas, estreñimiento), cansancio, dolor muscular, calambres, palpitaciones, mareos, hipotensión, hipoglucemia, alteración del equilibrio electrolítico sérico. Pueden presentarse también sensación de boca seca, caída del cabello, cefalea, cambios en el ritmo menstrual y sensibilidad al frío.")}
+    ${sec("Relación riesgo-apego al tratamiento","La aparición de los riesgos y efectos adversos es inversamente proporcional al apego al tratamiento prescrito. El médico tratante ajustará el plan de manera evolutiva para minimizar los riesgos descritos.")}
+    ${sec("Riesgos personalizados","Existen riesgos individualizados que dependen de factores como la edad, enfermedades previas, alergias, tratamientos concomitantes y hábitos del paciente, que pueden incrementar o no la incidencia de los riesgos señalados u otros no mencionados, los cuales serán discutidos de manera personalizada.")}
+    ${sec("Declaración de comprensión","Habiendo sido informado(a) de manera clara y suficiente sobre los beneficios, riesgos y alternativas del tratamiento, y habiendo podido formular todas las preguntas pertinentes con respuestas satisfactorias, otorgo mi consentimiento libre y voluntario para iniciar el tratamiento médico-deportivo descrito.")}
+    ${footer}`,
+
+    // 4. SEGUIMIENTO MÉDICO-DEPORTIVO
+    "seguimiento":`${header}
+    ${titulo("Carta de Compromiso — Seguimiento Médico-Deportivo","NOM-004-SSA3-2012 | QP Clinic")}
+    <p style="font-size:12px;margin-bottom:10px">Por medio del presente documento, <b>${nomPac}</b>, con ${edadPac} de edad, manifiesta conocer y aceptar las características, servicios incluidos, duración, vigencia, condiciones y garantías del seguimiento médico-deportivo proporcionado por <b>${m.nombre_completo}</b> en <b>${m.institucion}</b>:</p>
+    ${sec("Servicios incluidos","1. Evaluaciones médico-deportivas cada 15 días.<br>2. Determinación de la composición corporal en cada consulta de seguimiento.<br>3. Prescripción y progresión de la actividad física y plan alimenticio.<br>4. Valoración médica por lesión o enfermedad durante el periodo vigente contratado.<br>5. Determinación de la capacidad aeróbica al inicio y al finalizar el seguimiento.")}
+    ${sec("Duración y vigencia","El seguimiento contratado tendrá una duración de 8 o 12 semanas conforme al plan seleccionado. El no cumplimiento de los tiempos establecidos implica que el médico no puede comprometerse a un resultado positivo.")}
+    ${sec("Condiciones","1. Una vez finalizado el periodo de vigencia, NO se repondrán los servicios no tomados.<br>2. Una vez contratado el periodo, por ningún motivo se realizarán devoluciones económicas.<br>3. Los resultados no se garantizan si el paciente sigue recomendaciones de terceros, metodología, fármacos o sustancias no prescritas explícitamente mediante receta médica firmada por ${m.nombre_completo}.")}
+    ${sec("Renovación","En caso de querer continuar el seguimiento, el paquete subsecuente deberá pagarse en su totalidad a más tardar el día que termine la vigencia del anterior. Si el reinicio ocurre después de 4 semanas del fin de vigencia, se deberá contratar un paquete de costo inicial.")}
+    ${footer}`,
+
+    // 5. USO DE EAA
+    "eaa":`${header}
+    ${titulo("Consentimiento Informado — Uso de Esteroides Anabólicos Androgénicos (EAA)","NOM-004-SSA3-2012 | Ley General de Salud Art. 51 Bis")}
+    <p style="font-size:12px;margin-bottom:10px">Yo, <b>${nomPac}</b>, con ${edadPac} de edad, declaro que <b>${m.nombre_completo}</b>${m.especialidad_1?", "+m.especialidad_1:""}${m.cedula_medico?", Céd. Prof. "+m.cedula_medico:""}${m.especialidad_2?", "+m.especialidad_2:""}${m.cedula_esp_1?", Céd. Esp. "+m.cedula_esp_1:""} me ha informado y explicado ampliamente sobre los efectos secundarios reportados en la literatura médica del uso de esteroides anabólicos androgénicos (EAA).</p>
+    ${sec("Objetivo del uso","El tratamiento con EAA se utilizará con fines de aumento del rendimiento deportivo, aumento de masa muscular y/o disminución de la masa grasa, bajo supervisión médica estricta.")}
+    ${sec("Riesgos para la salud","He sido informado(a) de que el uso de EAA puede generar riesgos para la salud e incluso para la vida, que incluyen:<br><b>Cardiovasculares:</b> Hipertensión arterial, aumento de masa ventricular, hipertrofia concéntrica del ventrículo izquierdo, aumento en la capacidad de coagulación, trombosis, tromboembolia pulmonar, infarto agudo al miocardio, evento vascular cerebral.<br><b>Hepáticos:</b> Hepatitis, peliosis, hipertensión portal, várices esofágicas, adenoma hepatocelular, carcinoma hepatocelular, angiosarcoma hepático.<br><b>Renales:</b> Disminución del filtrado glomerular e insuficiencia renal.<br><b>Metabólicos:</b> Aumento del colesterol LDL, disminución del colesterol HDL, aumento de triglicéridos, disminución de respuesta inmunológica.<br><b>Psiquiátricos:</b> Hostilidad, agresiones, depresión, manía, insomnio, psicosis.<br><b>Reproductivos:</b> Oligospermia, azoospermia, atrofia testicular, disfunción eréctil, priapismo.<br><b>Locales:</b> Infección del sitio de aplicación, abscesos.<br><b>Reacciones adversas graves:</b> Anafilaxia. <b>Muerte.</b>")}
+    ${sec("Declaración de consentimiento","Conociendo los riesgos previamente descritos, solicito voluntariamente la prescripción médica de EAA. Este tratamiento se realizará bajo seguimiento médico periódico orientado a disminuir los posibles efectos adversos, sin que ello los elimine. Entiendo que puedo revocar este consentimiento en cualquier momento.")}
+    ${footer}`,
+
+    // 6. INFILTRACIONES
+    "infiltraciones":`${header}
+    ${titulo("Consentimiento Informado para Tratamiento con Infiltraciones","NOM-004-SSA3-2012 | Ley General de Salud")}
+    <p style="font-size:12px;margin-bottom:10px">Yo, <b>${nomPac}</b>, con ${edadPac} de edad, declaro haber sido informado(a) por <b>${m.nombre_completo}</b>${m.especialidad_1?", "+m.especialidad_1:""}${m.cedula_medico?", Céd. Prof. "+m.cedula_medico:""} sobre el procedimiento de infiltración:</p>
+    ${sec("Descripción del procedimiento","La infiltración consiste en la introducción de una sustancia o medicamento (generalmente asociada a un anestésico local) mediante jeringa en una región anatómica específica. Puede utilizarse como técnica diagnóstica o terapéutica.")}
+    ${sec("Objetivos","Aliviar o suprimir el dolor y las manifestaciones inflamatorias, prevenir o recuperar la limitación funcional, acelerar la evolución favorable del proceso y reducir la necesidad de tratamientos más agresivos o con mayores efectos secundarios.")}
+    ${sec("Riesgos típicos","• Reacción alérgica a la medicación (incluyendo anafilaxia con mínimo riesgo de mortalidad).<br>• Lesiones en vasos, nervios y tendones adyacentes.<br>• Infección en la zona de punción e irritación articular.<br>• Descompensación temporal de diabetes, hipertensión arterial o úlceras.<br>• Atrofia cutánea en la zona de aplicación.<br>• Bajada de tensión arterial.")}
+    ${sec("Condiciones especiales a notificar","Trastornos de la coagulación, alergia a anestésicos locales, trastornos circulatorios, inmunodeficiencia (incluyendo VIH/SIDA), hepatitis aguda o crónica.")}
+    ${sec("Alternativas al procedimiento","La lesión puede tratarse con medicación antiinflamatoria, reposo relativo o medidas fisioterapéuticas, con sus propios perfiles de eficacia y seguridad.")}
+    ${sec("Declaración","He leído la información proporcionada, he sido informado(a) por el médico tratante, entiendo los riesgos y beneficios del procedimiento, he comprendido las posibles alternativas y mis dudas han sido aclaradas satisfactoriamente. Otorgo mi consentimiento para que me sea practicado el procedimiento de infiltración. Soy conocedor(a) de que en caso de urgencia o causas imprevistas podrán utilizarse las actuaciones médicas necesarias para mantenerme con vida. Sé que puedo revocar este consentimiento en cualquier momento.")}
+    ${footer}`,
+
+    // 7. PRUEBA DE ESFUERZO
+    "esfuerzo":`${header}
+    ${titulo("Consentimiento Informado para Prueba de Esfuerzo","NOM-004-SSA3-2012 | NOM-006-SSA3-2011")}
+    <p style="font-size:12px;margin-bottom:10px">Yo, <b>${nomPac}</b>, con ${edadPac} de edad, habiendo sido informado(a) por <b>${m.nombre_completo}</b> sobre la Prueba de Esfuerzo, manifiesto:</p>
+    ${sec("¿Qué es?","Es una prueba de ejercicio físico progresivo e incremental que valora la respuesta del organismo durante el esfuerzo. Determina los umbrales aeróbico y anaeróbico individuales, permitiendo diseñar planes de entrenamiento personalizados y conocer la intensidad óptima de trabajo. Permite además la detección de arritmias, miocardiopatías y cardiopatías.")}
+    ${sec("Procedimiento","Se realiza en cinta rodante o bicicleta ergométrica, aumentando progresivamente la carga. Durante toda la exploración se monitorizan presión arterial, frecuencia cardíaca y electrocardiograma. La prueba se detendrá ante síntomas o signos alarmantes.")}
+    ${sec("Riesgos","Pueden presentarse síntomas como cansancio muscular, mareo, angina o dolor en piernas. En casos de enfermedad coronaria importante pueden ocurrir arritmias graves, síncope e infarto de miocardio. El riesgo de muerte es excepcional (1 por 10,000). El personal médico presente está capacitado para atender cualquier complicación.")}
+    ${sec("Beneficios","Determinación del nivel de esfuerzo apropiado, optimización del entrenamiento, detección de patología cardíaca y evaluación del riesgo cardiovascular para la actividad deportiva.")}
+    ${sec("Declaración","He recibido y comprendido la hoja de información. He tenido oportunidad de aclarar mis dudas en entrevista con el médico tratante. He recibido respuesta a todas mis preguntas. Tomo la decisión de manera libre y voluntaria.")}
+    ${footer}`,
+
+    // 8. GLP-1 / OZEMPIC
+    "glp1":`${header}
+    ${titulo("Consentimiento Informado — Tratamiento con Agonistas GLP-1","NOM-004-SSA3-2012 | Semaglutida (Ozempic®) / Tirzepatida (Mounjaro®)")}
+    <p style="font-size:12px;margin-bottom:10px">Yo, <b>${nomPac}</b>, con ${edadPac} de edad, declaro que <b>${m.nombre_completo}</b>${m.especialidad_1?", "+m.especialidad_1:""}${m.cedula_medico?", Céd. Prof. "+m.cedula_medico:""} me ha informado sobre el tratamiento con agonistas del receptor GLP-1:</p>
+    ${sec("Objetivo","Control de diabetes tipo 2 y/o reducción de peso corporal en el contexto de obesidad o sobrepeso, con beneficios metabólicos adicionales documentados.")}
+    ${sec("Mecanismo de acción","Semaglutida (Ozempic®) es un agonista del receptor GLP-1 que incrementa la secreción de insulina en respuesta a alimentos, reduce el vaciado gástrico, disminuye la glucemia y promueve saciedad. Tirzepatida (Mounjaro®) actúa sobre receptores GLP-1 y GIP.")}
+    ${sec("Beneficios esperados","Reducción de HbA1c, mejoría del control glucémico, pérdida de peso (si aplica), reducción del riesgo cardiovascular y de complicaciones de la diabetes.")}
+    ${sec("Efectos adversos frecuentes (≥5%)","Náuseas, vómito, diarrea, dolor abdominal, estreñimiento, cambios en la visión.")}
+    ${sec("Efectos adversos menos frecuentes","Hipoglucemia (en combinación con insulina o secretagogos), litiasis vesicular (especialmente con pérdida de peso rápida), aumento de frecuencia cardíaca, alteración en absorción de fármacos por vaciado gástrico retardado, empeoramiento de retinopatía diabética al inicio del tratamiento. Advertencia de laboratorio: tumores de células C de tiroides en roedores (no establecida causalidad en humanos).")}
+    ${sec("Riesgo grave de neuropatía óptica isquémica (NAION)","Estudios publicados en JAMA Ophthalmology (julio 2024) y confirmados por la European Medicines Agency (EMA, junio 2025) identificaron asociación entre semaglutida y Neuropatía Óptica Isquémica Anterior No Arterítica (NAION): riesgo 4-7x mayor vs. otros tratamientos. La EMA clasificó NAION como efecto adverso 'muy raro' (≤1 de 10,000 pacientes). El daño puede ser irreversible. Se han identificado también asociaciones con papilitis óptica y maculopatía paracentral aguda. Ante cualquier cambio visual (visión borrosa, sombras, pérdida de visión, dolor ocular) se debe notificar inmediatamente al médico y derivar a oftalmología.")}
+    ${sec("Alternativas terapéuticas","Existen otros antidiabéticos y aproximaciones para el manejo de obesidad, con sus propios perfiles de eficacia y seguridad, discutidas con el médico tratante.")}
+    ${sec("Declaración de consentimiento","He sido informado(a) de los beneficios, riesgos y alternativas del tratamiento. Comprendo que puedo rechazarlo o discontinuarlo en cualquier momento. Acepto iniciar el tratamiento bajo supervisión médica, comprometiéndome a reportar con prontitud cualquier cambio visual u otro efecto adverso.")}
+    ${footer}`,
+
+    // 9. AVISO DE PRIVACIDAD (simplificado para firma)
+    "privacidad":`${header}
+    ${titulo("Aviso de Privacidad Simplificado","LFPDPPP | Para firma del paciente")}
+    <p style="font-size:12px;margin-bottom:10px"><b>${m.institucion}</b>, con domicilio en ${m.direccion}, es responsable del tratamiento de sus datos personales conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares.</p>
+    ${sec("Datos que se recaban","Datos de identificación, contacto y datos sensibles de salud (antecedentes clínicos, diagnósticos, tratamientos, estudios), así como datos financieros para facturación.")}
+    ${sec("Finalidades","Integración y gestión del expediente clínico, prestación de servicios médicos, diagnóstico y tratamiento, facturación, y cumplimiento de obligaciones legales en materia de salud.")}
+    ${sec("Transferencias","Sus datos podrán transferirse sin consentimiento a médicos especialistas para continuidad de atención, autoridades sanitarias cuando la ley lo requiera, y aseguradoras con su autorización.")}
+    ${sec("Derechos ARCO","Puede ejercer sus derechos de Acceso, Rectificación, Cancelación u Oposición enviando solicitud a: recepcion@qpclinic.mx | ${m.direccion}")}
+    ${sec("Consentimiento del paciente","Al firmar el presente documento, el paciente manifiesta haber leído y comprendido el Aviso de Privacidad completo disponible en qpclinic.org y otorga su consentimiento para el tratamiento de sus datos personales, incluyendo los datos sensibles de salud, para las finalidades señaladas.")}
+    ${footer}`,
+  };
+
+  return docs[tipo]||`<p>Documento no encontrado</p>`;
 }
 
 // ── INIT ──────────────────────────────────────────────────
