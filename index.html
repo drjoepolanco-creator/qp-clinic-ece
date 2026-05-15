@@ -1341,12 +1341,15 @@ function pgPerfil(){
       </div>
       <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
         <p style="font-size:11px;font-weight:700;color:${P};margin-bottom:12px;text-transform:uppercase">Cédulas profesionales</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          ${fld("Título de grado (Médico Cirujano, etc.)",inp("pf_esp1",u.especialidad_1||"","Ej: Médico Cirujano"))}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+          ${fld("Título de grado",inp("pf_esp1",u.especialidad_1||"","Ej: Médico Cirujano"))}
+          ${fld("Institución educativa de grado",inp("pf_instgrado",u.institucion_grado||"","Ej: UNAM, IPN, UAM..."))}
           ${fld("Cédula profesional de grado",inp("pf_ced1",u.cedula_medico||"","Ej: 6382840"))}
           ${fld("Especialidad",inp("pf_esp2",u.especialidad_2||"","Ej: Medicina del Deporte"))}
+          ${fld("Institución educativa de especialidad",inp("pf_instesp",u.institucion_esp_1||"","Ej: IPN, UNAM, IMSS..."))}
           ${fld("Cédula de especialidad",inp("pf_ced2",u.cedula_esp_1||"","Ej: 10861477"))}
           ${fld("Subespecialidad (si aplica)",inp("pf_subesp",u.subespecialidad||""))}
+          ${fld("Institución de subespecialidad",inp("pf_instsubesp",u.institucion_esp_2||""))}
           ${fld("Cédula de subespecialidad",inp("pf_cedsubesp",u.cedula_subesp||""))}
         </div>
       </div>
@@ -1355,37 +1358,48 @@ function pgPerfil(){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           ${fld("Institución / Clínica",inp("pf_inst",u.institucion||"QP Clinic — Especialistas en Salud Integral"))}
           ${fld("Dirección de la clínica",inp("pf_dir",u.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX"))}
-          ${fld("Teléfono",inp("pf_tel",u.telefono||"","55XXXXXXXX","tel"))}
           ${fld("Correo electrónico",inp("pf_mail",u.email||"","","email"))}
+          <div style="background:${PL};border-radius:8px;padding:10px 14px">
+            <p style="font-size:10px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Teléfono / WhatsApp de la clínica</p>
+            <p style="font-size:14px;font-weight:700;color:${P}">📱 5644237028</p>
+            <p style="font-size:10px;color:${MU};margin-top:2px">Número fijo de QP Clinic — usado para recetas, documentos y comunicaciones con pacientes</p>
+          </div>
         </div>
       </div>
       <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
-        <p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;text-transform:uppercase">Vista previa — encabezado de documentos</p>
-        <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between">
+        <p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;text-transform:uppercase">Vista previa — encabezado de documentos y recetas</p>
+        <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:14px;display:flex;align-items:flex-start;justify-content:space-between">
           <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:48px">
-          <div style="text-align:right;font-size:12px;line-height:1.8">
-            <b id="prev_nombre">${u.titulo||"Dr."} ${u.nombre||""} ${u.apellidos||""}</b><br>
-            <span id="prev_esp1" style="color:${MU}">${u.especialidad_1||"Médico Cirujano"}</span><br>
-            <span id="prev_esp2" style="color:${MU}">${u.especialidad_2?u.especialidad_2+" | ":""}</span>
-            <span id="prev_ced" style="color:${MU}">Céd. Prof. ${u.cedula_medico||"—"}</span>
+          <div style="text-align:right;font-size:11px;line-height:1.9">
+            <b id="prev_nombre" style="font-size:13px">${u.titulo||"Dr."} ${u.nombre||""} ${u.apellidos||""}</b><br>
+            <span id="prev_linea1" style="color:#263238">${u.especialidad_1||"Médico Cirujano"}${u.institucion_grado?" "+u.institucion_grado:""}</span><br>
+            <span id="prev_ced1" style="color:${MU}">Céd. Prof. ${u.cedula_medico||"—"}</span><br>
+            ${u.especialidad_2?`<span id="prev_linea2" style="color:#263238">${u.especialidad_2}${u.institucion_esp_1?" "+u.institucion_esp_1:""}</span><br>`:`<span id="prev_linea2"></span>`}
+            <span id="prev_ced2" style="color:${MU}">${u.cedula_esp_1?"Céd. Esp. "+u.cedula_esp_1:""}</span>
           </div>
         </div>
       </div>
     </div>
   </div>`;
-  // Live preview
-  ["pf_titulo","pf_nom","pf_ap","pf_esp1","pf_esp2","pf_ced1"].forEach(id=>{
+  ["pf_titulo","pf_nom","pf_ap","pf_esp1","pf_instgrado","pf_ced1","pf_esp2","pf_instesp","pf_ced2"].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.addEventListener("input",actualizarPreview);
   });
 }
 function actualizarPreview(){
-  const t=gv("pf_titulo"),n=gv("pf_nom"),a=gv("pf_ap"),e1=gv("pf_esp1"),e2=gv("pf_esp2"),c=gv("pf_ced1");
-  const pn=document.getElementById("prev_nombre");const pe1=document.getElementById("prev_esp1");const pe2=document.getElementById("prev_esp2");const pc=document.getElementById("prev_ced");
+  const t=gv("pf_titulo"),n=gv("pf_nom"),a=gv("pf_ap");
+  const e1=gv("pf_esp1"),ig=gv("pf_instgrado"),c1=gv("pf_ced1");
+  const e2=gv("pf_esp2"),ie=gv("pf_instesp"),c2=gv("pf_ced2");
+  const pn=document.getElementById("prev_nombre");
+  const pl1=document.getElementById("prev_linea1");
+  const pc1=document.getElementById("prev_ced1");
+  const pl2=document.getElementById("prev_linea2");
+  const pc2=document.getElementById("prev_ced2");
   if(pn)pn.textContent=`${t} ${n} ${a}`;
-  if(pe1)pe1.textContent=e1;
-  if(pe2)pe2.textContent=e2?e2+" | ":"";
-  if(pc)pc.textContent=`Céd. Prof. ${c||"—"}`;
+  if(pl1)pl1.textContent=`${e1}${ig?" "+ig:""}`;
+  if(pc1)pc1.textContent=`Céd. Prof. ${c1||"—"}`;
+  if(pl2)pl2.textContent=e2?`${e2}${ie?" "+ie:""}` :"";
+  if(pc2)pc2.textContent=c2?`Céd. Esp. ${c2}`:"";
 }
 window.guardarPerfil=async function(){
   const uid=STATE.user?.id;if(!uid)return;
@@ -1402,8 +1416,10 @@ window.guardarPerfil=async function(){
     cedula_subesp:gv("pf_cedsubesp").trim(),
     institucion:gv("pf_inst").trim(),
     direccion_clinica:gv("pf_dir").trim(),
-    telefono:gv("pf_tel").trim(),
     email:gv("pf_mail").trim(),
+    institucion_grado:gv("pf_instgrado").trim(),
+    institucion_esp_1:gv("pf_instesp").trim(),
+    institucion_esp_2:gv("pf_instsubesp").trim(),
   };
   const {data,error}=await SB.from("usuarios").update(payload).eq("id",uid).select().single();
   loading(false);
@@ -1468,9 +1484,11 @@ function getMedicoData(){
     cedula_esp_1:u.cedula_esp_1||"",
     subespecialidad:u.subespecialidad||"",
     cedula_subesp:u.cedula_subesp||"",
-    institucion:u.institucion||"QP Clinic — Especialistas en Salud Integral",
+    institucion_grado:u.institucion_grado||"",
+    institucion_esp_1:u.institucion_esp_1||"",
+    institucion_esp_2:u.institucion_esp_2||"",
     direccion:u.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX, C.P. 03810",
-    telefono:u.telefono||"",
+    telefono:"5644237028", // WhatsApp fijo QP Clinic
     email:u.email||"",
   };
 }
@@ -1488,8 +1506,8 @@ function getDocumentoHTML(tipo, paciente){
     <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:52px">
     <div style="text-align:right;font-size:11px;line-height:1.7;color:#263238">
       <b style="font-size:12px">${m.nombre_completo}</b><br>
-      ${m.especialidad_1}${m.cedula_medico?" | Céd. Prof. "+m.cedula_medico:""}<br>
-      ${m.especialidad_2?m.especialidad_2+(m.cedula_esp_1?" | Céd. Esp. "+m.cedula_esp_1:"")+"<br>":""}
+      ${m.especialidad_1}${m.institucion_grado?" "+m.institucion_grado:""} | Céd. Prof. ${m.cedula_medico||"—"}<br>
+      ${m.especialidad_2?m.especialidad_2+(m.institucion_esp_1?" "+m.institucion_esp_1:"")+(m.cedula_esp_1?" | Céd. Esp. "+m.cedula_esp_1:"")+"<br>":""}
       ${m.institucion}<br>
       ${m.direccion}
     </div>
