@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QP Clinic ECE v5</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;font-size:13px;background:#F0F4F8}
+input,select,textarea,button{font-family:inherit;font-size:12px}
+.fade{animation:fd .2s ease}
+@keyframes fd{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+.upload-area{border:2px dashed #B3E5FC;border-radius:10px;padding:28px;text-align:center;cursor:pointer;background:#F0F9FF;transition:all .2s}
+.upload-area:hover{border-color:#0288D1;background:#E1F5FE}
+</style>
+</head>
+<body>
+<div id="R" style="min-height:100vh"></div>
+<script>
+const P="#1565C0",PD="#0D47A1",PL="#E3F2FD",AC="#0288D1",SU="#2E7D32",DA="#C62828",BR="#CFD8DC",TX="#1A237E",MU="#546E7A",WA="#25D366";
+
+// ── CATÁLOGOS ──
+const GENEROS=["Sin indicar","No especificado (se desconoce)","Masculino","Femenino","Transgénero","Transexual","Travesti","Intersexual","Otro"];
+const ESTADOS_CIVILES=["Soltero(a)","Casado(a)","Divorciado(a)","Separado(a)","Unión Libre","Viudo(a)","Otro","Se ignora"];
+const SEXO_BIO=["Sin indicar","Mujer","Hombre","Indeterminado"];
+const TIPO_SANGRE=["No conoce","O+","O-","A+","A-","B+","B-","AB+","AB-"];
+const ESCOLARIDAD=["Sin indicar","Sin escolaridad","Preescolar","Primaria incompleta","Primaria completa","Secundaria incompleta","Secundaria completa","Bachillerato incompleto","Bachillerato completo","Carrera técnica","Licenciatura incompleta","Licenciatura completa","Especialidad","Maestría","Doctorado","Se ignora"];
+const MIGRANTE=["Sin indicar","No","Sí","Se ignora"];
+const AFROMEX=["Se desconoce","Sí","No","Se ignora"];
+const INDIGENA=["Seleccione un valor","No","Sí","Se ignora"];
+const CLASIFICACION=["No clasificado","Empleado empresa","Dependiente de empleado","Otro"];
+const VINCULO=["Familiar","Padre","Madre","Tutor legal","Cónyuge","Hermano(a)","Hijo(a)","Abuelo(a)","Cuidador","Otro"];
+const TIPO_TRABAJADOR=["Sin indicar","Permanente","Eventual","Por honorarios","Confianza","Sindicalizado","Se ignora"];
+const TIPO_CONTRATO=["Sin indicar","Base","Confianza","Honorarios","Temporal","Obra determinada","Se ignora"];
+const REGIMEN_FISCAL=["Seleccione...","601 – General de Ley Personas Morales","605 – Sueldos y Salarios","612 – Personas Físicas con Actividades Empresariales","616 – Sin obligaciones fiscales","626 – Régimen Simplificado de Confianza (RESICO)"];
+const TIPO_SEGURO=["Tipo de seguro no seleccionado","GNP","MetLife","AXA","Allianz","MAPFRE","HDI Seguros","Seguros Monterrey","Atlas","Inbursa","BBVA Seguros","Bupa México","Cigna","Amedex","Otro"];
+const VIALIDAD=["Calle","Avenida","Boulevard","Calzada","Carretera","Camino","Circuito","Diagonal","Eje vial","Periférico","Prolongación","Retorno","Viaducto"];
+const ASENTAMIENTO=["Colonia","Barrio","Pueblo","Ejido","Comunidad","Fraccionamiento","Unidad habitacional","Residencial","Condominio","Rancho","Zona industrial"];
+const ENTIDADES=["Sin indicar","Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de México","Coahuila","Colima","Durango","Estado de México","Guanajuato","Guerrero","Hidalgo","Jalisco","Michoacán","Morelos","Nayarit","Nuevo León","Oaxaca","Puebla","Querétaro","Quintana Roo","San Luis Potosí","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatán","Zacatecas","Extranjero"];
+const PAISES=["MÉXICO","ESTADOS UNIDOS DE AMÉRICA","ARGENTINA","BRASIL","CANADÁ","CHILE","COLOMBIA","COSTA RICA","CUBA","ECUADOR","EL SALVADOR","ESPAÑA","FRANCIA","GUATEMALA","HONDURAS","ITALIA","JAPÓN","NICARAGUA","PANAMÁ","PARAGUAY","PERÚ","REINO UNIDO","REPÚBLICA DOMINICANA","URUGUAY","VENEZUELA","OTRO"];
+const SNS=["0 – NO ESPECIFICADO","1 – NINGUNA","2 – IMSS","3 – ISSSTE","4 – PEMEX","5 – SEDENA","6 – SEMAR","8 – OTRA","10 – IMSS BIENESTAR","11 – ISSFAM","14 – OPD IMSS BIENESTAR","99 – SE IGNORA"];
+const CIF_CAT=["Seleccione una categoría","— FUNCIONES CORPORALES —","Funciones mentales","Funciones sensoriales y dolor","Funciones de la voz y el habla","Funciones del sistema cardiovascular, hematológico, inmunológico y respiratorio","Funciones del sistema digestivo, metabólico y endocrino","Funciones genitourinarias y reproductoras","Funciones neuromusculoesqueléticas y relacionadas con el movimiento","Funciones de la piel y estructuras relacionadas","— ACTIVIDADES Y PARTICIPACIÓN —","Aprendizaje y aplicación del conocimiento","Tareas y demandas generales","Comunicación","Movilidad","Autocuidado","Vida doméstica","Interacciones y relaciones interpersonales","Áreas principales de la vida","Vida comunitaria, social y cívica","— FACTORES AMBIENTALES —","Productos y tecnología","Entorno natural y cambios derivados de la actividad humana","Apoyo y relaciones","Actitudes","Servicios, sistemas y políticas"];
+const PLANTILLAS_PAT=[{lbl:"Hipertensión",txt:"Hipertensión Arterial Sistémica diagnosticada en ___, en tratamiento con ___, controlada/no controlada."},{lbl:"Diabetes",txt:"Diabetes Mellitus tipo 2 diagnosticada en ___, en tratamiento con ___, HbA1c de ___."},{lbl:"Cx previa",txt:"Antecedente quirúrgico: ___ (fecha ___). Evolución postoperatoria sin complicaciones."},{lbl:"Fractura",txt:"Fractura de ___ en el año ___, manejo ___, consolidación adecuada sin secuelas."},{lbl:"Alérgico",txt:"Reacción alérgica a ___ manifestada como ___. Manejado con ___."},{lbl:"Sin ant.",txt:"Niega antecedentes patológicos de importancia."}];
+const ESPECIALIDADES=["Medicina del Deporte","Ortopedia y Traumatología","Medicina Interna","Cardiología","Neumología","Gastroenterología","Endocrinología","Neurología","Psiquiatría","Dermatología","Oftalmología","Otorrinolaringología","Urología","Ginecología y Obstetricia","Pediatría","Geriatría","Reumatología","Nefrología","Oncología","Nutrición Clínica","Fisioterapia y Rehabilitación","Medicina Física y Rehabilitación","Algología / Manejo del Dolor","Cirugía General","Cirugía Ortopédica","Otra especialidad"];
+
+let S={
+  page:"login",pat:null,expTab:"ficha",antTab:"pat",ficTab:"gen",nuevoTab:"gen",
+  famData:{},patData:{},patOtrasNotes:"",alergs:["ALERGIAS NEGADAS"],discapacidades:[],
+  interconsultas:[],
+  anexos:{
+    docs:[
+      {id:1,fecha:"12/05/2026",titulo:"CONSENTIMIENTO INFORMADO GENERAL",tipo:"pdf",firmado:true,origen:"digital"},
+      {id:2,fecha:"12/05/2026",titulo:"AVISO DE PRIVACIDAD",tipo:"pdf",firmado:true,origen:"digital"},
+    ],
+    selDocs:[],
+    subTab:"docs"
+  },
+  interTab:"solicitud",
+  labAnalitos:[],
+  anotaciones:[]
+};
+
+const PACS=[
+  {exp:"377223",nom:"SOFÍA",ap:"ESPONDA",am:"GASPAR",nac:"09/02/2008",cel:"5641574236",edad:"18a 3m",sexo:"Mujer"},
+  {exp:"36529",nom:"CARLOS",ap:"MENDOZA",am:"LÓPEZ",nac:"15/06/1985",cel:"5523447890",edad:"40a",sexo:"Hombre"},
+  {exp:"139414",nom:"BELEM",ap:"AMBRIZ",am:"CICILIA",nac:"10/03/1980",cel:"5530001234",edad:"45a",sexo:"Mujer"},
+  {exp:"272653",nom:"ROBERTO",ap:"JIMÉNEZ",am:"SOTO",nac:"21/06/1965",cel:"5541893080",edad:"60a",sexo:"Hombre"},
+];
+const CITAS=[{h:"09:00",p:"Sofía Esponda",t:"Medicina del Deporte",s:1},{h:"10:30",p:"Carlos Mendoza",t:"Ortopedia",s:0},{h:"11:00",p:"Belem Ambriz",t:"Rehabilitación",s:1},{h:"16:00",p:"Roberto Jiménez",t:"Fisioterapia",s:1}];
+
+const RR=()=>document.getElementById("R");
+function go(pg,ex={}){Object.assign(S,{page:pg,...ex});draw();}
+function draw(){RR().innerHTML="";RR().className="fade";({login:pgLogin,agenda:pgAgenda,buscar:pgBuscar,expediente:pgExp,nuevo:pgNuevo,consulta:pgConsulta}[S.page]||pgLogin)();}
+function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
+function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">`;}
+function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
+function ta(id,val,ph,rows=4){return`<textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;resize:vertical;outline:none;font-family:inherit;line-height:1.5">${val||""}</textarea>`;}
+function fld(l,inner,req=0){return`<div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;font-weight:700;color:${MU};text-transform:uppercase">${l}${req?`<span style="color:${DA}"> *</span>`:""}</label>${inner}</div>`;}
+function nav(){
+  const p=S.pat;
+  return`<div style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:99">
+    <div style="display:flex;align-items:center;gap:7px;margin-right:16px"><div style="width:26px;height:26px;border-radius:6px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">🏥</div><b style="color:#fff;font-size:14px">QP Clinic</b></div>
+    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${S.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:12px;border-bottom:${S.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
+      ${p?`<button onclick="go('expediente')" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 9px;color:#fff;cursor:pointer;font-size:10px">📋 ${p.nom} ${p.ap}</button>`:""}
+      <span style="color:rgba(255,255,255,.8);font-size:11px">Dr. Polanco F.</span>
+      <button onclick="go('login')" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:3px 9px;color:#fff;cursor:pointer;font-size:11px">Salir</button>
+    </div>
+  </div>`;
+}
+function showToast(msg,ok=true){
+  let t=document.getElementById("toast");
+  if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);}
+  t.style.cssText=`position:fixed;bottom:20px;right:20px;background:${ok?SU:DA};color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 4px 12px #00000030`;
+  t.textContent=msg;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",2500);
+}
+
+// ── LOGIN ──
+function pgLogin(){RR().innerHTML=`<div style="min-height:100vh;background:linear-gradient(135deg,${PD},${AC});display:flex;align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:16px;padding:36px;width:340px;box-shadow:0 16px 40px #00000030"><div style="text-align:center;margin-bottom:24px"><div style="width:60px;height:60px;border-radius:14px;background:linear-gradient(135deg,${P},${AC});margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:28px">🏥</div><h1 style="font-size:22px;color:${P};font-weight:800">QP Clinic</h1><p style="color:${MU};font-size:12px;margin-top:2px">Expediente Clínico Electrónico</p></div><div style="display:flex;flex-direction:column;gap:12px">${fld("Usuario",inp("lu","dr.polanco","usuario@qpclinic.mx"))}${fld("Contraseña",inp("lp","","••••••••","password"))}<button onclick="go('agenda')" style="width:100%;padding:10px;background:${P};color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;margin-top:4px">Entrar al Sistema</button></div><p style="text-align:center;font-size:11px;color:#90A4AE;margin-top:16px">Al ingresar acepta los <span style="color:${P};cursor:pointer">Términos y Aviso de Privacidad</span></p><p style="text-align:center;font-size:11px;color:${AC};margin-top:10px;font-style:italic">"Ciencia, calidez y compromiso"</p></div></div>`;}
+
+// ── AGENDA ──
+function pgAgenda(){
+  const hrs=["07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00"];
+  RR().innerHTML=nav()+`<div style="display:flex;height:calc(100vh - 46px);overflow:hidden"><div style="width:220px;background:#fff;border-right:1px solid ${BR};padding:14px;overflow-y:auto;flex-shrink:0"><b style="font-size:11px;color:${P}">MAYO 2026</b><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;text-align:center;margin:10px 0">${["d","l","m","m","j","v","s"].map(d=>`<div style="font-size:9px;color:#aaa;font-weight:700;padding:2px">${d}</div>`).join("")}${Array(3).fill('<div></div>').join("")}${Array(31).fill(0).map((_,i)=>{const d=i+1,t=d===14;return`<div style="font-size:10px;padding:4px 1px;border-radius:4px;cursor:pointer;background:${t?P:"transparent"};color:${t?"#fff":"#333"};font-weight:${t?700:400}">${d}</div>`;}).join("")}</div><p style="font-size:9px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:6px">Leyenda</p>${[["#FFA726","Por confirmar"],[SU,"Confirmada"],[DA,"Cancelada"]].map(([c,l])=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:8px;height:8px;border-radius:50%;background:${c}"></div><span style="font-size:10px;color:${MU}">${l}</span></div>`).join("")}<p style="font-size:9px;font-weight:700;color:${MU};text-transform:uppercase;margin:12px 0 6px">Médicos</p>${["Dr. Polanco · Deporte","Dra. Castillo · Geriatría","Dra. Aldana · Nutrición","Lic. Hernández · Fisio"].map(m=>`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px solid ${BR}"><div style="width:6px;height:6px;border-radius:50%;background:${SU}"></div><span style="font-size:10px">${m}</span></div>`).join("")}</div><div style="flex:1;overflow-y:auto;padding:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div><h2 style="font-size:18px;font-weight:800;color:${TX}">Jueves 14/05/2026</h2><p style="color:${MU};font-size:11px">${CITAS.length} citas agendadas</p></div><div style="display:flex;gap:6px">${btn("➕ Nueva cita","","p",1)}${btn("🔒 Bloquear","","s",1)}</div></div><div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">${hrs.map(h=>{const c=CITAS.find(x=>x.h===h);return`<div style="display:flex;min-height:${c?62:40}px;border-bottom:1px solid ${BR}"><div style="width:60px;padding:8px 12px;flex-shrink:0;border-right:1px solid ${BR};display:flex;align-items:flex-start"><span style="font-size:11px;color:${MU}">${h}</span></div><div style="flex:1;padding:7px 12px;display:flex;align-items:center">${c?`<div style="flex:1;background:${c.s?"#E8F5E9":"#FFF8E1"};border-left:3px solid ${c.s?SU:"#FFA726"};border-radius:6px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between"><div><b style="font-size:12px">${c.p}</b><p style="font-size:10px;color:${MU}">${c.t}</p></div><div style="display:flex;gap:6px;align-items:center"><span style="background:${c.s?"#C8E6C9":"#FFE0B2"};color:${c.s?"#1B5E20":"#E65100"};padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700">${c.s?"Confirmada":"Por confirmar"}</span><button onclick="verCita('${c.p}')" style="background:${P};color:#fff;border:none;border-radius:5px;padding:4px 9px;cursor:pointer;font-size:10px;font-weight:600">Ver expediente</button></div></div>`:`<span style="font-size:10px;color:#ddd">— disponible</span>`}</div></div>`;}).join("")}</div></div></div>`;
+}
+window.verCita=function(n){const p=PACS.find(x=>x.nom===n.split(" ")[0])||PACS[0];S.pat=p;go("expediente");}
+
+// ── BUSCAR ──
+function pgBuscar(){
+  RR().innerHTML=nav()+`<div style="max-width:920px;margin:0 auto;padding:16px" class="fade"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h2 style="font-size:17px;font-weight:800;color:${TX}">Buscar Paciente</h2>${btn("➕ Nuevo paciente","go('nuevo')","p",1)}</div><div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:12px"><div style="display:flex;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:140px">${fld("Nombre o apellidos",`<input id="bq" oninput="filtrar()" placeholder="Buscar..." style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div><div style="flex:1;min-width:100px">${fld("No. Expediente",inp("be","","377223"))}</div><div style="display:flex;align-items:flex-end">${btn("🔍 Buscar","","p",1)}</div></div></div><div id="tbl"></div></div>`;renderTbl(PACS);
+}
+window.filtrar=function(){const q=(document.getElementById("bq")||{value:""}).value.toLowerCase();renderTbl(q.length>1?PACS.filter(p=>`${p.nom} ${p.ap} ${p.am}`.toLowerCase().includes(q)):PACS);}
+function renderTbl(list){const t=document.getElementById("tbl");if(!t)return;t.innerHTML=`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:${PL}">${["Exp.","Nombre","Ap. Paterno","Ap. Materno","Nacimiento","Celular","Edad",""].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead><tbody>${list.map((p,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:9px 10px;font-size:11px;color:${AC};font-weight:700">${p.exp}</td><td style="padding:9px 10px">${p.nom}</td><td style="padding:9px 10px">${p.ap}</td><td style="padding:9px 10px">${p.am}</td><td style="padding:9px 10px;color:${MU};font-size:11px">${p.nac}</td><td style="padding:9px 10px">${p.cel}</td><td style="padding:9px 10px;color:${MU};font-size:11px">${p.edad}</td><td style="padding:9px 10px"><button onclick="selPac(${PACS.indexOf(p)})" style="background:${P};color:#fff;border:none;border-radius:5px;padding:4px 9px;cursor:pointer;font-size:10px;font-weight:600">Ver expediente</button></td></tr>`).join("")}</tbody></table></div>`;}
+window.selPac=function(i){S.pat=PACS[i];go("expediente");}
+
+// ── NUEVO PACIENTE ──
+function pgNuevo(){
+  RR().innerHTML=nav()+`<div style="max-width:980px;margin:0 auto;padding:16px" class="fade"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h2 style="font-size:16px;font-weight:800;color:${TX}">Ficha de Identificación — Nuevo Paciente</h2><div style="display:flex;gap:6px">${btn("Cancelar","go('buscar')","s",1)}${btn("💾 Guardar","guardarNuevo()","ok",1)}</div></div><div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden"><div style="display:flex;flex-wrap:wrap;border-bottom:2px solid ${BR};padding:0 12px">${[["gen","Datos generales"],["seg","Seguro médico"],["dom","Domicilio y contacto"],["resp","Persona responsable"],["lab","Datos laborales"],["fac","Facturación"]].map(([k,l])=>`<button onclick="setNT('${k}')" style="padding:9px 12px;border:none;background:transparent;cursor:pointer;font-weight:${S.nuevoTab===k?700:500};font-size:11px;color:${S.nuevoTab===k?P:MU};border-bottom:${S.nuevoTab===k?"3px solid "+P:"3px solid transparent"}">${l}</button>`).join("")}</div><div id="nb" style="padding:20px"></div></div></div>`;renderNB();
+}
+window.setNT=function(t){S.nuevoTab=t;renderNB();}
+window.guardarNuevo=function(){S.pat={exp:"NEW-"+(Date.now()%10000),nom:"NUEVO",ap:"PACIENTE",am:"",edad:"—",sexo:"Hombre"};showToast("✓ Paciente registrado");go("expediente");}
+function renderNB(){
+  const nb=document.getElementById("nb");if(!nb)return;
+  if(S.nuevoTab==="gen")nb.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">${fld("No. Expediente",inp("ne","— Autogenerado —"))}${fld("CURP *",`<div style="display:flex;gap:5px">${inp("nc","","XXXX000000XXXXXXXX")}<button style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:7px 10px;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap">Validar</button></div>`)}${fld("Folio clínica",inp("nfolio",""))}${fld("Fecha de registro",inp("nfr","14/05/2026"))}</div><div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-top:12px">${fld("Nombre(s) *",inp("nn",""),1)}${fld("Primer Apellido *",inp("na",""),1)}${fld("Segundo Apellido",inp("na2",""))}${fld("Fecha de Nacimiento *",`<div style="display:flex;gap:4px">${sel("nd",Array(31).fill(0).map((_,i)=>i+1+""),"1")}${sel("nm",["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],"Enero")}<input placeholder="Año" style="width:65px;padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none"></div>`,1)}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">${fld("Sexo biológico *",sel("nsb",SEXO_BIO),1)}${fld("Sexo CURP *",sel("nscurp",["Sin indicar","Mujer","Hombre"]),1)}${fld("Género *",sel("ngen",GENEROS),1)}${fld("Estado civil",sel("nec",ESTADOS_CIVILES))}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">${fld("Tipo de sangre",sel("nts",TIPO_SANGRE))}${fld("País de nacimiento *",sel("npais",PAISES,"MÉXICO"),1)}${fld("Entidad Federativa *",sel("nef",ENTIDADES),1)}${fld("¿Se considera migrante?",sel("nmig",MIGRANTE))}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">${fld("¿Afromexicano?",sel("nafro",AFROMEX))}${fld("¿Indígena?",sel("nindig",INDIGENA))}${fld("Ocupación",inp("noc",""))}${fld("Escolaridad",sel("nesc",ESCOLARIDAD))}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">${fld("Referido por / Empleado de",inp("nref",""))}${fld("Clasificación",sel("nclasif",CLASIFICACION))}</div><div style="display:flex;gap:20px;margin-top:14px;padding-top:14px;border-top:1px solid ${BR}"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" style="accent-color:${P};width:15px;height:15px"> Firmó Aviso de Privacidad</label><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" style="accent-color:${P};width:15px;height:15px"> Firmó Consentimiento Informado</label></div>`;
+  else nb.innerHTML=`<p style="text-align:center;padding:24px;color:${MU}">Sección disponible</p>`;
+}
+
+// ── EXPEDIENTE ──
+function pgExp(){
+  const p=S.pat||PACS[0];
+  const mods=[["ficha","Ficha de datos"],["ant","Antecedentes"],["inter","Interrogatorio"],["cons","Consultas"],["interconsultas","Interconsultas"],["anexos","Anexos y Laboratorios"],["vacunas","Vacunas"],["imagenes","Imágenes"],["cargos","Cargos"]];
+  RR().innerHTML=nav()+`<div style="display:flex;flex-direction:column;height:calc(100vh - 46px);overflow:hidden">
+    <div style="background:${PD};padding:6px 14px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:18px">${p.sexo==="Mujer"?"👩":"👨"}</div>
+        <div><b style="color:#fff;font-size:13px">${p.nom} ${p.ap} ${p.am}</b><p style="color:rgba(255,255,255,.7);font-size:10px">Exp: ${p.exp} · ${p.edad} · ${p.sexo}</p></div>
+      </div>
+      <div style="display:flex;gap:5px">${["📝 Enfermería","📌 Notas","📅 Citas","💳 Pagos"].map(a=>`<button style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:3px 8px;color:#fff;cursor:pointer;font-size:9px">${a}</button>`).join("")}</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;background:${PD};padding:0 10px">
+      ${mods.map(([k,l])=>`<button onclick="setET('${k}')" style="padding:8px 11px;border:none;background:${S.expTab===k?"rgba(255,255,255,.15)":"transparent"};color:${S.expTab===k?"#fff":"rgba(255,255,255,.6)"};cursor:pointer;font-size:11px;font-weight:${S.expTab===k?700:400};border-bottom:${S.expTab===k?"3px solid #64B5F6":"3px solid transparent"};white-space:nowrap">${l}</button>`).join("")}
+    </div>
+    <div id="eb" style="flex:1;overflow-y:auto;background:#F0F4F8"></div>
+  </div>`;
+  renderEB();
+}
+window.setET=function(t){S.expTab=t;renderEB();}
+function renderEB(){
+  const b=document.getElementById("eb");if(!b)return;
+  if(S.expTab==="ficha")renderFicha(b);
+  else if(S.expTab==="ant")renderAnt(b);
+  else if(S.expTab==="inter")renderInter(b);
+  else if(S.expTab==="cons")renderCons(b);
+  else if(S.expTab==="interconsultas")renderInterconsultas(b);
+  else if(S.expTab==="anexos")renderAnexos(b);
+  else b.innerHTML=`<div style="padding:40px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🔧</div><p style="color:${MU}">Módulo disponible en V2</p></div>`;
+}
+
+// ── FICHA ──
+function renderFicha(b){
+  b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:16px" class="fade">
+    <div style="display:flex;gap:6px;margin-bottom:12px">${btn("💾 Guardar","showToast('✓ Datos guardados')","ok",1)}${btn("🖨️ Imprimir","","s",1)}${btn("🔏 Firmar docs","","s",1)}</div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid ${BR};padding:0 12px">
+        ${[["gen","Datos generales"],["seg","Seguro médico"],["dom","Domicilio"],["resp","Responsable"],["lab","Laborales"],["fac","Facturación"]].map(([k,l])=>`<button onclick="setFT('${k}')" style="padding:9px 12px;border:none;background:transparent;cursor:pointer;font-weight:${S.ficTab===k?700:500};font-size:11px;color:${S.ficTab===k?P:MU};border-bottom:${S.ficTab===k?"3px solid "+P:"3px solid transparent"}">${l}</button>`).join("")}
+      </div>
+      <div id="fb" style="padding:20px"></div>
+    </div>
+  </div>`;renderFB();
+}
+window.setFT=function(t){S.ficTab=t;renderFB();}
+function renderFB(){
+  const fb=document.getElementById("fb");if(!fb)return;
+  if(S.ficTab==="gen")fb.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">${fld("No. Expediente",inp("fe","377223"))}${fld("CURP",`<div style="display:flex;gap:5px">${inp("fc","ESGS080209MDFSPFA6")}<button style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:7px 10px;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap">Validar</button></div>`)}${fld("Folio clínica",inp("ffolio",""))}${fld("Fecha de Registro",inp("nfr2","12/05/2026"))}</div><div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-top:12px">${fld("Nombre(s) *",inp("fn","SOFÍA"),1)}${fld("Primer Apellido *",inp("fap","ESPONDA"),1)}${fld("Segundo Apellido",inp("fam","GASPAR"))}${fld("F. Nacimiento *",`<div style="display:flex;gap:4px">${sel("fd",Array(31).fill(0).map((_,i)=>String(i+1)),"9")}${sel("fm",["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],"Febrero")}<input value="2008" style="width:65px;padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none"></div>`,1)}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">${fld("Sexo biológico *",sel("fsb",SEXO_BIO,"Mujer"),1)}${fld("Sexo CURP *",sel("fscurp",["Sin indicar","Mujer","Hombre"],"Mujer"),1)}${fld("Género *",sel("fgen",GENEROS,"Femenino"),1)}${fld("Estado civil",sel("fec",ESTADOS_CIVILES,"Soltero(a)"))}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">${fld("Tipo de sangre",sel("fts",TIPO_SANGRE,"O+"))}${fld("País de nacimiento *",sel("fpais",PAISES,"MÉXICO"),1)}${fld("Entidad Federativa *",sel("fef",ENTIDADES,"Ciudad de México"),1)}${fld("¿Se considera migrante?",sel("fmig",MIGRANTE,"Sin indicar"))}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">${fld("¿Afromexicano?",sel("fafro",AFROMEX,"Se desconoce"))}${fld("¿Indígena?",sel("findig",INDIGENA,"No"))}${fld("Ocupación",inp("foc","ESTUDIANTE DE PREPARATORIA"))}${fld("Escolaridad",sel("fesc",ESCOLARIDAD,"Bachillerato completo"))}</div><div style="display:flex;gap:20px;margin-top:14px;padding-top:14px;border-top:1px solid ${BR}"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" checked style="accent-color:${P};width:15px;height:15px"> Firmó Aviso de Privacidad</label><label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" style="accent-color:${P};width:15px;height:15px"> Firmó Consentimiento Informado</label></div>`;
+  else fb.innerHTML=`<p style="text-align:center;padding:20px;color:${MU}">Datos guardados para esta sección</p>`;
+}
+
+// ── ANTECEDENTES ──
+function renderAnt(b){
+  b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:12px">ANTECEDENTES, ALERGIAS Y MEDICAMENTOS</b></div>
+      <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid ${BR};padding:0 10px">
+        ${[["fam","Ant. Familiares"],["pat","Ant. Patológicos"],["nop","Ant. No Patológicos"],["oc","Ant. Oculares"],["gin","Gineco-obstétricos"],["neo","Neonatales"],["al","Alergias"],["med","Medicamentos"],["dis","Discapacidades"],["ot","Otros"]].map(([k,l])=>`<button onclick="setAT('${k}')" style="padding:8px 11px;border:none;background:transparent;cursor:pointer;font-weight:${S.antTab===k?700:500};font-size:11px;color:${S.antTab===k?P:MU};border-bottom:${S.antTab===k?"3px solid "+P:"3px solid transparent"};white-space:nowrap">${l}</button>`).join("")}
+      </div>
+      <div style="padding:16px">
+        <div style="display:flex;gap:6px;margin-bottom:14px">${btn("💾 Guardar","guardarAnt()","ok",1)}${btn("🖨️ Imprimir","","s",1)}</div>
+        <div id="ab"></div>
+      </div>
+    </div>
+  </div>`;renderAB();
+}
+window.setAT=function(t){S.antTab=t;renderAB();}
+window.guardarAnt=function(){const o=document.getElementById("pat-otras");if(o)S.patOtrasNotes=o.value;showToast("✓ Antecedentes guardados");}
+window.toggleFam=function(e,r){S.famData[e+"_"+r]=!S.famData[e+"_"+r];renderAB();}
+window.togglePat=function(p){S.patData[p]=!S.patData[p];renderAB();}
+window.toggleAlerg=function(a){S.alergs=S.alergs.includes(a)?S.alergs.filter(x=>x!==a):[...S.alergs,a];renderAB();}
+window.insertPlantilla=function(txt){const o=document.getElementById("pat-otras");if(o){o.value=(o.value?o.value+"\n\n":"")+txt;S.patOtrasNotes=o.value;}}
+window.addDiscap=function(){const s=document.getElementById("discap-sel");if(!s||!s.value||s.value.startsWith("—")||s.value==="Seleccione una categoría"){showToast("Selecciona una categoría primero",false);return;}if(S.discapacidades.includes(s.value)){showToast("Ya fue agregada",false);return;}S.discapacidades.push(s.value);renderAB();showToast("✓ Discapacidad registrada");}
+window.removeDiscap=function(i){S.discapacidades.splice(i,1);renderAB();}
+
+function renderAB(){
+  const ab=document.getElementById("ab");if(!ab)return;
+  const enfs=["Diabetes Mellitus","Hipertensión Arterial","Dislipidemias","Neoplasias","Malformaciones hereditarias","Alergias","Enf. psiquiátricas","Enf. neurológicas","Enf. cardiovasculares","Enf. broncopulmonares","Enf. tiroideas","Enf. renales","Enf. osteoarticulares","Enf. infectocontagiosas"];
+  const rels=["Padre","Madre","Ab.Pat","Ab.Mat","Hermanos"];
+  const patG=["Alérgicos","Hospitalizaciones","Quirúrgicos","Traumáticos","Transfusionales"];
+  const patA=["Alcoholismo (ver detalles)","Tabaquismo (ver detalles)","Otras sustancias psicoactivas"];
+  const patEx=["Exantema súbito","Roséola escarlatina","Rubéola","Sarampión","Varicela","Otra patología exantemática"];
+  const patI=["Faringoamigdalitis","Fiebre Reumática","Hepatitis","Parasitosis","Tifoidea","Transmisión sexual","Tuberculosis","Otra infectocontagiosa"];
+  const patC=["Diabetes Mellitus","Hipertensión Arterial Sistémica","Dislipidemias","Obesidad","Neoplásicas","Enf. reumatológicas","Enfermedad de Gota","Enf. psiquiátricas","Enf. sistema nervioso","Enf. sistema cardiovascular","Enf. sistema respiratorio","Enf. sistema gastrointestinal","Enf. sistema urinario","Enf. sistema musculoesquelético","Enf. sistema tegumentario","Enf. endocrinológicas","Enf. inmunológicas"];
+  const alergsComun=["ALERGIAS NEGADAS","ÁCAROS","ALIMENTOS","CHOCOLATE","FRUTOS SECOS","HONGOS","HUMEDAD","LATEX","MARISCOS","MASCOTAS","MOHO","NÍQUEL","PICADURA DE INSECTOS","POLEN","POLVO","SOL"];
+
+  if(S.antTab==="fam"){ab.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:500px;width:100%"><thead><tr style="background:${PL}"><th style="padding:8px 12px;text-align:left;font-size:11px;width:210px;color:${TX}">Enfermedad</th>${rels.map(r=>`<th style="padding:8px 10px;font-size:10px;text-align:center;color:${TX}">${r}</th>`).join("")}</tr></thead><tbody>${enfs.map((e,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:8px 12px;font-size:12px">${e}</td>${rels.map(r=>`<td style="text-align:center;padding:8px"><input type="checkbox" ${S.famData[e+"_"+r]?"checked":""} onchange="toggleFam('${e}','${r}')" style="accent-color:${P};cursor:pointer;width:15px;height:15px"></td>`).join("")}</tr>`).join("")}</tbody></table></div>`;}
+  else if(S.antTab==="pat"){
+    const selCount=Object.values(S.patData).filter(Boolean).length;
+    ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px"><div><p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Generales</p>${patG.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${S.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:11px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Adicciones</p>${patA.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${S.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:11px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Exantemáticas</p>${patEx.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${S.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Infectocontagiosas</p>${patI.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${S.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Crónico-degenerativas</p>${patC.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${S.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div></div>${selCount>0?`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:11px;font-weight:700;color:#1B5E20;margin-right:4px">✓ Seleccionados:</span>${Object.entries(S.patData).filter(([,v])=>v).map(([k])=>`<span style="background:#C8E6C9;color:#1B5E20;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">${k}</span>`).join("")}</div>`:""}<div style="border-top:2px dashed ${BR};padding-top:16px"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"><div><p style="font-size:12px;font-weight:700;color:${TX}">Otras enfermedades identificadas como antecedentes personales patológicos</p><p style="font-size:10px;color:${MU};margin-top:2px">Enfermedades adicionales no incluidas en las listas anteriores</p></div><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:${MU};font-weight:600">Plantillas:</span>${PLANTILLAS_PAT.map(pl=>`<button onclick="insertPlantilla('${pl.txt.replace(/'/g,"\\'")}')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:10px;font-weight:600">${pl.lbl}</button>`).join("")}</div></div><textarea id="pat-otras" rows="5" placeholder="Ej: Sinusitis en la infancia remitida sin secuelas ni complicaciones." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;font-size:12px;line-height:1.6">${S.patOtrasNotes||""}</textarea><div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar notas","guardarAnt()","ok",1)}</div></div>`;
+  }
+  else if(S.antTab==="nop"){ab.innerHTML=`<div><div style="background:${PL};border-radius:7px;padding:9px 13px;margin-bottom:12px;cursor:pointer"><span style="font-size:11px;color:${P};font-weight:600">📋 Plantillas precargadas:</span> <span style="font-size:11px;color:${MU}">Antecedentes deportivos · Alimentación · Hábitos generales</span></div>${ta("nopa","","Antecedentes no patológicos:\n\n• Actividad física:\n  - Deportes:\n  - Frecuencia:\n• Alimentación:\n• Higiene:\n• Vivienda:",10)}<div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","showToast('✓ Guardado')","ok",1)}</div></div>`;}
+  else if(S.antTab==="al"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><div style="display:flex;gap:7px;margin-bottom:10px"><button style="padding:6px 13px;background:${P};color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">Alergias más comunes</button><button style="padding:6px 13px;background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:6px;cursor:pointer;font-size:11px">Alergias a medicamentos</button></div><div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${alergsComun.map(a=>`<div onclick="toggleAlerg('${a}')" style="padding:8px 13px;border-bottom:1px solid ${BR};cursor:pointer;background:${S.alergs.includes(a)?PL:"#fff"};color:${S.alergs.includes(a)?P:"#263238"};font-weight:${S.alergs.includes(a)?700:400};font-size:12px">${S.alergs.includes(a)?"✓ ":""}${a}</div>`).join("")}</div></div><div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:8px;padding:14px"><b style="font-size:11px;color:#E65100">⚠️ Alergias registradas</b>${S.alergs.map(a=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #FFE082;font-size:12px"><span>— ${a}</span><span onclick="toggleAlerg('${a}')" style="color:${DA};cursor:pointer;font-weight:700">✕</span></div>`).join("")}</div></div>`;}
+  else if(S.antTab==="med"){ab.innerHTML=`<p style="font-size:12px;color:${MU};margin-bottom:10px;background:${PL};padding:8px 12px;border-radius:7px">Medicamentos usados en los últimos 6 meses. Indique: Nombre, duración y dosis.</p>${ta("meda","","Ej: Metformina 850mg — 1 tab c/12h — 3 meses",8)}<div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","showToast('✓ Guardado')","ok",1)}</div>`;}
+  else if(S.antTab==="dis"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div><p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Agregar discapacidad — Clasificación CIF (OMS)</p><select id="discap-sel" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:12px;margin-bottom:8px">${CIF_CAT.map(c=>`<option ${c.startsWith("—")?"disabled":""}>${c}</option>`).join("")}</select>${btn("➕ Agregar al expediente","addDiscap()","p",1)}</div><div><p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Discapacidades registradas</p>${S.discapacidades.length===0?`<div style="background:#FFF3E0;border:1.5px solid #FFCC80;border-radius:8px;padding:14px;text-align:center;color:#E65100;font-size:12px">No hay discapacidades registradas</div>`:`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${S.discapacidades.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:${i<S.discapacidades.length-1?"1px solid "+BR:"none"};background:${i%2?"#FAFAFA":"#fff"}"><div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:${P};flex-shrink:0"></div><span style="font-size:12px">${d}</span></div><button onclick="removeDiscap(${i})" style="background:none;border:none;color:${DA};cursor:pointer;font-size:14px;font-weight:700">✕</button></div>`).join("")}</div>`}</div></div>`;}
+  else{ab.innerHTML=`<p style="text-align:center;padding:24px;color:${MU}">Sección disponible · sin datos capturados aún</p>`;}
+}
+
+// ── INTERROGATORIO ──
+function renderInter(b){
+  const sis=[["dig","Ap. digestivo","Halitosis, boca seca, náusea, vómito, dolor abdominal, diarrea, estreñimiento, rectorragia..."],["card","Ap. cardiovascular","Disnea, dolor precordial, palpitaciones, cianosis, edema periférico..."],["resp","Ap. respiratorio","Tos, disnea, dolor torácico, hemoptisis, cianosis, vómica..."],["urin","Ap. urinario","Poliuria, oliguria, disuria, urgencia, incontinencia, cambios en orina..."],["genit","Ap. genital","Función sexual, sangrado genital, flujo, dolor ginecológico..."],["hemat","Ap. hematológico","Palidez, astenia, hemorragias, adenopatías, esplenomegalia..."],["endoc","Sistema endocrino","Bocio, intolerancia calor/frío, nerviosismo, amenorrea, obesidad..."],["osteo","Sistema osteomuscular","Artralgias, mialgias, rigidez, limitación funcional, Raynaud..."],["nerv","Sistema nervioso","Cefalea, síncope, convulsiones, vértigo, trastornos del sueño..."]];
+  b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade"><div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden"><div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:12px">INTERROGATORIO POR APARATOS Y SISTEMAS</b></div><div style="padding:14px">${btn("💾 Guardar","showToast('✓ Guardado')","ok",1)}<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px">${sis.map(([k,l,h])=>`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden"><div style="background:${PL};padding:7px 10px"><b style="font-size:11px;color:${P}">${l}</b><p style="font-size:9px;color:${MU};margin-top:2px;line-height:1.3">${h}</p></div><textarea placeholder="NORMAL" rows="3" style="width:100%;border:none;padding:7px 9px;font-size:11px;resize:none;outline:none;font-family:inherit"></textarea></div>`).join("")}</div></div></div></div>`;}
+
+// ── CONSULTAS ──
+function renderCons(b){
+  b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade"><div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden"><div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:12px">CONSULTAS Y REGISTROS MÉDICOS</b></div><div style="padding:14px"><div style="display:flex;gap:6px;margin-bottom:12px">${btn("➕ Nuevo registro","go('consulta')","p",1)}${btn("📄 Resumen PDF","","s",1)}${btn("💓 Monitoreo","","s",1)}</div><table style="width:100%;border-collapse:collapse"><thead><tr style="background:${PL}">${["Tipo","","Fecha","Hora","Motivos","Diagnóstico","Tratamiento",""].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead><tbody><tr style="border-top:1px solid ${BR}"><td style="padding:9px 10px;font-size:11px;color:${P};font-weight:700">Consulta SOAP</td><td style="padding:9px 10px"><div style="width:9px;height:9px;border-radius:50%;background:${SU}"></div></td><td style="padding:9px 10px;font-size:12px">12/05/2026</td><td style="padding:9px 10px;font-size:12px">19:30</td><td style="padding:9px 10px;font-size:11px;max-width:180px">Esguince tobillo der. Nueva inversión forzada, edema y equimosis...</td><td style="padding:9px 10px"><span style="background:${PL};color:${P};padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700">Esguince tobillo Der. G-I</span></td><td style="padding:9px 10px;font-size:11px">1. Clonixinato 125mg c/8h<br>2. Fisioterapia 5 sesiones</td><td style="padding:9px 10px">${btn("Ver","go('consulta')","p",1)}</td></tr></tbody></table></div></div></div>`;}
+
+// ──────────────────────────────────────────
+// ── INTERCONSULTAS (nueva pestaña) ──
+// ──────────────────────────────────────────
+function renderInterconsultas(b){
+  const p=S.pat||PACS[0];
+  b.innerHTML=`<div style="max-width:1000px;margin:0 auto;padding:14px" class="fade">
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:12px">INTERCONSULTA / REFERIDO MÉDICO</b></div>
+
+      <!-- lista de interconsultas -->
+      <div style="padding:14px;border-bottom:1px solid ${BR}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:13px;font-weight:700;color:${TX}">Interconsultas registradas</span>
+          <div style="display:flex;gap:7px">
+            ${btn("➕ Nueva interconsulta","abrirNuevaInterconsulta()","p",1)}
+            ${btn("📄 Imprimir solicitud","","s",1)}
+          </div>
+        </div>
+        <div id="inter-list">
+          ${S.interconsultas.length===0?`<div style="background:${PL};border-radius:8px;padding:20px;text-align:center;color:${MU};font-size:12px">No hay interconsultas registradas para este paciente.<br><span style="color:${P};cursor:pointer;font-weight:600" onclick="abrirNuevaInterconsulta()">➕ Crear primera interconsulta</span></div>`:
+          `<table style="width:100%;border-collapse:collapse"><thead><tr style="background:${PL}">${["Fecha","Médico solicitante","Especialidad","Diagnóstico","Estatus",""].map(h=>`<th style="padding:8px 10px;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase;text-align:left">${h}</th>`).join("")}</tr></thead><tbody>${S.interconsultas.map((ic,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:9px 10px;font-size:12px">${ic.fecha}</td><td style="padding:9px 10px;font-size:12px">${ic.medSol}</td><td style="padding:9px 10px;font-size:12px">${ic.especialidad}</td><td style="padding:9px 10px;font-size:11px;max-width:200px">${ic.diagnostico}</td><td style="padding:9px 10px"><span style="background:${ic.estatus==="Respondida"?"#C8E6C9":"#FFF8E1"};color:${ic.estatus==="Respondida"?"#1B5E20":"#E65100"};padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">${ic.estatus}</span></td><td style="padding:9px 10px">${btn("Ver","","p",1)}</td></tr>`).join("")}</tbody></table>`}
+        </div>
+      </div>
+
+      <!-- formulario nueva interconsulta -->
+      <div id="inter-form" style="display:none;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="font-size:14px;font-weight:700;color:${TX}">Nueva Solicitud de Interconsulta / Referido Médico</h3>
+          <div style="display:flex;gap:7px">
+            ${btn("💾 Guardar solicitud","guardarInterconsulta()","ok",1)}
+            ${btn("🖨️ Imprimir solicitud","showToast('✓ Imprimiendo...')","s",1)}
+            ${btn("✕ Cancelar","cerrarFormInter()","d",1)}
+          </div>
+        </div>
+
+        <!-- Tabs solicitud / respuesta -->
+        <div style="display:flex;border-bottom:2px solid ${BR};margin-bottom:16px">
+          ${[["solicitud","Solicitud de Interconsulta / Referido médico"],["respuesta","Respuesta del médico interconsultante"]].map(([k,l])=>`<button onclick="setInterTab('${k}')" style="padding:9px 14px;border:none;background:transparent;cursor:pointer;font-weight:${S.interTab===k?700:500};font-size:12px;color:${S.interTab===k?P:MU};border-bottom:${S.interTab===k?"3px solid "+P:"3px solid transparent"}">${l}</button>`).join("")}
+        </div>
+        <div id="inter-tab-body"></div>
+      </div>
+    </div>
+  </div>`;
+  renderInterTabBody();
+}
+window.abrirNuevaInterconsulta=function(){
+  const f=document.getElementById("inter-form");
+  if(f){f.style.display="block";renderInterTabBody();}
+}
+window.cerrarFormInter=function(){
+  const f=document.getElementById("inter-form");
+  if(f)f.style.display="none";
+}
+window.setInterTab=function(t){S.interTab=t;renderInterTabBody();}
+window.guardarInterconsulta=function(){
+  const esp=document.getElementById("inter-esp");
+  const diag=document.getElementById("inter-diag");
+  const mot=document.getElementById("inter-motivos");
+  S.interconsultas.push({
+    fecha:"14/05/2026",
+    medSol:"Dr. José Alan Polanco Fierro",
+    especialidad:esp?esp.value:"Otra especialidad",
+    diagnostico:diag?diag.value.substring(0,60):"—",
+    estatus:"Pendiente de respuesta"
+  });
+  showToast("✓ Interconsulta guardada correctamente");
+  document.getElementById("inter-form").style.display="none";
+  renderInterconsultas(document.getElementById("eb"));
+}
+function renderInterTabBody(){
+  const b=document.getElementById("inter-tab-body");if(!b)return;
+  const p=S.pat||PACS[0];
+  if(S.interTab==="solicitud"){
+    b.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <!-- fecha -->
+      <div style="grid-column:span 2">
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">FECHA Y HORA DE LA SOLICITUD</p>
+        <div style="display:flex;gap:10px">
+          ${inp("inter-fecha","14/05/2026","","date")}
+          ${inp("inter-hora","20:58","","time")}
+        </div>
+      </div>
+
+      <!-- médico solicitante (auto) -->
+      <div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">DATOS DEL MÉDICO SOLICITANTE</p>
+        <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:12px;font-size:12px;line-height:1.8;color:#263238">
+          <b>Dr. José Alan Polanco Fierro</b><br>
+          Especialidad: Medicina del Deporte · Cirugía General<br>
+          Dirección: Av. Insurgentes Sur 933, CDMX<br>
+          Teléfono: 55 5682 4345 / 56 4423 7028<br>
+          Correo: dr.polanco@qpclinic.mx<br>
+          Cédula Profesional: XXXXXXXX
+        </div>
+      </div>
+
+      <!-- médico interconsultante -->
+      <div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">DATOS DEL MÉDICO INTERCONSULTANTE <span style="color:${AC};cursor:pointer;font-weight:400">| Catálogo de médicos</span></p>
+        ${ta("inter-med-consult","","Nombre completo del médico, especialidad, institución, teléfono, correo...",5)}
+      </div>
+
+      <!-- especialidad solicitada -->
+      <div>
+        ${fld("Especialidad solicitada",sel("inter-esp",ESPECIALIDADES,"Ortopedia y Traumatología"),1)}
+      </div>
+
+      <!-- datos del paciente (auto) -->
+      <div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">DATOS DEL PACIENTE</p>
+        <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:12px;font-size:12px;line-height:1.8;color:#263238">
+          <b>${p.nom} ${p.ap} ${p.am}</b><br>
+          Fecha de nacimiento: ${p.nac}<br>
+          Sexo: ${p.sexo}<br>
+          Expediente: ${p.exp}<br>
+          Celular: ${p.cel}
+        </div>
+      </div>
+
+      <!-- diagnóstico -->
+      <div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">DIAGNÓSTICO <span style="color:${AC};cursor:pointer;font-weight:400">| Copiar último diagnóstico indicado</span></p>
+        ${ta("inter-diag","","Diagnóstico del paciente...",5)}
+      </div>
+
+      <!-- tratamiento -->
+      <div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">TRATAMIENTO <span style="color:${AC};cursor:pointer;font-weight:400">| Copiar último tratamiento indicado</span></p>
+        ${ta("inter-trat","","Tratamiento actual del paciente...",5)}
+      </div>
+
+      <!-- motivos -->
+      <div style="grid-column:span 2">
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">MOTIVOS DE LA INTERCONSULTA</p>
+        ${ta("inter-motivos","","Describa los motivos por los que solicita la interconsulta y lo que espera del médico interconsultante...",5)}
+      </div>
+
+      <!-- estudios adjuntos -->
+      <div style="grid-column:span 2">
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">ESTUDIOS ADJUNTOS A LA SOLICITUD</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${["Laboratorios","RX","Resonancia Magnética","TAC","Ultrasonido","ECG","Espirometría","Otro"].map(e=>`<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;background:${PL};padding:5px 10px;border-radius:20px;border:1px solid #B3E5FC"><input type="checkbox" style="accent-color:${P}"> ${e}</label>`).join("")}
+        </div>
+      </div>
+
+      <!-- prioridad -->
+      <div>
+        ${fld("Prioridad / Urgencia",sel("inter-prioridad",["Electiva (no urgente)","Prioritaria (esta semana)","Urgente (hoy)","Emergencia (inmediata)"]))}
+      </div>
+    </div>`;
+  } else {
+    b.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">DATOS DEL MÉDICO QUE RESPONDE</p>
+        ${ta("inter-resp-med","","Nombre, especialidad, institución, teléfono...",4)}
+      </div>
+      <div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">FECHA DE LA RESPUESTA</p>
+        ${inp("inter-resp-fecha","","","date")}
+      </div>
+      <div style="grid-column:span 2">
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">RESULTADO / HALLAZGOS DE LA INTERCONSULTA</p>
+        ${ta("inter-resp-hallazgos","","Hallazgos clínicos, exploración física, estudios revisados...",6)}
+      </div>
+      <div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">DIAGNÓSTICO DEL MÉDICO INTERCONSULTANTE</p>
+        ${ta("inter-resp-diag","","Diagnóstico...",4)}
+      </div>
+      <div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">RECOMENDACIONES Y PLAN</p>
+        ${ta("inter-resp-plan","","Tratamiento recomendado, indicaciones, plan de seguimiento...",4)}
+      </div>
+      <div style="grid-column:span 2;display:flex;justify-content:flex-end;gap:8px">
+        ${btn("💾 Guardar respuesta","showToast('✓ Respuesta guardada')","ok",1)}
+      </div>
+    </div>`;
+  }
+}
+
+// ──────────────────────────────────────────
+// ── ANEXOS Y LABORATORIOS (nueva pestaña) ──
+// ──────────────────────────────────────────
+function renderAnexos(b){
+  const subTabs=[["docs","Documentos anexos al expediente"],["gabinete","Resultados de gabinete y laboratorios (PDF)"],["analitos","Laboratorios por analitos"],["anotaciones","Anotaciones"],["formularios","Formularios contestados por el paciente"]];
+  b.innerHTML=`<div style="max-width:1000px;margin:0 auto;padding:14px" class="fade">
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:12px">DOCUMENTOS ANEXOS AL EXPEDIENTE, LABORATORIOS Y ANOTACIONES</b></div>
+      <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid ${BR};padding:0 10px">
+        ${subTabs.map(([k,l])=>`<button onclick="setAnexoTab('${k}')" style="padding:8px 12px;border:none;background:transparent;cursor:pointer;font-weight:${S.anexos.subTab===k?700:500};font-size:11px;color:${S.anexos.subTab===k?P:MU};border-bottom:${S.anexos.subTab===k?"3px solid "+P:"3px solid transparent"};white-space:nowrap">${l}</button>`).join("")}
+      </div>
+      <div id="anexo-body" style="padding:16px"></div>
+    </div>
+  </div>`;
+  renderAnexoBody();
+}
+window.setAnexoTab=function(t){S.anexos.subTab=t;renderAnexoBody();}
+window.toggleDocSel=function(id){const i=S.anexos.selDocs.indexOf(id);if(i>=0)S.anexos.selDocs.splice(i,1);else S.anexos.selDocs.push(id);renderAnexoBody();}
+window.eliminarDocsSel=function(){
+  if(S.anexos.selDocs.length===0){showToast("Selecciona al menos un documento",false);return;}
+  S.anexos.docs=S.anexos.docs.filter(d=>!S.anexos.selDocs.includes(d.id));
+  S.anexos.selDocs=[];
+  showToast("✓ Documento(s) eliminado(s)");
+  renderAnexoBody();
+}
+window.simularSubida=function(){
+  const titulo=document.getElementById("nuevo-doc-titulo");
+  if(!titulo||!titulo.value.trim()){showToast("Escribe un título para el documento",false);return;}
+  const nuevoId=Date.now();
+  S.anexos.docs.push({id:nuevoId,fecha:"14/05/2026",titulo:titulo.value.toUpperCase().trim(),tipo:"pdf",firmado:false,origen:"subido"});
+  titulo.value="";
+  showToast("✓ Documento subido al expediente");
+  renderAnexoBody();
+}
+window.enviarFirmaDigital=function(){
+  const p=S.pat||PACS[0];
+  showToast(`✓ Enlace enviado a ${p.cel} vía WhatsApp`);
+}
+
+function renderAnexoBody(){
+  const ab=document.getElementById("anexo-body");if(!ab)return;
+
+  // ── DOCUMENTOS ANEXOS AL EXPEDIENTE ──
+  if(S.anexos.subTab==="docs"){
+    ab.innerHTML=`
+    <div style="background:${PL};border:1px solid #B3E5FC;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:${TX};line-height:1.7">
+      📋 En esta sección se almacenan documentos PDF del expediente clínico: <b>Aviso de Privacidad, Consentimiento Informado General, Consentimiento de Telemedicina</b> y otros consentimientos que el paciente firma digitalmente desde su celular. También puedes escanear o subir documentos como informes, resúmenes, cartas, etc.
+    </div>
+
+    <!-- Botones de acción -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      ${btn("➕ Subir nuevo documento","mostrarFormSubida()","p",1)}
+      ${btn("📱 Enviar para firma digital","mostrarModalFirma()","wa",1)}
+      ${btn("🗑️ Eliminar seleccionados","eliminarDocsSel()","d",1)}
+    </div>
+
+    <!-- formulario subida (oculto) -->
+    <div id="form-subida" style="display:none;background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:14px;margin-bottom:16px">
+      <p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Subir documento al expediente</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        ${fld("Título del documento *",`<input id="nuevo-doc-titulo" placeholder="Ej: RESULTADO LABORATORIO MAYO 2026" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Tipo de documento",sel("nuevo-doc-tipo",["Resultado de laboratorio","Resultado de gabinete","Informe médico","Carta / Referencia","Consentimiento adicional","RX / Imagen diagnóstica","Receta médica","Otro"]))}
+      </div>
+      <div class="upload-area" onclick="showToast('✓ Selecciona el archivo desde tu equipo')">
+        <div style="font-size:32px;margin-bottom:8px">📂</div>
+        <p style="font-size:13px;font-weight:600;color:${P}">Haz clic para seleccionar el archivo</p>
+        <p style="font-size:11px;color:${MU};margin-top:4px">PDF, JPG, PNG, DOCX — máximo 20 MB</p>
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="display:none">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        ${btn("Cancelar","ocultarFormSubida()","s",1)}
+        ${btn("💾 Subir al expediente","simularSubida()","ok",1)}
+      </div>
+    </div>
+
+    <!-- tabla de documentos -->
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:${PL}">
+          <th style="padding:8px 10px;width:36px"></th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase">Fecha</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase">Título del documento</th>
+          <th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase">Origen</th>
+          <th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase">Ver</th>
+          <th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase">Descargar</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${S.anexos.docs.map((d,i)=>`
+        <tr style="border-top:1px solid ${BR};background:${S.anexos.selDocs.includes(d.id)?"#FFF9C4":i%2?"#FAFAFA":"#fff"}">
+          <td style="padding:10px;text-align:center">
+            <input type="checkbox" ${S.anexos.selDocs.includes(d.id)?"checked":""} onchange="toggleDocSel(${d.id})" style="accent-color:${P};width:15px;height:15px;cursor:pointer">
+          </td>
+          <td style="padding:10px;font-size:12px;color:${MU}">${d.fecha}</td>
+          <td style="padding:10px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">${d.tipo==="pdf"?"📄":"🖼️"}</span>
+              <div>
+                <p style="font-size:12px;font-weight:600;color:#263238">${d.titulo}</p>
+                ${d.firmado?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:9px;font-weight:700">✓ Firmado digitalmente</span>`:`<span style="background:#ECEFF1;color:${MU};padding:1px 7px;border-radius:20px;font-size:9px">Subido manualmente</span>`}
+              </div>
+            </div>
+          </td>
+          <td style="padding:10px;text-align:center">
+            ${d.origen==="digital"?`<span style="background:#E3F2FD;color:${P};padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">📱 Digital</span>`:`<span style="background:#F3E5F5;color:#7B1FA2;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">💻 Subido</span>`}
+          </td>
+          <td style="padding:10px;text-align:center">
+            <button onclick="showToast('Abriendo ${d.titulo}...')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:11px;font-weight:600">📄 PDF</button>
+          </td>
+          <td style="padding:10px;text-align:center">
+            <button onclick="showToast('⬇️ Descargando...')" style="background:${DA};color:#fff;border:none;border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:14px">⬇️</button>
+          </td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    ${S.anexos.docs.length===0?`<p style="text-align:center;padding:24px;color:${MU}">No hay documentos subidos aún</p>`:""}
+
+    <!-- modal firma digital -->
+    <div id="modal-firma" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
+      <div style="background:#fff;border-radius:14px;padding:24px;width:460px;box-shadow:0 16px 40px #00000040">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <b style="font-size:14px;color:${TX}">📱 Firma digital de documentos</b>
+          <button onclick="ocultarModalFirma()" style="background:${DA};color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-weight:700">✕</button>
+        </div>
+        <div style="background:${PL};border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:${TX}">
+          Envíe al paciente un enlace por WhatsApp o correo. El paciente podrá leer y firmar los documentos desde su teléfono celular. Una vez firmados, se guardan automáticamente en PDF en el expediente.
+        </div>
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:10px">DOCUMENTOS A ENVIAR PARA FIRMA</p>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;background:#F8F9FA;border-radius:8px;padding:10px">
+          ${["AVISO DE PRIVACIDAD","CONSENTIMIENTO INFORMADO GENERAL","CONSENTIMIENTO DE TELEMEDICINA","OZEMPIC — CARTA DE RESPONSABILIDAD","CARTA COMPROMISO DE TRATAMIENTO","SEGUIMIENTO MÉDICO-DEPORTIVO"].map(d=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:4px 0"><input type="checkbox" style="accent-color:${P};width:14px;height:14px"> ${d}</label>`).join("")}
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          ${btn("💬 Enviar por WhatsApp","enviarFirmaDigital();ocultarModalFirma()","wa")}
+          ${btn("📧 Enviar por correo","showToast('✓ Correo enviado al paciente');ocultarModalFirma()","s")}
+        </div>
+        <div style="display:flex;gap:10px">
+          <div style="flex:0.4">${fld("País",sel("fps",["🇲🇽 México","🇺🇸 USA","🇨🇦 Canadá"]))}</div>
+          <div style="flex:0.6">${fld("Celular del paciente",inp("fcel",(S.pat||PACS[0]).cel,"","tel"))}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── RESULTADOS DE GABINETE/LABORATORIOS PDF ──
+  else if(S.anexos.subTab==="gabinete"){
+    ab.innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      ${btn("➕ Subir resultado","showToast('Selecciona el archivo PDF o imagen')","p",1)}
+    </div>
+    <div class="upload-area" style="margin-bottom:16px" onclick="showToast('✓ Selecciona el archivo desde tu equipo')">
+      <div style="font-size:36px;margin-bottom:8px">🔬</div>
+      <p style="font-size:13px;font-weight:600;color:${P}">Subir resultado de laboratorio o estudio de gabinete</p>
+      <p style="font-size:11px;color:${MU};margin-top:4px">PDF, JPG, PNG — laboratorios, RX, IRM, TAC, USG, ECG, etc.</p>
+    </div>
+    <p style="font-size:12px;color:${MU};text-align:center;padding:20px">No hay resultados subidos aún para este paciente</p>`;
+  }
+
+  // ── LABORATORIOS POR ANALITOS ──
+  else if(S.anexos.subTab==="analitos"){
+    const analitos=["Glucosa","Hemoglobina","Hematocrito","Leucocitos","Plaquetas","Colesterol total","Colesterol LDL","Colesterol HDL","Triglicéridos","Creatinina","Urea","Ácido úrico","TGO (AST)","TGP (ALT)","TSH","T4 libre","HbA1c","PCR","Ferritina","Vitamina D","Vitamina B12"];
+    ab.innerHTML=`
+    <p style="font-size:12px;color:${MU};margin-bottom:14px;background:${PL};padding:8px 12px;border-radius:7px">Registre valores de analitos individuales para seguimiento gráfico y por fecha. Los resultados se grafican automáticamente por analito.</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      ${btn("➕ Agregar resultado","showToast('Funcionalidad con backend')","p",1)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      ${analitos.slice(0,9).map(a=>`<div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:12px"><p style="font-size:11px;font-weight:700;color:${TX}">${a}</p><p style="font-size:10px;color:${MU};margin-top:4px">Sin resultados registrados</p><div style="height:30px;background:#ECEFF1;border-radius:4px;margin-top:8px;display:flex;align-items:center;justify-content:center"><span style="font-size:9px;color:${MU}">Gráfica disponible con datos</span></div></div>`).join("")}
+    </div>`;
+  }
+
+  // ── ANOTACIONES ──
+  else if(S.anexos.subTab==="anotaciones"){
+    ab.innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      ${btn("➕ Nueva anotación","agregarAnotacion()","p",1)}
+    </div>
+    <div style="background:${PL};border-radius:8px;padding:12px;margin-bottom:14px">
+      <p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:8px">Nueva anotación</p>
+      <div style="display:flex;gap:10px;margin-bottom:8px">
+        ${inp("anot-titulo","","Título de la anotación")}
+        ${sel("anot-tipo",["Nota clínica","Llamada telefónica","Mensaje WhatsApp","Nota de enfermería","Observación","Otro"])}
+      </div>
+      ${ta("anot-texto","","Escriba aquí la anotación...",4)}
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("Guardar anotación","agregarAnotacion()","ok",1)}</div>
+    </div>
+    <div id="anotaciones-lista">
+      ${S.anotaciones.length===0?`<p style="text-align:center;padding:20px;color:${MU}">No hay anotaciones registradas</p>`:
+      S.anotaciones.map((a,i)=>`<div style="background:#fff;border:1.5px solid ${BR};border-radius:8px;padding:12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><div><b style="font-size:12px">${a.titulo}</b> <span style="background:${PL};color:${P};padding:1px 8px;border-radius:20px;font-size:10px">${a.tipo}</span></div><span style="font-size:10px;color:${MU}">${a.fecha}</span></div><p style="font-size:12px;color:#263238;line-height:1.5">${a.texto}</p></div>`).join("")}
+    </div>`;
+  }
+
+  // ── FORMULARIOS CONTESTADOS POR EL PACIENTE ──
+  else if(S.anexos.subTab==="formularios"){
+    ab.innerHTML=`
+    <div style="background:${PL};border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:${TX}">
+      📋 Los formularios que el paciente completa desde su enlace de pre-registro o desde la app aparecen automáticamente aquí.
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      ${btn("📱 Enviar enlace de pre-registro","showToast('✓ Enlace enviado al paciente')","p",1)}
+      ${btn("💬 Enviar por WhatsApp","showToast('✓ Enviado por WhatsApp')","wa",1)}
+    </div>
+    <p style="text-align:center;padding:20px;color:${MU};font-size:12px">El paciente aún no ha completado formularios en línea</p>`;
+  }
+}
+
+window.mostrarFormSubida=function(){const f=document.getElementById("form-subida");if(f)f.style.display="block";}
+window.ocultarFormSubida=function(){const f=document.getElementById("form-subida");if(f)f.style.display="none";}
+window.mostrarModalFirma=function(){const m=document.getElementById("modal-firma");if(m)m.style.display="flex";}
+window.ocultarModalFirma=function(){const m=document.getElementById("modal-firma");if(m)m.style.display="none";}
+window.agregarAnotacion=function(){
+  const titulo=document.getElementById("anot-titulo");
+  const tipo=document.getElementById("anot-tipo");
+  const texto=document.getElementById("anot-texto");
+  if(!titulo||!texto||!texto.value.trim()){showToast("Escribe el texto de la anotación",false);return;}
+  S.anotaciones.unshift({titulo:titulo.value||"Anotación",tipo:tipo?tipo.value:"Nota clínica",texto:texto.value,fecha:"14/05/2026 "+new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})});
+  titulo.value="";texto.value="";
+  showToast("✓ Anotación guardada");
+  renderAnexoBody();
+}
+
+// ── CONSULTA SOAP ──
+function pgConsulta(){
+  const p=S.pat||PACS[0];
+  RR().innerHTML=nav()+`<div style="display:flex;flex-direction:column;height:calc(100vh - 46px);overflow:hidden">
+    <div style="background:${PD};padding:6px 14px;display:flex;align-items:center;justify-content:space-between">
+      <b style="color:#fff;font-size:13px">📋 Consulta / Nota de Evolución — ${p.nom} ${p.ap}</b>
+      <span style="background:#FFE082;color:#E65100;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">${p.edad}</span>
+    </div>
+    <div style="background:#fff;border-bottom:1px solid ${BR};padding:7px 12px;display:flex;gap:6px;flex-wrap:wrap">
+      <button style="background:${PL};border:1px solid #B3E5FC;border-radius:7px;padding:5px 11px;font-size:11px;color:${P};cursor:pointer;font-weight:600">🤖 Generar nota con IA</button>
+      ${btn("💾 Guardar","showToast('✓ Consulta guardada')","ok",1)}${btn("✕ Cerrar","go('expediente')","d",1)}${btn("🖨️ Receta","","s",1)}${btn("💬 Enviar receta","showRecipe()","s",1)}
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:12px;background:#F0F4F8">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1200px;margin:0 auto">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012"><div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between"><b style="font-size:12px;color:${TX}">🎤 Subjetivo</b><span style="font-size:11px;color:${AC};cursor:pointer">Motivos comunes</span></div><div style="padding:12px">${ta("ss","Realiza gimnasia desde los 4 años. Esguince de tobillo derecho 10/02/2026 grado II. Anoche nueva inversión forzada con edema y equimosis.","",5)}</div></div>
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012"><div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:12px;color:${TX}">⚠️ Alergias</b></div><div style="padding:12px">${ta("sa","- ALERGIAS NEGADAS","",5)}</div></div>
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012"><div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:12px;color:${TX}">💓 Signos vitales</b></div><div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">${[["Temp. (°C)"],["Peso (kg)"],["F. Cardíaca (lat/min)"],["Talla (m)"],["F. Respiratoria"],["Sat. O₂ (%)"],["Pres. Sistólica (mmHg)"],["Pres. Diastólica (mmHg)"],["Glucosa (mg/dL)"]].map(([l])=>`<div>${fld(l,inp("sv"+l.replace(/\W/g,""),"",""))}</div>`).join("")}</div></div>
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012"><div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:12px;color:${TX}">🫀 Exploración física</b></div><div style="padding:12px;display:flex;gap:10px"><div style="width:80px;background:${PL};border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:120px;font-size:30px;flex-shrink:0">🧍</div><div style="flex:1">${ta("sex","","Exploración por sistemas...",6)}</div></div></div>
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012"><div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between"><b style="font-size:12px;color:${TX}">🔍 Análisis / Diagnóstico</b><span style="font-size:11px;color:${AC};cursor:pointer">CIE-10 | 🤖 IA</span></div><div style="padding:12px">${ta("san","Esguince de tobillo derecho grado I","",5)}</div></div>
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012"><div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between"><b style="font-size:12px;color:${TX}">💊 Tratamiento</b><button onclick="showRecipe()" style="background:#1B5E20;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer">Receta electrónica</button></div><div style="padding:12px">${ta("str","1.- Clonixinato de lisina 125 mg — 1 tab c/8h × 3 días.\n2.- Fisioterapia 1 sesión c/tercer día, 5 sesiones.","",5)}</div></div>
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012"><div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between"><b style="font-size:12px;color:${TX}">🔬 Laboratorio</b><span style="font-size:11px;color:${AC};cursor:pointer">Catálogo | Resultados</span></div><div style="padding:12px">${ta("slab","","BH, QS, EGO, PCR...",4)}</div></div>
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012"><div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between"><b style="font-size:12px;color:${TX}">📡 Estudios de gabinete</b><span style="font-size:11px;color:${AC};cursor:pointer">Catálogo | Plantillas</span></div><div style="padding:12px">${ta("sgab","","RX, USG, IRM...",4)}</div></div>
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2"><div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:12px;color:${TX}">📋 Plan</b></div><div style="padding:12px">${ta("spl","","Seguimiento en... Alta deportiva diferida...",3)}</div></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 0;max-width:1200px;margin:0 auto">${btn("✕ Cerrar","go('expediente')","s",1)}${btn("💾 Guardar consulta","showToast('✓ Consulta guardada')","ok",1)}</div>
+    </div>
+    <div id="recipe-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
+      <div style="background:#fff;border-radius:14px;padding:24px;width:400px;box-shadow:0 16px 40px #00000040">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><b style="font-size:14px;color:${TX}">Enviar receta al paciente</b><button onclick="hideRecipe()" style="background:${DA};color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-weight:700">✕</button></div>
+        <div style="background:${PL};border-radius:7px;padding:10px;margin-bottom:14px;font-size:12px;color:${TX}">📄 Envíe la receta en PDF vía WhatsApp o correo.</div>
+        <div style="display:flex;gap:6px;margin-bottom:14px">${["💬 WhatsApp","📧 Correo","⬇️ PDF"].map(m=>`<button style="flex:1;padding:7px;border:1.5px solid ${BR};border-radius:7px;background:#fff;cursor:pointer;font-size:10px">${m}</button>`).join("")}</div>
+        <div style="display:flex;gap:10px;margin-bottom:12px"><div style="flex:0.4">${fld("País",sel("rp",["🇲🇽 México","🇺🇸 USA"]))}</div><div style="flex:0.6">${fld("Celular",inp("rcel","5641574236","","tel"))}</div></div>
+        <button onclick="showToast('✓ Receta enviada por WhatsApp');hideRecipe();" style="width:100%;padding:9px;background:${WA};color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer">💬 Enviar por WhatsApp</button>
+      </div>
+    </div>
+  </div>`;
+}
+window.showRecipe=function(){const m=document.getElementById("recipe-modal");if(m)m.style.display="flex";}
+window.hideRecipe=function(){const m=document.getElementById("recipe-modal");if(m)m.style.display="none";}
+
+// Iniciar en expediente con Sofía → pestaña Interconsultas
+S.pat=PACS[0];
+S.expTab="interconsultas";
+draw();
+</script>
+</body>
+</html>
