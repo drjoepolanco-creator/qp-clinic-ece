@@ -77,7 +77,9 @@ function loading(show,msg="Guardando..."){STATE.loading=show;const l=document.ge
 function nav(){
   const u=STATE.userProfile;const p=STATE.pat;
   return`<div style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:99">
-    <div style="display:flex;align-items:center;gap:7px;margin-right:16px"><div style="width:26px;height:26px;border-radius:6px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">🏥</div><b style="color:#fff;font-size:14px">QP Clinic</b></div>
+    <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
+      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
+    </div>
     ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:12px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
       ${p?`<button onclick="go('expediente')" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 9px;color:#fff;cursor:pointer;font-size:10px">📋 ${p.nombre} ${p.apellido_paterno}</button>`:""}
@@ -106,9 +108,8 @@ function pgLogin(){
   <div style="min-height:100vh;background:linear-gradient(135deg,${PD},${AC});display:flex;align-items:center;justify-content:center;padding:20px">
     <div style="background:#fff;border-radius:16px;padding:36px;width:360px;box-shadow:0 16px 40px #00000030">
       <div style="text-align:center;margin-bottom:24px">
-        <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,${P},${AC});margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:30px">🏥</div>
-        <h1 style="font-size:22px;color:${P};font-weight:800">QP Clinic</h1>
-        <p style="color:${MU};font-size:12px;margin-top:2px">Expediente Clínico Electrónico</p>
+        <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="width:200px;margin:0 auto 12px;display:block">
+        <p style="color:${MU};font-size:12px;margin-top:4px">Expediente Clínico Electrónico</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:13px">
         ${fld("Correo electrónico",inp("lu","","correo@qpclinic.mx","email"))}
