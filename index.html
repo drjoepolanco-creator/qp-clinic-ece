@@ -117,11 +117,161 @@ function pgLogin(){
         <button id="login-btn" onclick="doLogin()" style="width:100%;padding:11px;background:${P};color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;margin-top:4px">Entrar al Sistema</button>
         <div id="login-error" style="display:none;background:#FFEBEE;color:${DA};padding:8px 12px;border-radius:7px;font-size:12px;text-align:center"></div>
       </div>
-      <p style="text-align:center;font-size:11px;color:#90A4AE;margin-top:16px">Al ingresar acepta los <span style="color:${P};cursor:pointer">Términos y Aviso de Privacidad</span></p>
+      <p style="text-align:center;font-size:11px;color:#90A4AE;margin-top:16px">Al ingresar acepta los <span onclick="abrirLegal('terminos')" style="color:${P};cursor:pointer;text-decoration:underline">Términos y Condiciones</span> y el <span onclick="abrirLegal('privacidad')" style="color:${P};cursor:pointer;text-decoration:underline">Aviso de Privacidad</span></p>
       <p style="text-align:center;font-size:11px;color:${AC};margin-top:10px;font-style:italic">"Ciencia, calidez y compromiso"</p>
     </div>
-  </div>`;
+  </div>
+
+  <div id="modal-legal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:680px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px #00000040">
+      <div style="padding:14px 20px;border-bottom:1px solid #CFD8DC;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <div style="display:flex;gap:0">
+          <button id="tab-terminos" onclick="switchLegal('terminos')" style="padding:7px 16px;border:1.5px solid #1565C0;background:#1565C0;color:#fff;cursor:pointer;border-radius:7px 0 0 7px;font-size:12px;font-weight:600">Términos y Condiciones</button>
+          <button id="tab-privacidad" onclick="switchLegal('privacidad')" style="padding:7px 16px;border:1.5px solid #1565C0;background:#fff;color:#1565C0;cursor:pointer;border-radius:0 7px 7px 0;font-size:12px;font-weight:600">Aviso de Privacidad</button>
+        </div>
+        <button onclick="cerrarLegal()" style="background:#C62828;color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700">✕</button>
+      </div>
+      <div id="legal-content" style="padding:20px 24px;overflow-y:auto;flex:1;font-size:12px;line-height:1.9;color:#263238"></div>
+      <div style="padding:12px 20px;border-top:1px solid #CFD8DC;display:flex;justify-content:flex-end;flex-shrink:0">
+        <button onclick="cerrarLegal()" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:8px 24px;cursor:pointer;font-weight:600;font-size:13px">Entendido</button>
+      </div>
+    </div>
+  </div>`;}
+
+window.abrirLegal=function(tab){
+  const m=document.getElementById("modal-legal");
+  if(m){m.style.display="flex";switchLegal(tab);}
 }
+window.cerrarLegal=function(){
+  const m=document.getElementById("modal-legal");
+  if(m)m.style.display="none";
+}
+window.switchLegal=function(tab){
+  const c=document.getElementById("legal-content");
+  const bt=document.getElementById("tab-terminos");
+  const bp=document.getElementById("tab-privacidad");
+  if(!c)return;
+  if(bt&&bp){
+    if(tab==="terminos"){
+      bt.style.background="#1565C0";bt.style.color="#fff";
+      bp.style.background="#fff";bp.style.color="#1565C0";
+    } else {
+      bp.style.background="#1565C0";bp.style.color="#fff";
+      bt.style.background="#fff";bt.style.color="#1565C0";
+    }
+  }
+  if(tab==="terminos") c.innerHTML=TERMINOS_HTML;
+  else c.innerHTML=PRIVACIDAD_HTML;
+}
+
+const TERMINOS_HTML=`
+<h2 style="font-size:15px;font-weight:800;color:#1A237E;margin-bottom:4px">TÉRMINOS Y CONDICIONES DE USO</h2>
+<p style="color:#546E7A;font-size:11px;margin-bottom:16px">QP Clinic — Expediente Clínico Electrónico | Versión 1.0 | Vigente desde mayo 2026</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">1. OBJETO</h3>
+<p>Los presentes Términos y Condiciones regulan el acceso y uso del sistema de Expediente Clínico Electrónico (ECE) de <strong>QP Clinic — Especialistas en Salud Integral</strong>, con domicilio en Insurgentes Sur 933, Ciudad de México, en adelante "QP Clinic". Al acceder al sistema, el usuario acepta íntegramente estos términos.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">2. USUARIOS AUTORIZADOS</h3>
+<p>El acceso al ECE está restringido exclusivamente al personal médico, paramédico y administrativo de QP Clinic debidamente registrado y autorizado. Queda estrictamente prohibido compartir credenciales de acceso. Cada usuario es responsable de todas las acciones realizadas con su cuenta.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">3. USO ACEPTABLE</h3>
+<p>El sistema debe utilizarse exclusivamente para:</p>
+<ul style="margin:6px 0 6px 20px">
+  <li>Registro, consulta y actualización de expedientes clínicos de pacientes</li>
+  <li>Emisión de notas médicas, recetas y solicitudes de interconsulta</li>
+  <li>Gestión de documentos clínicos del paciente</li>
+  <li>Actividades directamente relacionadas con la atención médica en QP Clinic</li>
+</ul>
+<p>Queda prohibido el uso del sistema para fines distintos a los médico-clínicos, la extracción masiva de datos, o cualquier actividad que vulnere la privacidad de los pacientes.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">4. CONFIDENCIALIDAD Y SECRETO MÉDICO</h3>
+<p>Toda información contenida en los expedientes clínicos es estrictamente confidencial. El personal autorizado está obligado a guardar secreto profesional conforme a lo dispuesto en la <strong>Ley General de Salud</strong>, el <strong>Código de Ética Médica</strong> y la <strong>NOM-004-SSA3-2012</strong> sobre el Expediente Clínico. La divulgación no autorizada de información de pacientes constituye una violación grave sujeta a sanciones legales y laborales.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">5. NORMATIVIDAD APLICABLE</h3>
+<p>El presente sistema cumple con:</p>
+<ul style="margin:6px 0 6px 20px">
+  <li><strong>NOM-004-SSA3-2012</strong> — Del Expediente Clínico</li>
+  <li><strong>NOM-024-SSA3-2012</strong> — Sistemas de información de registro electrónico para la salud</li>
+  <li><strong>Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP)</strong></li>
+  <li><strong>Ley General de Salud</strong> y su Reglamento en materia de prestación de servicios de atención médica</li>
+</ul>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">6. PROPIEDAD INTELECTUAL</h3>
+<p>El sistema ECE, su diseño, código y contenido son propiedad de QP Clinic. Queda prohibida su reproducción, modificación o distribución sin autorización expresa y por escrito.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">7. LIMITACIÓN DE RESPONSABILIDAD</h3>
+<p>QP Clinic no será responsable por daños derivados del uso inadecuado del sistema, pérdida de datos por causas de fuerza mayor, o interrupciones del servicio ajenas a su control. El usuario asume la responsabilidad de la veracidad y exactitud de los datos que registra en el sistema.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">8. MODIFICACIONES</h3>
+<p>QP Clinic se reserva el derecho de modificar estos Términos y Condiciones en cualquier momento. Los cambios serán notificados a los usuarios y entrarán en vigor a partir de su publicación en el sistema.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">9. JURISDICCIÓN</h3>
+<p>Para cualquier controversia derivada del uso de este sistema, las partes se someten a la jurisdicción de los tribunales competentes de la Ciudad de México, renunciando a cualquier otro fuero que pudiera corresponderles.</p>
+
+<p style="margin-top:16px;padding:10px;background:#E3F2FD;border-radius:7px;color:#1565C0;font-size:11px">📋 Para dudas o aclaraciones sobre estos términos, contáctenos en: <strong>recepcion@qpclinic.mx</strong></p>`;
+
+const PRIVACIDAD_HTML=`
+<h2 style="font-size:15px;font-weight:800;color:#1A237E;margin-bottom:4px">AVISO DE PRIVACIDAD</h2>
+<p style="color:#546E7A;font-size:11px;margin-bottom:16px">QP Clinic — Expediente Clínico Electrónico | Versión 1.0 | Vigente desde mayo 2026</p>
+<p style="background:#FFF8E1;border-left:4px solid #FFA726;padding:10px 14px;border-radius:0 7px 7px 0;margin-bottom:14px;font-size:11px">De conformidad con lo previsto en la <strong>Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP)</strong> y su Reglamento, QP Clinic pone a su disposición el presente Aviso de Privacidad.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">I. IDENTIDAD Y DOMICILIO DEL RESPONSABLE</h3>
+<p><strong>QP Clinic — Especialistas en Salud Integral</strong><br>
+Domicilio: Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México, C.P. 03810<br>
+Correo electrónico: recepcion@qpclinic.mx<br>
+Sitio web: www.qpclinic.org</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">II. DATOS PERSONALES QUE SE RECABAN</h3>
+<p>Para la prestación de servicios médicos, QP Clinic recaba las siguientes categorías de datos personales:</p>
+<p><strong>Datos de identificación:</strong> nombre completo, fecha de nacimiento, sexo, CURP, estado civil, nacionalidad, escolaridad, ocupación.</p>
+<p><strong>Datos de contacto:</strong> domicilio, teléfono, celular, correo electrónico.</p>
+<p><strong>Datos de salud (datos sensibles):</strong> antecedentes heredofamiliares, antecedentes personales patológicos y no patológicos, diagnósticos, tratamientos, signos vitales, estudios de laboratorio y gabinete, notas médicas, alergias, medicamentos e información relacionada con su estado de salud.</p>
+<p><strong>Datos financieros:</strong> información de facturación (RFC, régimen fiscal), datos de seguro médico.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">III. FINALIDADES DEL TRATAMIENTO</h3>
+<p><strong>Finalidades primarias (necesarias para la atención médica):</strong></p>
+<ul style="margin:6px 0 6px 20px">
+  <li>Integración y gestión del expediente clínico electrónico</li>
+  <li>Prestación de servicios médicos y de salud</li>
+  <li>Diagnóstico, tratamiento y seguimiento médico</li>
+  <li>Emisión de recetas, notas médicas e interconsultas</li>
+  <li>Cumplimiento de obligaciones legales en materia de salud</li>
+  <li>Facturación de servicios médicos</li>
+  <li>Gestión de cobertura con aseguradoras</li>
+</ul>
+<p><strong>Finalidades secundarias (puede oponerse):</strong></p>
+<ul style="margin:6px 0 6px 20px">
+  <li>Envío de información sobre servicios, promociones y campañas de salud de QP Clinic</li>
+  <li>Evaluación de la calidad de la atención médica recibida</li>
+  <li>Fines estadísticos internos (datos anonimizados)</li>
+</ul>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">IV. TRANSFERENCIAS DE DATOS</h3>
+<p>QP Clinic podrá transferir sus datos personales, sin requerir su consentimiento, en los siguientes casos:</p>
+<ul style="margin:6px 0 6px 20px">
+  <li>A médicos especialistas en caso de interconsulta, para garantizar la continuidad de su atención</li>
+  <li>A instituciones de salud cuando sea necesario para su atención de urgencias</li>
+  <li>A autoridades sanitarias (COFEPRIS, Secretaría de Salud) cuando la ley lo requiera</li>
+  <li>A su compañía de seguros médicos, únicamente para los trámites que usted autorice</li>
+</ul>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">V. DERECHOS ARCO</h3>
+<p>Usted tiene derecho a <strong>Acceder, Rectificar, Cancelar u Oponerse</strong> al tratamiento de sus datos personales. Para ejercer estos derechos deberá presentar solicitud por escrito a:</p>
+<p style="background:#E3F2FD;padding:10px 14px;border-radius:7px;margin:8px 0"><strong>Correo:</strong> recepcion@qpclinic.mx<br>
+<strong>Domicilio:</strong> Insurgentes Sur 933, CDMX<br>
+<strong>Horario:</strong> Lunes a viernes de 9:00 a 18:00 hrs</p>
+<p>Su solicitud deberá contener: nombre completo, domicilio, copia de identificación oficial y descripción clara de los datos y el derecho que desea ejercer. QP Clinic responderá en un plazo máximo de <strong>20 días hábiles</strong>.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">VI. SEGURIDAD DE LOS DATOS</h3>
+<p>QP Clinic implementa medidas de seguridad administrativas, técnicas y físicas para proteger sus datos personales contra daño, pérdida, alteración, destrucción o acceso no autorizado. El sistema utiliza cifrado SSL/TLS, autenticación segura y bases de datos protegidas conforme a estándares internacionales.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">VII. CAMBIOS AL AVISO DE PRIVACIDAD</h3>
+<p>Cualquier modificación a este Aviso de Privacidad será notificada a través del sistema ECE y/o por correo electrónico con al menos 30 días de anticipación a su entrada en vigor.</p>
+
+<h3 style="font-size:13px;font-weight:700;color:#1565C0;margin:14px 0 6px">VIII. AUTORIDAD</h3>
+<p>Si considera que su derecho a la protección de datos personales ha sido vulnerado, puede acudir al <strong>Instituto Nacional de Transparencia, Acceso a la Información y Protección de Datos Personales (INAI)</strong>, www.inai.org.mx</p>
+
+<p style="margin-top:16px;padding:10px;background:#E8F5E9;border-radius:7px;color:#2E7D32;font-size:11px">✅ Última actualización: Mayo 2026 | Este aviso cumple con la LFPDPPP y su Reglamento, la NOM-004-SSA3-2012 y la NOM-024-SSA3-2012.</p>`;
 window.doLogin=async function(){
   const email=gv("lu"),pass=gv("lp");
   if(!email||!pass){showLoginError("Ingresa tu correo y contraseña");return;}
