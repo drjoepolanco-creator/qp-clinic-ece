@@ -152,6 +152,7 @@ function mostrarDocumento(){
   const actual=S.docIndex+1;
   const nombre=DOCS_NOMBRES[docKey]||docKey;
   const texto=getDocTexto(docKey,S.paciente,S.medico);
+  const esUltimo=S.docIndex===total-1;
 
   R().innerHTML=`
   <div style="min-height:100vh;background:#F0F4F8">
@@ -165,59 +166,101 @@ function mostrarDocumento(){
     <div style="padding:12px 12px 0">
       <div class="step-indicator">
         ${S.docs.map((_,i)=>`<div class="step-dot ${i<S.docIndex?"done":i===S.docIndex?"active":""}"></div>`).join("")}
+        <div class="step-dot ${S.docIndex>=total?"active":""}"></div>
       </div>
+      <p style="text-align:center;font-size:10px;color:#546E7A;margin-top:4px">Al final firmará una vez para todos los documentos</p>
     </div>
     <div class="card fade" style="margin:8px 12px">
       <p style="font-size:13px;font-weight:700;color:#1A237E;margin-bottom:10px">${nombre}</p>
       <div class="doc-body" id="doc-texto">${texto.replace(/\n/g,"<br>")}</div>
       <label style="display:flex;align-items:flex-start;gap:10px;margin:14px 0;cursor:pointer;background:#E8F5E9;padding:12px;border-radius:8px">
         <input type="checkbox" id="leido-check" style="accent-color:#2E7D32;width:20px;height:20px;flex-shrink:0;margin-top:2px">
-        <span style="font-size:13px;font-weight:600;color:#1B5E20">He leído y entendido el documento. Estoy de acuerdo con su contenido.</span>
+        <span style="font-size:13px;font-weight:600;color:#1B5E20">He leído y entendido este documento. Estoy de acuerdo con su contenido.</span>
       </label>
-      <button class="btn-primary" onclick="irAFirmar()">Continuar a firmar →</button>
+      <button class="btn-primary" onclick="siguienteDoc()">${esUltimo?"✍️ Ir a firmar todos los documentos →":"Siguiente documento →"}</button>
       ${S.docIndex>0?`<button class="btn-outline" onclick="S.docIndex--;mostrarDocumento()">← Documento anterior</button>`:""}
     </div>
   </div>`;
 }
 
-// ── PASO 3: FIRMAR ────────────────────────────────────────
-window.irAFirmar=function(){
+// ── PASO 3: FIRMA ÚNICA AL FINAL ─────────────────────────
+window.siguienteDoc=function(){
   if(!document.getElementById("leido-check")?.checked){
     toast("Debe marcar que leyó y está de acuerdo antes de continuar",false);return;
   }
-  mostrarFirma();
+  S.docIndex++;
+  if(S.docIndex<S.docs.length){
+    mostrarDocumento();
+  } else {
+    mostrarFirmaUnica();
+  }
 }
 
-function mostrarFirma(){
-  const docKey=S.docs[S.docIndex];
-  const nombre=DOCS_NOMBRES[docKey]||docKey;
-  const total=S.docs.length;
-  const actual=S.docIndex+1;
+// Mantener compatibilidad
+window.irAFirmar=window.siguienteDoc;
+
+function mostrarFirmaUnica(){
+  const pac=S.paciente||{};
+  const nomPac=`${pac.nombre||""} ${pac.apellido_paterno||""}`.trim();
 
   R().innerHTML=`
   <div style="min-height:100vh;background:#F0F4F8">
-    <div style="background:#0D47A1;padding:14px 16px;display:flex;align-items:center;gap:10px">
+    <div style="background:#2E7D32;padding:14px 16px;display:flex;align-items:center;gap:10px">
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:32px;background:#fff;border-radius:4px;padding:2px">
       <div>
-        <p style="color:rgba(255,255,255,.7);font-size:10px">Firma — Documento ${actual} de ${total}</p>
-        <p style="color:#fff;font-size:12px;font-weight:700">${nombre}</p>
+        <p style="color:rgba(255,255,255,.8);font-size:10px">Último paso</p>
+        <p style="color:#fff;font-size:13px;font-weight:700">Firma todos los documentos</p>
       </div>
     </div>
     <div class="card fade" style="margin:12px">
-      <p style="font-size:14px;font-weight:700;color:#1A237E;margin-bottom:4px">Firma del paciente</p>
-      <p style="font-size:12px;color:#546E7A;margin-bottom:12px">${S.paciente?S.paciente.nombre+" "+S.paciente.apellido_paterno:""}</p>
-      <p style="font-size:12px;color:#546E7A;margin-bottom:8px;text-align:center">Firme con su dedo en el siguiente recuadro:</p>
-      <canvas id="canvas-firma" height="200"></canvas>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn-danger" onclick="limpiarFirma()" style="flex:1">🗑️ Borrar firma</button>
+      <p style="font-size:15px;font-weight:800;color:#1A237E;margin-bottom:6px">Firma única</p>
+      <p style="font-size:13px;color:#546E7A;margin-bottom:4px">${nomPac}</p>
+      <div style="background:#E8F5E9;border-radius:8px;padding:10px 12px;margin-bottom:14px">
+        <p style="font-size:12px;font-weight:700;color:#1B5E20;margin-bottom:6px">✅ Documentos leídos y por firmar:</p>
+        ${S.docs.map(d=>`<p style="font-size:12px;color:#2E7D32;padding:3px 0;border-bottom:1px solid #C8E6C9">• ${DOCS_NOMBRES[d]||d}</p>`).join("")}
       </div>
-      <button class="btn-success" onclick="guardarFirma()" style="margin-top:10px">✅ Confirmar firma y continuar</button>
-      <button class="btn-outline" onclick="mostrarDocumento()">← Releer documento</button>
+      <p style="font-size:13px;color:#263238;margin-bottom:10px;text-align:center;font-weight:600">Su firma se aplicará a todos los documentos anteriores:</p>
+      <canvas id="canvas-firma" height="180"></canvas>
+      <button class="btn-danger" onclick="limpiarFirma()" style="margin-top:8px">🗑️ Borrar y volver a firmar</button>
+      <button class="btn-success" onclick="guardarFirmaUnica()" style="margin-top:10px">✅ Firmar y enviar todos los documentos</button>
+      <button class="btn-outline" onclick="S.docIndex=S.docs.length-1;mostrarDocumento()">← Releer último documento</button>
+    </div>
+  </div>`;
+  initCanvas();
+}
+
+window.guardarFirmaUnica=async function(){
+  const canvas=document.getElementById("canvas-firma");
+  if(!canvas)return;
+  const ctx=canvas.getContext("2d");
+  const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  const signed=data.some((v,i)=>i%4!==3&&v>0);
+  if(!signed){toast("Por favor firme en el recuadro antes de continuar",false);return;}
+
+  const sigImg=canvas.toDataURL("image/png");
+
+  // Mostrar progreso
+  R().innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#F0F4F8">
+    <div style="font-size:40px" class="spin">⚙️</div>
+    <p style="font-size:15px;font-weight:700;color:#1565C0">Generando documentos firmados...</p>
+    <p id="prog-msg" style="font-size:13px;color:#546E7A">Preparando...</p>
+    <div style="background:#E3F2FD;border-radius:8px;padding:10px 20px;margin-top:8px">
+      <p id="prog-count" style="font-size:12px;color:#1565C0;font-weight:600">0 de ${S.docs.length} documentos</p>
     </div>
   </div>`;
 
-  initCanvas();
+  // Generar PDF para cada documento con la misma firma
+  for(let i=0;i<S.docs.length;i++){
+    const msg=document.getElementById("prog-msg");
+    const cnt=document.getElementById("prog-count");
+    if(msg)msg.textContent=`Generando: ${DOCS_NOMBRES[S.docs[i]]||S.docs[i]}`;
+    if(cnt)cnt.textContent=`${i+1} de ${S.docs.length} documentos`;
+    await generarYGuardarPDF(S.docs[i], sigImg, i===S.docs.length-1);
+    await new Promise(r=>setTimeout(r,300)); // pequeña pausa entre PDFs
+  }
 }
+
+function mostrarFirma(){mostrarFirmaUnica();}
 
 function initCanvas(){
   const canvas=document.getElementById("canvas-firma");
@@ -252,29 +295,162 @@ window.limpiarFirma=function(){
   if(canvas)canvas.getContext("2d").clearRect(0,0,canvas.width,canvas.height);
 }
 
-window.guardarFirma=async function(){
-  const canvas=document.getElementById("canvas-firma");
-  if(!canvas)return;
-  // Verificar que hay firma
-  const ctx=canvas.getContext("2d");
-  const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
-  const signed=data.some((v,i)=>i%4!==3&&v>0);
-  if(!signed){toast("Por favor firme en el recuadro antes de continuar",false);return;}
 
-  const sigImg=canvas.toDataURL("image/png");
-  S.firmas[S.docs[S.docIndex]]=sigImg;
+async function generarYGuardarPDF(docKey, sigImg, isLast=true){
+  try{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const pac=S.paciente||{};
+    const med=S.medico||{};
+    const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"});
+    const nomPac=`${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}`.trim();
+    const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+    const nombre=DOCS_NOMBRES[docKey]||docKey;
 
-  // Mostrar generando PDF
-  R().innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#F0F4F8">
-    <div style="font-size:40px" class="spin">⚙️</div>
-    <p style="font-size:14px;font-weight:600;color:#1565C0">Generando PDF firmado...</p>
-    <p style="font-size:12px;color:#546E7A">Esto puede tardar unos segundos</p>
-  </div>`;
+    // ── ENCABEZADO AZUL ──
+    doc.setFillColor(13,71,161);
+    doc.rect(0,0,210,32,"F");
 
-  await generarYGuardarPDF(S.docs[S.docIndex], sigImg);
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(13);doc.setFont("helvetica","bold");
+    doc.text("QP Clinic — Especialistas en Salud Integral",14,10);
+
+    doc.setFontSize(8);doc.setFont("helvetica","normal");
+    doc.text("Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX",14,16);
+
+    // Línea 1: título de grado + institución + cédula
+    let credLine1=medNom;
+    if(med.especialidad_1)credLine1+=` | ${med.especialidad_1}${med.institucion_grado?" "+med.institucion_grado:""}`;
+    if(med.cedula_medico)credLine1+=` | Céd. Prof. ${med.cedula_medico}`;
+    doc.text(credLine1,14,21);
+
+    // Línea 2: especialidad + institución + cédula esp.
+    if(med.especialidad_2){
+      let credLine2=med.especialidad_2;
+      if(med.institucion_esp_1)credLine2+=` ${med.institucion_esp_1}`;
+      if(med.cedula_esp_1)credLine2+=` | Céd. Esp. ${med.cedula_esp_1}`;
+      doc.text(credLine2,14,26);
+    }
+
+    // ── TÍTULO DEL DOCUMENTO ──
+    doc.setTextColor(26,35,126);
+    doc.setFontSize(12);doc.setFont("helvetica","bold");
+    doc.text(nombre.toUpperCase(),105,42,{align:"center",maxWidth:170});
+
+    // ── FECHA (separada, sin encimar) ──
+    doc.setTextColor(84,110,122);
+    doc.setFontSize(8);doc.setFont("helvetica","normal");
+    doc.text(`Ciudad de México, ${hoy}`,195,42,{align:"right"});
+
+    // ── LÍNEA SEPARADORA ──
+    doc.setDrawColor(207,216,220);
+    doc.setLineWidth(0.3);
+    doc.line(14,46,196,46);
+
+    // ── DATOS DEL PACIENTE ──
+    doc.setTextColor(26,35,126);
+    doc.setFontSize(9);doc.setFont("helvetica","bold");
+    doc.text("Paciente: ",14,52);
+    doc.setTextColor(38,50,56);doc.setFont("helvetica","normal");
+    doc.text(nomPac,38,52);
+
+    // ── CONTENIDO DEL DOCUMENTO ──
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+    const texto=getDocTexto(docKey,pac,med);
+    const lines=doc.splitTextToSize(texto,178);
+    let y=60;
+    for(const line of lines){
+      if(y>242){doc.addPage();y=16;}
+      // Detectar encabezados en el texto
+      const isHeader=line===line.toUpperCase()&&line.trim().length>3&&!line.match(/^\d/);
+      if(isHeader){
+        doc.setFont("helvetica","bold");doc.setTextColor(13,71,161);
+      } else if(line.startsWith("•")||line.startsWith("-")){
+        doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+      } else {
+        doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+      }
+      doc.text(line,14,y);
+      y+=4.8;
+    }
+
+    // ── ÁREA DE FIRMAS ──
+    // Asegurar espacio suficiente para firmas
+    const firmasY=Math.max(y+12,220);
+    if(firmasY>260){doc.addPage();}
+    const fy=firmasY>260?20:firmasY;
+
+    doc.setDrawColor(207,216,220);
+    doc.setLineWidth(0.3);
+    doc.line(14,fy,196,fy);
+
+    // Firma del paciente (imagen)
+    doc.addImage(sigImg,"PNG",14,fy+4,55,22);
+    doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
+    doc.line(14,fy+28,74,fy+28);
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+    doc.text("Firma del paciente",14,fy+33);
+    doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
+    doc.text(nomPac,14,fy+38);
+    doc.text("Firmado: "+new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}),14,fy+42);
+
+    // Firma del médico (línea en blanco)
+    doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
+    doc.line(120,fy+28,196,fy+28);
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+    doc.text("Firma del médico",120,fy+33);
+    doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
+    doc.text(medNom,120,fy+38);
+    if(med.cedula_medico)doc.text("Céd. "+med.cedula_medico,120,fy+42);
+
+    // Testigo
+    doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
+    doc.line(14,fy+54,90,fy+54);
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+    doc.text("Firma del testigo",14,fy+59);
+
+    // ── FOOTER ──
+    doc.setFontSize(7);doc.setTextColor(144,164,174);
+    doc.text("Documento conforme a NOM-004-SSA3-2012 y Arts. 80-84 Reglamento LGS. QP Clinic — qpclinic.org",105,285,{align:"center"});
+
+    // ── SUBIR A SUPABASE ──
+    const pdfBlob=doc.output("blob");
+    const fileName=`firmas/${PAC_ID}/${docKey}_${Date.now()}.pdf`;
+    const {error:uploadError}=await SB.storage.from("expedientes").upload(fileName,pdfBlob,{contentType:"application/pdf",upsert:true});
+    if(uploadError)throw uploadError;
+
+    // Actualizar o crear registro en anexos
+    const pendiente=S.pendientes.find(p=>p.tipo_documento==="firma_pendiente_"+docKey);
+    if(pendiente){
+      await SB.from("anexos").update({
+        firmado:true,storage_path:fileName,
+        fecha:new Date().toISOString().split("T")[0],
+        titulo:nombre.toUpperCase(),tipo_documento:docKey,origen:"digital",
+        fecha_firma:new Date().toISOString(),nombre_firmante:nomPac,
+      }).eq("id",pendiente.id);
+    } else {
+      await SB.from("anexos").insert({
+        paciente_id:PAC_ID,titulo:nombre.toUpperCase(),
+        tipo_documento:docKey,origen:"digital",firmado:true,
+        storage_path:fileName,fecha:new Date().toISOString().split("T")[0],
+        fecha_firma:new Date().toISOString(),nombre_firmante:nomPac,codigo_firma:COD,
+      });
+    }
+
+    if(isLast)mostrarTerminado();
+
+  } catch(err){
+    console.error(err);
+    R().innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div class="card" style="text-align:center;max-width:360px">
+        <div style="font-size:40px;margin-bottom:12px">⚠️</div>
+        <h3 style="color:#C62828;margin-bottom:8px">Error al guardar</h3>
+        <p style="font-size:13px;color:#546E7A;margin-bottom:16px">${err.message}</p>
+        <button class="btn-primary" onclick="mostrarFirmaUnica()">Intentar de nuevo</button>
+      </div>
+    </div>`;
+  }
 }
-
-async function generarYGuardarPDF(docKey, sigImg){
   try{
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
