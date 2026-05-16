@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/firmar", "destination": "/firmar.html" },
+    { "source": "/firmar/(.*)", "destination": "/firmar.html" }
+  ]
+}
