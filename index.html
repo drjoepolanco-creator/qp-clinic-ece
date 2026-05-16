@@ -1182,7 +1182,7 @@ window.enviarFirmaWAGlobal=async function(){
   const celLimpio=cel.replace(/\D/g,"");
   const celFinal=celLimpio.length===10?"52"+celLimpio:celLimpio;
   const nomPac=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno}`:"Paciente";
-  const url=`https://qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}`;
+  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}`;
   const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\nSu información es tratada con absoluta confidencialidad.\n_QP Clinic — Especialistas en Salud Integral_`;
   window.open(`https://wa.me/${celFinal}?text=${encodeURIComponent(msg)}`,"_blank");
   showToast("✓ Abre WhatsApp en +52 5644237028 y envía el mensaje");
@@ -1255,7 +1255,7 @@ window.enviarFirmaWA=async function(){
     firmado:false,
   })));
   const celLimpio=cel.replace(/\D/g,"");
-  const url=`https://qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}`;
+  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}`;
   const nomPac=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno}`:"Paciente";
   const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\n_Su información es tratada con absoluta confidencialidad._\n_QP Clinic — Especialistas en Salud Integral_`;
   // Abrir WhatsApp desde el número de la clínica
