@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>QP Clinic — Firma de Documentos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#F0F4F8;color:#263238;font-size:14px}
+.card{background:#fff;border-radius:14px;padding:20px;margin:12px;box-shadow:0 2px 8px #00000015}
+.btn-primary{width:100%;padding:14px;background:#1565C0;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+.btn-success{width:100%;padding:14px;background:#2E7D32;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+.btn-outline{width:100%;padding:12px;background:#fff;color:#1565C0;border:2px solid #1565C0;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
+.btn-danger{width:100%;padding:10px;background:#fff;color:#C62828;border:1.5px solid #C62828;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}
+input[type=text],input[type=tel]{width:100%;padding:12px 14px;border:2px solid #CFD8DC;border-radius:10px;font-size:15px;outline:none;font-family:inherit}
+input:focus{border-color:#1565C0}
+.doc-body{font-size:13px;line-height:1.9;color:#263238;max-height:45vh;overflow-y:auto;border:1px solid #CFD8DC;border-radius:8px;padding:14px;background:#FAFAFA;margin:12px 0}
+.step-indicator{display:flex;justify-content:center;gap:6px;margin:12px 0}
+.step-dot{width:8px;height:8px;border-radius:50%;background:#CFD8DC}
+.step-dot.active{background:#1565C0;width:24px;border-radius:4px}
+.step-dot.done{background:#2E7D32}
+#canvas-firma{border:2px solid #CFD8DC;border-radius:10px;touch-action:none;background:#fff;width:100%;cursor:crosshair}
+.spin{display:inline-block;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.fade{animation:fd .3s ease}
+@keyframes fd{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+</style>
+</head>
+<body>
+<div id="R"></div>
+<script>
+const {createClient}=supabase;
+const SB=createClient(
+  'https://ebukjdxeekhzeurmhgkj.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidWtqZHhlZWtoemV1cm1oZ2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDI3NDAsImV4cCI6MjA5NDM3ODc0MH0.eXaNf2lXjU8_q0CeYz8CHUBZJftp9_JZY153uZFWYVQ'
+);
+
+// Estado
+let S={step:"codigo",pac:null,docs:[],docIndex:0,firmas:{},pendientes:[],paciente:null,medico:null};
+const params=new URLSearchParams(window.location.search);
+const PAC_ID=params.get("pac");
+const DOCS_STR=params.get("docs")||"";
+const COD=params.get("cod")||"";
+
+const R=()=>document.getElementById("R");
+function toast(msg,ok=true){
+  let t=document.getElementById("toast");
+  if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);}
+  t.style.cssText=`position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${ok?"#2E7D32":"#C62828"};color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 12px #00000030`;
+  t.textContent=msg;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",3000);
+}
+
+// Documentos
+const DOCS_NOMBRES={
+  "general":"Consentimiento Informado General",
+  "privacidad":"Aviso de Privacidad",
+  "telemedicina":"Consentimiento de Telemedicina",
+  "qpclinic":"Consentimiento QP Clinic — Tratamiento Médico-Deportivo",
+  "seguimiento":"Carta Compromiso — Seguimiento Médico-Deportivo",
+  "eaa":"Consentimiento Uso de EAA",
+  "infiltraciones":"Consentimiento para Infiltraciones",
+  "esfuerzo":"Consentimiento Prueba de Esfuerzo",
+  "glp1":"Consentimiento GLP-1 (Ozempic® / Mounjaro®)"
+};
+
+function getDocTexto(tipo,pac,med){
+  const nom=pac?`${pac.nombre} ${pac.apellido_paterno} ${pac.apellido_materno||""}`.trim():"_______________";
+  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"});
+  const medNom=med?`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim():"el médico tratante";
+  const medCred=med?`${med.especialidad_1||""}${med.cedula_medico?", Céd. Prof. "+med.cedula_medico:""}${med.especialidad_2?"\n"+med.especialidad_2+(med.cedula_esp_1?", Céd. Esp. "+med.cedula_esp_1:""):""}`:""
+
+  const textos={
+    "general":`CONSENTIMIENTO INFORMADO GENERAL\n\nYo, ${nom}, en Ciudad de México a ${hoy}, manifiesto lo siguiente:\n\nHe recibido información clara, precisa y suficiente sobre mi condición de salud y el plan de tratamiento propuesto por ${medNom}. He tenido la oportunidad de formular todas las preguntas que consideré necesarias y he recibido respuestas satisfactorias.\n\nHe sido informado(a) de los tratamientos alternativos posibles, así como de los efectos secundarios o adversos que puede tener el tratamiento propuesto.\n\nEntiendo que las indicaciones del médico fueron emitidas de acuerdo a criterio médico-científico y que el cumplimiento de las mismas es voluntario. La efectividad del tratamiento es proporcional al apego a las indicaciones.\n\nEntiendo que puedo abandonar el plan de tratamiento en cualquier momento, de conformidad con el Art. 51 Bis 1 de la Ley General de Salud, y que el abandono puede implicar consecuencias adversas para mi salud.\n\nToda la información relacionada con mi atención médica será tratada con estricta confidencialidad conforme a la NOM-004-SSA3-2012 y la LFPDPPP.\n\nFirmo el presente consentimiento de forma libre y voluntaria.`,
+
+    "privacidad":`AVISO DE PRIVACIDAD SIMPLIFICADO\n\nYo, ${nom}, en Ciudad de México a ${hoy}:\n\nQP Clinic — Especialistas en Salud Integral, con domicilio en Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX, es responsable del tratamiento de mis datos personales conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP).\n\nDatos recabados: identificación, contacto y datos sensibles de salud (antecedentes clínicos, diagnósticos, tratamientos, estudios), así como datos financieros para facturación.\n\nFinalidades: integración del expediente clínico, prestación de servicios médicos, diagnóstico y tratamiento, facturación, y cumplimiento de obligaciones legales en materia de salud.\n\nPuedo ejercer mis derechos ARCO (Acceso, Rectificación, Cancelación u Oposición) enviando solicitud a: recepcion@qpclinic.mx.\n\nHe leído y comprendido el Aviso de Privacidad completo disponible en qpclinic.org y otorgo mi consentimiento para el tratamiento de mis datos personales, incluyendo datos sensibles de salud.`,
+
+    "telemedicina":`CONSENTIMIENTO INFORMADO PARA SERVICIOS DE TELEMEDICINA / TELESALUD\n\nYo, ${nom}, en Ciudad de México a ${hoy}:\n\nLa Telemedicina/Telesalud implica el uso de comunicaciones electrónicas para permitir que los proveedores de atención médica compartan información médica individual del paciente con el fin de mejorar su atención, mediante equipos de telecomunicaciones que permiten comunicación bidireccional en tiempo real.\n\nBENEFICIOS ESPERADOS:\n• Mejora del acceso a la atención desde un sitio remoto.\n• Evaluación y gestión médica más eficientes.\n• Diagnóstico y tratamiento oportunos.\n\nRIESGOS POTENCIALES:\n• La transmisión de información podría verse alterada por fallas técnicas.\n• Los servicios de telemedicina pueden no ser tan completos como los presenciales.\n• En casos poco frecuentes la información transmitida puede ser insuficiente.\n• En casos excepcionales los protocolos de seguridad pueden fallar.\n\nDECLARO:\n1. Entiendo que puedo retirar mi consentimiento en cualquier momento sin afectar mi derecho a atención presencial futura.\n2. Las leyes que protegen la confidencialidad de mi información médica aplican también a la telemedicina.\n3. Existen alternativas de atención presencial disponibles.\n\nFirmo el presente consentimiento de forma libre y voluntaria.`,
+
+    "qpclinic":`CONSENTIMIENTO INFORMADO PARA TRATAMIENTO MÉDICO-DEPORTIVO\n\nYo, ${nom}, en Ciudad de México a ${hoy}, manifiesto que ${medNom}${medCred?", "+medCred:""} me ha informado sobre el tratamiento médico-deportivo:\n\nDESCRIPCIÓN DEL TRATAMIENTO: Prescripción y modificación evolutiva de ejercicio físico y plan alimenticio individualizados.\n\nRIESGOS POTENCIALES: problemas digestivos (náuseas, vómitos, diarreas), cansancio, dolor muscular, calambres, palpitaciones, mareos, hipotensión, hipoglucemia, alteración electrolítica. También pueden presentarse boca seca, caída del cabello, cefalea, cambios en el ritmo menstrual y sensibilidad al frío.\n\nLa aparición de efectos adversos es inversamente proporcional al apego al tratamiento prescrito.\n\nHabiendo sido informado(a) de los beneficios, riesgos y alternativas del tratamiento, otorgo mi consentimiento libre y voluntario para iniciarlo.`,
+
+    "seguimiento":`CARTA DE COMPROMISO — SEGUIMIENTO MÉDICO-DEPORTIVO\n\nYo, ${nom}, en Ciudad de México a ${hoy}, acepto las características del seguimiento médico-deportivo:\n\n1. Evaluaciones médico-deportivas cada 15 días.\n2. Determinación de composición corporal en cada consulta.\n3. Prescripción y progresión de actividad física y plan alimenticio.\n4. Valoración médica por lesión o enfermedad durante el periodo vigente.\n5. Determinación de capacidad aeróbica al inicio y al finalizar.\n\nCONDICIONES:\n• Duración: 8 o 12 semanas según plan contratado.\n• Los servicios no tomados NO se repondrán al vencer la vigencia.\n• NO se realizarán devoluciones económicas una vez contratado el periodo.\n• Los resultados no se garantizan si se siguen recomendaciones externas o metodologías no prescritas por el médico tratante.`,
+
+    "eaa":`CONSENTIMIENTO INFORMADO — USO DE ESTEROIDES ANABÓLICOS ANDROGÉNICOS (EAA)\n\nYo, ${nom}, en Ciudad de México a ${hoy}, declaro que ${medNom} me ha informado sobre los efectos secundarios del uso de EAA:\n\nRIESGOS PARA LA SALUD:\n• Cardiovasculares: HAS, hipertrofia ventricular, trombosis, infarto, EVC.\n• Hepáticos: hepatitis, peliosis, carcinoma hepatocelular.\n• Renales: disminución del filtrado glomerular, insuficiencia renal.\n• Psiquiátricos: hostilidad, depresión, manía, psicosis.\n• Reproductivos: azoospermia, atrofia testicular, disfunción eréctil.\n• Anafilaxia. MUERTE.\n\nConociendo los riesgos, solicito voluntariamente la prescripción médica de EAA bajo seguimiento médico periódico. Entiendo que el seguimiento busca minimizar los riesgos pero no los elimina. Puedo revocar este consentimiento en cualquier momento.`,
+
+    "infiltraciones":`CONSENTIMIENTO INFORMADO PARA TRATAMIENTO CON INFILTRACIONES\n\nYo, ${nom}, en Ciudad de México a ${hoy}, declaro haber sido informado(a) por ${medNom} sobre:\n\nDESCRIPCIÓN: Introducción de sustancia o medicamento con jeringa en una región anatómica específica, con fines diagnósticos o terapéuticos.\n\nOBJETIVOS: Aliviar el dolor, reducir inflamación, prevenir limitación funcional y reducir necesidad de tratamientos más agresivos.\n\nRIESGOS: Reacción alérgica (incluida anafilaxia), lesiones en vasos/nervios/tendones, infección, descompensación de diabetes/HAS, atrofia cutánea.\n\nALTERNATIVAS: Medicación antiinflamatoria, reposo relativo o fisioterapia.\n\nHe comprendido la información, mis dudas fueron aclaradas. Otorgo mi consentimiento para el procedimiento de infiltración. Sé que puedo revocarlo en cualquier momento.`,
+
+    "esfuerzo":`CONSENTIMIENTO INFORMADO PARA PRUEBA DE ESFUERZO\n\nYo, ${nom}, en Ciudad de México a ${hoy}, habiendo sido informado(a) por ${medNom} sobre:\n\n¿QUÉ ES? Prueba de ejercicio físico progresivo que valora la respuesta del organismo durante el esfuerzo, determina umbrales aeróbico y anaeróbico, y permite diseñar planes de entrenamiento personalizados. Permite detectar arritmias y cardiopatías.\n\n¿CÓMO SE REALIZA? En cinta rodante o bicicleta ergométrica con carga progresiva, monitorizando presión arterial, frecuencia cardíaca y electrocardiograma.\n\nRIESGOS: Cansancio muscular, mareo, angina. En casos de enfermedad coronaria: arritmias graves, síncope, infarto. Riesgo de muerte excepcional (1 por 10,000). El personal médico está capacitado para atender complicaciones.\n\nHe comprendido el procedimiento y sus riesgos. Tomo la decisión de manera libre y voluntaria.`,
+
+    "glp1":`CONSENTIMIENTO INFORMADO — TRATAMIENTO CON AGONISTAS GLP-1\n(Semaglutida / Ozempic® — Tirzepatida / Mounjaro®)\n\nYo, ${nom}, en Ciudad de México a ${hoy}, declaro que ${medNom} me ha informado:\n\nOBJETIVO: Control de diabetes tipo 2 y/o reducción de peso en obesidad/sobrepeso.\n\nEFECTOS ADVERSOS FRECUENTES (≥5%): Náuseas, vómito, diarrea, dolor abdominal, estreñimiento.\n\nEFECTOS ADVERSOS MENOS FRECUENTES: Hipoglucemia, litiasis vesicular, empeoramiento de retinopatía diabética.\n\nRIESGO GRAVE — NEUROPATÍA ÓPTICA ISQUÉMICA (NAION): Estudios publicados en JAMA Ophthalmology (2024) y confirmados por la EMA (junio 2025) identificaron asociación con NAION. Riesgo 4-7x mayor vs otros tratamientos. El daño puede ser IRREVERSIBLE. La EMA lo clasificó como efecto adverso "muy raro" (≤1 de 10,000 pacientes). Ante cualquier cambio visual debo notificarlo inmediatamente al médico.\n\nHe sido informado(a) de beneficios, riesgos y alternativas. Acepto iniciar el tratamiento bajo supervisión médica, comprometiéndome a reportar cualquier efecto adverso.`
+  };
+  return textos[tipo]||`Documento: ${DOCS_NOMBRES[tipo]||tipo}`;
+}
+
+// ── PASO 1: VERIFICAR CÓDIGO ──────────────────────────────
+function mostrarVerificacion(){
+  R().innerHTML=`
+  <div style="min-height:100vh;background:linear-gradient(135deg,#0D47A1,#0288D1);display:flex;align-items:center;justify-content:center;padding:16px">
+    <div class="card fade" style="width:100%;max-width:380px;text-align:center">
+      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="width:160px;margin:0 auto 16px;display:block">
+      <h2 style="font-size:18px;font-weight:800;color:#1A237E;margin-bottom:6px">Firma de Documentos Médicos</h2>
+      <p style="color:#546E7A;font-size:13px;margin-bottom:20px;line-height:1.6">Por favor lea detenidamente los documentos que se le mostrarán y fírmelos para integrarlos a su expediente clínico.<br><br>Su información es tratada con absoluta confidencialidad.</p>
+      <p style="font-size:12px;font-weight:700;color:#546E7A;margin-bottom:8px;text-align:left">Código de seguridad (como aparece en su WhatsApp)</p>
+      <input id="cod-input" type="text" placeholder="Ej: AB3C9D" style="text-transform:uppercase;letter-spacing:3px;font-size:18px;text-align:center;font-weight:700" value="${COD||""}">
+      <button class="btn-primary" onclick="verificarCodigo()">COMENZAR →</button>
+      <div id="ver-error" style="display:none;background:#FFEBEE;color:#C62828;padding:10px;border-radius:8px;margin-top:10px;font-size:13px"></div>
+      <p style="font-size:11px;color:#90A4AE;margin-top:16px">QP Clinic — Especialistas en Salud Integral<br>qpclinic.org</p>
+    </div>
+  </div>`;
+  // Auto-verificar si viene el código en URL
+  if(COD&&PAC_ID)setTimeout(()=>verificarCodigo(),300);
+}
+
+window.verificarCodigo=async function(){
+  const cod=(document.getElementById("cod-input")?.value||"").trim().toUpperCase();
+  if(!cod||cod.length<5){mostrarError("ver-error","Ingrese el código de seguridad completo");return;}
+  if(!PAC_ID){mostrarError("ver-error","Enlace inválido — contacte a la clínica");return;}
+
+  // Buscar documentos pendientes
+  const {data,error}=await SB.from("anexos")
+    .select("*")
+    .eq("paciente_id",PAC_ID)
+    .eq("codigo_firma",cod)
+    .eq("firmado",false);
+
+  if(error||!data||data.length===0){
+    mostrarError("ver-error","Código incorrecto o documentos ya firmados");
+    return;
+  }
+
+  S.pendientes=data;
+  S.docs=data.map(d=>d.tipo_documento.replace("firma_pendiente_",""));
+
+  // Cargar datos del paciente
+  const {data:pac}=await SB.from("pacientes").select("*").eq("id",PAC_ID).single();
+  S.paciente=pac;
+
+  // Cargar perfil del médico (primer usuario activo)
+  const {data:med}=await SB.from("usuarios").select("*").eq("activo",true).limit(1).single();
+  S.medico=med;
+
+  S.docIndex=0;
+  mostrarDocumento();
+}
+function mostrarError(id,msg){const e=document.getElementById(id);if(e){e.style.display="block";e.textContent=msg;}}
+
+// ── PASO 2: LEER DOCUMENTO ────────────────────────────────
+function mostrarDocumento(){
+  const docKey=S.docs[S.docIndex];
+  const total=S.docs.length;
+  const actual=S.docIndex+1;
+  const nombre=DOCS_NOMBRES[docKey]||docKey;
+  const texto=getDocTexto(docKey,S.paciente,S.medico);
+
+  R().innerHTML=`
+  <div style="min-height:100vh;background:#F0F4F8">
+    <div style="background:#0D47A1;padding:14px 16px;display:flex;align-items:center;gap:10px">
+      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:32px;background:#fff;border-radius:4px;padding:2px">
+      <div>
+        <p style="color:rgba(255,255,255,.7);font-size:10px">Documento ${actual} de ${total}</p>
+        <p style="color:#fff;font-size:12px;font-weight:700">${nombre}</p>
+      </div>
+    </div>
+    <div style="padding:12px 12px 0">
+      <div class="step-indicator">
+        ${S.docs.map((_,i)=>`<div class="step-dot ${i<S.docIndex?"done":i===S.docIndex?"active":""}"></div>`).join("")}
+      </div>
+    </div>
+    <div class="card fade" style="margin:8px 12px">
+      <p style="font-size:13px;font-weight:700;color:#1A237E;margin-bottom:10px">${nombre}</p>
+      <div class="doc-body" id="doc-texto">${texto.replace(/\n/g,"<br>")}</div>
+      <label style="display:flex;align-items:flex-start;gap:10px;margin:14px 0;cursor:pointer;background:#E8F5E9;padding:12px;border-radius:8px">
+        <input type="checkbox" id="leido-check" style="accent-color:#2E7D32;width:20px;height:20px;flex-shrink:0;margin-top:2px">
+        <span style="font-size:13px;font-weight:600;color:#1B5E20">He leído y entendido el documento. Estoy de acuerdo con su contenido.</span>
+      </label>
+      <button class="btn-primary" onclick="irAFirmar()">Continuar a firmar →</button>
+      ${S.docIndex>0?`<button class="btn-outline" onclick="S.docIndex--;mostrarDocumento()">← Documento anterior</button>`:""}
+    </div>
+  </div>`;
+}
+
+// ── PASO 3: FIRMAR ────────────────────────────────────────
+window.irAFirmar=function(){
+  if(!document.getElementById("leido-check")?.checked){
+    toast("Debe marcar que leyó y está de acuerdo antes de continuar",false);return;
+  }
+  mostrarFirma();
+}
+
+function mostrarFirma(){
+  const docKey=S.docs[S.docIndex];
+  const nombre=DOCS_NOMBRES[docKey]||docKey;
+  const total=S.docs.length;
+  const actual=S.docIndex+1;
+
+  R().innerHTML=`
+  <div style="min-height:100vh;background:#F0F4F8">
+    <div style="background:#0D47A1;padding:14px 16px;display:flex;align-items:center;gap:10px">
+      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:32px;background:#fff;border-radius:4px;padding:2px">
+      <div>
+        <p style="color:rgba(255,255,255,.7);font-size:10px">Firma — Documento ${actual} de ${total}</p>
+        <p style="color:#fff;font-size:12px;font-weight:700">${nombre}</p>
+      </div>
+    </div>
+    <div class="card fade" style="margin:12px">
+      <p style="font-size:14px;font-weight:700;color:#1A237E;margin-bottom:4px">Firma del paciente</p>
+      <p style="font-size:12px;color:#546E7A;margin-bottom:12px">${S.paciente?S.paciente.nombre+" "+S.paciente.apellido_paterno:""}</p>
+      <p style="font-size:12px;color:#546E7A;margin-bottom:8px;text-align:center">Firme con su dedo en el siguiente recuadro:</p>
+      <canvas id="canvas-firma" height="200"></canvas>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn-danger" onclick="limpiarFirma()" style="flex:1">🗑️ Borrar firma</button>
+      </div>
+      <button class="btn-success" onclick="guardarFirma()" style="margin-top:10px">✅ Confirmar firma y continuar</button>
+      <button class="btn-outline" onclick="mostrarDocumento()">← Releer documento</button>
+    </div>
+  </div>`;
+
+  initCanvas();
+}
+
+function initCanvas(){
+  const canvas=document.getElementById("canvas-firma");
+  if(!canvas)return;
+  canvas.width=canvas.offsetWidth;
+  const ctx=canvas.getContext("2d");
+  ctx.strokeStyle="#1565C0";ctx.lineWidth=2.5;ctx.lineCap="round";ctx.lineJoin="round";
+  let drawing=false,lastX=0,lastY=0;
+
+  function getPos(e){
+    const r=canvas.getBoundingClientRect();
+    if(e.touches){return{x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};}
+    return{x:e.clientX-r.left,y:e.clientY-r.top};
+  }
+  canvas.addEventListener("mousedown",e=>{drawing=true;const p=getPos(e);lastX=p.x;lastY=p.y;});
+  canvas.addEventListener("touchstart",e=>{e.preventDefault();drawing=true;const p=getPos(e);lastX=p.x;lastY=p.y;},{passive:false});
+  function draw(e){
+    if(!drawing)return;
+    if(e.touches)e.preventDefault();
+    const p=getPos(e);
+    ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(p.x,p.y);ctx.stroke();
+    lastX=p.x;lastY=p.y;
+  }
+  canvas.addEventListener("mousemove",draw);
+  canvas.addEventListener("touchmove",draw,{passive:false});
+  canvas.addEventListener("mouseup",()=>drawing=false);
+  canvas.addEventListener("touchend",()=>drawing=false);
+}
+
+window.limpiarFirma=function(){
+  const canvas=document.getElementById("canvas-firma");
+  if(canvas)canvas.getContext("2d").clearRect(0,0,canvas.width,canvas.height);
+}
+
+window.guardarFirma=async function(){
+  const canvas=document.getElementById("canvas-firma");
+  if(!canvas)return;
+  // Verificar que hay firma
+  const ctx=canvas.getContext("2d");
+  const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  const signed=data.some((v,i)=>i%4!==3&&v>0);
+  if(!signed){toast("Por favor firme en el recuadro antes de continuar",false);return;}
+
+  const sigImg=canvas.toDataURL("image/png");
+  S.firmas[S.docs[S.docIndex]]=sigImg;
+
+  // Mostrar generando PDF
+  R().innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#F0F4F8">
+    <div style="font-size:40px" class="spin">⚙️</div>
+    <p style="font-size:14px;font-weight:600;color:#1565C0">Generando PDF firmado...</p>
+    <p style="font-size:12px;color:#546E7A">Esto puede tardar unos segundos</p>
+  </div>`;
+
+  await generarYGuardarPDF(S.docs[S.docIndex], sigImg);
+}
+
+async function generarYGuardarPDF(docKey, sigImg){
+  try{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const pac=S.paciente||{};
+    const med=S.medico||{};
+    const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"});
+    const nomPac=`${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}`.trim();
+    const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+    const nombre=DOCS_NOMBRES[docKey]||docKey;
+
+    // Header
+    doc.setFillColor(13,71,161);
+    doc.rect(0,0,210,28,"F");
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(14);doc.setFont("helvetica","bold");
+    doc.text("QP Clinic — Especialistas en Salud Integral",14,12);
+    doc.setFontSize(9);doc.setFont("helvetica","normal");
+    doc.text("Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX",14,19);
+    doc.text(medNom+" | "+med.especialidad_1+" | Céd. "+med.cedula_medico,14,24);
+
+    // Título
+    doc.setTextColor(26,35,126);
+    doc.setFontSize(13);doc.setFont("helvetica","bold");
+    doc.text(nombre.toUpperCase(),105,38,{align:"center"});
+
+    // Fecha
+    doc.setTextColor(84,110,122);
+    doc.setFontSize(9);doc.setFont("helvetica","normal");
+    doc.text("Ciudad de México, "+hoy,195,38,{align:"right"});
+
+    // Paciente
+    doc.setDrawColor(207,216,220);
+    doc.setLineWidth(0.3);doc.line(14,42,196,42);
+    doc.setTextColor(26,35,126);
+    doc.setFontSize(10);doc.setFont("helvetica","bold");
+    doc.text("Paciente: ",14,49);
+    doc.setTextColor(38,50,56);doc.setFont("helvetica","normal");
+    doc.text(nomPac,40,49);
+
+    // Contenido del documento
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+    const texto=getDocTexto(docKey,pac,med);
+    const lines=doc.splitTextToSize(texto,175);
+    let y=58;
+    for(const line of lines){
+      if(y>240){doc.addPage();y=20;}
+      if(line.startsWith("CONSENTIMIENTO")||line.startsWith("AVISO")||line.startsWith("CARTA")){
+        doc.setFont("helvetica","bold");doc.setTextColor(13,71,161);
+      } else if(line===line.toUpperCase()&&line.length>3){
+        doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+      } else {
+        doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+      }
+      doc.text(line,14,y);
+      y+=4.5;
+    }
+
+    // Área de firmas
+    if(y>220)doc.addPage();
+    y=Math.max(y+10,230);
+    doc.setDrawColor(207,216,220);
+    doc.setLineWidth(0.3);doc.line(14,y,196,y);
+    y+=8;
+
+    // Firma del paciente (imagen del canvas)
+    doc.addImage(sigImg,"PNG",14,y,60,25);
+    doc.setDrawColor(38,50,56);doc.setLineWidth(0.3);
+    doc.line(14,y+28,74,y+28);
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+    doc.text("Firma del paciente",14,y+33);
+    doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
+    doc.text(nomPac,14,y+38);
+    doc.text("Firmado digitalmente: "+new Date().toLocaleString("es-MX"),14,y+42);
+
+    // Firma médico (línea en blanco)
+    doc.setDrawColor(38,50,56);doc.line(120,y+28,196,y+28);
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+    doc.text("Firma del médico",120,y+33);
+    doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
+    doc.text(medNom,120,y+38);
+
+    // Footer
+    doc.setFontSize(7);doc.setTextColor(144,164,174);
+    doc.text("Documento generado conforme a NOM-004-SSA3-2012. QP Clinic — qpclinic.org",105,285,{align:"center"});
+
+    // Convertir a blob y subir a Supabase
+    const pdfBlob=doc.output("blob");
+    const fileName=`firmas/${PAC_ID}/${docKey}_${Date.now()}.pdf`;
+    const {error:uploadError}=await SB.storage.from("expedientes").upload(fileName,pdfBlob,{contentType:"application/pdf",upsert:true});
+
+    if(uploadError)throw uploadError;
+
+    // Actualizar registro en anexos
+    const pendiente=S.pendientes.find(p=>p.titulo.toLowerCase().includes(docKey));
+    if(pendiente){
+      await SB.from("anexos").update({
+        firmado:true,
+        storage_path:fileName,
+        fecha:new Date().toISOString().split("T")[0],
+        titulo:nombre.toUpperCase(),
+        tipo_documento:docKey,
+        origen:"digital",
+        fecha_firma:new Date().toISOString(),
+        nombre_firmante:nomPac,
+      }).eq("id",pendiente.id);
+    } else {
+      // Crear nuevo registro
+      await SB.from("anexos").insert({
+        paciente_id:PAC_ID,
+        titulo:nombre.toUpperCase(),
+        tipo_documento:docKey,
+        origen:"digital",
+        firmado:true,
+        storage_path:fileName,
+        fecha:new Date().toISOString().split("T")[0],
+        fecha_firma:new Date().toISOString(),
+        nombre_firmante:nomPac,
+        codigo_firma:COD,
+      });
+    }
+
+    // Siguiente documento o terminar
+    S.docIndex++;
+    if(S.docIndex<S.docs.length){
+      mostrarDocumento();
+      toast("✓ Documento firmado — continuando con el siguiente");
+    } else {
+      mostrarTerminado();
+    }
+  } catch(err){
+    console.error(err);
+    R().innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div class="card" style="text-align:center;max-width:360px">
+        <div style="font-size:40px;margin-bottom:12px">⚠️</div>
+        <h3 style="color:#C62828;margin-bottom:8px">Error al guardar</h3>
+        <p style="font-size:13px;color:#546E7A;margin-bottom:16px">${err.message}</p>
+        <button class="btn-primary" onclick="mostrarFirma()">Intentar de nuevo</button>
+      </div>
+    </div>`;
+  }
+}
+
+// ── PASO 4: TERMINADO ────────────────────────────────────
+function mostrarTerminado(){
+  R().innerHTML=`
+  <div style="min-height:100vh;background:linear-gradient(135deg,#0D47A1,#0288D1);display:flex;align-items:center;justify-content:center;padding:16px">
+    <div class="card fade" style="width:100%;max-width:360px;text-align:center">
+      <div style="font-size:64px;margin-bottom:16px">✅</div>
+      <h2 style="font-size:20px;font-weight:800;color:#1A237E;margin-bottom:8px">¡Documentos firmados!</h2>
+      <p style="color:#546E7A;font-size:14px;line-height:1.7;margin-bottom:20px">
+        Sus documentos han sido firmados digitalmente y guardados de forma segura en su expediente clínico.<br><br>
+        <b>${S.docs.length} documento${S.docs.length>1?"s":""} firmado${S.docs.length>1?"s":""}</b> el ${new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"})}.
+      </p>
+      <div style="background:#E8F5E9;border-radius:10px;padding:14px;margin-bottom:16px">
+        <p style="font-size:12px;color:#2E7D32;font-weight:600">Los PDFs firmados están disponibles en su expediente clínico en QP Clinic</p>
+      </div>
+      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="width:140px;margin:0 auto;display:block;opacity:.6">
+      <p style="font-size:11px;color:#90A4AE;margin-top:12px">QP Clinic — Especialistas en Salud Integral<br>qpclinic.org | +52 5644237028</p>
+    </div>
+  </div>`;
+}
+
+// Iniciar
+mostrarVerificacion();
+</script>
+</body>
+</html>
