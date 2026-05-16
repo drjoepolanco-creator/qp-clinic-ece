@@ -84,9 +84,11 @@ function nav(){
     ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:12px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["perfil","medicos"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:12px;border-bottom:${["perfil","medicos"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
-      <div id="cfg-menu" style="display:none;position:absolute;top:46px;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000025;min-width:200px;z-index:100;overflow:hidden">
+      <div id="cfg-menu" style="display:none;position:absolute;top:46px;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000025;min-width:220px;z-index:100;overflow:hidden">
         <button onclick="go('perfil');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#263238;display:flex;align-items:center;gap:8px">👨‍⚕️ Mi perfil médico</button>
-        <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Médicos del sistema</button>
+        ${STATE.userProfile?.rol==="admin"?`<div style="border-top:1px solid #CFD8DC"></div>
+        <div style="padding:6px 16px;font-size:10px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5">Administrador</div>
+        <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de usuarios</button>`:""}
       </div>
     </div>
     <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
@@ -120,7 +122,7 @@ function pgLogin(){
         <p style="color:${MU};font-size:12px;margin-top:4px">Expediente Clínico Electrónico</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:13px">
-        ${fld("Correo electrónico",inp("lu","","correo@qpclinic.mx","email"))}
+        ${fld("Nombre de usuario",`<input id="lu" type="text" placeholder="Ej: dr.polanco" autocomplete="username" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">`)}
         ${fld("Contraseña",inp("lp","","••••••••","password"))}
         <button id="login-btn" onclick="doLogin()" style="width:100%;padding:11px;background:${P};color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;margin-top:4px">Entrar al Sistema</button>
         <div id="login-error" style="display:none;background:#FFEBEE;color:${DA};padding:8px 12px;border-radius:7px;font-size:12px;text-align:center"></div>
@@ -281,14 +283,33 @@ Sitio web: www.qpclinic.org</p>
 
 <p style="margin-top:16px;padding:10px;background:#E8F5E9;border-radius:7px;color:#2E7D32;font-size:11px">✅ Última actualización: Mayo 2026 | Este aviso cumple con la LFPDPPP y su Reglamento, la NOM-004-SSA3-2012 y la NOM-024-SSA3-2012.</p>`;
 window.doLogin=async function(){
-  const email=gv("lu"),pass=gv("lp");
-  if(!email||!pass){showLoginError("Ingresa tu correo y contraseña");return;}
+  let usuario=gv("lu").trim().toLowerCase();
+  const pass=gv("lp");
+  if(!usuario||!pass){showLoginError("Ingresa tu usuario y contraseña");return;}
   const lb=document.getElementById("login-btn");
   lb.textContent="Entrando...";lb.disabled=true;
+
+  // Si no tiene @ lo tratamos como username → buscar email en usuarios
+  let email=usuario;
+  if(!usuario.includes("@")){
+    // Buscar en tabla usuarios por username
+    const {data:uData}=await SB.from("usuarios").select("email,username").eq("username",usuario).maybeSingle();
+    if(uData?.email){
+      email=uData.email;
+    } else {
+      // Intentar con formato username@qpclinic.mx como fallback
+      email=usuario+"@qpclinic.mx";
+    }
+  }
+
   const {data,error}=await SB.auth.signInWithPassword({email,password:pass});
-  if(error){showLoginError("Correo o contraseña incorrectos");lb.textContent="Entrar al Sistema";lb.disabled=false;return;}
+  if(error){
+    showLoginError("Usuario o contraseña incorrectos");
+    lb.textContent="Entrar al Sistema";lb.disabled=false;
+    return;
+  }
   STATE.user=data.user;
-  const {data:prof}=await SB.from("usuarios").select("*").eq("id",data.user.id).single();
+  const {data:prof}=await SB.from("usuarios").select("*").eq("id",data.user.id).maybeSingle();
   STATE.userProfile=prof;
   go("agenda");
 }
@@ -1428,46 +1449,135 @@ window.guardarPerfil=async function(){
   showToast("✓ Perfil médico actualizado");
 }
 
-// ── MÉDICOS DEL SISTEMA ────────────────────────────────────
+// ── MÉDICOS DEL SISTEMA (solo admin) ──────────────────────
 async function pgMedicos(){
+  // Verificar que es admin
+  if(STATE.userProfile?.rol!=="admin"){go("agenda");showToast("Acceso restringido al administrador",false);return;}
   RR().innerHTML=nav()+`
   <div style="max-width:960px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div>
-        <h2 style="font-size:18px;font-weight:800;color:${TX}">Médicos del Sistema</h2>
-        <p style="color:${MU};font-size:12px;margin-top:2px">Usuarios con acceso a QP Clinic ECE</p>
+        <h2 style="font-size:18px;font-weight:800;color:${TX}">Gestión de Usuarios</h2>
+        <p style="color:${MU};font-size:12px;margin-top:2px">Solo el administrador puede ver y gestionar esta sección</p>
       </div>
-      <div style="display:flex;gap:8px">
-        ${btn("➕ Invitar nuevo médico","invitarMedico()","p",1)}
+      ${btn("➕ Nuevo usuario","mostrarFormNuevoUsuario()","p",1)}
+    </div>
+
+    <!-- Formulario nuevo usuario (oculto) -->
+    <div id="form-nuevo-usuario" style="display:none;background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:20px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="font-size:14px;font-weight:700;color:${TX}">Crear Nuevo Usuario</h3>
+        ${btn("✕ Cancelar","ocultarFormNuevoUsuario()","d",1)}
+      </div>
+      <div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#E65100">
+        ⚠️ <b>Instrucciones:</b> Primero crea el usuario en <b>Supabase → Authentication → Users → Add user</b> con el correo <code>nombreusuario@qpclinic.mx</code> y la contraseña temporal. Luego llena este formulario para completar su perfil.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+        ${fld("Nombre de usuario *",inp("nu_username","","Ej: dra.castillo"),1)}
+        ${fld("Correo (en Supabase)",inp("nu_email","","dra.castillo@qpclinic.mx","email"))}
+        ${fld("Rol",sel("nu_rol",["medico","nutriologo","psicologo","fisioterapeuta","enfermeria","recepcion","admin"]))}
+        ${fld("Título",sel("nu_titulo",["Dr.","Dra.","Lic.","M.C.","M.N.","Esp.","M.D."]))}
+        ${fld("Nombre(s) *",inp("nu_nom",""),1)}
+        ${fld("Apellidos *",inp("nu_ap",""),1)}
+        ${fld("Especialidad principal",inp("nu_esp","","Ej: Nutrición Clínica"))}
+        ${fld("Cédula profesional",inp("nu_ced",""))}
+        ${fld("Contraseña temporal",inp("nu_pass","","Mínimo 8 caracteres","password"))}
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;gap:8px">
+        ${btn("💾 Guardar perfil de usuario","guardarNuevoUsuario()","ok",1)}
       </div>
     </div>
+
+    <!-- Lista de usuarios -->
     <div id="medicos-lista"><div style="text-align:center;padding:32px;color:${MU}"><span class="spin" style="font-size:24px;display:block;margin-bottom:8px">⚙️</span>Cargando...</div></div>
   </div>`;
   await cargarMedicos();
 }
+window.mostrarFormNuevoUsuario=function(){const f=document.getElementById("form-nuevo-usuario");if(f)f.style.display="block";}
+window.ocultarFormNuevoUsuario=function(){const f=document.getElementById("form-nuevo-usuario");if(f)f.style.display="none";}
+window.guardarNuevoUsuario=async function(){
+  const username=gv("nu_username").trim().toLowerCase();
+  const email=gv("nu_email").trim().toLowerCase();
+  const nom=gv("nu_nom").trim();const ap=gv("nu_ap").trim();
+  if(!username||!nom||!ap){showToast("Nombre de usuario, nombre y apellidos son requeridos",false);return;}
+  if(!email){showToast("Ingresa el correo del usuario (el mismo que pusiste en Supabase)",false);return;}
+  loading(true,"Buscando usuario en sistema...");
+  // Buscar el usuario en auth por email
+  const {data:uData}=await SB.from("usuarios").select("id,email").eq("email",email).maybeSingle();
+  if(!uData){
+    loading(false);
+    showToast("No se encontró el usuario. Primero créalo en Supabase → Authentication → Users",false);
+    return;
+  }
+  const payload={
+    username,
+    nombre:nom,
+    apellidos:ap,
+    titulo:gv("nu_titulo"),
+    rol:gv("nu_rol"),
+    especialidad_1:gv("nu_esp"),
+    cedula_medico:gv("nu_ced"),
+    activo:true,
+  };
+  const {error}=await SB.from("usuarios").update(payload).eq("id",uData.id);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("✓ Perfil de usuario configurado correctamente");
+  ocultarFormNuevoUsuario();
+  cargarMedicos();
+}
+
+const ROLES_LABEL={
+  admin:"🔑 Admin",medico:"👨‍⚕️ Médico",nutriologo:"🥗 Nutriólogo",
+  psicologo:"🧠 Psicólogo",fisioterapeuta:"🏃 Fisio",
+  enfermeria:"💉 Enfermería",recepcion:"📋 Recepción"
+};
+const ROLES_COLOR={
+  admin:`background:${DA};color:#fff`,
+  medico:`background:${PL};color:${P}`,
+  nutriologo:"background:#E8F5E9;color:#2E7D32",
+  psicologo:"background:#F3E5F5;color:#7B1FA2",
+  fisioterapeuta:"background:#E3F2FD;color:#1565C0",
+  enfermeria:"background:#FFF8E1;color:#E65100",
+  recepcion:"background:#ECEFF1;color:#546E7A"
+};
+
 async function cargarMedicos(){
   const {data,error}=await SB.from("usuarios").select("*").eq("activo",true).order("apellidos");
   const ml=document.getElementById("medicos-lista");if(!ml)return;
-  if(error||!data||data.length===0){ml.innerHTML=`<div style="background:#fff;border-radius:10px;padding:32px;text-align:center;color:${MU}">No hay médicos registrados aún</div>`;return;}
-  ml.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-    ${data.map(m=>`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;display:flex;align-items:flex-start;gap:14px">
-      <div style="width:48px;height:48px;border-radius:50%;background:${PL};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${m.titulo==="Dra."?"👩‍⚕️":"👨‍⚕️"}</div>
-      <div style="flex:1">
-        <p style="font-weight:700;font-size:13px;color:${TX}">${m.titulo||"Dr."} ${m.nombre||""} ${m.apellidos||""}</p>
-        ${m.especialidad_1?`<p style="font-size:11px;color:${MU}">${m.especialidad_1}</p>`:""}
-        ${m.especialidad_2?`<p style="font-size:11px;color:${MU}">${m.especialidad_2}</p>`:""}
-        ${m.cedula_medico?`<p style="font-size:10px;color:${MU};margin-top:3px">Céd. ${m.cedula_medico}${m.cedula_esp_1?" · Esp. "+m.cedula_esp_1:""}</p>`:""}
-        <p style="font-size:11px;color:${MU}">${m.email||""}</p>
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <span style="background:${m.cedula_medico?"#C8E6C9":"#FFF3E0"};color:${m.cedula_medico?"#1B5E20":"#E65100"};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700">${m.cedula_medico?"✓ Cédulas registradas":"⚠️ Sin cédulas"}</span>
-          ${STATE.user?.id===m.id?`<span style="background:${PL};color:${P};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700">• Tú</span>`:""}
-        </div>
-      </div>
-    </div>`).join("")}
+  if(error||!data||data.length===0){ml.innerHTML=`<div style="background:#fff;border-radius:10px;padding:32px;text-align:center;color:${MU}">No hay usuarios registrados aún</div>`;return;}
+  ml.innerHTML=`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:${PL}">
+        ${["Usuario","Nombre","Rol","Especialidad","Cédula","Estado",""].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}
+      </tr></thead>
+      <tbody>
+        ${data.map((u,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+          <td style="padding:10px 14px;font-size:12px;font-weight:700;color:${AC}">${u.username||"—"}</td>
+          <td style="padding:10px 14px">
+            <div style="font-size:12px;font-weight:600">${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}</div>
+            <div style="font-size:10px;color:${MU}">${u.email||""}</div>
+          </td>
+          <td style="padding:10px 14px"><span style="${ROLES_COLOR[u.rol||"medico"]};padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700">${ROLES_LABEL[u.rol||"medico"]||u.rol}</span></td>
+          <td style="padding:10px 14px;font-size:11px">${u.especialidad_1||"—"}</td>
+          <td style="padding:10px 14px;font-size:11px;color:${MU}">${u.cedula_medico||"—"}</td>
+          <td style="padding:10px 14px"><span style="background:${u.activo?"#C8E6C9":"#FFCDD2"};color:${u.activo?"#1B5E20":DA};padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700">${u.activo?"✓ Activo":"✗ Inactivo"}</span></td>
+          <td style="padding:10px 14px;display:flex;gap:6px">
+            ${btn("Editar",`editarUsuario('${u.id}')","s",1)}
+            ${STATE.user?.id!==u.id?btn(u.activo?"Desactivar":"Activar",`toggleUsuario('${u.id}',${!u.activo})`,u.activo?"d":"ok",1):""}
+          </td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
   </div>`;
 }
-window.invitarMedico=function(){
-  showToast("Para agregar un médico, ve a Supabase → Authentication → Users → Add user");
+window.toggleUsuario=async function(id,activo){
+  await SB.from("usuarios").update({activo}).eq("id",id);
+  showToast(activo?"✓ Usuario activado":"✓ Usuario desactivado");
+  cargarMedicos();
+}
+window.editarUsuario=function(id){
+  showToast("Edición de usuario — próximamente");
 }
 
 // ── HELPER: DATOS DEL MÉDICO ACTUAL ──────────────────────
