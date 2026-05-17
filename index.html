@@ -808,6 +808,10 @@ window.guardarAnt=async function(){
 
   if(STATE.antTab==="pat"){
     await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
+  } else if(STATE.antTab==="oc"){
+    const otros=document.getElementById("oc-otros");
+    if(otros)STATE.patData["oc_otros"]=otros.value;
+    await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="fam"){
     await SB.from("antecedentes_familiares").upsert({paciente_id:pid,datos:STATE.famData},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="al"){
@@ -826,6 +830,9 @@ window.cargarPlantillaNop=function(tipo){
   else if(tipo==="gen")ta.value=STATE._plantillaGen||"";
   else ta.value="";
   STATE.antNoPatText=ta.value;
+}
+window.toggleOcular=function(o){
+  STATE.patData["oc_"+o]=!STATE.patData["oc_"+o];
 }
 window.toggleFam=function(e,r){STATE.famData[e+"_"+r]=!STATE.famData[e+"_"+r];renderAB();}
 window.togglePat=function(p){STATE.patData[p]=!STATE.patData[p];renderAB();}
@@ -882,7 +889,22 @@ function renderAB(){
   else if(STATE.antTab==="al"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><div style="display:flex;gap:7px;margin-bottom:10px"><button style="padding:6px 13px;background:${P};color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">Alergias más comunes</button><button style="padding:6px 13px;background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:6px;cursor:pointer;font-size:11px">Alergias a medicamentos</button></div><div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${alergsComun.map(a=>`<div onclick="toggleAlerg('${a}')" style="padding:8px 13px;border-bottom:1px solid ${BR};cursor:pointer;background:${STATE.alergs.includes(a)?PL:"#fff"};color:${STATE.alergs.includes(a)?P:"#263238"};font-weight:${STATE.alergs.includes(a)?700:400};font-size:12px">${STATE.alergs.includes(a)?"✓ ":""}${a}</div>`).join("")}</div></div><div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:8px;padding:14px"><b style="font-size:11px;color:#E65100">⚠️ Alergias registradas</b><div style="margin-top:8px">${STATE.alergs.map(a=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #FFE082;font-size:12px"><span>— ${a}</span><span onclick="toggleAlerg('${a}')" style="color:${DA};cursor:pointer;font-weight:700">✕</span></div>`).join("")}</div><div style="margin-top:10px">${btn("💾 Guardar alergias","guardarAnt()","ok",1)}</div></div></div>`;}
   else if(STATE.antTab==="med"){ab.innerHTML=`<p style="font-size:12px;color:${MU};margin-bottom:10px;background:${PL};padding:8px 12px;border-radius:7px">Medicamentos usados en los últimos 6 meses. Nombre, duración y dosis.</p>${ta("meda",STATE.medText||"","Ej: Metformina 850mg — 1 tab c/12h — 3 meses",8)}<div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;}
   else if(STATE.antTab==="dis"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div><p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Agregar discapacidad — Clasificación CIF (OMS)</p><select id="discap-sel" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:12px;margin-bottom:8px">${CIF_CAT.map(c=>`<option ${c.startsWith("—")?"disabled":""}>${c}</option>`).join("")}</select>${btn("➕ Agregar al expediente","addDiscap()","p",1)}</div><div><p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Discapacidades registradas</p>${STATE.discapacidades.length===0?`<div style="background:#FFF3E0;border:1.5px solid #FFCC80;border-radius:8px;padding:14px;text-align:center;color:#E65100;font-size:12px">No hay discapacidades registradas</div>`:`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${STATE.discapacidades.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:${i<STATE.discapacidades.length-1?"1px solid "+BR:"none"};background:${i%2?"#FAFAFA":"#fff"}"><div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:${P};flex-shrink:0"></div><span style="font-size:12px">${d}</span></div><button onclick="removeDiscap(${i})" style="background:none;border:none;color:${DA};cursor:pointer;font-size:14px;font-weight:700">✕</button></div>`).join("")}</div>`}</div></div>`;}
-  else{ab.innerHTML=`<p style="text-align:center;padding:24px;color:${MU}">Sección disponible · sin datos capturados aún</p>`;}
+  else if(STATE.antTab==="oc"){
+    const ocList=["Alergias oculares","Ambliopía","Astenopía (fatiga visual)","Astigmatismo","Atrofia óptica","Blefaritis","Catarata congénita","Catarata senil","Catarata traumática","Celulitis orbitaria","Cirugía refractiva previa","Chalación","Conjuntivitis alérgica","Conjuntivitis bacteriana","Conjuntivitis viral","Coroiditis","Degeneración macular","Desprendimiento de retina","Distrofia corneal","Edema corneal","Edema de papila","Ectropión","Enfermedad ocular","Entropión","Episcleritis","Escleritis","Estrabismo","Glaucoma","Glaucoma congénito","Glaucoma de ángulo abierto","Glaucoma de ángulo cerrado","Glaucoma secundario","Hemorragia subconjuntival","Hipermetropía","Iridociclitis","Leucoma corneal","Luxación del cristalino","Melanoma uveal","Miopía","Neuritis óptica","Nistagmo","Oclusión arterial de retina","Oclusión venosa de retina","Ojo seco","Orzuelo","Pingüécula","Presbicia","Ptosis palpebral","Pterigión","Pseudofaquia (operado de Catarata)","Queratitis","Queratocono","Retinitis pigmentosa","Retinoblastoma","Retinopatía diabética","Trauma ocular","Tumores palpebrales","Uveítis","Úlcera corneal","Xantelasma"];
+    ab.innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      ${btn("💾 Guardar antecedentes oculares","guardarAnt()","ok",1)}
+    </div>
+    <p style="font-size:11px;font-weight:700;color:${P};margin-bottom:10px;text-transform:uppercase">Antecedentes Oculares</p>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px 12px;margin-bottom:16px">
+      ${ocList.map(o=>`<label style="display:flex;align-items:center;gap:6px;padding:5px 4px;cursor:pointer;font-size:11px;border-bottom:1px solid #F5F5F5;user-select:none" onmouseover="this.style.background='${PL}'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" ${STATE.patData["oc_"+o]?"checked":""} onchange="toggleOcular('${o.replace(/'/g,"\\\'")}')" style="accent-color:${P};width:14px;height:14px;flex-shrink:0">${o}
+      </label>`).join("")}
+    </div>
+    <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px;text-transform:uppercase">Otros antecedentes</p>
+    ${ta("oc-otros",STATE.patData["oc_otros"]||"","Otros antecedentes oculares no incluidos en la lista...",4)}
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
+  }
 }
 
 // ── INTERROGATORIO ────────────────────────────────────────
