@@ -866,26 +866,64 @@ function renderAB(){
 
 // ── INTERROGATORIO ────────────────────────────────────────
 function renderInter(b){
-  const sis=[["digestivo","Ap. digestivo","Halitosis, boca seca, náusea, vómito, dolor abdominal, diarrea, estreñimiento, rectorragia..."],["cardiovascular","Ap. cardiovascular","Disnea, dolor precordial, palpitaciones, cianosis, edema periférico..."],["respiratorio","Ap. respiratorio","Tos, disnea, dolor torácico, hemoptisis, cianosis, vómica..."],["urinario","Ap. urinario","Poliuria, oliguria, disuria, urgencia, incontinencia..."],["genital","Ap. genital","Función sexual, sangrado genital, flujo, dolor ginecológico..."],["hematologico","Ap. hematológico","Palidez, astenia, hemorragias, adenopatías, esplenomegalia..."],["endocrino","Sistema endocrino","Bocio, intolerancia calor/frío, nerviosismo, amenorrea, obesidad..."],["osteomuscular","Sistema osteomuscular","Artralgias, mialgias, rigidez, limitación funcional, Raynaud..."],["nervioso","Sistema nervioso","Cefalea, síncope, convulsiones, vértigo, trastornos del sueño..."]];
-  b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
+  const SIS=[
+    {key:"digestivo",label:"🫁 Ap. Digestivo",icon:"🫁",sintomas:["Halitosis","Pirosis","Regurgitación","Náusea","Vómito","Hematemesis","Disfagia","Odinofagia","Sialorrea","Dolor abdominal","Dolor epigástrico","Cólico abdominal","Distensión abdominal","Flatulencia","Meteorismo","Diarrea","Estreñimiento","Melena","Rectorragia","Hematoquecia","Ictericia","Prurito","Acolia","Coluria","Anorexia","Pérdida de peso","Cambio en hábito intestinal","Tenesmo rectal","Incontinencia fecal"]},
+    {key:"cardiovascular",label:"❤️ Ap. Cardiovascular",icon:"❤️",sintomas:["Disnea de esfuerzo","Disnea de reposo","Ortopnea","Disnea paroxística nocturna","Dolor precordial","Angina","Palpitaciones","Taquicardia","Bradicardia","Síncope","Presíncope","Lipotimia","Edema de miembros inferiores","Edema generalizado","Cianosis central","Cianosis periférica","Claudicación intermitente","Frialdad distal","Acrocianosis","Ingurgitación yugular","Soplo cardíaco conocido","Hipertensión"]},
+    {key:"respiratorio",label:"🫁 Ap. Respiratorio",icon:"🫁",sintomas:["Tos seca","Tos productiva","Expectoración mucoide","Expectoración purulenta","Expectoración hemoptoica","Hemoptisis","Disnea","Disnea de esfuerzo","Sibilancias","Estridor","Dolor torácico pleurítico","Taquipnea","Cianosis","Vómica","Apnea nocturna","Ronquido","Epistaxis","Rinorrea","Obstrucción nasal","Anosmia","Disfonía","Afonía","Dificultad para respirar acostado"]},
+    {key:"urinario",label:"🫘 Ap. Urinario",icon:"🫘",sintomas:["Poliuria","Oliguria","Anuria","Disuria","Urgencia miccional","Polaquiuria","Nicturia","Hematuria macroscópica","Hematuria microscópica","Piuria","Incontinencia urinaria","Retención urinaria","Chorro urinario débil","Goteo postmiccional","Dolor lumbar","Dolor en fosa renal","Cólico renal","Edema periorbitario","Edema de miembros","Cambio en color de orina","Orina espumosa","Olor fétido en orina"]},
+    {key:"genital",label:"⚕️ Ap. Genital",icon:"⚕️",sintomas:["Dispareunia","Flujo vaginal","Sangrado vaginal anormal","Sangrado postcoital","Prurito vulvar","Prurito genital","Dolor pélvico","Dolor inguinal","Disfunción eréctil","Eyaculación precoz","Descarga uretral","Lesiones genitales","Úlceras genitales","Infertilidad","Disminución de libido","Aumento de libido","Mastalgia","Ginecomastia","Dolor testicular","Masa testicular"]},
+    {key:"hematologico",label:"🩸 Ap. Hematológico",icon:"🩸",sintomas:["Palidez","Astenia","Adinamia","Fatigabilidad fácil","Equimosis espontáneas","Petequias","Púrpura","Sangrado espontáneo","Sangrado prolongado","Adenopatías cervicales","Adenopatías axilares","Adenopatías inguinales","Esplenomegalia","Hepatomegalia","Fiebre recurrente","Sudoración nocturna","Pérdida de peso involuntaria","Prurito generalizado","Sensación de plenitud abdominal","Diátesis hemorrágica"]},
+    {key:"endocrino",label:"🦋 Sistema Endocrino",icon:"🦋",sintomas:["Poliuria","Polidipsia","Polifagia","Pérdida de peso","Aumento de peso","Intolerancia al calor","Intolerancia al frío","Bocio","Nerviosismo","Irritabilidad","Temblor fino","Sudoración excesiva","Palpitaciones","Amenorrea","Oligomenorrea","Galactorrea","Estrías abdominales","Cambios en distribución de grasa","Hirsutismo","Caída de cabello","Piel seca","Mixedema","Hiperpigmentación","Debilidad muscular","Calambres"]},
+    {key:"osteomuscular",label:"🦴 Sistema Osteomuscular",icon:"🦴",sintomas:["Artralgia","Artritis","Mialgia","Debilidad muscular","Rigidez matutina","Rigidez vespertina","Limitación funcional","Inflamación articular","Crepitación articular","Calor articular","Rubor articular","Deformidad articular","Fenómeno de Raynaud","Dolor lumbar","Lumbalgia mecánica","Lumbalgia inflamatoria","Cervicalgia","Dorsalgia","Contractura muscular","Claudicación","Atrofia muscular","Escoliosis","Luxaciones frecuentes","Esguinces recurrentes","Fractura patológica"]},
+    {key:"nervioso",label:"🧠 Sistema Nervioso",icon:"🧠",sintomas:["Cefalea tensional","Cefalea en racimo","Migraña","Mareo","Vértigo","Síncope","Convulsiones","Crisis epilépticas","Parestesias","Entumecimiento","Debilidad focal","Hemiplejía","Paresia","Pérdida de memoria","Amnesia","Cambios en personalidad","Insomnio","Hipersomnia","Somnolencia diurna","Dificultad para concentrarse","Afasia","Disartria","Diplopia","Visión borrosa","Amaurosis","Tinnitus","Acúfenos","Tremor en reposo","Tremor de intención","Ataxia","Incoordinación","Anosmia","Hiposmia","Agusia","Disgeusia","Alteración de la marcha","Caídas frecuentes"]},
+  ];
+
+  b.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:12px">INTERROGATORIO POR APARATOS Y SISTEMAS</b></div>
-      <div style="padding:14px">
-        ${btn("💾 Guardar interrogatorio","guardarInterrogatorio()","ok",1)}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px" id="inter-grid">
-          <div style="text-align:center;padding:24px;color:${MU};grid-column:span 3"><span class="spin" style="font-size:20px;display:block;margin-bottom:6px">⚙️</span>Cargando...</div>
-        </div>
+      <div style="background:${PD};padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
+        <b style="color:#fff;font-size:12px">INTERROGATORIO POR APARATOS Y SISTEMAS</b>
+        ${btn("💾 Guardar todo","guardarInterrogatorio()","ok",1)}
+      </div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:14px" id="inter-grid">
+        <div style="text-align:center;padding:20px;color:${MU}"><span class="spin" style="font-size:20px;display:block;margin-bottom:6px">⚙️</span>Cargando...</div>
       </div>
     </div>
   </div>`;
-  cargarInterrogatorio();
+  cargarInterrogatorio(SIS);
 }
-async function cargarInterrogatorio(){
+
+async function cargarInterrogatorio(SIS){
   const pid=STATE.pat?.id;if(!pid)return;
-  const {data}=await SB.from("interrogatorio_aparatos").select("*").eq("paciente_id",pid).single();
+  const {data}=await SB.from("interrogatorio_aparatos").select("*").eq("paciente_id",pid).maybeSingle();
   const ig=document.getElementById("inter-grid");if(!ig)return;
-  const sis=[["digestivo","Ap. digestivo","Halitosis, boca seca, náusea, vómito, dolor abdominal, diarrea, estreñimiento, rectorragia..."],["cardiovascular","Ap. cardiovascular","Disnea, dolor precordial, palpitaciones, cianosis, edema periférico..."],["respiratorio","Ap. respiratorio","Tos, disnea, dolor torácico, hemoptisis, cianosis, vómica..."],["urinario","Ap. urinario","Poliuria, oliguria, disuria, urgencia, incontinencia..."],["genital","Ap. genital","Función sexual, sangrado genital, flujo, dolor ginecológico..."],["hematologico","Ap. hematológico","Palidez, astenia, hemorragias, adenopatías, esplenomegalia..."],["endocrino","Sistema endocrino","Bocio, intolerancia calor/frío, nerviosismo, amenorrea, obesidad..."],["osteomuscular","Sistema osteomuscular","Artralgias, mialgias, rigidez, limitación funcional, Raynaud..."],["nervioso","Sistema nervioso","Cefalea, síncope, convulsiones, vértigo, trastornos del sueño..."]];
-  ig.innerHTML=sis.map(([k,l,h])=>`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden"><div style="background:${PL};padding:7px 10px"><b style="font-size:11px;color:${P}">${l}</b><p style="font-size:9px;color:${MU};margin-top:2px;line-height:1.3">${h}</p></div><textarea id="inter_${k}" placeholder="NORMAL" rows="3" style="width:100%;border:none;padding:7px 9px;font-size:11px;resize:none;outline:none;font-family:inherit">${data?data[k]||"":""}</textarea></div>`).join("");
+
+  ig.innerHTML=SIS.map(s=>`
+    <div style="border:1.5px solid ${BR};border-radius:10px;overflow:hidden">
+      <div style="background:${PL};padding:8px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <b style="font-size:12px;color:${P}">${s.label}</b>
+        <div style="display:flex;gap:5px">
+          <button onclick="setSintoma('${s.key}','NORMAL')" style="background:#2E7D32;color:#fff;border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:700">✓ Normal</button>
+          <button onclick="setSintoma('${s.key}','Interrogado y negado')" style="background:#546E7A;color:#fff;border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:700">— Interrogado y negado</button>
+          <button onclick="setSintoma('${s.key}','')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:700">✕ Limpiar</button>
+        </div>
+      </div>
+      <div style="padding:8px 10px;border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;gap:5px">
+        ${s.sintomas.map(st=>`<button onclick="addSintoma('${s.key}','${st}')" style="background:#F8F9FA;color:#263238;border:1px solid ${BR};border-radius:20px;padding:3px 10px;cursor:pointer;font-size:10px;transition:all .15s" onmouseover="this.style.background='${PL}';this.style.borderColor='#90CAF9'" onmouseout="this.style.background='#F8F9FA';this.style.borderColor='${BR}'">${st}</button>`).join("")}
+      </div>
+      <textarea id="inter_${s.key}" rows="3" placeholder="Haga clic en los síntomas de arriba o escriba directamente..." style="width:100%;border:none;padding:9px 12px;font-size:12px;resize:vertical;outline:none;font-family:inherit;line-height:1.6;color:#263238">${data?data[s.key]||"":""}</textarea>
+    </div>
+  `).join("");
+}
+
+window.addSintoma=function(key,txt){
+  const ta=document.getElementById("inter_"+key);if(!ta)return;
+  if(ta.value==="NORMAL"||ta.value==="Interrogado y negado")ta.value="";
+  const sep=ta.value&&!ta.value.endsWith("\n")&&!ta.value.endsWith(", ")&&ta.value.length>0?", ":"";
+  ta.value+=sep+txt;
+  ta.focus();
+}
+window.setSintoma=function(key,txt){
+  const ta=document.getElementById("inter_"+key);if(ta){ta.value=txt;ta.focus();}
 }
 window.guardarInterrogatorio=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
