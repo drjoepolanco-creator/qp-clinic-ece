@@ -429,7 +429,7 @@ window.abrirExpediente=async function(id){
   STATE.patData=ap?JSON.parse(JSON.stringify(ap.seleccionados||{})):{};
   STATE.patOtrasNotes=ap?ap.notas_otras||"":"";
   STATE.famData=af?JSON.parse(JSON.stringify(af.datos||{})):{};
-  STATE.alergs=al?JSON.parse(JSON.stringify(al.lista||["ALERGIAS NEGADAS"])):["ALERGIAS NEGADAS"];
+  STATE.alergs=al?JSON.parse(JSON.stringify(al.lista||[])):[];
   STATE.discapacidades=disc?disc.map(d=>d.categoria):[];
   STATE.ginData=gin||{};
   go("expediente");
@@ -875,7 +875,15 @@ window.toggleOcular=function(o){
 }
 window.toggleFam=function(e,r){STATE.famData[e+"_"+r]=!STATE.famData[e+"_"+r];renderAB();}
 window.togglePat=function(p){STATE.patData[p]=!STATE.patData[p];renderAB();}
-window.toggleAlerg=function(a){STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];renderAB();}
+window.toggleAlerg=function(a){STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];}
+window.agregarOtraAlergia=function(){
+  const inp=document.getElementById("al-otra");
+  if(!inp||!inp.value.trim()){showToast("Escribe el nombre de la alergia",false);return;}
+  const nueva=inp.value.trim().toUpperCase();
+  if(!STATE.alergs.includes(nueva))STATE.alergs.push(nueva);
+  inp.value="";
+  renderAB();
+}
 window.insertPlantilla=function(txt){const o=document.getElementById("pat-otras");if(o){o.value=(o.value?o.value+"\n\n":"")+txt;STATE.patOtrasNotes=o.value;}}
 window.addDiscap=async function(){
   const s=document.getElementById("discap-sel");
@@ -925,7 +933,52 @@ function renderAB(){
     <textarea id="nopa" rows="20" placeholder="Antecedentes no patológicos..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:monospace;font-size:11px;line-height:1.7">${STATE.antNoPatText||""}</textarea>
     <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
   }
-  else if(STATE.antTab==="al"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><div style="display:flex;gap:7px;margin-bottom:10px"><button style="padding:6px 13px;background:${P};color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">Alergias más comunes</button><button style="padding:6px 13px;background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:6px;cursor:pointer;font-size:11px">Alergias a medicamentos</button></div><div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${alergsComun.map(a=>`<div onclick="toggleAlerg('${a}')" style="padding:8px 13px;border-bottom:1px solid ${BR};cursor:pointer;background:${STATE.alergs.includes(a)?PL:"#fff"};color:${STATE.alergs.includes(a)?P:"#263238"};font-weight:${STATE.alergs.includes(a)?700:400};font-size:12px">${STATE.alergs.includes(a)?"✓ ":""}${a}</div>`).join("")}</div></div><div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:8px;padding:14px"><b style="font-size:11px;color:#E65100">⚠️ Alergias registradas</b><div style="margin-top:8px">${STATE.alergs.map(a=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #FFE082;font-size:12px"><span>— ${a}</span><span onclick="toggleAlerg('${a}')" style="color:${DA};cursor:pointer;font-weight:700">✕</span></div>`).join("")}</div><div style="margin-top:10px">${btn("💾 Guardar alergias","guardarAnt()","ok",1)}</div></div></div>`;}
+  else if(STATE.antTab==="al"){
+    if(!STATE.alTab)STATE.alTab="comunes";
+    const alergsComun=["ÁCAROS","ALIMENTOS (general)","CHOCOLATE","COLORANTES ALIMENTARIOS","CONSERVADORES","FRUTOS SECOS","GLUTEN","HUEVO","HUMEDAD","LÁTEX","LECHE / LÁCTEOS","MARISCOS","MASCOTAS (pelo de animal)","MARISCOS","MOHO","NÍQUEL","PESCADO","PICADURA DE INSECTOS","PINO / RESINAS","PIQUETE DE ABEJA","PIQUETE DE AVISPA","PLÁSTICO","POLEN","POLVO","SOYA","SOL / LUZ SOLAR","TRIGO"];
+    const alergsMediamb=["ÁCAROS DEL POLVO","AIRE FRÍO","BIÓXIDO DE AZUFRE","CLORO","CONTAMINACIÓN AMBIENTAL","COSMÉTICOS / PERFUMES","DETERGENTES","GASES INDUSTRIALES","HOLLÍN / SMOG","HONGOS AMBIENTALES","HUMO DE CIGARRO","HUMO DE LEÑA","LATEX","METALES (níquel, cromo)","MOHO DOMÉSTICO","OZONO","PINTURAS / BARNICES","PLAGUICIDAS","PÓLENES (gramíneas)","PÓLENES (árboles)","PÓLENES (malezas)","POLVO CASERO","POLVO DE HARINA","PRODUCTOS DE LIMPIEZA","RADIACIÓN UV","TIERRA / BARRO"];
+    const alergsMed=["ÁCIDO ACETILSALICÍLICO (Aspirina)","AMOXICILINA","AMOXICILINA/CLAVULANATO","AMPICILINA","ANTIINFLAMATORIOS (AINEs)","AZITROMICINA","CARBAMAZEPINA","CEFALOSPORINAS","CIPROFLOXACINO","CLARITROMICINA","CLINDAMICINA","CLOPIDOGREL","CODEÍNA","CONTRASTE YODADO","DICLOFENACO","ERITROMICINA","FENITOÍNA","IBUPROFENO","KETOROLACO","LEVOFLOXACINO","LIDOCAÍNA (anestésico local)","METRONIDAZOL","MORFINA","NAPROXENO","NITROFURANTOÍNA","PENICILINA","PIROXICAM","SULFONAMIDAS (sulfas)","TETRACICLINAS","TRAMADOL","VANCOMICINA"];
+
+    const lista=STATE.alTab==="comunes"?alergsComun:STATE.alTab==="medamb"?alergsMediamb:alergsMed;
+    const alSelTab=STATE.alTab;
+
+    ab.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <!-- Columna izquierda: listas -->
+      <div>
+        <!-- Sub-tabs alergias -->
+        <div style="display:flex;gap:0;margin-bottom:12px;border:1.5px solid ${BR};border-radius:8px;overflow:hidden">
+          <button onclick="STATE.alTab='comunes';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='comunes'?P:'#fff'};color:${alSelTab==='comunes'?'#fff':MU};cursor:pointer;font-size:10px;font-weight:${alSelTab==='comunes'?700:500};border-right:1px solid ${BR}">🌿 Más comunes</button>
+          <button onclick="STATE.alTab='medamb';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='medamb'?P:'#fff'};color:${alSelTab==='medamb'?'#fff':MU};cursor:pointer;font-size:10px;font-weight:${alSelTab==='medamb'?700:500};border-right:1px solid ${BR}">🌎 Medio ambiente</button>
+          <button onclick="STATE.alTab='medicamentos';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='medicamentos'?P:'#fff'};color:${alSelTab==='medicamentos'?'#fff':MU};cursor:pointer;font-size:10px;font-weight:${alSelTab==='medicamentos'?700:500}">💊 Medicamentos</button>
+        </div>
+        <div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden;max-height:420px;overflow-y:auto">
+          ${lista.map(a=>{const sel=STATE.alergs.includes(a);return`<div onclick="toggleAlerg('${a.replace(/'/g,"\\'")}');renderAB()" style="padding:8px 13px;border-bottom:1px solid ${BR};cursor:pointer;background:${sel?PL:'#fff'};color:${sel?P:'#263238'};font-weight:${sel?700:400};font-size:12px;display:flex;align-items:center;gap:8px"><span style="font-size:14px">${sel?'✅':'⬜'}</span>${a}</div>`;}).join("")}
+        </div>
+        <p style="font-size:10px;color:${MU};margin-top:8px;padding:6px 10px;background:#F8F9FA;border-radius:6px">💡 Haz clic en cualquier alergia para agregarla o quitarla del registro</p>
+      </div>
+
+      <!-- Columna derecha: registro -->
+      <div>
+        <div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:8px;padding:14px;margin-bottom:10px;min-height:200px">
+          <b style="font-size:11px;color:#E65100;display:block;margin-bottom:8px">⚠️ Alergias registradas del paciente</b>
+          ${STATE.alergs.length===0?`<p style="font-size:12px;color:${MU};font-style:italic;margin-top:16px;text-align:center">Sin alergias registradas</p>`:
+          STATE.alergs.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #FFE082;font-size:12px">
+            <span>— ${a}</span>
+            <button onclick="toggleAlerg('${a.replace(/'/g,"\\'")}');renderAB()" style="background:none;border:none;color:${DA};cursor:pointer;font-size:16px;font-weight:700;padding:0 4px">✕</button>
+          </div>`).join("")}
+        </div>
+        <div style="margin-bottom:10px">
+          ${fld("Otras alergias no listadas",`<input id="al-otra" placeholder="Escriba y presione Agregar..." style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          <button onclick="agregarOtraAlergia()" style="width:100%;margin-top:6px;padding:7px;background:${P};color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">+ Agregar alergia manual</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          ${btn("💾 Guardar alergias","guardarAnt()","ok",1)}
+          <button onclick="STATE.alergs=[];renderAB()" style="padding:4px 10px;background:#fff;color:${DA};border:1.5px solid ${DA};border-radius:7px;cursor:pointer;font-size:11px;font-weight:600">Limpiar todo</button>
+        </div>
+      </div>
+    </div>`;
+  }
   else if(STATE.antTab==="med"){ab.innerHTML=`<p style="font-size:12px;color:${MU};margin-bottom:10px;background:${PL};padding:8px 12px;border-radius:7px">Medicamentos usados en los últimos 6 meses. Nombre, duración y dosis.</p>${ta("meda",STATE.medText||"","Ej: Metformina 850mg — 1 tab c/12h — 3 meses",8)}<div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;}
   else if(STATE.antTab==="dis"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div><p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Agregar discapacidad — Clasificación CIF (OMS)</p><select id="discap-sel" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:12px;margin-bottom:8px">${CIF_CAT.map(c=>`<option ${c.startsWith("—")?"disabled":""}>${c}</option>`).join("")}</select>${btn("➕ Agregar al expediente","addDiscap()","p",1)}</div><div><p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Discapacidades registradas</p>${STATE.discapacidades.length===0?`<div style="background:#FFF3E0;border:1.5px solid #FFCC80;border-radius:8px;padding:14px;text-align:center;color:#E65100;font-size:12px">No hay discapacidades registradas</div>`:`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${STATE.discapacidades.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:${i<STATE.discapacidades.length-1?"1px solid "+BR:"none"};background:${i%2?"#FAFAFA":"#fff"}"><div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:${P};flex-shrink:0"></div><span style="font-size:12px">${d}</span></div><button onclick="removeDiscap(${i})" style="background:none;border:none;color:${DA};cursor:pointer;font-size:14px;font-weight:700">✕</button></div>`).join("")}</div>`}</div></div>`;}
   else if(STATE.antTab==="gin"){
