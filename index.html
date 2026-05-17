@@ -826,6 +826,24 @@ window.guardarAnt=async function(){
   loading(false);
   showToast("✓ Antecedentes guardados en el expediente");
 }
+window.toggleNeo=function(k){
+  if(!STATE.neoData)STATE.neoData={};
+  STATE.neoData[k]=!STATE.neoData[k];
+}
+window.guardarNeonatales=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  loading(true,"Guardando antecedentes neonatales...");
+  if(!STATE.neoData)STATE.neoData={};
+  const n=STATE.neoData;
+  // Recoger campos de texto
+  const campos={num_gesta:"n_gesta",tipo_emb:"n_temb",control_pre:"n_cpre",semanas_gest:"n_sgest",m_gestaciones:"n_mgest",m_partos:"n_mpar",m_abortos:"n_mab",m_cesareas:"n_mces",pat_maternas:"n_pat_mat",med_maternos:"n_med_mat",tipo_parto:"n_tparto",hospital:"n_hosp",ciudad_nac:"n_ciudad",peso_nac:"n_peso",talla_nac:"n_talla",per_cefalico:"n_pc",apgar1:"n_apg1",apgar5:"n_apg5",reanimacion:"n_reanim",complicaciones:"n_comp",formula_actual:"n_form_act",formula_prev:"n_form_prev",tamiz_alt:"n_tam_alt",sostuvo_cab:"n_cab",se_sento:"n_sent",camino:"n_cam",primeras_pal:"n_pal",observaciones:"n_obs"};
+  Object.entries(campos).forEach(([k,id])=>{const e=document.getElementById(id);if(e)n[k]=e.value;});
+  STATE.neoData=n;
+  // Guardar en Supabase como JSON en antecedentes_no_patologicos o crear tabla dedicada
+  await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:JSON.stringify({tipo:"neonatales",datos:n})},{onConflict:"paciente_id"});
+  loading(false);
+  showToast("✓ Antecedentes neonatales guardados");
+}
 window.guardarGineco=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
   loading(true,"Guardando antecedentes gineco-obstétricos...");
@@ -964,6 +982,97 @@ function renderAB(){
     <div style="margin-bottom:16px">${fld("Lactancia materna",`<select id="g_lac" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option><option ${g.lactancia==="Sí"?"selected":""}>Sí</option><option ${g.lactancia==="No"?"selected":""}>No</option><option ${g.lactancia==="Actualmente"?"selected":""}>Actualmente</option></select>`)}</div>
     <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar gineco-obstétricos","guardarGineco()","ok",1)}</div>`;
   }
+  else if(STATE.antTab==="neo"){
+    const n=STATE.neoData||{};
+    const terapias=["Fototerapia","CPAP","Intubación","Exsanguineotransfusión","Catéter central","Catéter umbilical","Circuncisión","Otra cirugía","Factor surfactante","Ventilación mecánica","Oxígeno suplementario","Antibióticos IV"];
+    ab.innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:14px">${btn("💾 Guardar antecedentes neonatales","guardarNeonatales()","ok",1)}</div>
+
+    <!-- PRODUCTO DE LA GESTA -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Producto de la Gesta</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Producto de la gesta No.",`<input id="n_gesta" value="${n.num_gesta||""}" placeholder="Ej: 1, 2, 3..." style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Tipo de embarazo",`<select id="n_temb" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option>${["Único","Gemelar","Trigemelar","Múltiple"].map(v=>`<option ${n.tipo_emb===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Control prenatal",`<select id="n_cpre" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option>${["Sí, adecuado","Sí, incompleto","No tuvo","Parcial"].map(v=>`<option ${n.control_pre===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Semanas de gestación al nacer",`<input id="n_sgest" value="${n.semanas_gest||""}" placeholder="Ej: 38 SDG" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    </div>
+
+    <!-- DATOS DE LA MADRE -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Datos de la Madre</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Gestaciones de la madre",`<select id="n_mgest" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["0","1","2","3","4","5","6","7","8","9","10+"].map(v=>`<option ${n.m_gestaciones===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Partos",`<select id="n_mpar" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5","6","7","8","9","10+"].map(v=>`<option ${n.m_partos===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Abortos",`<select id="n_mab" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5","6"].map(v=>`<option ${n.m_abortos===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Cesáreas",`<select id="n_mces" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5"].map(v=>`<option ${n.m_cesareas===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Patologías maternas durante el embarazo",ta("n_pat_mat",n.pat_maternas||"","Ej: Diabetes gestacional, Preeclampsia, Infecciones, TORCH...",3))}
+      ${fld("Medicamentos maternos durante el embarazo",ta("n_med_mat",n.med_maternos||"","Ej: Ácido fólico, Hierro, Antibióticos, Corticosteroides...",3))}
+    </div>
+
+    <!-- DATOS AL NACER -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Datos al Nacer</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Tipo de parto",`<select id="n_tparto" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option>${["Eutócico (vaginal)","Distócico (fórceps/vacuum)","Cesárea programada","Cesárea urgente"].map(v=>`<option ${n.tipo_parto===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Hospital de nacimiento",`<input id="n_hosp" value="${n.hospital||""}" placeholder="Nombre del hospital" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Ciudad de nacimiento",`<input id="n_ciudad" value="${n.ciudad_nac||""}" placeholder="Ciudad" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Peso al nacer (kg)",`<input id="n_peso" value="${n.peso_nac||""}" placeholder="Ej: 3.2" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Talla al nacer (cm)",`<input id="n_talla" value="${n.talla_nac||""}" placeholder="Ej: 50" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Perímetro cefálico (cm)",`<input id="n_pc" value="${n.per_cefalico||""}" placeholder="Ej: 34" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Apgar 1 min",`<select id="n_apg1" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No registrado</option>${["1","2","3","4","5","6","7","8","9","10"].map(v=>`<option ${n.apgar1===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Apgar 5 min",`<select id="n_apg5" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No registrado</option>${["1","2","3","4","5","6","7","8","9","10"].map(v=>`<option ${n.apgar5===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Reanimación",`<select id="n_reanim" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>Ninguna</option>${["Estimulación táctil","Oxígeno libre","VPP (ventilación a presión positiva)","Intubación","Masaje cardíaco","Medicamentos"].map(v=>`<option ${n.reanimacion===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Complicaciones al nacimiento",ta("n_comp",n.complicaciones||"","Ej: Asfixia perinatal, Hipoxia, Sepsis, SDR...",3))}
+    </div>
+
+    <!-- TERAPIAS UTILIZADAS -->
+    <div style="margin-bottom:14px">
+      <p style="font-size:11px;font-weight:700;color:${TX};margin-bottom:8px">Terapias utilizadas en el período neonatal</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${terapias.map(t=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;background:${n["ter_"+t]?PL:"#F8F9FA"};border:1px solid ${n["ter_"+t]?"#90CAF9":BR};padding:5px 12px;border-radius:20px">
+          <input type="checkbox" ${n["ter_"+t]?"checked":""} onchange="toggleNeo('ter_${t}')" style="accent-color:${P};width:14px;height:14px">${t}
+        </label>`).join("")}
+      </div>
+    </div>
+
+    <!-- ALIMENTACIÓN -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Alimentación</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      <div>
+        <p style="font-size:10px;font-weight:700;color:${MU};margin-bottom:6px;text-transform:uppercase">Tipo</p>
+        <label style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer;font-size:12px"><input type="checkbox" ${n.seno_materno?"checked":""} onchange="toggleNeo('seno_materno')" style="accent-color:${P};width:14px;height:14px"> Seno materno</label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" ${n.formula?"checked":""} onchange="toggleNeo('formula')" style="accent-color:${P};width:14px;height:14px"> Fórmula láctea</label>
+      </div>
+      ${fld("Fórmula actual",`<input id="n_form_act" value="${n.formula_actual||""}" placeholder="Nombre de la fórmula" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Otras fórmulas previas",`<input id="n_form_prev" value="${n.formula_prev||""}" placeholder="Fórmulas usadas anteriormente" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    </div>
+
+    <!-- TAMIZAJE -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Tamizaje Neonatal</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div>
+        <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px;cursor:pointer;font-size:12px"><input type="checkbox" ${n.tamiz_metabolico?"checked":""} onchange="toggleNeo('tamiz_metabolico')" style="accent-color:${P};width:14px;height:14px"> Tamiz metabólico</label>
+        <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px;cursor:pointer;font-size:12px"><input type="checkbox" ${n.tamiz_auditivo?"checked":""} onchange="toggleNeo('tamiz_auditivo')" style="accent-color:${P};width:14px;height:14px"> Tamiz auditivo</label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" ${n.tamiz_visual?"checked":""} onchange="toggleNeo('tamiz_visual')" style="accent-color:${P};width:14px;height:14px"> Tamiz visual</label>
+      </div>
+      ${fld("Alteraciones encontradas en tamizaje",ta("n_tam_alt",n.tamiz_alt||"","Describa alteraciones encontradas...",4))}
+    </div>
+
+    <!-- DESARROLLO PSICOMOTOR -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Desarrollo Psicomotor</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Sostuvo cabeza (meses)",`<input id="n_cab" value="${n.sostuvo_cab||""}" placeholder="Ej: 3" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Se sentó solo (meses)",`<input id="n_sent" value="${n.se_sento||""}" placeholder="Ej: 6" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Caminó (meses)",`<input id="n_cam" value="${n.camino||""}" placeholder="Ej: 12" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Primeras palabras (meses)",`<input id="n_pal" value="${n.primeras_pal||""}" placeholder="Ej: 12" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    </div>
+    <div style="margin-bottom:16px">${fld("Observaciones generales del período neonatal",ta("n_obs",n.observaciones||"","Observaciones adicionales relevantes...",3))}</div>
+    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar antecedentes neonatales","guardarNeonatales()","ok",1)}</div>`;
+  }
   else if(STATE.antTab==="oc"){
     const ocList=["Alergias oculares","Ambliopía","Astenopía (fatiga visual)","Astigmatismo","Atrofia óptica","Blefaritis","Catarata congénita","Catarata senil","Catarata traumática","Celulitis orbitaria","Cirugía refractiva previa","Chalación","Conjuntivitis alérgica","Conjuntivitis bacteriana","Conjuntivitis viral","Coroiditis","Degeneración macular","Desprendimiento de retina","Distrofia corneal","Edema corneal","Edema de papila","Ectropión","Enfermedad ocular","Entropión","Episcleritis","Escleritis","Estrabismo","Glaucoma","Glaucoma congénito","Glaucoma de ángulo abierto","Glaucoma de ángulo cerrado","Glaucoma secundario","Hemorragia subconjuntival","Hipermetropía","Iridociclitis","Leucoma corneal","Luxación del cristalino","Melanoma uveal","Miopía","Neuritis óptica","Nistagmo","Oclusión arterial de retina","Oclusión venosa de retina","Ojo seco","Orzuelo","Pingüécula","Presbicia","Ptosis palpebral","Pterigión","Pseudofaquia (operado de Catarata)","Queratitis","Queratocono","Retinitis pigmentosa","Retinoblastoma","Retinopatía diabética","Trauma ocular","Tumores palpebrales","Uveítis","Úlcera corneal","Xantelasma"];
     ab.innerHTML=`
@@ -980,6 +1089,7 @@ function renderAB(){
     ${ta("oc-otros",STATE.patData["oc_otros"]||"","Otros antecedentes oculares no incluidos en la lista...",4)}
     <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
   }
+  else{ab.innerHTML=`<p style="text-align:center;padding:24px;color:${MU}">Sección disponible · sin datos capturados aún</p>`;}
 }
 
 // ── INTERROGATORIO ────────────────────────────────────────
