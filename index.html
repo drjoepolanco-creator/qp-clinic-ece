@@ -820,6 +820,13 @@ window.guardarAnt=async function(){
   loading(false);
   showToast("✓ Antecedentes guardados en el expediente");
 }
+window.cargarPlantillaNop=function(tipo){
+  const ta=document.getElementById("nopa");if(!ta)return;
+  if(tipo==="dep")ta.value=STATE._plantillaDep||"";
+  else if(tipo==="gen")ta.value=STATE._plantillaGen||"";
+  else ta.value="";
+  STATE.antNoPatText=ta.value;
+}
 window.toggleFam=function(e,r){STATE.famData[e+"_"+r]=!STATE.famData[e+"_"+r];renderAB();}
 window.togglePat=function(p){STATE.patData[p]=!STATE.patData[p];renderAB();}
 window.toggleAlerg=function(a){STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];renderAB();}
@@ -858,79 +865,19 @@ function renderAB(){
     ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px"><div><p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Generales</p>${patG.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:11px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Adicciones</p>${patA.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:11px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Exantemáticas</p>${patEx.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Infectocontagiosas</p>${patI.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Crónico-degenerativas</p>${patC.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div></div>${selCount>0?`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:11px;font-weight:700;color:#1B5E20;margin-right:4px">✓ Seleccionados:</span>${Object.entries(STATE.patData).filter(([,v])=>v).map(([k])=>`<span style="background:#C8E6C9;color:#1B5E20;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">${k}</span>`).join("")}</div>`:""}<div style="border-top:2px dashed ${BR};padding-top:16px"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"><div><p style="font-size:12px;font-weight:700;color:${TX}">Otras enfermedades identificadas como antecedentes personales patológicos</p><p style="font-size:10px;color:${MU};margin-top:2px">Enfermedades adicionales no incluidas en las listas anteriores</p></div><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:${MU};font-weight:600">Plantillas:</span>${PLANTILLAS_PAT.map(pl=>`<button onclick="insertPlantilla('${pl.txt.replace(/'/g,"\\'")}')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:10px;font-weight:600">${pl.lbl}</button>`).join("")}</div></div><textarea id="pat-otras" rows="5" placeholder="Ej: Sinusitis en la infancia remitida sin secuelas ni complicaciones." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;font-size:12px;line-height:1.6">${STATE.patOtrasNotes||""}</textarea><div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar notas","guardarAnt()","ok",1)}</div></div>`;
   }
   else if(STATE.antTab==="nop"){
-    const PLANTILLA_DEP=`ANTECEDENTES NO PATOLÓGICOS — DEPORTIVOS
+    STATE._plantillaDep=`ANTECEDENTES NO PATOLÓGICOS — DEPORTIVOS\n\n• Familiares: ninguno.\n• Deportes practicados anteriormente: \n   - Logros: ninguno.\n• Ejercicio actual: \n   - Inicio: \n   - Frecuencia de entrenamiento (Días/horas): \n   - Logros más importantes: \n• Proyección: mejorar su forma física y estado de salud.\n• Alimentación: \n   - Número de comidas: \n   - ¿Completa? Cereales y tubérculos__ Prod. origen animal__ Leche__ Leguminosas__ Verduras__ Frutas__ Aceites y grasas__\n   - Lugar: __% casa\n\nHÁBITOS PERSONALES\nBaño: \nDefecación: \nLavarse los dientes: \nHabitación (cuartos, piso, techo, ventanas, hab, servicios): \nTabaquismo (cig/día/años): \nAlcoholismo (bebidas/frecuencia): \nToxicomanías (esp/día/años): \nAlimentación (frecuencia/tipo): \nDeportes (act. física/frecuencia): \nEscolaridad: \nInmunizaciones: \nHipersensibilidad/Alergias: \nTrabajo/Descanso: \nPasatiempos:`;
 
-• Familiares: ninguno.
-• Deportes practicados anteriormente: 
-   - Logros: ninguno.
-• Ejercicio actual: 
-   - Inicio: 
-   - Frecuencia de entrenamiento (Días/horas): 
-   - Logros más importantes: 
-• Proyección: mejorar su forma física y estado de salud.
-• Alimentación: 
-   - Número de comidas: 
-   - ¿Completa? Cereales y tubérculos__ Prod. origen animal__ Leche__ Leguminosas__ Verduras__ Frutas__ Aceites y grasas__
-   - Lugar: __% casa
-
-HÁBITOS PERSONALES
-Baño: 
-Defecación: 
-Lavarse los dientes: 
-Habitación (cuartos, piso, techo, ventanas, hab, servicios): 
-Tabaquismo (cig/día/años): 
-Alcoholismo (bebidas/frecuencia): 
-Toxicomanías (esp/día/años): 
-Alimentación (frecuencia/tipo): 
-Deportes (act. física/frecuencia): 
-Escolaridad: 
-Inmunizaciones: 
-Hipersensibilidad/Alergias: 
-Trabajo/Descanso: 
-Pasatiempos:`;
-
-    const PLANTILLA_GEN=`ANTECEDENTES NO PATOLÓGICOS — GENERALES
-
-HÁBITOS PERSONALES
-Baño: 
-Defecación: 
-Lavarse los dientes: 
-Habitación (cuartos, piso, techo, ventanas, hab, servicios): 
-Tabaquismo (cig/día/años): 
-Alcoholismo (bebidas/frecuencia): 
-Toxicomanías (esp/día/años): 
-Alimentación: 
-   - Número de comidas: 
-   - Tipo de dieta: 
-   - Lugar: __% casa
-Actividad física (tipo/frecuencia): 
-Escolaridad: 
-Inmunizaciones: 
-Hipersensibilidad/Alergias: 
-Trabajo/Descanso: 
-Pasatiempos:`;
+    STATE._plantillaGen=`ANTECEDENTES NO PATOLÓGICOS — GENERALES\n\nHÁBITOS PERSONALES\nBaño: \nDefecación: \nLavarse los dientes: \nHabitación (cuartos, piso, techo, ventanas, hab, servicios): \nTabaquismo (cig/día/años): \nAlcoholismo (bebidas/frecuencia): \nToxicomanías (esp/día/años): \nAlimentación: \n   - Número de comidas: \n   - Tipo de dieta: \n   - Lugar: __% casa\nActividad física (tipo/frecuencia): \nEscolaridad: \nInmunizaciones: \nHipersensibilidad/Alergias: \nTrabajo/Descanso: \nPasatiempos:`;
 
     ab.innerHTML=`
-    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <span style="font-size:11px;color:${MU};font-weight:600;align-self:center">Plantillas rápidas:</span>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:11px;color:${MU};font-weight:600">Plantillas rápidas:</span>
       <button onclick="cargarPlantillaNop('dep')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:600">🏃 Deportiva</button>
       <button onclick="cargarPlantillaNop('gen')" style="background:#F3E5F5;color:#7B1FA2;border:1px solid #CE93D8;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:600">📋 General</button>
       <button onclick="cargarPlantillaNop('limpiar')" style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:600">✕ Limpiar</button>
     </div>
     <textarea id="nopa" rows="20" placeholder="Antecedentes no patológicos..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:monospace;font-size:11px;line-height:1.7">${STATE.antNoPatText||""}</textarea>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>
-    <script>
-      window._plantillaDep=${JSON.stringify(PLANTILLA_DEP)};
-      window._plantillaGen=${JSON.stringify(PLANTILLA_GEN)};
-    <\/script>`;
-
-    window.cargarPlantillaNop=function(tipo){
-      const ta=document.getElementById("nopa");if(!ta)return;
-      if(tipo==="dep")ta.value=window._plantillaDep;
-      else if(tipo==="gen")ta.value=window._plantillaGen;
-      else ta.value="";
-      STATE.antNoPatText=ta.value;
-    };
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
   }
   else if(STATE.antTab==="al"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><div style="display:flex;gap:7px;margin-bottom:10px"><button style="padding:6px 13px;background:${P};color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">Alergias más comunes</button><button style="padding:6px 13px;background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:6px;cursor:pointer;font-size:11px">Alergias a medicamentos</button></div><div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${alergsComun.map(a=>`<div onclick="toggleAlerg('${a}')" style="padding:8px 13px;border-bottom:1px solid ${BR};cursor:pointer;background:${STATE.alergs.includes(a)?PL:"#fff"};color:${STATE.alergs.includes(a)?P:"#263238"};font-weight:${STATE.alergs.includes(a)?700:400};font-size:12px">${STATE.alergs.includes(a)?"✓ ":""}${a}</div>`).join("")}</div></div><div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:8px;padding:14px"><b style="font-size:11px;color:#E65100">⚠️ Alergias registradas</b><div style="margin-top:8px">${STATE.alergs.map(a=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #FFE082;font-size:12px"><span>— ${a}</span><span onclick="toggleAlerg('${a}')" style="color:${DA};cursor:pointer;font-weight:700">✕</span></div>`).join("")}</div><div style="margin-top:10px">${btn("💾 Guardar alergias","guardarAnt()","ok",1)}</div></div></div>`;}
   else if(STATE.antTab==="med"){ab.innerHTML=`<p style="font-size:12px;color:${MU};margin-bottom:10px;background:${PL};padding:8px 12px;border-radius:7px">Medicamentos usados en los últimos 6 meses. Nombre, duración y dosis.</p>${ta("meda",STATE.medText||"","Ej: Metformina 850mg — 1 tab c/12h — 3 meses",8)}<div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;}
