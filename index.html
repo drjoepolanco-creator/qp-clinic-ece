@@ -419,17 +419,19 @@ window.abrirExpediente=async function(id){
   STATE.ficTab="gen";
   STATE.consultaActual=null;
   // Cargar antecedentes en paralelo
-  const [{data:ap},{data:af},{data:al},{data:disc}]=await Promise.all([
+  const [{data:ap},{data:af},{data:al},{data:disc},{data:gin}]=await Promise.all([
     SB.from("antecedentes_patologicos").select("*").eq("paciente_id",id).maybeSingle(),
     SB.from("antecedentes_familiares").select("*").eq("paciente_id",id).maybeSingle(),
     SB.from("alergias").select("*").eq("paciente_id",id).maybeSingle(),
     SB.from("discapacidades").select("categoria").eq("paciente_id",id),
+    SB.from("antecedentes_gineco").select("*").eq("paciente_id",id).maybeSingle(),
   ]);
   STATE.patData=ap?JSON.parse(JSON.stringify(ap.seleccionados||{})):{};
   STATE.patOtrasNotes=ap?ap.notas_otras||"":"";
   STATE.famData=af?JSON.parse(JSON.stringify(af.datos||{})):{};
   STATE.alergs=al?JSON.parse(JSON.stringify(al.lista||["ALERGIAS NEGADAS"])):["ALERGIAS NEGADAS"];
   STATE.discapacidades=disc?disc.map(d=>d.categoria):[];
+  STATE.ginData=gin||{};
   go("expediente");
 }
 
@@ -824,6 +826,25 @@ window.guardarAnt=async function(){
   loading(false);
   showToast("✓ Antecedentes guardados en el expediente");
 }
+window.guardarGineco=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  loading(true,"Guardando antecedentes gineco-obstétricos...");
+  const g={
+    menarquia:gv("g_men"),fum:gv("g_fum"),ritmo:gv("g_ritmo"),menopausia:gv("g_meno"),
+    duracion:gv("g_dur"),cantidad:gv("g_cant"),frecuencia:gv("g_frec"),dolor:gv("g_dolor"),
+    secreciones:gv("g_sec"),vida_sexual:gv("g_vsa"),edad_inicio:gv("g_eis"),
+    num_parejas:gv("g_np"),mac:gv("g_mac"),relaciones:gv("g_rel"),ets:gv("g_ets"),
+    papanicolaou:gv("g_pap"),pap_resultado:gv("g_papres"),colposcopia:gv("g_col"),mastografia:gv("g_mast"),
+    gestaciones:gv("g_gestaciones"),partos:gv("g_partos"),abortos:gv("g_abortos"),cesareas:gv("g_cesareas"),
+    perinatales:gv("g_peri"),lactancia:gv("g_lac"),
+  };
+  STATE.ginData=g;
+  await SB.from("antecedentes_gineco").upsert({
+    paciente_id:pid,...g
+  },{onConflict:"paciente_id"});
+  loading(false);
+  showToast("✓ Antecedentes gineco-obstétricos guardados");
+}
 window.cargarPlantillaNop=function(tipo){
   const ta=document.getElementById("nopa");if(!ta)return;
   if(tipo==="dep")ta.value=STATE._plantillaDep||"";
@@ -889,7 +910,60 @@ function renderAB(){
   else if(STATE.antTab==="al"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><div style="display:flex;gap:7px;margin-bottom:10px"><button style="padding:6px 13px;background:${P};color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">Alergias más comunes</button><button style="padding:6px 13px;background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:6px;cursor:pointer;font-size:11px">Alergias a medicamentos</button></div><div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${alergsComun.map(a=>`<div onclick="toggleAlerg('${a}')" style="padding:8px 13px;border-bottom:1px solid ${BR};cursor:pointer;background:${STATE.alergs.includes(a)?PL:"#fff"};color:${STATE.alergs.includes(a)?P:"#263238"};font-weight:${STATE.alergs.includes(a)?700:400};font-size:12px">${STATE.alergs.includes(a)?"✓ ":""}${a}</div>`).join("")}</div></div><div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:8px;padding:14px"><b style="font-size:11px;color:#E65100">⚠️ Alergias registradas</b><div style="margin-top:8px">${STATE.alergs.map(a=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #FFE082;font-size:12px"><span>— ${a}</span><span onclick="toggleAlerg('${a}')" style="color:${DA};cursor:pointer;font-weight:700">✕</span></div>`).join("")}</div><div style="margin-top:10px">${btn("💾 Guardar alergias","guardarAnt()","ok",1)}</div></div></div>`;}
   else if(STATE.antTab==="med"){ab.innerHTML=`<p style="font-size:12px;color:${MU};margin-bottom:10px;background:${PL};padding:8px 12px;border-radius:7px">Medicamentos usados en los últimos 6 meses. Nombre, duración y dosis.</p>${ta("meda",STATE.medText||"","Ej: Metformina 850mg — 1 tab c/12h — 3 meses",8)}<div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;}
   else if(STATE.antTab==="dis"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div><p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Agregar discapacidad — Clasificación CIF (OMS)</p><select id="discap-sel" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:12px;margin-bottom:8px">${CIF_CAT.map(c=>`<option ${c.startsWith("—")?"disabled":""}>${c}</option>`).join("")}</select>${btn("➕ Agregar al expediente","addDiscap()","p",1)}</div><div><p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Discapacidades registradas</p>${STATE.discapacidades.length===0?`<div style="background:#FFF3E0;border:1.5px solid #FFCC80;border-radius:8px;padding:14px;text-align:center;color:#E65100;font-size:12px">No hay discapacidades registradas</div>`:`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${STATE.discapacidades.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:${i<STATE.discapacidades.length-1?"1px solid "+BR:"none"};background:${i%2?"#FAFAFA":"#fff"}"><div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:${P};flex-shrink:0"></div><span style="font-size:12px">${d}</span></div><button onclick="removeDiscap(${i})" style="background:none;border:none;color:${DA};cursor:pointer;font-size:14px;font-weight:700">✕</button></div>`).join("")}</div>`}</div></div>`;}
-  else if(STATE.antTab==="oc"){
+  else if(STATE.antTab==="gin"){
+    const g=STATE.ginData||{};
+    ab.innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:14px">${btn("💾 Guardar gineco-obstétricos","guardarGineco()","ok",1)}</div>
+
+    <!-- MENARQUIA -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Menarquia (edad)",`<input id="g_men" value="${g.menarquia||""}" placeholder="Ej: 12 años" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("FUM (Fecha Última Menstruación)",`<input id="g_fum" value="${g.fum||""}" placeholder="DD/MM/AAAA" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Ritmo menstrual",`<input id="g_ritmo" value="${g.ritmo||""}" placeholder="Ej: 28 x 5" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Menopausia",`<input id="g_meno" value="${g.menopausia||""}" placeholder="Edad o No aplica" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    </div>
+
+    <!-- CARACTERÍSTICAS DE LA MENSTRUACIÓN -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Características de la Menstruación</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Duración (días)",`<input id="g_dur" value="${g.duracion||""}" placeholder="Ej: 5" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Cantidad de sangre",`<select id="g_cant" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${g.cantidad==="No especificado"?"selected":""}>No especificado</option><option ${g.cantidad==="Escasa"?"selected":""}>Escasa</option><option ${g.cantidad==="Normal"?"selected":""}>Normal</option><option ${g.cantidad==="Abundante"?"selected":""}>Abundante</option><option ${g.cantidad==="Muy abundante"?"selected":""}>Muy abundante</option></select>`)}
+      ${fld("Frecuencia",`<select id="g_frec" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${g.frecuencia==="No especificado"?"selected":""}>No especificado</option><option ${g.frecuencia==="Regular"?"selected":""}>Regular</option><option ${g.frecuencia==="Irregular"?"selected":""}>Irregular</option><option ${g.frecuencia==="Oligomenorrea"?"selected":""}>Oligomenorrea</option><option ${g.frecuencia==="Amenorrea"?"selected":""}>Amenorrea</option><option ${g.frecuencia==="Polimenorrea"?"selected":""}>Polimenorrea</option></select>`)}
+      ${fld("Presencia de dolor",`<select id="g_dolor" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${g.dolor==="No"?"selected":""}>No</option><option ${g.dolor==="Sí leve"?"selected":""}>Sí — leve</option><option ${g.dolor==="Sí moderado"?"selected":""}>Sí — moderado</option><option ${g.dolor==="Sí intenso"?"selected":""}>Sí — intenso</option><option ${g.dolor==="Dismenorrea primaria"?"selected":""}>Dismenorrea primaria</option><option ${g.dolor==="Dismenorrea secundaria"?"selected":""}>Dismenorrea secundaria</option></select>`)}
+    </div>
+    <div style="margin-bottom:16px">${fld("Presencia de otras secreciones vaginales",ta("g_sec",g.secreciones||"","Describa características del flujo, color, olor, consistencia, cantidad...",3))}</div>
+
+    <!-- ACTIVIDAD SEXUAL -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Actividad Sexual</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Vida sexual activa",`<select id="g_vsa" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${g.vida_sexual==="No"?"selected":""}>No</option><option ${g.vida_sexual==="Sí"?"selected":""}>Sí</option><option ${g.vida_sexual==="No especificado"?"selected":""}>No especificado</option></select>`)}
+      ${fld("Edad de inicio",`<input id="g_eis" value="${g.edad_inicio||""}" placeholder="Años" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Número de parejas",`<input id="g_np" value="${g.num_parejas||""}" placeholder="Número" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Método anticonceptivo",`<select id="g_mac" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No usa</option><option ${g.mac==="Barrera (condón)"?"selected":""}>Barrera (condón)</option><option ${g.mac==="Píldora anticonceptiva"?"selected":""}>Píldora anticonceptiva</option><option ${g.mac==="DIU"?"selected":""}>DIU</option><option ${g.mac==="Parche"?"selected":""}>Parche</option><option ${g.mac==="Implante subdérmico"?"selected":""}>Implante subdérmico</option><option ${g.mac==="Inyectable"?"selected":""}>Inyectable</option><option ${g.mac==="Ligadura de trompas"?"selected":""}>Ligadura de trompas</option><option ${g.mac==="Vasectomía de pareja"?"selected":""}>Vasectomía de pareja</option><option ${g.mac==="Abstinencia"?"selected":""}>Abstinencia</option><option ${g.mac==="Ritmo"?"selected":""}>Ritmo</option><option ${g.mac==="Otro"?"selected":""}>Otro</option></select>`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Tipo de relaciones",`<select id="g_rel" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option><option ${g.relaciones==="Heterosexuales"?"selected":""}>Heterosexuales</option><option ${g.relaciones==="Homosexuales"?"selected":""}>Homosexuales</option><option ${g.relaciones==="Bisexuales"?"selected":""}>Bisexuales</option></select>`)}
+      ${fld("Enfermedades de transmisión sexual",ta("g_ets",g.ets||"","Especifique si aplica...",3))}
+    </div>
+
+    <!-- PAPANICOLAOU / COLPOSCOPÍA -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Estudios Ginecológicos</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Último Papanicolaou",`<input id="g_pap" value="${g.papanicolaou||""}" placeholder="Fecha o resultado" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Resultado PAP",`<select id="g_papres" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No realizado</option><option ${g.pap_resultado==="Normal"?"selected":""}>Normal</option><option ${g.pap_resultado==="ASCUS"?"selected":""}>ASCUS</option><option ${g.pap_resultado==="NIC I"?"selected":""}>NIC I</option><option ${g.pap_resultado==="NIC II"?"selected":""}>NIC II</option><option ${g.pap_resultado==="NIC III"?"selected":""}>NIC III</option><option ${g.pap_resultado==="Carcinoma"?"selected":""}>Carcinoma</option></select>`)}
+      ${fld("Última colposcopía",`<input id="g_col" value="${g.colposcopia||""}" placeholder="Fecha o resultado" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Última mastografía",`<input id="g_mast" value="${g.mastografia||""}" placeholder="Fecha o resultado" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    </div>
+
+    <!-- INFORMACIÓN DE EMBARAZOS -->
+    <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:11px;color:${P};text-transform:uppercase">Información de Embarazos Previos</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      ${["Gestaciones","Partos","Abortos","Cesáreas"].map((l,i)=>{const k=["gestaciones","partos","abortos","cesareas"][i];return fld(l,`<select id="g_${k}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5","6","7","8","9","10+"].map(n=>`<option ${g[k]===n?"selected":""}>${n}</option>`).join("")}</select>`);}).join("")}
+    </div>
+    <div style="margin-bottom:16px">${fld("Antecedentes perinatales de importancia",ta("g_peri",g.perinatales||"","Complicaciones obstétricas, partos pretérmino, pérdidas fetales, malformaciones...",4))}</div>
+    <div style="margin-bottom:16px">${fld("Lactancia materna",`<select id="g_lac" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option><option ${g.lactancia==="Sí"?"selected":""}>Sí</option><option ${g.lactancia==="No"?"selected":""}>No</option><option ${g.lactancia==="Actualmente"?"selected":""}>Actualmente</option></select>`)}</div>
+    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar gineco-obstétricos","guardarGineco()","ok",1)}</div>`;
+  }
     const ocList=["Alergias oculares","Ambliopía","Astenopía (fatiga visual)","Astigmatismo","Atrofia óptica","Blefaritis","Catarata congénita","Catarata senil","Catarata traumática","Celulitis orbitaria","Cirugía refractiva previa","Chalación","Conjuntivitis alérgica","Conjuntivitis bacteriana","Conjuntivitis viral","Coroiditis","Degeneración macular","Desprendimiento de retina","Distrofia corneal","Edema corneal","Edema de papila","Ectropión","Enfermedad ocular","Entropión","Episcleritis","Escleritis","Estrabismo","Glaucoma","Glaucoma congénito","Glaucoma de ángulo abierto","Glaucoma de ángulo cerrado","Glaucoma secundario","Hemorragia subconjuntival","Hipermetropía","Iridociclitis","Leucoma corneal","Luxación del cristalino","Melanoma uveal","Miopía","Neuritis óptica","Nistagmo","Oclusión arterial de retina","Oclusión venosa de retina","Ojo seco","Orzuelo","Pingüécula","Presbicia","Ptosis palpebral","Pterigión","Pseudofaquia (operado de Catarata)","Queratitis","Queratocono","Retinitis pigmentosa","Retinoblastoma","Retinopatía diabética","Trauma ocular","Tumores palpebrales","Uveítis","Úlcera corneal","Xantelasma"];
     ab.innerHTML=`
     <div style="display:flex;gap:6px;margin-bottom:12px">
