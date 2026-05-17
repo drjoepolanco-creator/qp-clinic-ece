@@ -667,7 +667,7 @@ function pgExp(){
   </div>`;
   renderEB();
 }
-window.setET=function(t){STATE.expTab=t;renderEB();}
+window.setET=function(t){STATE.expTab=t;pgExp();}
 function renderEB(){
   const b=document.getElementById("eb");if(!b)return;
   if(STATE.expTab==="ficha")renderFicha(b);
@@ -676,6 +676,7 @@ function renderEB(){
   else if(STATE.expTab==="cons")renderConsultas(b);
   else if(STATE.expTab==="interconsultas")renderInterconsultas(b);
   else if(STATE.expTab==="anexos")renderAnexos(b);
+  else if(STATE.expTab==="vacunas")renderVacunas(b);
   else b.innerHTML=`<div style="padding:40px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🔧</div><p style="color:${MU}">Módulo disponible en próxima versión</p></div>`;
 }
 
@@ -846,7 +847,7 @@ function renderAB(){
   const patG=["Alérgicos","Hospitalizaciones","Quirúrgicos","Traumáticos","Transfusionales"];
   const patA=["Alcoholismo (ver detalles)","Tabaquismo (ver detalles)","Otras sustancias psicoactivas"];
   const patEx=["Exantema súbito","Roséola escarlatina","Rubéola","Sarampión","Varicela","Otra patología exantemática"];
-  const patI=["Faringoamigdalitis","Fiebre Reumática","Hepatitis","Parasitosis","Tifoidea","Transmisión sexual","Tuberculosis","Otra infectocontagiosa"];
+  const patI=["COVID-19","Influenza","Faringoamigdalitis","Fiebre Reumática","Hepatitis","Parotiditis (paperas)","Mononucleosis infecciosa","Parasitosis","Tifoidea","Dengue","Toxoplasmosis","Brucelosis","Leptospirosis","Amebiasis","Neurocisticercosis","Transmisión sexual","Tuberculosis","Otra infectocontagiosa"];
   const patC=["Diabetes Mellitus","Hipertensión Arterial Sistémica","Dislipidemias","Obesidad","Neoplásicas","Enf. reumatológicas","Enfermedad de Gota","Enf. psiquiátricas","Enf. sistema nervioso","Enf. sistema cardiovascular","Enf. sistema respiratorio","Enf. sistema gastrointestinal","Enf. sistema urinario","Enf. sistema musculoesquelético","Enf. sistema tegumentario","Enf. endocrinológicas","Enf. inmunológicas"];
   const alergsComun=["ALERGIAS NEGADAS","ÁCAROS","ALIMENTOS","CHOCOLATE","FRUTOS SECOS","HONGOS","HUMEDAD","LATEX","MARISCOS","MASCOTAS","MOHO","NÍQUEL","PICADURA DE INSECTOS","POLEN","POLVO","SOL"];
 
@@ -1425,6 +1426,123 @@ function calcEdad(fnac){
   if(hoy.getDate()<nac.getDate())meses--;
   if(meses<0){años--;meses+=12;}
   return años>0?`${años}a ${meses}m`:`${meses} meses`;
+}
+
+// ── VACUNAS ───────────────────────────────────────────────
+async function renderVacunas(b){
+  const pid=STATE.pat?.id;if(!pid)return;
+  const {data}=await SB.from("vacunas").select("*").eq("paciente_id",pid).order("fecha_aplicacion",{ascending:false});
+  const vacunas=data||[];
+
+  const ESQUEMA=[
+    {nombre:"BCG",dosis:"Única",edad:"Al nacer"},
+    {nombre:"Hepatitis B",dosis:"3 dosis",edad:"0, 2 y 6 meses"},
+    {nombre:"Pentavalente (DPT+HB+Hib)",dosis:"3 dosis + 1 refuerzo",edad:"2, 4, 6 y 18 meses"},
+    {nombre:"Antipoliomielítica (OPV)",dosis:"3 dosis + refuerzos",edad:"2, 4, 6 meses y cada año"},
+    {nombre:"Neumocócica conjugada",dosis:"2 dosis + refuerzo",edad:"2, 4 y 12 meses"},
+    {nombre:"Rotavirus",dosis:"2-3 dosis",edad:"2 y 4 meses"},
+    {nombre:"Influenza",dosis:"Anual",edad:"6 meses en adelante"},
+    {nombre:"SRP (Sarampión, Rubéola, Paperas)",dosis:"2 dosis",edad:"1 año y 6 años"},
+    {nombre:"DPT (Refuerzo)",dosis:"Refuerzo",edad:"4 años"},
+    {nombre:"Varicela",dosis:"2 dosis",edad:"1 año y 6 años"},
+    {nombre:"Hepatitis A",dosis:"2 dosis",edad:"1 año"},
+    {nombre:"VPH (Virus Papiloma Humano)",dosis:"2-3 dosis",edad:"11-12 años"},
+    {nombre:"COVID-19",dosis:"Esquema completo + refuerzos",edad:"5 años en adelante"},
+    {nombre:"Tdap (Tétanos, Difteria, Tos ferina)",dosis:"Cada 10 años",edad:"Adultos"},
+    {nombre:"Antirrábica",dosis:"Post-exposición",edad:"Según indicación"},
+    {nombre:"Fiebre Tifoidea",dosis:"Según exposición",edad:"Viajeros/riesgo"},
+  ];
+
+  b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:12px">💉 ESQUEMA DE VACUNACIÓN</b></div>
+      <div style="padding:16px">
+        <!-- Formulario nueva vacuna -->
+        <div style="background:${PL};border-radius:10px;padding:14px;margin-bottom:16px">
+          <p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Registrar vacuna aplicada</p>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+            ${fld("Vacuna *",`<select id="vac-nombre" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="">Seleccione...</option>${ESQUEMA.map(v=>`<option>${v.nombre}</option>`).join("")}<option>Otra vacuna</option></select>`)}
+            ${fld("Fecha de aplicación *",`<input id="vac-fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+            ${fld("Dosis / No. de dosis",`<input id="vac-dosis" placeholder="Ej: 1ª dosis, Refuerzo..." style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+            ${fld("Lote",`<input id="vac-lote" placeholder="No. de lote" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            ${fld("Laboratorio / Fabricante",`<input id="vac-lab" placeholder="Ej: Pfizer, AstraZeneca, Birmex..." style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+            ${fld("Observaciones",`<input id="vac-obs" placeholder="Reacciones, sitio de aplicación..." style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          </div>
+          <div style="display:flex;justify-content:flex-end">${btn("💉 Registrar vacuna","guardarVacuna()","ok",1)}</div>
+        </div>
+
+        <!-- Vacunas registradas -->
+        ${vacunas.length>0?`
+        <p style="font-size:12px;font-weight:700;color:${TX};margin-bottom:10px">Vacunas registradas (${vacunas.length})</p>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="background:${PL}">
+              ${["Vacuna","Fecha","Dosis","Lote","Laboratorio","Observaciones",""].map(h=>`<th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:${TX};text-transform:uppercase;white-space:nowrap">${h}</th>`).join("")}
+            </tr></thead>
+            <tbody>
+              ${vacunas.map((v,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+                <td style="padding:10px 12px;font-size:12px;font-weight:600;color:${TX}">${v.nombre}</td>
+                <td style="padding:10px 12px;font-size:12px;color:${MU};white-space:nowrap">${v.fecha_aplicacion?v.fecha_aplicacion.split("-").reverse().join("/"):"—"}</td>
+                <td style="padding:10px 12px;font-size:12px">${v.dosis||"—"}</td>
+                <td style="padding:10px 12px;font-size:11px;color:${MU}">${v.lote||"—"}</td>
+                <td style="padding:10px 12px;font-size:11px;color:${MU}">${v.laboratorio||"—"}</td>
+                <td style="padding:10px 12px;font-size:11px;color:${MU};max-width:180px">${v.observaciones||"—"}</td>
+                <td style="padding:10px 12px">${btn("🗑️","eliminarVacuna('"+v.id+"')","d",1)}</td>
+              </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>`:`
+        <div style="background:#F8F9FA;border-radius:8px;padding:24px;text-align:center;color:${MU}">
+          <div style="font-size:32px;margin-bottom:8px">💉</div>
+          <p style="font-size:13px;font-weight:600">No hay vacunas registradas aún</p>
+          <p style="font-size:12px;margin-top:4px">Use el formulario de arriba para registrar las vacunas aplicadas</p>
+        </div>`}
+
+        <!-- Esquema recomendado referencia -->
+        <div style="margin-top:20px;border-top:1px solid ${BR};padding-top:16px">
+          <p style="font-size:12px;font-weight:700;color:${MU};margin-bottom:10px;text-transform:uppercase">📋 Esquema de vacunación de referencia (Cartilla Nacional de Salud)</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            ${ESQUEMA.map(v=>{ const aplicada=vacunas.some(rv=>rv.nombre===v.nombre); return `<div style="background:${aplicada?"#E8F5E9":"#F8F9FA"};border:1px solid ${aplicada?"#A5D6A7":BR};border-radius:8px;padding:10px 12px">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <span style="font-size:14px">${aplicada?"✅":"⬜"}</span>
+                <p style="font-size:11px;font-weight:700;color:${aplicada?"#1B5E20":TX}">${v.nombre}</p>
+              </div>
+              <p style="font-size:10px;color:${MU}">${v.dosis} · ${v.edad}</p>
+            </div>`;}).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+window.guardarVacuna=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  const nom=document.getElementById("vac-nombre")?.value;
+  const fecha=document.getElementById("vac-fecha")?.value;
+  if(!nom||nom===""||!fecha){showToast("Selecciona la vacuna y la fecha",false);return;}
+  loading(true,"Guardando vacuna...");
+  const {error}=await SB.from("vacunas").insert({
+    paciente_id:pid,
+    nombre:nom,
+    fecha_aplicacion:fecha,
+    dosis:document.getElementById("vac-dosis")?.value||null,
+    lote:document.getElementById("vac-lote")?.value||null,
+    laboratorio:document.getElementById("vac-lab")?.value||null,
+    observaciones:document.getElementById("vac-obs")?.value||null,
+  });
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("✓ Vacuna registrada correctamente");
+  renderVacunas(document.getElementById("eb"));
+}
+window.eliminarVacuna=async function(id){
+  loading(true,"Eliminando...");
+  await SB.from("vacunas").delete().eq("id",id);
+  loading(false);
+  showToast("✓ Registro eliminado");
+  renderVacunas(document.getElementById("eb"));
 }
 
 // ── CONFIGURACIÓN MENU ───────────────────────────────────
