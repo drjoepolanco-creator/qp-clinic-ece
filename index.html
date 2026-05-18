@@ -312,6 +312,7 @@ window.doLogin=async function(){
   STATE.user=data.user;
   const {data:prof}=await SB.from("usuarios").select("*").eq("id",data.user.id).maybeSingle();
   STATE.userProfile=prof;
+  STATE.medProfile=prof; // alias para recetas y documentos
   go("agenda");
 }
 function showLoginError(msg){const e=document.getElementById("login-error");if(e){e.style.display="block";e.textContent=msg;}}
@@ -2157,102 +2158,127 @@ window.generarPDFReceta=async function(tipo="receta"){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
   const p=STATE.pat||{};
-  const med=STATE.medProfile||{};
+  const med=STATE.medProfile||STATE.userProfile||{};
   const contenido=document.getElementById("recipe-content")?.value||"";
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim().toUpperCase();
   const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim().toUpperCase();
-  const W=216,margin=18;
+  const W=216,margin=15;
 
-  // ── LOGO ──
+  // ── LOGO izquierda ──
   try{
     const imgRes=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");
     const blob=await imgRes.blob();
     const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
-    doc.addImage(b64,"JPEG",margin,10,28,14);
+    doc.addImage(b64,"JPEG",margin,8,30,15);
   }catch(e){}
 
-  // ── DATOS MÉDICO (derecha) ──
+  // ── DATOS MÉDICO derecha ──
+  let ry=13;
   doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-  doc.text(medNom,W-margin,13,{align:"right"});
-  doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(84,110,122);
-  let ry=17;
-  if(med.especialidad_1){doc.text(med.especialidad_1,W-margin,ry,{align:"right"});ry+=4;}
-  if(med.cedula_medico){doc.text(`Céd. Prof. ${med.cedula_medico}`,W-margin,ry,{align:"right"});ry+=4;}
-  if(med.institucion_grado){doc.text(med.institucion_grado,W-margin,ry,{align:"right"});ry+=4;}
-  if(med.especialidad_2){doc.text(med.especialidad_2,W-margin,ry,{align:"right"});ry+=4;}
-  if(med.cedula_esp_1){doc.text(`Céd. Esp. ${med.cedula_esp_1}`,W-margin,ry,{align:"right"});ry+=4;}
-  if(med.institucion_esp_1){doc.text(med.institucion_esp_1,W-margin,ry,{align:"right"});}
+  doc.text(medNom,W-margin,ry,{align:"right"});ry+=4.5;
+  doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(60,60,60);
+  if(med.especialidad_1){
+    doc.text((med.especialidad_1+(med.especialidad_2?" DEL DEPORTE":"")).toUpperCase(),W-margin,ry,{align:"right"});ry+=4;
+  }
+  if(med.cedula_esp_1||med.cedula_medico){
+    doc.text(`Ced. Prof. ${med.cedula_esp_1||med.cedula_medico}`,W-margin,ry,{align:"right"});ry+=4;
+  }
+  if(med.institucion_esp_1||med.institucion_grado){
+    doc.text(med.institucion_esp_1||med.institucion_grado||"",W-margin,ry,{align:"right"});
+  }
 
   // ── LÍNEA SEPARADORA ──
-  doc.setDrawColor(38,50,56);doc.setLineWidth(0.5);
-  doc.line(margin,28,W-margin,28);
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.6);
+  doc.line(margin,27,W-margin,27);
 
   // ── DATOS PACIENTE ──
   doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-  doc.text("NOMBRE DEL PACIENTE:",margin,34);
-  doc.setFont("helvetica","normal");doc.text(nomPac,margin+44,34);
-  doc.setFont("helvetica","bold");doc.text("FECHA:",W-margin-25,34);
-  doc.setFont("helvetica","normal");doc.text(hoy,W-margin-10,34);
-  doc.setFont("helvetica","bold");doc.text("Edad:",margin,39);
-  doc.setFont("helvetica","normal");doc.text(calcEdad(p.fecha_nacimiento)||"",margin+10,39);
-  doc.setFont("helvetica","bold");doc.text("Fecha de nacimiento:",margin+40,39);
-  doc.setFont("helvetica","normal");doc.text(p.fecha_nacimiento||"",margin+75,39);
+  doc.text("NOMBRE DEL PACIENTE:",margin,33);
+  doc.setFont("helvetica","normal");
+  doc.text(nomPac,margin+45,33);
+  doc.setFont("helvetica","bold");
+  doc.text("FECHA:",W-margin-28,33);
+  doc.setFont("helvetica","normal");
+  doc.text(hoy,W-margin-12,33);
+
+  doc.setFont("helvetica","bold");doc.text("Edad:",margin,38);
+  doc.setFont("helvetica","normal");doc.text(calcEdad(p.fecha_nacimiento)||"",margin+11,38);
+  doc.setFont("helvetica","bold");doc.text("Fecha de nacimiento:",margin+45,38);
+  doc.setFont("helvetica","normal");doc.text(p.fecha_nacimiento||"",margin+85,38);
 
   // ── LÍNEA ──
-  doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);
-  doc.line(margin,42,W-margin,42);
+  doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);
+  doc.line(margin,41,W-margin,41);
 
-  // ── LEYENDA ALERGIA (solo receta) ──
   let contentY=47;
+
+  // ── LEYENDA ALERGIA solo en receta ──
   if(tipo==="receta"){
-    doc.setFontSize(8);doc.setFont("helvetica","italic");doc.setTextColor(100,100,100);
-    doc.text("TOMAR O APLICAR SOLO SI NO ES ALÉRGICO / TAKE OR APPLY ONLY IF PATIENT IS NOT ALLERGIC",W/2,46,{align:"center"});
-    doc.setDrawColor(180,180,180);doc.line(margin,48,W-margin,48);
+    doc.setFontSize(7.5);doc.setFont("helvetica","italic");doc.setTextColor(80,80,80);
+    doc.text("TOMAR O APLICAR SOLO SI NO ES ALÉRGICO / TAKE OR APPLY ONLY IF PATIENT IS NOT ALLERGIC",W/2,45,{align:"center"});
+    doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);
+    doc.line(margin,47,W-margin,47);
     contentY=53;
   }
 
   // ── TÍTULO ──
   const titulos={receta:"TRATAMIENTO",lab:"SOLICITUD DE LABORATORIO",gab:"SOLICITUD DE ESTUDIOS DE GABINETE"};
   doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-  doc.text(titulos[tipo]||"TRATAMIENTO",margin,contentY);
-  doc.setDrawColor(38,50,56);doc.setLineWidth(0.3);
-  doc.line(margin,contentY+1,margin+40,contentY+1);
-  contentY+=7;
+  doc.text(titulos[tipo],margin,contentY);
+  // Subrayado manual
+  const tW=doc.getTextWidth(titulos[tipo]);
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
+  doc.line(margin,contentY+0.8,margin+tW,contentY+0.8);
+  contentY+=8;
 
   // ── CONTENIDO ──
   doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(38,50,56);
-  const lines=doc.splitTextToSize(contenido,W-margin*2);
-  for(const line of lines){
-    if(contentY>220){doc.addPage();contentY=20;}
-    if(line.match(/^\d+\.-/)||line.match(/^[A-ZÁÉÍÓÚ]{3,}/)){
-      doc.setFont("helvetica","bold");
-    }else if(line.startsWith("-")||line.startsWith("•")){
-      doc.setFont("helvetica","italic");
-    }else{
-      doc.setFont("helvetica","normal");
+  const rawLines=contenido.split("\n");
+  for(const rawLine of rawLines){
+    if(contentY>230){doc.addPage();contentY=20;}
+    if(!rawLine.trim()){contentY+=3;continue;}
+    // Detectar medicamento numerado
+    const isNumered=rawLine.match(/^\d+[.\-]/);
+    const isIndented=rawLine.match(/^[-•\s]/);
+    const indentX=isIndented?margin+5:margin;
+    if(isNumered){doc.setFont("helvetica","bold");}
+    else{doc.setFont("helvetica","normal");}
+    const wrapped=doc.splitTextToSize(rawLine,W-margin*2-(isIndented?5:0));
+    for(const wl of wrapped){
+      if(contentY>230){doc.addPage();contentY=20;}
+      doc.text(wl,indentX,contentY);
+      contentY+=5;
     }
-    doc.text(line,margin,contentY);
-    contentY+=5;
   }
 
   // ── FIRMA ──
-  const firmaY=Math.max(contentY+20,175);
+  const firmaY=Math.max(contentY+15,185);
   if(med.firma_digital){
-    try{doc.addImage(med.firma_digital,"PNG",margin,firmaY-18,40,16);}catch(e){}
+    try{
+      const fr=await fetch(med.firma_digital);
+      const fb=await fr.blob();
+      const fb64=await new Promise(r=>{const rd=new FileReader();rd.onload=()=>r(rd.result);rd.readAsDataURL(fb);});
+      doc.addImage(fb64,"JPEG",margin,firmaY-22,55,20);
+    }catch(e){}
   }
   doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
-  doc.line(margin,firmaY,margin+70,firmaY);
+  doc.line(margin,firmaY,margin+80,firmaY);
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
   doc.text("FIRMA DEL MEDICO",W/2,firmaY+5,{align:"center"});
 
+  // ── LÍNEA FOOTER ──
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
+  doc.line(margin,251,W-margin,251);
+
   // ── FOOTER ──
-  doc.setDrawColor(38,50,56);doc.setLineWidth(0.3);doc.line(margin,245,W-margin,245);
-  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
-  doc.text(medNom,W/2,249,{align:"center"});
-  doc.text("Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México C.P. 03810",W/2,253,{align:"center"});
-  doc.text("Teléfono: 55 5682 4345 / 56 4423 7028",W/2,257,{align:"center"});
-  if(med.email)doc.text(med.email,W/2,261,{align:"center"});
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+  doc.text(medNom,W/2,255,{align:"center"});
+  const dir=med.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México C.P. 03810";
+  doc.text(dir,W/2,259,{align:"center"});
+  doc.text("Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,263,{align:"center"});
+  const emailMed=med.email||"dr.polanco@qpclinic.mx";
+  doc.text(emailMed,W/2,267,{align:"center"});
 
   const nombreDoc=tipo==="receta"?"Receta":tipo==="lab"?"Solicitud_Lab":"Solicitud_Gabinete";
   doc.save(`${nombreDoc}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
@@ -2474,6 +2500,19 @@ function pgPerfil(){
         </div>
       </div>
       <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
+        <p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;text-transform:uppercase">Rúbrica / Firma digital</p>
+        <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:14px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+              <p style="font-size:11px;color:${MU};margin-bottom:8px">Sube una imagen de tu rúbrica (JPG o PNG con fondo blanco o transparente). Aparecerá en recetas y documentos.</p>
+              <input type="file" id="pf_firma_file" accept="image/jpeg,image/png,image/jpg" style="font-size:11px;width:100%">
+            </div>
+            <div style="text-align:center;min-width:140px">
+              <p style="font-size:10px;color:${MU};margin-bottom:6px;text-transform:uppercase">Firma actual</p>
+              ${u.firma_digital?`<img src="${u.firma_digital}" style="max-height:60px;max-width:160px;border:1px solid ${BR};border-radius:6px;padding:4px;background:#fff" onerror="this.style.display='none'">`:`<div style="height:60px;border:1.5px dashed ${BR};border-radius:6px;display:flex;align-items:center;justify-content:center;color:${MU};font-size:11px">Sin firma</div>`}
+            </div>
+          </div>
+        </div>
         <p style="font-size:11px;font-weight:700;color:${P};margin-bottom:8px;text-transform:uppercase">Vista previa — encabezado de documentos y recetas</p>
         <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:14px;display:flex;align-items:flex-start;justify-content:space-between">
           <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:48px">
@@ -2528,11 +2567,24 @@ window.guardarPerfil=async function(){
     institucion_esp_1:gv("pf_instesp").trim(),
     institucion_esp_2:gv("pf_instsubesp").trim(),
   };
+  // Subir firma si se seleccionó archivo
+  const firmaFile=document.getElementById("pf_firma_file")?.files[0];
+  if(firmaFile){
+    const ext=firmaFile.name.split(".").pop().toLowerCase();
+    const path=`firmas_medicos/${uid}/firma.${ext}`;
+    const {error:upErr}=await SB.storage.from("expedientes").upload(path,firmaFile,{upsert:true,contentType:firmaFile.type});
+    if(!upErr){
+      const {data:urlData}=SB.storage.from("expedientes").getPublicUrl(path);
+      payload.firma_digital=urlData.publicUrl;
+    }
+  }
   const {data,error}=await SB.from("usuarios").update(payload).eq("id",uid).select().single();
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
   STATE.userProfile=data;
+  STATE.medProfile=data;
   showToast("✓ Perfil médico actualizado");
+  pgPerfil(); // recargar para mostrar la firma
 }
 
 // ── MÉDICOS DEL SISTEMA (solo admin) ──────────────────────
