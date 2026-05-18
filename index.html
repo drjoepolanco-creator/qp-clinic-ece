@@ -2187,9 +2187,15 @@ window.generarPDFReceta=async function(tipo="receta"){
   if(med.cedula_medico)
     credLines.push({txt:`Céd. Prof. ${med.cedula_medico}`,bold:false,sz:8});
   if(med.especialidad_2||med.institucion_esp_1)
-    credLines.push({txt:[med.especialidad_2,med.institucion_esp_1].filter(Boolean).join(" ").toUpperCase(),bold:false,sz:8});
+    credLines.push({txt:`Especialidad en ${[med.especialidad_2,med.institucion_esp_1].filter(Boolean).join(" ")}`.toUpperCase(),bold:false,sz:8});
   if(med.cedula_esp_1)
     credLines.push({txt:`Céd. Esp. ${med.cedula_esp_1}`,bold:false,sz:8});
+  if(med.subespecialidad||med.institucion_esp_2)
+    credLines.push({txt:`Subespecialidad en ${[med.subespecialidad,med.institucion_esp_2].filter(Boolean).join(" ")}`.toUpperCase(),bold:false,sz:8});
+  if(med.cedula_subesp)
+    credLines.push({txt:`Céd. Subesp. ${med.cedula_subesp}`,bold:false,sz:8});
+  if(med.alta_especialidad)
+    credLines.push({txt:`Alta Especialidad en ${med.alta_especialidad}${med.institucion_alta?" "+med.institucion_alta:""}`.toUpperCase(),bold:false,sz:8});
 
   const headerH=Math.max(18, credLines.length*4.5+4);
   const lineY=headerH+4;
@@ -2507,6 +2513,8 @@ function pgPerfil(){
           ${fld("Subespecialidad (si aplica)",inp("pf_subesp",u.subespecialidad||""))}
           ${fld("Institución de subespecialidad",inp("pf_instsubesp",u.institucion_esp_2||""))}
           ${fld("Cédula de subespecialidad",inp("pf_cedsubesp",u.cedula_subesp||""))}
+          ${fld("Alta Especialidad (si aplica)",inp("pf_altaesp",u.alta_especialidad||"","Ej: Medicina del Deporte de Alto Rendimiento"))}
+          ${fld("Institución de Alta Especialidad",inp("pf_instaltaesp",u.institucion_alta||"","Ej: Instituto Nacional de Rehabilitación"))}
         </div>
       </div>
       <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
@@ -2589,6 +2597,8 @@ window.guardarPerfil=async function(){
     institucion_grado:gv("pf_instgrado").trim(),
     institucion_esp_1:gv("pf_instesp").trim(),
     institucion_esp_2:gv("pf_instsubesp").trim(),
+    alta_especialidad:gv("pf_altaesp").trim(),
+    institucion_alta:gv("pf_instaltaesp").trim(),
   };
   // Subir firma si se seleccionó archivo
   const firmaFile=document.getElementById("pf_firma_file")?.files[0];
