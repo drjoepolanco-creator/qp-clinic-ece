@@ -2276,12 +2276,19 @@ window.generarPDFReceta=async function(tipo="receta"){
   const firmaLineX2=W/2+38;
 
   if(med.firma_digital){
-    const fw=55,fh=18; // max tamaño firma
-    const res=await addImg(med.firma_digital,0,0,fh,fw); // dry run para obtener dims
-    // Centrar horizontalmente
-    const fx=W/2-res.w/2;
-    const fy=firmaLineY-res.h-2;
-    await addImg(med.firma_digital,fx,fy,fh,fw);
+    // Calcular proporciones sin dibujar
+    try{
+      const res=await fetch(med.firma_digital);const blob=await res.blob();
+      const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+      const img=await new Promise((rs,rj)=>{const i=new Image();i.onload=()=>rs(i);i.onerror=rj;i.src=b64;});
+      const maxH=18,maxW=55;
+      const ratio=img.width/img.height;
+      let h=maxH,w=h*ratio;
+      if(w>maxW){w=maxW;h=w/ratio;}
+      const fx=W/2-w/2;
+      const fy=firmaLineY-h-2;
+      doc.addImage(b64,med.firma_digital.toLowerCase().includes("png")?"PNG":"JPEG",fx,fy,w,h);
+    }catch(e){}
   }
   doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
   doc.line(firmaLineX1,firmaLineY,firmaLineX2,firmaLineY);
