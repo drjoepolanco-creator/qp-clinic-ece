@@ -701,7 +701,7 @@ function renderFicha(b){
     </div>
   </div>`;renderFB();
 }
-window.setFT=function(t){STATE.ficTab=t;renderFB();}
+window.setFT=function(t){STATE.ficTab=t;pgFicha();}
 function renderFB(){
   const fb=document.getElementById("fb");if(!fb)return;
   const p=STATE.pat;
@@ -921,7 +921,48 @@ function renderFB(){
     </div>
     <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar seguro médico","guardarSeguro()","ok",1)}</div>`;
   }
-  else fb.innerHTML=`<p style="text-align:center;padding:20px;color:${MU}">Sección en desarrollo</p>`;
+  else if(STATE.ficTab==="fac"){
+    const f=p.datos_facturacion||{};
+    const REGIMENES=["Seleccione el régimen fiscal del paciente","601 - General de Ley Personas Morales","603 - Personas Morales con Fines no Lucrativos","605 - Sueldos y Salarios e Ingresos Asimilados a Salarios","606 - Arrendamiento","607 - Régimen de Enajenación o Adquisición de Bienes","608 - Demás ingresos","609 - Consolidación","610 - Residentes en el Extranjero sin Establecimiento Permanente en México","611 - Ingresos por Dividendos (socios y accionistas)","612 - Personas Físicas con Actividades Empresariales y Profesionales","614 - Ingresos por intereses","615 - Régimen de los ingresos por la obtención de premios","616 - Sin obligaciones fiscales","620 - Sociedades Cooperativas de Producción que optan por diferir sus ingresos","621 - Incorporación Fiscal","623 - Opcional para Grupos de Sociedades","624 - Coordinados","625 - Régimen de Plataformas Tecnológicas","626 - Régimen Simplificado de Confianza (RESICO)","629 - De los Regímenes Fiscales Preferentes y de las Empresas Multinacionales","630 - Enajenación de acciones en bolsa de valores"];
+    fb.innerHTML=`
+    <p style="font-size:12px;font-weight:600;color:${TX};margin-bottom:14px">Datos para facturación</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("RFC *",inp("f_rfc",f.rfc||"","XXXX000000XXX"))}
+      ${fld("Código Postal *",inp("f_cp",f.codigo_postal||"","00000"))}
+      ${fld("Correo para enviar facturas",inp("f_mail",f.correo||"","facturacion@ejemplo.com","email"))}
+    </div>
+    <div style="margin-bottom:12px">
+      ${fld("Razón social (como aparece en su Constancia de Situación Fiscal)",inp("f_razon",f.razon_social||"","Nombre o razón social exacta del SAT"))}
+    </div>
+    <div style="margin-bottom:12px">
+      ${fld("Régimen fiscal",`<select id="f_regimen" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${REGIMENES.map(v=>`<option ${f.regimen===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    </div>
+    <div style="margin-bottom:16px">
+      ${fld("Uso del CFDI",`<select id="f_uso_cfdi" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["No especificado","G01 - Adquisición de mercancias","G02 - Devoluciones, descuentos o bonificaciones","G03 - Gastos en general","I01 - Construcciones","I02 - Mobilario y equipo de oficina por inversiones","I03 - Equipo de transporte","I04 - Equipo de computo y accesorios","I05 - Dados, troqueles, moldes, matrices y herramental","I06 - Comunicaciones telefónicas","I07 - Comunicaciones satelitales","I08 - Otra maquinaria y equipo","D01 - Honorarios médicos, dentales y gastos hospitalarios","D02 - Gastos médicos por incapacidad o discapacidad","D03 - Gastos funerales","D04 - Donativos","D05 - Intereses reales efectivamente pagados por créditos hipotecarios (casa habitación)","D06 - Aportaciones voluntarias al SAR","D07 - Primas por seguros de gastos médicos","D08 - Gastos de transportación escolar obligatoria","D09 - Depósitos en cuentas para el ahorro, primas que tengan como base planes de pensiones","D10 - Pagos por servicios educativos (colegiaturas)","S01 - Sin efectos fiscales","CP01 - Pagos","CN01 - Nómina"].map(v=>`<option ${f.uso_cfdi===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    </div>
+    <div style="margin-bottom:16px">
+      ${fld("Anotaciones generales",ta("f_notas",f.notas||"","Observaciones de facturación, condiciones especiales...",3))}
+    </div>
+    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar datos de facturación","guardarFacturacion()","ok",1)}</div>`;
+  }
+}
+window.guardarFacturacion=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  loading(true,"Guardando datos de facturación...");
+  const f={
+    rfc:gv("f_rfc").trim().toUpperCase(),
+    razon_social:gv("f_razon").trim(),
+    codigo_postal:gv("f_cp").trim(),
+    regimen:gv("f_regimen"),
+    uso_cfdi:gv("f_uso_cfdi"),
+    correo:gv("f_mail").trim(),
+    notas:gv("f_notas").trim(),
+  };
+  const {error}=await SB.from("pacientes").update({datos_facturacion:f}).eq("id",pid);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  STATE.pat.datos_facturacion=f;
+  showToast("✓ Datos de facturación guardados");
 }
 window.guardarLaborales=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
