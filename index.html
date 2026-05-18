@@ -746,6 +746,44 @@ function renderFB(){
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" id="fe_priv" ${p.firmo_privacidad?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Aviso de Privacidad</label>
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" id="fe_cons" ${p.firmo_consentimiento?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Consentimiento Informado</label>
     </div>`;
+  else if(STATE.ficTab==="dom"){
+    const d=p.domicilio||{};
+    fb.innerHTML=`
+    <p style="font-size:12px;font-weight:600;color:${TX};margin-bottom:14px">Domicilio de residencia y datos de contacto</p>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 2fr 2fr;gap:10px;margin-bottom:12px">
+      ${fld("Vialidad",`<div style="display:flex;gap:5px">
+        <select id="d_vial_tipo" style="padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;flex-shrink:0">
+          ${["Calle","Avenida","Boulevard","Callejón","Carretera","Cerrada","Circuito","Circunvalación","Corredor","Diagonal","Eje vial","Pasaje","Peatonal","Periférico","Privada","Prolongación","Retorno","Viaducto"].map(v=>`<option ${(d.vialidad_tipo||"Calle")===v?"selected":""}>${v}</option>`).join("")}
+        </select>
+        <input id="d_vial" value="${d.vialidad||""}" placeholder="Nombre de la calle" style="flex:1;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">
+      </div>`)}
+      ${fld("No. Exterior",inp("d_next",d.num_exterior||""))}
+      ${fld("No. Interior",inp("d_nint",d.num_interior||"","Apto, depto..."))}
+      ${fld("Asentamiento / Colonia",`<div style="display:flex;gap:5px">
+        <select id="d_asent_tipo" style="padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;flex-shrink:0">
+          ${["Colonia","Barrio","Fraccionamiento","Pueblo","Residencial","Unidad Habitacional","Ejido","Ranchería","Zona Industrial","Ampliación","Condominio","Sección"].map(v=>`<option ${(d.asentamiento_tipo||"Colonia")===v?"selected":""}>${v}</option>`).join("")}
+        </select>
+        <input id="d_asent" value="${d.asentamiento||""}" placeholder="Nombre de colonia" style="flex:1;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">
+      </div>`)}
+      ${fld("Localidad / Municipio",inp("d_loc",d.localidad||""),"","",true)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      ${fld("Municipio / Delegación *",inp("d_mun",d.municipio||""),1)}
+      ${fld("Entidad Federativa *",sel("d_ef",["Sin indicar","Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de México","Coahuila","Colima","Durango","Estado de México","Guanajuato","Guerrero","Hidalgo","Jalisco","Michoacán","Morelos","Nayarit","Nuevo León","Oaxaca","Puebla","Querétaro","Quintana Roo","San Luis Potosí","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatán","Zacatecas"],d.entidad||"Sin indicar"),1)}
+      ${fld("Código Postal *",inp("d_cp",d.codigo_postal||"","00000"),1)}
+      ${fld("País *",inp("d_pais",d.pais||"MÉXICO"),1)}
+    </div>
+    <div style="border-top:1px solid ${BR};padding-top:14px;margin-bottom:14px">
+      <p style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Datos de contacto</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+        ${fld("Teléfono principal",inp("d_tel1",d.telefono||p.telefono_principal||"","55XXXXXXXX","tel"))}
+        ${fld("Teléfono secundario",inp("d_tel2",d.telefono2||"","55XXXXXXXX","tel"))}
+        ${fld("Celular",inp("d_cel",d.celular||p.celular||"","55XXXXXXXX","tel"))}
+        ${fld("Correo electrónico",inp("d_mail",d.correo||p.correo||"","correo@ejemplo.com","email"))}
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar domicilio","guardarDomicilio()","ok",1)}</div>`;
+  }
   else if(STATE.ficTab==="seg"){
     const sg=p.seguro_medico||{};
     const SNS=[["0","NO ESPECIFICADO"],["1","NINGUNA"],["2","IMSS"],["3","ISSSTE"],["4","PEMEX"],["5","SEDENA"],["6","SEMAR"],["8","OTRA"],["10","IMSS BIENESTAR"],["11","ISSFAM"],["14","OPD IMSS BIENESTAR"],["99","SE IGNORA"]];
@@ -782,6 +820,30 @@ function renderFB(){
     </div>
     <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar seguro médico","guardarSeguro()","ok",1)}</div>`;
   }
+  else fb.innerHTML=`<p style="text-align:center;padding:20px;color:${MU}">Sección en desarrollo</p>`;
+}
+window.guardarDomicilio=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  loading(true,"Guardando domicilio...");
+  const d={
+    vialidad_tipo:gv("d_vial_tipo"),vialidad:gv("d_vial"),
+    num_exterior:gv("d_next"),num_interior:gv("d_nint"),
+    asentamiento_tipo:gv("d_asent_tipo"),asentamiento:gv("d_asent"),
+    localidad:gv("d_loc"),municipio:gv("d_mun"),
+    entidad:gv("d_ef"),codigo_postal:gv("d_cp"),pais:gv("d_pais"),
+    telefono:gv("d_tel1"),telefono2:gv("d_tel2"),
+    celular:gv("d_cel"),correo:gv("d_mail"),
+  };
+  const {error}=await SB.from("pacientes").update({
+    domicilio:d,
+    telefono_principal:d.telefono,
+    celular:d.celular,
+    correo_electronico:d.correo,
+  }).eq("id",pid);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  STATE.pat.domicilio=d;
+  showToast("✓ Domicilio guardado");
 }
 window.guardarSeguro=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
