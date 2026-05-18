@@ -23,7 +23,7 @@ Responde UNICAMENTE con un objeto JSON valido, sin texto adicional ni backticks:
 {"subjetivo":"Redaccion del motivo de consulta e interrogatorio en terminos medicos profesionales en tercera persona. Incluye inicio evolucion caracteristicas del sintoma principal sintomas asociados y negados relevantes.","exploracion_sugerida":"Lista numerada de sistemas a explorar y maniobras especificas a realizar segun los sintomas referidos. Se especifico menciona signos a buscar maniobras con nombre rangos normales esperados.","diagnosticos":[{"cie10":"CODIGO","nombre":"Nombre oficial CIE-10","descripcion":"Justificacion basada en el interrogatorio","probabilidad":"alta"},{"cie10":"CODIGO","nombre":"Nombre oficial CIE-10","descripcion":"Justificacion","probabilidad":"media"},{"cie10":"CODIGO","nombre":"Nombre oficial CIE-10","descripcion":"Justificacion","probabilidad":"baja"}],"tratamiento":"Recomendaciones terapeuticas especificas medicamentos con nombre generico dosis via frecuencia y duracion. Medidas generales e indicaciones de actividad fisica si aplica.","laboratorios":"Estudios de laboratorio recomendados con su justificacion clinica especifica.","gabinete":"Estudios de imagen o gabinete recomendados con justificacion.","plan":"Plan de seguimiento cuando regresar signos de alarma restricciones actividad deportiva referencias a especialistas si aplica."}
 
 Incluye 3-5 diagnosticos diferenciales de mayor a menor probabilidad con codigo CIE-10 correcto.`;
-
+console.log('KEY:', process.env.ANTHROPIC_API_KEY ? 'presente' : 'AUSENTE');
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
