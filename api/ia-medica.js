@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    if (!response.ok) return res.status(500).json({ error: data.error?.message || 'Error API' });
+    if (!response.ok) return res.status(500).json({ error: JSON.stringify(data) });
 
     const text = data.content[0].text.trim();
     const clean = text.replace(/```json|```/g, '').trim();
