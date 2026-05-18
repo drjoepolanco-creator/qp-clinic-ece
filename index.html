@@ -701,7 +701,7 @@ function renderFicha(b){
     </div>
   </div>`;renderFB();
 }
-window.setFT=function(t){STATE.ficTab=t;pgFicha();}
+window.setFT=function(t){STATE.ficTab=t;const b=document.getElementById("eb");if(b)renderFicha(b);}
 function renderFB(){
   const fb=document.getElementById("fb");if(!fb)return;
   const p=STATE.pat;
