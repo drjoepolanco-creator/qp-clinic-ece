@@ -784,6 +784,62 @@ function renderFB(){
     </div>
     <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar domicilio","guardarDomicilio()","ok",1)}</div>`;
   }
+  else if(STATE.ficTab==="lab"){
+    const l=p.datos_laborales||{};
+    fb.innerHTML=`
+    <p style="font-size:12px;font-weight:600;color:${TX};margin-bottom:14px">Datos laborales</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Número de Nómina",inp("l_nomina",l.num_nomina||""))}
+      ${fld("Número de Seguridad Social",inp("l_nss",l.nss||"","XXXXXXXXXXX"))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Empresa / Razón social",inp("l_empresa",l.empresa||""))}
+      ${fld("RFC de la empresa",inp("l_rfc_emp",l.rfc_empresa||""))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Área",inp("l_area",l.area||""))}
+      ${fld("Departamento",inp("l_depto",l.departamento||""))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Supervisor / Gerente / Jefe Dpto",inp("l_sup",l.supervisor||""))}
+      ${fld("Puesto",inp("l_puesto",l.puesto||""))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Salario base",inp("l_sal",l.salario_base||"","Ej: $10,000 MXN"))}
+      ${fld("Salario diario integrado",inp("l_sdi",l.salario_diario||"","Ej: $500 MXN"))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Tipo de trabajador",`<select id="l_tipo_trab" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Sin indicar","Asalariado","Eventual","Eventual del campo","Jornalero urbano","Doméstico","Independiente","Por honorarios","Pensionado","Otro"].map(v=>`<option ${l.tipo_trabajador===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Tipo de contrato",`<select id="l_tipo_cont" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Sin indicar","Base","Contrato por tiempo indeterminado","Contrato por tiempo determinado","Contrato por obra","Eventual","Honorarios","Becario","Practicante"].map(v=>`<option ${l.tipo_contrato===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Fecha de ingreso",`<input id="l_fecha_ing" type="date" value="${l.fecha_ingreso||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Antigüedad",inp("l_antig",l.antiguedad||"","Se calcula automáticamente"))}
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;margin-bottom:8px">
+        <input type="checkbox" id="l_baja" ${l.baja?"checked":""} style="accent-color:${P};width:15px;height:15px">
+        Causó baja de la empresa
+      </label>
+      <div id="baja-fields" style="display:${l.baja?"grid":"none"};grid-template-columns:1fr 1fr;gap:12px">
+        ${fld("Fecha de la baja",`<input id="l_fecha_baja" type="date" value="${l.fecha_baja||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Motivo de baja",`<select id="l_motivo_baja" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["No especificado","Renuncia voluntaria","Rescisión de contrato","Término de contrato","Jubilación","Defunción","Otro"].map(v=>`<option ${l.motivo_baja===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar datos laborales","guardarLaborales()","ok",1)}</div>
+    <script>
+      document.getElementById('l_baja').addEventListener('change',function(){
+        document.getElementById('baja-fields').style.display=this.checked?'grid':'none';
+      });
+      document.getElementById('l_fecha_ing').addEventListener('change',function(){
+        const f=new Date(this.value);const h=new Date();
+        const y=h.getFullYear()-f.getFullYear();const m=h.getMonth()-f.getMonth();
+        const total=y+(m<0?-1:0);
+        const meses=((m%12)+12)%12;
+        document.getElementById('l_antig').value=total>0?total+' año'+(total>1?'s':'')+' '+(meses>0?meses+' mes'+(meses>1?'es':''):''):'Menos de 1 año';
+      });
+    <\/script>`;
+  }
   else if(STATE.ficTab==="resp"){
     const r=p.responsable||{};
     const d=p.domicilio||{};
@@ -866,6 +922,24 @@ function renderFB(){
     <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar seguro médico","guardarSeguro()","ok",1)}</div>`;
   }
   else fb.innerHTML=`<p style="text-align:center;padding:20px;color:${MU}">Sección en desarrollo</p>`;
+}
+window.guardarLaborales=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  loading(true,"Guardando datos laborales...");
+  const l={
+    num_nomina:gv("l_nomina"),nss:gv("l_nss"),empresa:gv("l_empresa"),rfc_empresa:gv("l_rfc_emp"),
+    area:gv("l_area"),departamento:gv("l_depto"),supervisor:gv("l_sup"),puesto:gv("l_puesto"),
+    salario_base:gv("l_sal"),salario_diario:gv("l_sdi"),
+    tipo_trabajador:gv("l_tipo_trab"),tipo_contrato:gv("l_tipo_cont"),
+    fecha_ingreso:gv("l_fecha_ing"),antiguedad:gv("l_antig"),
+    baja:document.getElementById("l_baja")?.checked||false,
+    fecha_baja:gv("l_fecha_baja"),motivo_baja:gv("l_motivo_baja"),
+  };
+  const {error}=await SB.from("pacientes").update({datos_laborales:l}).eq("id",pid);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  STATE.pat.datos_laborales=l;
+  showToast("✓ Datos laborales guardados");
 }
 window.copiarDireccionResponsable=function(){
   const d=STATE.pat?.domicilio||{};
