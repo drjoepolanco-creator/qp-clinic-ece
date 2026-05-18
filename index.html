@@ -2571,11 +2571,13 @@ window.guardarPerfil=async function(){
   const firmaFile=document.getElementById("pf_firma_file")?.files[0];
   if(firmaFile){
     const ext=firmaFile.name.split(".").pop().toLowerCase();
-    const path=`firmas_medicos/${uid}/firma.${ext}`;
-    const {error:upErr}=await SB.storage.from("expedientes").upload(path,firmaFile,{upsert:true,contentType:firmaFile.type});
+    const path=`${uid}/firma.${ext}`;
+    const {error:upErr}=await SB.storage.from("firmas-medicos").upload(path,firmaFile,{upsert:true,contentType:firmaFile.type});
     if(!upErr){
-      const {data:urlData}=SB.storage.from("expedientes").getPublicUrl(path);
-      payload.firma_digital=urlData.publicUrl;
+      const {data:urlData}=SB.storage.from("firmas-medicos").getPublicUrl(path);
+      payload.firma_digital=urlData.publicUrl+"?t="+Date.now();
+    } else {
+      showToast("Error al subir firma: "+upErr.message,false);
     }
   }
   const {data,error}=await SB.from("usuarios").update(payload).eq("id",uid).select().single();
