@@ -1,6 +1,3 @@
-// Vercel Serverless Function — Generador de Nota Médica con IA
-// Endpoint: POST /api/ia-medica
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -9,9 +6,9 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { transcripcion, paciente, antecedentes } = req.body;
-  if (!transcripcion) return res.status(400).json({ error: 'Transcripción requerida' });
+  if (!transcripcion) return res.status(400).json({ error: 'Transcripcion requerida' });
 
-  const prompt = `Eres un asistente médico clínico experto. Analiza el siguiente interrogatorio médico transcrito y genera una nota SOAP estructurada completa.
+  const prompt = `Eres un asistente medico clinico experto. Analiza el siguiente interrogatorio medico transcrito y genera una nota SOAP estructurada completa.
 
 DATOS DEL PACIENTE:
 ${paciente || 'No especificado'}
@@ -19,25 +16,13 @@ ${paciente || 'No especificado'}
 ANTECEDENTES RELEVANTES:
 ${antecedentes || 'No especificados'}
 
-TRANSCRIPCIÓN DEL INTERROGATORIO:
+TRANSCRIPCION DEL INTERROGATORIO:
 "${transcripcion}"
 
-Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni backticks:
-{
-  "subjetivo": "Redacción del motivo de consulta e interrogatorio en términos médicos profesionales, en tercera persona. Incluye inicio, evolución, características del síntoma principal, síntomas asociados y negados relevantes.",
-  "exploracion_sugerida": "Lista numerada de sistemas a explorar y maniobras específicas a realizar según los síntomas referidos. Sé específico: menciona signos a buscar, maniobras con nombre, rangos normales esperados.",
-  "diagnosticos": [
-    {"cie10": "CÓDIGO", "nombre": "Nombre oficial CIE-10", "descripcion": "Justificación basada en el interrogatorio", "probabilidad": "alta|media|baja"},
-    {"cie10": "CÓDIGO", "nombre": "Nombre oficial CIE-10", "descripcion": "Justificación", "probabilidad": "media"},
-    {"cie10": "CÓDIGO", "nombre": "Nombre oficial CIE-10", "descripcion": "Justificación", "probabilidad": "baja"}
-  ],
-  "tratamiento": "Recomendaciones terapéuticas específicas: medicamentos con nombre genérico, dosis, vía, frecuencia y duración. Medidas generales e indicaciones de actividad física si aplica.",
-  "laboratorios": "Estudios de laboratorio recomendados con su justificación clínica específica.",
-  "gabinete": "Estudios de imagen o gabinete recomendados con justificación.",
-  "plan": "Plan de seguimiento: cuándo regresar, signos de alarma, restricciones, actividad deportiva, referencias a especialistas si aplica."
-}
+Responde UNICAMENTE con un objeto JSON valido, sin texto adicional ni backticks:
+{"subjetivo":"Redaccion del motivo de consulta e interrogatorio en terminos medicos profesionales en tercera persona. Incluye inicio evolucion caracteristicas del sintoma principal sintomas asociados y negados relevantes.","exploracion_sugerida":"Lista numerada de sistemas a explorar y maniobras especificas a realizar segun los sintomas referidos. Se especifico menciona signos a buscar maniobras con nombre rangos normales esperados.","diagnosticos":[{"cie10":"CODIGO","nombre":"Nombre oficial CIE-10","descripcion":"Justificacion basada en el interrogatorio","probabilidad":"alta"},{"cie10":"CODIGO","nombre":"Nombre oficial CIE-10","descripcion":"Justificacion","probabilidad":"media"},{"cie10":"CODIGO","nombre":"Nombre oficial CIE-10","descripcion":"Justificacion","probabilidad":"baja"}],"tratamiento":"Recomendaciones terapeuticas especificas medicamentos con nombre generico dosis via frecuencia y duracion. Medidas generales e indicaciones de actividad fisica si aplica.","laboratorios":"Estudios de laboratorio recomendados con su justificacion clinica especifica.","gabinete":"Estudios de imagen o gabinete recomendados con justificacion.","plan":"Plan de seguimiento cuando regresar signos de alarma restricciones actividad deportiva referencias a especialistas si aplica."}
 
-Incluye 3-5 diagnósticos diferenciales de mayor a menor probabilidad con código CIE-10 correcto.`;
+Incluye 3-5 diagnosticos diferenciales de mayor a menor probabilidad con codigo CIE-10 correcto.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -48,7 +33,7 @@ Incluye 3-5 diagnósticos diferenciales de mayor a menor probabilidad con códig
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5,
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }]
       })
