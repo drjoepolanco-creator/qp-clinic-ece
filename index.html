@@ -2163,128 +2163,128 @@ window.generarPDFReceta=async function(tipo="receta"){
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim().toUpperCase();
   const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim().toUpperCase();
-  const W=216,margin=15;
+  const W=216, margin=15;
+
+  // Función para agregar imagen con proporción correcta
+  async function addImgProportional(url,x,y,maxH,maxW){
+    try{
+      const res=await fetch(url);const blob=await res.blob();
+      const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+      const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=b64;});
+      const ratio=img.width/img.height;
+      let h=maxH,w=h*ratio;
+      if(w>maxW){w=maxW;h=w/ratio;}
+      const fmt=url.includes(".png")||url.includes("png")?"PNG":"JPEG";
+      doc.addImage(b64,fmt,x,y,w,h);
+    }catch(e){}
+  }
 
   // ── LOGO izquierda ──
-  try{
-    const imgRes=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");
-    const blob=await imgRes.blob();
-    const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
-    doc.addImage(b64,"JPEG",margin,8,30,15);
-  }catch(e){}
+  await addImgProportional(
+    "https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",
+    margin, 7, 16, 35
+  );
 
-  // ── DATOS MÉDICO derecha ──
-  let ry=13;
+  // ── DATOS MÉDICO derecha (exactamente como Mi Perfil Médico) ──
+  let ry=12;
   doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
   doc.text(medNom,W-margin,ry,{align:"right"});ry+=4.5;
-  doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(60,60,60);
-  if(med.especialidad_1){
-    doc.text((med.especialidad_1+(med.especialidad_2?" DEL DEPORTE":"")).toUpperCase(),W-margin,ry,{align:"right"});ry+=4;
-  }
-  if(med.cedula_esp_1||med.cedula_medico){
-    doc.text(`Ced. Prof. ${med.cedula_esp_1||med.cedula_medico}`,W-margin,ry,{align:"right"});ry+=4;
-  }
-  if(med.institucion_esp_1||med.institucion_grado){
-    doc.text(med.institucion_esp_1||med.institucion_grado||"",W-margin,ry,{align:"right"});
-  }
+  doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(60,60,60);
+
+  // Línea 1: especialidad_1 + institución de grado
+  const linea1=[med.especialidad_1,med.institucion_grado].filter(Boolean).join(" ").toUpperCase();
+  if(linea1){doc.text(linea1,W-margin,ry,{align:"right"});ry+=4;}
+
+  // Línea 2: Céd. Prof. + cedula_medico
+  if(med.cedula_medico){doc.text(`Céd. Prof. ${med.cedula_medico}`,W-margin,ry,{align:"right"});ry+=4;}
+
+  // Línea 3: especialidad_2 + institución esp
+  const linea3=[med.especialidad_2,med.institucion_esp_1].filter(Boolean).join(" ").toUpperCase();
+  if(linea3){doc.text(linea3,W-margin,ry,{align:"right"});ry+=4;}
+
+  // Línea 4: Céd. Esp.
+  if(med.cedula_esp_1){doc.text(`Céd. Esp. ${med.cedula_esp_1}`,W-margin,ry,{align:"right"});}
 
   // ── LÍNEA SEPARADORA ──
   doc.setDrawColor(38,50,56);doc.setLineWidth(0.6);
   doc.line(margin,27,W-margin,27);
 
   // ── DATOS PACIENTE ──
-  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-  doc.text("NOMBRE DEL PACIENTE:",margin,33);
-  doc.setFont("helvetica","normal");
-  doc.text(nomPac,margin+45,33);
-  doc.setFont("helvetica","bold");
-  doc.text("FECHA:",W-margin-28,33);
-  doc.setFont("helvetica","normal");
-  doc.text(hoy,W-margin-12,33);
-
-  doc.setFont("helvetica","bold");doc.text("Edad:",margin,38);
-  doc.setFont("helvetica","normal");doc.text(calcEdad(p.fecha_nacimiento)||"",margin+11,38);
-  doc.setFont("helvetica","bold");doc.text("Fecha de nacimiento:",margin+45,38);
-  doc.setFont("helvetica","normal");doc.text(p.fecha_nacimiento||"",margin+85,38);
+  doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.text("NOMBRE DEL PACIENTE:",margin,32);
+  doc.setFont("helvetica","normal");doc.text(nomPac,margin+45,32);
+  doc.setFont("helvetica","bold");doc.text("FECHA:",W-margin-25,32);
+  doc.setFont("helvetica","normal");doc.text(hoy,W-margin-10,32);
+  doc.setFont("helvetica","bold");doc.text("Edad:",margin,37);
+  doc.setFont("helvetica","normal");doc.text(calcEdad(p.fecha_nacimiento)||"",margin+11,37);
+  doc.setFont("helvetica","bold");doc.text("Fecha de nacimiento:",margin+45,37);
+  doc.setFont("helvetica","normal");doc.text(p.fecha_nacimiento||"",margin+90,37);
 
   // ── LÍNEA ──
   doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);
-  doc.line(margin,41,W-margin,41);
+  doc.line(margin,40,W-margin,40);
 
-  let contentY=47;
+  let contentY=46;
 
-  // ── LEYENDA ALERGIA solo en receta ──
+  // ── LEYENDA ALERGIA ──
   if(tipo==="receta"){
-    doc.setFontSize(7.5);doc.setFont("helvetica","italic");doc.setTextColor(80,80,80);
-    doc.text("TOMAR O APLICAR SOLO SI NO ES ALÉRGICO / TAKE OR APPLY ONLY IF PATIENT IS NOT ALLERGIC",W/2,45,{align:"center"});
+    doc.setFontSize(7);doc.setFont("helvetica","italic");doc.setTextColor(90,90,90);
+    doc.text("TOMAR O APLICAR SOLO SI NO ES ALÉRGICO / TAKE OR APPLY ONLY IF PATIENT IS NOT ALLERGIC",W/2,44,{align:"center"});
     doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);
-    doc.line(margin,47,W-margin,47);
-    contentY=53;
+    doc.line(margin,46,W-margin,46);
+    contentY=52;
   }
 
   // ── TÍTULO ──
   const titulos={receta:"TRATAMIENTO",lab:"SOLICITUD DE LABORATORIO",gab:"SOLICITUD DE ESTUDIOS DE GABINETE"};
-  doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
   doc.text(titulos[tipo],margin,contentY);
-  // Subrayado manual
   const tW=doc.getTextWidth(titulos[tipo]);
   doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
   doc.line(margin,contentY+0.8,margin+tW,contentY+0.8);
-  contentY+=8;
+  contentY+=7;
 
-  // ── CONTENIDO ──
-  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(38,50,56);
+  // ── CONTENIDO (media carta = hasta ~140mm) ──
+  doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(38,50,56);
   const rawLines=contenido.split("\n");
   for(const rawLine of rawLines){
-    if(contentY>230){doc.addPage();contentY=20;}
-    if(!rawLine.trim()){contentY+=3;continue;}
-    // Detectar medicamento numerado
-    const isNumered=rawLine.match(/^\d+[.\-]/);
-    const isIndented=rawLine.match(/^[-•\s]/);
-    const indentX=isIndented?margin+5:margin;
-    if(isNumered){doc.setFont("helvetica","bold");}
-    else{doc.setFont("helvetica","normal");}
-    const wrapped=doc.splitTextToSize(rawLine,W-margin*2-(isIndented?5:0));
+    if(contentY>130){doc.addPage();contentY=20;} // no pasa de media carta
+    if(!rawLine.trim()){contentY+=2;continue;}
+    const isNum=rawLine.match(/^\d+[.\-]/);
+    const isInd=rawLine.match(/^[-•]/);
+    if(isNum)doc.setFont("helvetica","bold");
+    else doc.setFont("helvetica","normal");
+    const wrapped=doc.splitTextToSize(rawLine,W-margin*2-(isInd?5:0));
     for(const wl of wrapped){
-      if(contentY>230){doc.addPage();contentY=20;}
-      doc.text(wl,indentX,contentY);
-      contentY+=5;
+      if(contentY>130){doc.addPage();contentY=20;}
+      doc.text(wl,isInd?margin+4:margin,contentY);
+      contentY+=4.5;
     }
   }
 
-  // ── FIRMA ──
-  const firmaY=Math.max(contentY+15,185);
+  // ── FIRMA (posición fija en media carta) ──
+  const firmaY=145;
   if(med.firma_digital){
-    try{
-      const fr=await fetch(med.firma_digital);
-      const fb=await fr.blob();
-      const fb64=await new Promise(r=>{const rd=new FileReader();rd.onload=()=>r(rd.result);rd.readAsDataURL(fb);});
-      doc.addImage(fb64,"JPEG",margin,firmaY-22,55,20);
-    }catch(e){}
+    await addImgProportional(med.firma_digital,margin,firmaY-20,18,55);
   }
   doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
-  doc.line(margin,firmaY,margin+80,firmaY);
+  doc.line(margin,firmaY,margin+75,firmaY);
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-  doc.text("FIRMA DEL MEDICO",W/2,firmaY+5,{align:"center"});
+  doc.text("FIRMA DEL MÉDICO",W/2,firmaY+5,{align:"center"});
 
-  // ── LÍNEA FOOTER ──
+  // ── FOOTER (pegado a firma, en media carta) ──
   doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
-  doc.line(margin,251,W-margin,251);
-
-  // ── FOOTER ──
-  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
-  doc.text(medNom,W/2,255,{align:"center"});
-  const dir=med.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México C.P. 03810";
-  doc.text(dir,W/2,259,{align:"center"});
-  doc.text("Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,263,{align:"center"});
-  const emailMed=med.email||"dr.polanco@qpclinic.mx";
-  doc.text(emailMed,W/2,267,{align:"center"});
+  doc.line(margin,155,W-margin,155);
+  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+  doc.text(medNom,W/2,159,{align:"center"});
+  doc.text(med.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México C.P. 03810",W/2,163,{align:"center"});
+  doc.text("Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,167,{align:"center"});
+  doc.text(med.email||"dr.polanco@qpclinic.mx",W/2,171,{align:"center"});
 
   const nombreDoc=tipo==="receta"?"Receta":tipo==="lab"?"Solicitud_Lab":"Solicitud_Gabinete";
   doc.save(`${nombreDoc}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
-  showToast("✓ PDF descargado");
+  showToast("✓ PDF generado");
 }
-
 window.enviarRecetaWA=async function(tipo){
   const tel=document.getElementById("recipe-tel")?.value||STATE.pat?.celular||"";
   if(!tel){showToast("Ingresa el teléfono del paciente",false);return;}
