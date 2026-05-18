@@ -1580,11 +1580,19 @@ async function cargarConsultas(){
   const cl=document.getElementById("consultas-lista");if(!cl)return;
   if(error||!data||data.length===0){cl.innerHTML=`<p style="text-align:center;padding:24px;color:${MU}">No hay consultas registradas. ${btn("➕ Crear primera consulta","go('consulta')","p",1)}</p>`;return;}
 
-  // Verificar cierre automático por 24h
-  const now=new Date();
+  // Cargar nombres de médicos que falten
+  const uids=[...new Set(data.filter(c=>!c.medico_nombre&&c.medico_id).map(c=>c.medico_id))];
+  const medMap={};
+  if(uids.length>0){
+    const {data:uData}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2").in("id",uids);
+    (uData||[]).forEach(u=>{medMap[u.id]=`${u.titulo||"Dr."} ${u.nombre||""} ${u.apellidos||""}`.trim();});
+  }
+
+  // Verificar cierre automático 24h - ya manejado arriba
+  const now2=new Date();
   for(const c of data){
     if(!c.bloqueada&&c.created_at){
-      const hrs=(now-new Date(c.created_at))/(1000*3600);
+      const hrs=(now2-new Date(c.created_at))/(1000*3600);
       if(hrs>24){
         await SB.from("consultas").update({bloqueada:true,firma_medico:"Cierre automático 24h",fecha_firma:new Date().toISOString()}).eq("id",c.id);
         c.bloqueada=true;c.firma_medico="Cierre automático 24h";
@@ -1599,11 +1607,11 @@ async function cargarConsultas(){
     <tbody>
       ${data.map((c,i)=>{
         const bloq=c.bloqueada;
-        const medInfo=c.medico_nombre||"Médico";
+        const medNom=c.medico_nombre||(c.medico_id&&medMap[c.medico_id])||"Médico no registrado";
         const esp=c.medico_especialidad?"<br><span style='font-size:9px;color:"+MU+"'>"+c.medico_especialidad+"</span>":"";
         return `<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
           <td style="padding:9px 10px">
-            <div style="font-size:11px;font-weight:700;color:${P}">${medInfo}</div>${esp}
+            <div style="font-size:11px;font-weight:700;color:${P}">${medNom}</div>${esp}
           </td>
           <td style="padding:9px 10px;font-size:11px;white-space:nowrap">
             ${c.fecha||c.created_at?.split("T")[0]||"—"}<br>
@@ -1624,6 +1632,7 @@ async function cargarConsultas(){
     </tbody>
   </table>`;
 }
+
 window.abrirConsulta=async function(cid){
   const {data}=await SB.from("consultas").select("*").eq("id",cid).single();
   STATE.consultaActual=data;go("consulta");
