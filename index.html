@@ -1680,8 +1680,9 @@ function pgConsulta(){
       <button onclick="abrirModalIA()" style="background:linear-gradient(135deg,#7B1FA2,#1565C0);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">🤖 Generar nota con IA</button>
       ${btn("💾 Guardar","guardarConsulta()","ok",1)}
       ${btn("✕ Cerrar","cerrarConsulta()","d",1)}
-      ${btn("🖨️ Imprimir receta","","s",1)}
-      ${btn("💬 Enviar receta","showRecipe()","s",1)}
+      <button onclick="showRecipe('receta')" style="background:#1B5E20;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600">💊 Receta</button>
+      <button onclick="showRecipe('lab')" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600">🔬 Sol. Lab</button>
+      <button onclick="showRecipe('gab')" style="background:#6A1B9A;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600">📡 Sol. Gabinete</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px;background:#F0F4F8">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1200px;margin:0 auto">
@@ -1888,15 +1889,7 @@ function pgConsulta(){
     </div>
 
     <!-- MODAL RECETA -->
-    <div id="recipe-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
-      <div style="background:#fff;border-radius:14px;padding:24px;width:400px;box-shadow:0 16px 40px #00000040">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><b style="font-size:14px;color:${TX}">Enviar receta al paciente</b><button onclick="hideRecipe()" style="background:${DA};color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-weight:700">✕</button></div>
-        <div style="background:${PL};border-radius:7px;padding:10px;margin-bottom:14px;font-size:12px;color:${TX}">📄 Envíe la receta en PDF vía WhatsApp o correo electrónico.</div>
-        <div style="display:flex;gap:6px;margin-bottom:14px">${["💬 WhatsApp","📧 Correo","⬇️ PDF"].map(m=>`<button style="flex:1;padding:7px;border:1.5px solid ${BR};border-radius:7px;background:#fff;cursor:pointer;font-size:10px">${m}</button>`).join("")}</div>
-        <div style="display:flex;gap:10px;margin-bottom:12px"><div style="flex:0.4">${fld("País",sel("rp",["🇲🇽 México","🇺🇸 USA"]))}</div><div style="flex:0.6">${fld("Celular",inp("rcel",STATE.pat?.celular||"","","tel"))}</div></div>
-        <button onclick="showToast('✓ Receta enviada por WhatsApp');hideRecipe();" style="width:100%;padding:9px;background:${WA};color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer">💬 Enviar por WhatsApp</button>
-      </div>
-    </div>
+    <div id="recipe-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto"></div>
   </div>`;
 }
 
@@ -2087,8 +2080,212 @@ window.guardarConsulta=async function(){
   showToast("✓ Consulta guardada correctamente");
 }
 window.cerrarConsulta=function(){STATE.consultaActual=null;go("expediente");}
-window.showRecipe=function(){const m=document.getElementById("recipe-modal");if(m)m.style.display="flex";}
+window.showRecipe=function(tipo="receta"){
+  const m=document.getElementById("recipe-modal");
+  if(m){m.dataset.tipo=tipo;m.style.display="flex";renderRecipeModal(tipo);}
+}
 window.hideRecipe=function(){const m=document.getElementById("recipe-modal");if(m)m.style.display="none";}
+
+function renderRecipeModal(tipo="receta"){
+  const m=document.getElementById("recipe-modal");if(!m)return;
+  const p=STATE.pat||{};
+  const med=STATE.medProfile||{};
+  const tratTxt=document.getElementById("cs_trat")?.value||"";
+  const labTxt=document.getElementById("cs_lab")?.value||"";
+  const gabTxt=document.getElementById("cs_gab")?.value||"";
+  const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim();
+  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
+
+  const tipoOpts=[
+    {id:"receta",label:"💊 Receta médica",content:tratTxt},
+    {id:"lab",label:"🔬 Solicitud de laboratorio",content:labTxt},
+    {id:"gab",label:"📡 Solicitud de gabinete",content:gabTxt},
+  ];
+  const actual=tipoOpts.find(t=>t.id===tipo)||tipoOpts[0];
+
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;width:100%;max-width:560px;box-shadow:0 16px 40px #00000040;overflow:hidden;max-height:90vh;overflow-y:auto">
+    <div style="background:${PD};padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+      <b style="color:#fff;font-size:13px">📄 Documentos clínicos</b>
+      <button onclick="hideRecipe()" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-weight:700">✕</button>
+    </div>
+    <div style="padding:16px">
+      <!-- Tipo de documento -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        ${tipoOpts.map(t=>`<button onclick="showRecipe('${t.id}')" style="flex:1;padding:7px 4px;border:${t.id===tipo?"2px solid "+P:"1.5px solid "+BR};border-radius:7px;background:${t.id===tipo?PL:"#fff"};color:${t.id===tipo?P:MU};cursor:pointer;font-size:10px;font-weight:${t.id===tipo?700:500}">${t.label}</button>`).join("")}
+      </div>
+
+      <!-- Contenido editable -->
+      <div style="margin-bottom:12px">
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px;text-transform:uppercase">Contenido del documento</p>
+        <textarea id="recipe-content" rows="6" style="width:100%;padding:10px;border:1.5px solid ${BR};border-radius:8px;font-size:12px;outline:none;font-family:monospace;resize:vertical;line-height:1.6">${actual.content||""}</textarea>
+      </div>
+
+      <!-- Vista previa encabezado -->
+      <div style="border:1px solid ${BR};border-radius:8px;padding:12px;background:#FAFAFA;margin-bottom:14px;font-size:11px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:1.5px solid #263238">
+          <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:40px">
+          <div style="text-align:right;line-height:1.6">
+            <b style="font-size:12px">${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}</b><br>
+            <span style="color:${MU}">${med.especialidad_1||""}</span><br>
+            ${med.cedula_medico?`<span style="color:${MU}">Céd. Prof. ${med.cedula_medico}</span><br>`:""}
+            ${med.institucion_grado?`<span style="color:${MU}">${med.institucion_grado}</span><br>`:""}
+            ${med.especialidad_2?`<span style="color:${MU}">${med.especialidad_2}</span><br>`:""}
+            ${med.cedula_esp_1?`<span style="color:${MU}">Céd. Esp. ${med.cedula_esp_1}</span><br>`:""}
+            ${med.institucion_esp_1?`<span style="color:${MU}">${med.institucion_esp_1}</span>`:""}
+          </div>
+        </div>
+        <div><b>PACIENTE:</b> ${nomPac} &nbsp;&nbsp; <b>FECHA:</b> ${hoy}</div>
+        <div style="color:${MU}">Edad: ${calcEdad(p.fecha_nacimiento)} &nbsp; Nac: ${p.fecha_nacimiento||""}</div>
+      </div>
+
+      <!-- Opciones de envío -->
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button onclick="generarPDFReceta('${tipo}')" style="flex:1;padding:9px;background:#1565C0;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">⬇️ Descargar PDF</button>
+        <button onclick="enviarRecetaWA('${tipo}')" style="flex:1;padding:9px;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">💬 WhatsApp</button>
+        <button onclick="enviarRecetaEmail('${tipo}')" style="flex:1;padding:9px;background:#EA4335;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">📧 Correo</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${fld("Teléfono para WhatsApp",`<input id="recipe-tel" value="${p.celular||""}" placeholder="10 dígitos" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Correo electrónico",`<input id="recipe-email" value="${p.correo_electronico||""}" placeholder="correo@ejemplo.com" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+    </div>
+  </div>`;
+}
+
+window.generarPDFReceta=async function(tipo="receta"){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+  const p=STATE.pat||{};
+  const med=STATE.medProfile||{};
+  const contenido=document.getElementById("recipe-content")?.value||"";
+  const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim().toUpperCase();
+  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim().toUpperCase();
+  const W=216,margin=18;
+
+  // ── LOGO ──
+  try{
+    const imgRes=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");
+    const blob=await imgRes.blob();
+    const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+    doc.addImage(b64,"JPEG",margin,10,28,14);
+  }catch(e){}
+
+  // ── DATOS MÉDICO (derecha) ──
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.text(medNom,W-margin,13,{align:"right"});
+  doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(84,110,122);
+  let ry=17;
+  if(med.especialidad_1){doc.text(med.especialidad_1,W-margin,ry,{align:"right"});ry+=4;}
+  if(med.cedula_medico){doc.text(`Céd. Prof. ${med.cedula_medico}`,W-margin,ry,{align:"right"});ry+=4;}
+  if(med.institucion_grado){doc.text(med.institucion_grado,W-margin,ry,{align:"right"});ry+=4;}
+  if(med.especialidad_2){doc.text(med.especialidad_2,W-margin,ry,{align:"right"});ry+=4;}
+  if(med.cedula_esp_1){doc.text(`Céd. Esp. ${med.cedula_esp_1}`,W-margin,ry,{align:"right"});ry+=4;}
+  if(med.institucion_esp_1){doc.text(med.institucion_esp_1,W-margin,ry,{align:"right"});}
+
+  // ── LÍNEA SEPARADORA ──
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.5);
+  doc.line(margin,28,W-margin,28);
+
+  // ── DATOS PACIENTE ──
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.text("NOMBRE DEL PACIENTE:",margin,34);
+  doc.setFont("helvetica","normal");doc.text(nomPac,margin+44,34);
+  doc.setFont("helvetica","bold");doc.text("FECHA:",W-margin-25,34);
+  doc.setFont("helvetica","normal");doc.text(hoy,W-margin-10,34);
+  doc.setFont("helvetica","bold");doc.text("Edad:",margin,39);
+  doc.setFont("helvetica","normal");doc.text(calcEdad(p.fecha_nacimiento)||"",margin+10,39);
+  doc.setFont("helvetica","bold");doc.text("Fecha de nacimiento:",margin+40,39);
+  doc.setFont("helvetica","normal");doc.text(p.fecha_nacimiento||"",margin+75,39);
+
+  // ── LÍNEA ──
+  doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);
+  doc.line(margin,42,W-margin,42);
+
+  // ── LEYENDA ALERGIA (solo receta) ──
+  let contentY=47;
+  if(tipo==="receta"){
+    doc.setFontSize(8);doc.setFont("helvetica","italic");doc.setTextColor(100,100,100);
+    doc.text("TOMAR O APLICAR SOLO SI NO ES ALÉRGICO / TAKE OR APPLY ONLY IF PATIENT IS NOT ALLERGIC",W/2,46,{align:"center"});
+    doc.setDrawColor(180,180,180);doc.line(margin,48,W-margin,48);
+    contentY=53;
+  }
+
+  // ── TÍTULO ──
+  const titulos={receta:"TRATAMIENTO",lab:"SOLICITUD DE LABORATORIO",gab:"SOLICITUD DE ESTUDIOS DE GABINETE"};
+  doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.text(titulos[tipo]||"TRATAMIENTO",margin,contentY);
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.3);
+  doc.line(margin,contentY+1,margin+40,contentY+1);
+  contentY+=7;
+
+  // ── CONTENIDO ──
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(38,50,56);
+  const lines=doc.splitTextToSize(contenido,W-margin*2);
+  for(const line of lines){
+    if(contentY>220){doc.addPage();contentY=20;}
+    if(line.match(/^\d+\.-/)||line.match(/^[A-ZÁÉÍÓÚ]{3,}/)){
+      doc.setFont("helvetica","bold");
+    }else if(line.startsWith("-")||line.startsWith("•")){
+      doc.setFont("helvetica","italic");
+    }else{
+      doc.setFont("helvetica","normal");
+    }
+    doc.text(line,margin,contentY);
+    contentY+=5;
+  }
+
+  // ── FIRMA ──
+  const firmaY=Math.max(contentY+20,175);
+  if(med.firma_digital){
+    try{doc.addImage(med.firma_digital,"PNG",margin,firmaY-18,40,16);}catch(e){}
+  }
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
+  doc.line(margin,firmaY,margin+70,firmaY);
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.text("FIRMA DEL MEDICO",W/2,firmaY+5,{align:"center"});
+
+  // ── FOOTER ──
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.3);doc.line(margin,245,W-margin,245);
+  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+  doc.text(medNom,W/2,249,{align:"center"});
+  doc.text("Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México C.P. 03810",W/2,253,{align:"center"});
+  doc.text("Teléfono: 55 5682 4345 / 56 4423 7028",W/2,257,{align:"center"});
+  if(med.email)doc.text(med.email,W/2,261,{align:"center"});
+
+  const nombreDoc=tipo==="receta"?"Receta":tipo==="lab"?"Solicitud_Lab":"Solicitud_Gabinete";
+  doc.save(`${nombreDoc}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
+  showToast("✓ PDF descargado");
+}
+
+window.enviarRecetaWA=async function(tipo){
+  const tel=document.getElementById("recipe-tel")?.value||STATE.pat?.celular||"";
+  if(!tel){showToast("Ingresa el teléfono del paciente",false);return;}
+  const p=STATE.pat||{};
+  const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
+  const med=STATE.medProfile||{};
+  const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+  const contenido=document.getElementById("recipe-content")?.value||"";
+  const titulos={receta:"Receta médica",lab:"Solicitud de laboratorio",gab:"Solicitud de gabinete"};
+  const celFinal=tel.replace(/\D/g,"");
+  const cel=celFinal.length===10?"52"+celFinal:celFinal;
+  const msg=`🏥 *QP Clinic — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\n${contenido}\n\n_Insurgentes Sur 933, Nápoles, CDMX_\n_qpclinic.org_`;
+  window.open(`https://wa.me/${cel}?text=${encodeURIComponent(msg)}`,"_blank");
+  showToast("✓ Abriendo WhatsApp");
+}
+
+window.enviarRecetaEmail=function(tipo){
+  const email=document.getElementById("recipe-email")?.value||STATE.pat?.correo_electronico||"";
+  if(!email){showToast("Ingresa el correo del paciente",false);return;}
+  const p=STATE.pat||{};
+  const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
+  const contenido=document.getElementById("recipe-content")?.value||"";
+  const titulos={receta:"Receta médica",lab:"Solicitud de laboratorio",gab:"Solicitud de gabinete"};
+  const subject=encodeURIComponent(`${titulos[tipo]||"Documento"} — ${nomPac} — QP Clinic`);
+  const body=encodeURIComponent(`Estimado/a ${nomPac},\n\nAdjunto encontrará su ${titulos[tipo]||"documento"} de QP Clinic.\n\n${contenido}\n\nQP Clinic — Especialistas en Salud Integral\nInsurgentes Sur 933, Nápoles, CDMX\nqpclinic.org`);
+  window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+  showToast("✓ Abriendo cliente de correo");
+}
 
 // ── UTILIDADES ────────────────────────────────────────────
 function calcEdad(fnac){
