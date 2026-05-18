@@ -746,7 +746,60 @@ function renderFB(){
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" id="fe_priv" ${p.firmo_privacidad?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Aviso de Privacidad</label>
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px"><input type="checkbox" id="fe_cons" ${p.firmo_consentimiento?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Consentimiento Informado</label>
     </div>`;
-  else fb.innerHTML=`<p style="text-align:center;padding:20px;color:${MU}">Datos guardados para esta sección</p>`;
+  else if(STATE.ficTab==="seg"){
+    const sg=p.seguro_medico||{};
+    const SNS=[["0","NO ESPECIFICADO"],["1","NINGUNA"],["2","IMSS"],["3","ISSSTE"],["4","PEMEX"],["5","SEDENA"],["6","SEMAR"],["8","OTRA"],["10","IMSS BIENESTAR"],["11","ISSFAM"],["14","OPD IMSS BIENESTAR"],["99","SE IGNORA"]];
+    fb.innerHTML=`
+    <div style="margin-bottom:16px">
+      <p style="font-size:12px;font-weight:600;color:${TX};margin-bottom:10px">Instituciones del Sistema Nacional de Salud (SNS) en las cuales se encuentra afiliado el paciente</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 20px">
+        ${SNS.map(([k,v])=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;min-width:180px">
+          <input type="checkbox" id="sns_${k}" ${(sg.sns||[]).includes(k)?"checked":""} style="accent-color:${P};width:14px;height:14px">
+          <span>${k} – ${v}</span>
+        </label>`).join("")}
+      </div>
+    </div>
+    <div style="border-top:1px solid ${BR};padding-top:16px;margin-bottom:14px">
+      <p style="font-size:12px;font-weight:600;color:${TX};margin-bottom:12px">Seguro médico del paciente</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+        ${fld("Cuenta con seguro médico",`<select id="sg_tiene" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${sg.tiene==="No"?"selected":""}>No</option><option ${sg.tiene==="Sí"?"selected":""}>Sí</option></select>`)}
+        ${fld("Tipo de seguro",`<select id="sg_tipo" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>Tipo de seguro no seleccionado</option>${["Seguro de gastos médicos mayores","Seguro de gastos médicos menores","Seguro colectivo","Seguro empresarial","Seguro de vida con cobertura médica","Seguro de accidentes"].map(v=>`<option ${sg.tipo===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+        ${fld("Nombre del seguro médico",`<select id="sg_nombre" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>Seguro médico no seleccionado</option>${["AXA","Allianz","BBVA Seguros","Bupa México","Cigna","GNP Seguros","HDI Seguros","IMSS","ISSSTE","MAPFRE","MetLife","Monterrey New York Life","PEMEX Salud","SEDENA","SEMAR","Thona Seguros","Zurich"].map(v=>`<option ${sg.nombre===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+        ${fld("Otro seguro no incluido",inp("sg_otro",sg.otro||"","Especifique si no está en la lista"))}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+        ${fld("Fecha de inicio de vigencia",`<input id="sg_inicio" type="date" value="${sg.vigencia_inicio||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Fecha de fin de vigencia",`<input id="sg_fin" type="date" value="${sg.vigencia_fin||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("No. de póliza / No. de afiliación",inp("sg_poliza",sg.num_poliza||""))}
+        ${fld("Folio del asegurado",inp("sg_folio",sg.folio||""))}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+        ${fld("Nombre del titular de la póliza",inp("sg_titular",sg.titular||""))}
+        ${fld("Tipo de beneficiario",`<select id="sg_benef" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>Tipo de beneficiario no seleccionado</option>${["Titular","Cónyuge","Hijo(a)","Dependiente económico","Otro"].map(v=>`<option ${sg.tipo_beneficiario===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+        ${fld("Importe de la suma asegurada",inp("sg_suma",sg.suma_asegurada||"","Ej: $500,000 MXN"))}
+        ${fld("Anotaciones adicionales",inp("sg_notas",sg.notas||"","Observaciones del seguro"))}
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar seguro médico","guardarSeguro()","ok",1)}</div>`;
+  }
+}
+window.guardarSeguro=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  loading(true,"Guardando seguro médico...");
+  const sns=["0","1","2","3","4","5","6","8","10","11","14","99"]
+    .filter(k=>document.getElementById("sns_"+k)?.checked);
+  const sg={
+    sns,
+    tiene:gv("sg_tiene"),tipo:gv("sg_tipo"),nombre:gv("sg_nombre"),
+    otro:gv("sg_otro"),vigencia_inicio:gv("sg_inicio"),vigencia_fin:gv("sg_fin"),
+    num_poliza:gv("sg_poliza"),folio:gv("sg_folio"),titular:gv("sg_titular"),
+    tipo_beneficiario:gv("sg_benef"),suma_asegurada:gv("sg_suma"),notas:gv("sg_notas"),
+  };
+  const {error}=await SB.from("pacientes").update({seguro_medico:sg}).eq("id",pid);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  STATE.pat.seguro_medico=sg;
+  showToast("✓ Seguro médico guardado");
 }
 window.guardarFicha=async function(){
   const p=STATE.pat;
