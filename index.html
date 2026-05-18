@@ -784,6 +784,51 @@ function renderFB(){
     </div>
     <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar domicilio","guardarDomicilio()","ok",1)}</div>`;
   }
+  else if(STATE.ficTab==="resp"){
+    const r=p.responsable||{};
+    const d=p.domicilio||{};
+    fb.innerHTML=`
+    <p style="font-size:12px;font-weight:600;color:${TX};margin-bottom:14px">Persona responsable del paciente (obligatorio para pacientes menores de 18 años)</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+      ${fld("Nombre",inp("r_nom",r.nombre||""))}
+      ${fld("Apellido paterno",inp("r_ap",r.apellido_paterno||""))}
+      ${fld("Apellido materno",inp("r_am",r.apellido_materno||""))}
+      ${fld("Vínculo con el paciente",`<select id="r_vinc" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Familiar","Padre","Madre","Tutor legal","Cónyuge","Hijo(a)","Hermano(a)","Abuelo(a)","Amigo(a)","Representante legal","Otro"].map(v=>`<option ${r.vinculo===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    </div>
+    <div style="margin-bottom:14px">
+      <button onclick="copiarDireccionResponsable()" style="background:none;border:none;color:${AC};font-size:12px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline">** copiar dirección del paciente **</button>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 2fr 2fr;gap:10px;margin-bottom:12px">
+      ${fld("Vialidad",`<div style="display:flex;gap:5px">
+        <select id="r_vial_tipo" style="padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;flex-shrink:0">
+          ${["Calle","Avenida","Boulevard","Callejón","Carretera","Cerrada","Circuito","Privada","Prolongación","Retorno"].map(v=>`<option ${(r.vialidad_tipo||"Calle")===v?"selected":""}>${v}</option>`).join("")}
+        </select>
+        <input id="r_vial" value="${r.vialidad||""}" placeholder="Nombre de la calle" style="flex:1;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">
+      </div>`)}
+      ${fld("No. Exterior",inp("r_next",r.num_exterior||""))}
+      ${fld("No. Interior",inp("r_nint",r.num_interior||""))}
+      ${fld("Asentamiento",`<div style="display:flex;gap:5px">
+        <select id="r_asent_tipo" style="padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;flex-shrink:0">
+          ${["Colonia","Barrio","Fraccionamiento","Pueblo","Residencial","Unidad Habitacional"].map(v=>`<option ${(r.asentamiento_tipo||"Colonia")===v?"selected":""}>${v}</option>`).join("")}
+        </select>
+        <input id="r_asent" value="${r.asentamiento||""}" placeholder="Nombre de colonia" style="flex:1;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">
+      </div>`)}
+      ${fld("Localidad",inp("r_loc",r.localidad||""))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+      ${fld("Municipio / Delegación",inp("r_mun",r.municipio||""))}
+      ${fld("Entidad Federativa",sel("r_ef",["Sin indicar","Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de México","Coahuila","Colima","Durango","Estado de México","Guanajuato","Guerrero","Hidalgo","Jalisco","Michoacán","Morelos","Nayarit","Nuevo León","Oaxaca","Puebla","Querétaro","Quintana Roo","San Luis Potosí","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatán","Zacatecas"],r.entidad||"Sin indicar"))}
+      ${fld("Código Postal",inp("r_cp",r.codigo_postal||"","00000"))}
+      ${fld("País",inp("r_pais",r.pais||"MÉXICO"))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Teléfono principal",inp("r_tel1",r.telefono||"","55XXXXXXXX","tel"))}
+      ${fld("Teléfono secundario",inp("r_tel2",r.telefono2||"","55XXXXXXXX","tel"))}
+      ${fld("Celular",inp("r_cel",r.celular||"","55XXXXXXXX","tel"))}
+      ${fld("Correo electrónico",inp("r_mail",r.correo||"","correo@ejemplo.com","email"))}
+    </div>
+    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar responsable","guardarResponsable()","ok",1)}</div>`;
+  }
   else if(STATE.ficTab==="seg"){
     const sg=p.seguro_medico||{};
     const SNS=[["0","NO ESPECIFICADO"],["1","NINGUNA"],["2","IMSS"],["3","ISSSTE"],["4","PEMEX"],["5","SEDENA"],["6","SEMAR"],["8","OTRA"],["10","IMSS BIENESTAR"],["11","ISSFAM"],["14","OPD IMSS BIENESTAR"],["99","SE IGNORA"]];
@@ -821,6 +866,36 @@ function renderFB(){
     <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar seguro médico","guardarSeguro()","ok",1)}</div>`;
   }
   else fb.innerHTML=`<p style="text-align:center;padding:20px;color:${MU}">Sección en desarrollo</p>`;
+}
+window.copiarDireccionResponsable=function(){
+  const d=STATE.pat?.domicilio||{};
+  const set=(id,val)=>{const e=document.getElementById(id);if(e)e.value=val||"";};
+  set("r_vial_tipo",d.vialidad_tipo);set("r_vial",d.vialidad);
+  set("r_next",d.num_exterior);set("r_nint",d.num_interior);
+  set("r_asent_tipo",d.asentamiento_tipo);set("r_asent",d.asentamiento);
+  set("r_loc",d.localidad);set("r_mun",d.municipio);
+  const ef=document.getElementById("r_ef");if(ef)ef.value=d.entidad||"Sin indicar";
+  set("r_cp",d.codigo_postal);set("r_pais",d.pais||"MÉXICO");
+  set("r_tel1",d.telefono);set("r_cel",d.celular);set("r_mail",d.correo);
+  showToast("✓ Dirección del paciente copiada");
+}
+window.guardarResponsable=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  loading(true,"Guardando responsable...");
+  const r={
+    nombre:gv("r_nom"),apellido_paterno:gv("r_ap"),apellido_materno:gv("r_am"),
+    vinculo:gv("r_vinc"),vialidad_tipo:gv("r_vial_tipo"),vialidad:gv("r_vial"),
+    num_exterior:gv("r_next"),num_interior:gv("r_nint"),
+    asentamiento_tipo:gv("r_asent_tipo"),asentamiento:gv("r_asent"),
+    localidad:gv("r_loc"),municipio:gv("r_mun"),entidad:gv("r_ef"),
+    codigo_postal:gv("r_cp"),pais:gv("r_pais"),
+    telefono:gv("r_tel1"),telefono2:gv("r_tel2"),celular:gv("r_cel"),correo:gv("r_mail"),
+  };
+  const {error}=await SB.from("pacientes").update({responsable:r}).eq("id",pid);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  STATE.pat.responsable=r;
+  showToast("✓ Responsable guardado");
 }
 window.guardarDomicilio=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
