@@ -3667,7 +3667,7 @@ function pgPerfil(){
     </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:24px">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
-        ${fld("Título",sel("pf_titulo",["Dr.","Dra.","Lic.","M.C.","M.N.","Esp.","M.D.","PhD"],u.titulo||"Dr."))}
+        ${fld("Título",sel("pf_titulo",['Dr.', 'Dra.', 'Lic.', 'LTF', 'LFT', 'M.C.', 'M.N.', 'Esp.', 'M.D.', 'Enf.', 'Psic.', 'PhD'],u.titulo||"Dr."))}
         ${fld("Nombre(s) *",inp("pf_nom",u.nombre||""),1)}
         ${fld("Apellidos *",inp("pf_ap",u.apellidos||""),1)}
       </div>
@@ -3905,7 +3905,7 @@ async function pgMedicos(){
       </div>
       <!-- Datos personales -->
       <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:14px;margin-bottom:16px">
-        ${fld("Título",sel("nu_titulo",["Dr.","Dra.","Lic.","M.C.","M.N.","Esp.","M.D.","Enf."]))}
+        ${fld("Título",sel("nu_titulo",['Dr.', 'Dra.', 'Lic.', 'LTF', 'LFT', 'M.C.', 'M.N.', 'Esp.', 'M.D.', 'Enf.', 'Psic.', 'PhD']))}
         ${fld("Nombre(s) *",inp("nu_nom",""),1)}
         ${fld("Apellidos *",inp("nu_ap",""),1)}
       </div>
