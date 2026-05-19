@@ -13,7 +13,11 @@ body{font-family:system-ui,sans-serif;font-size:14px;background:#F0F4F8;color:#2
 input,select,textarea,button{font-family:inherit;font-size:14px}
 .fade{animation:fd .2s ease}
 @keyframes fd{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#F0F4F8;border-radius:6px}
+::-webkit-scrollbar-thumb{background:#90A4AE;border-radius:6px;border:2px solid #F0F4F8}
+::-webkit-scrollbar-thumb:hover{background:#546E7A}
+*{scrollbar-width:thin;scrollbar-color:#90A4AE #F0F4F8}
 .spin{display:inline-block;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .upload-area{border:2px dashed #B3E5FC;border-radius:10px;padding:28px;text-align:center;cursor:pointer;background:#F0F9FF;transition:all .2s}
