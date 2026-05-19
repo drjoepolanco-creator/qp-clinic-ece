@@ -2943,7 +2943,19 @@ function renderFisioForm(presc,pid){
         ${fld("Fisioterapeuta asignado",`<input id="ft_fisio" value="${p.fisioterapeuta||""}" placeholder="Nombre del fisioterapeuta" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
       </div>
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:14px">
-        ${fld("Diagnóstico CIE-10 (código y nombre completo)",ta("ft_dx",p.diagnostico||"","Ej: M54.5 – Lumbago no especificado. Lumbalgia mecánica de inicio agudo...",2))}
+        ${fld("Diagnóstico CIE-10 (código y nombre completo)",`
+          <div style="position:relative">
+            <div style="display:flex;gap:6px;margin-bottom:5px">
+              <button onclick="toggleDxMenu()" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:10px;font-weight:700">📋 Copiar diagnóstico de consulta ▾</button>
+            </div>
+            <div id="dx-menu" style="display:none;position:absolute;top:100%;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000025;z-index:50;min-width:400px;max-width:600px;max-height:280px;overflow-y:auto;border:1.5px solid ${BR}">
+              <div style="padding:8px 12px;background:${PL};border-bottom:1px solid ${BR}">
+                <p style="font-size:11px;font-weight:700;color:${P}">Selecciona una consulta para copiar su diagnóstico</p>
+              </div>
+              <div id="dx-menu-lista" style="padding:4px 0"><p style="padding:12px;font-size:11px;color:${MU}">Cargando consultas...</p></div>
+            </div>
+            ${ta("ft_dx",p.diagnostico||"","Ej: M54.5 – Lumbago no especificado. Lumbalgia mecánica de inicio agudo...",3)}
+          </div>`)}
         ${fld("Región anatómica afectada",`<input id="ft_region" value="${p.region||""}" placeholder="Ej: Columna lumbar" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
         ${fld("Lateralidad",`<div style="display:flex;gap:10px;margin-top:4px">${["Derecha","Izquierda","Bilateral","N/A"].map(v=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="radio" name="ft_lat" value="${v}" ${(p.lateralidad||"N/A")===v?"checked":""} style="accent-color:${P}">${v}</label>`).join("")}</div>`)}
       </div>
@@ -3032,6 +3044,45 @@ function renderFisioVer(presc,pid){
   return renderFisioForm(presc,pid);
 }
 
+window.toggleDxMenu=async function(){
+  const menu=document.getElementById("dx-menu");
+  if(!menu)return;
+  if(menu.style.display==="none"){
+    menu.style.display="block";
+    // Cargar consultas con diagnóstico
+    const pid=STATE.pat?.id;if(!pid)return;
+    const lista=document.getElementById("dx-menu-lista");
+    const {data}=await SB.from("consultas").select("id,analisis,fecha,created_at,medico_nombre").eq("paciente_id",pid).not("analisis","is",null).order("created_at",{ascending:false});
+    if(!data||data.length===0){
+      lista.innerHTML=`<p style="padding:12px;font-size:11px;color:${MU}">No hay consultas con diagnóstico registrado</p>`;
+      return;
+    }
+    lista.innerHTML=data.filter(c=>c.analisis?.trim()).map(c=>`
+      <div onclick="copiarDiagnostico('${c.id}')" style="padding:10px 14px;border-bottom:1px solid ${BR};cursor:pointer;transition:background .15s" onmouseover="this.style.background='${PL}'" onmouseout="this.style.background='#fff'">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:10px;font-weight:700;color:${P}">${c.medico_nombre||"Médico"}</span>
+          <span style="font-size:10px;color:${MU}">${c.fecha||c.created_at?.split("T")[0]||""}</span>
+        </div>
+        <p style="font-size:11px;color:#263238;line-height:1.5">${c.analisis?.substring(0,150)||""}${c.analisis?.length>150?"...":""}</p>
+      </div>`).join("");
+    // Cerrar al hacer clic fuera
+    setTimeout(()=>document.addEventListener("click",cerrarDxMenu,{once:true}),100);
+  } else {
+    menu.style.display="none";
+  }
+}
+function cerrarDxMenu(e){
+  const menu=document.getElementById("dx-menu");
+  if(menu&&!menu.contains(e.target))menu.style.display="none";
+}
+window.copiarDiagnostico=async function(cid){
+  const {data}=await SB.from("consultas").select("analisis").eq("id",cid).single();
+  if(!data?.analisis)return;
+  const ta=document.getElementById("ft_dx");
+  if(ta){ta.value=data.analisis;ta.focus();}
+  document.getElementById("dx-menu").style.display="none";
+  showToast("✓ Diagnóstico copiado");
+}
 window.toggleSesion=function(n){
   if(!STATE.fisioSesiones)STATE.fisioSesiones=[];
   const idx=STATE.fisioSesiones.indexOf(n);
