@@ -1780,7 +1780,18 @@ window.abrirConsulta=async function(cid){
 }
 
 // ── INTERCONSULTAS ────────────────────────────────────────
-function renderInterconsultas(b){
+async function renderInterconsultas(b){
+  // Cargar médicos del sistema
+  const {data:medicos}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2,rol").eq("activo",true).order("apellidos");
+  const med=STATE.userProfile||{};
+  const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+
+  const medOptions=(medicos||[]).map(m=>{
+    const nombre=`${m.titulo||""} ${m.nombre||""} ${m.apellidos||""}`.trim();
+    const esp=m.especialidad_2||m.especialidad_1||"";
+    return`<option value="${nombre}${esp?" | "+esp:""}">${nombre}${esp?" — "+esp:""}</option>`;
+  }).join("");
+
   b.innerHTML=`<div style="max-width:1000px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">INTERCONSULTA / REFERIDO MÉDICO</b></div>
@@ -1797,17 +1808,42 @@ function renderInterconsultas(b){
           <div style="display:flex;gap:7px">${btn("💾 Guardar","guardarInterconsulta()","ok",1)}${btn("✕ Cancelar","cerrarFormInter()","d",1)}</div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div><p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:5px;text-transform:uppercase">Médico solicitante</p><div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:11px;font-size:14px;line-height:1.8"><b>Dr. José Alan Polanco Fierro</b><br>Medicina del Deporte · QP Clinic<br>Insurgentes Sur 933, CDMX</div></div>
-          <div>${fld("Médico interconsultante <span style='color:"+AC+";cursor:pointer'>| Catálogo</span>",ta("ic_med","","Nombre, especialidad, teléfono...",3))}</div>
+          <div>
+            <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:5px;text-transform:uppercase">Médico solicitante</p>
+            <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:11px;font-size:14px;line-height:1.8">
+              <b>${medNom}</b><br>
+              ${med.especialidad_2||med.especialidad_1||"QP Clinic"}<br>
+              Insurgentes Sur 933, CDMX
+            </div>
+          </div>
+          <div>
+            ${fld("Médico interconsultante",`
+              <div style="position:relative">
+                <select id="ic_med_sel" onchange="seleccionarMedInter(this.value)"
+                  style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px;cursor:pointer">
+                  <option value="">— Seleccionar del catálogo QP Clinic —</option>
+                  <optgroup label="Médicos del sistema">
+                    ${medOptions}
+                  </optgroup>
+                  <option value="__externo__">➕ Médico externo (escribir manualmente)</option>
+                </select>
+                <div id="ic_med_externo" style="display:none;margin-top:8px">
+                  ${ta("ic_med","","Nombre, especialidad, teléfono del médico externo...",3)}
+                </div>
+                <input type="hidden" id="ic_med" value="">
+              </div>
+            `)}
+          </div>
           ${fld("Especialidad solicitada",sel("ic_esp",ESPECIALIDADES))}
-          <div>${fld("Diagnóstico <span style='color:"+AC+";cursor:pointer'>| Copiar último</span>",ta("ic_diag","","Diagnóstico actual...",4))}</div>
-          <div>${fld("Tratamiento actual <span style='color:"+AC+";cursor:pointer'>| Copiar último</span>",ta("ic_trat","","Tratamiento...",4))}</div>
+          <div>${fld("Diagnóstico — <span style='color:"+AC+";cursor:pointer;font-size:12px' onclick='copiarDxInter()'>📋 Copiar última consulta</span>",ta("ic_diag","","Diagnóstico actual...",3))}</div>
+          <div>${fld("Tratamiento actual",ta("ic_trat","","Tratamiento en curso...",3))}</div>
           <div style="grid-column:span 2">${fld("Motivos de la interconsulta",ta("ic_mot","","Motivos por los que se solicita y lo que se espera del médico interconsultante...",4))}</div>
           ${fld("Prioridad",sel("ic_pri",["Electiva (no urgente)","Prioritaria (esta semana)","Urgente (hoy)","Emergencia (inmediata)"]))}
         </div>
       </div>
     </div>
-  </div>`;cargarInterconsultas();
+  </div>`;
+  cargarInterconsultas();
 }
 async function cargarInterconsultas(){
   const pid=STATE.pat?.id;if(!pid)return;
@@ -1816,22 +1852,44 @@ async function cargarInterconsultas(){
   if(!data||data.length===0){il.innerHTML=`<div style="background:${PL};border-radius:8px;padding:20px;text-align:center;color:${MU};font-size:14px">No hay interconsultas registradas</div>`;return;}
   il.innerHTML=`<table style="width:100%;border-collapse:collapse"><thead><tr style="background:${PL}">${["Fecha","Especialidad","Médico interconsultante","Diagnóstico","Prioridad","Estatus",""].map(h=>`<th style="padding:10px 12px;font-size:14px;font-weight:700;color:${TX};text-transform:uppercase;text-align:left">${h}</th>`).join("")}</tr></thead><tbody>${data.map((ic,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:9px 10px;font-size:14px">${ic.fecha_solicitud||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.especialidad||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.medico_interconsultante?ic.medico_interconsultante.substring(0,40):"—"}</td><td style="padding:9px 10px;font-size:14px;max-width:150px">${ic.diagnostico?ic.diagnostico.substring(0,50):"—"}</td><td style="padding:9px 10px"><span style="background:#FFF8E1;color:#E65100;padding:2px 7px;border-radius:20px;font-size:14px;font-weight:600">${ic.prioridad||"—"}</span></td><td style="padding:9px 10px"><span style="background:${ic.estatus==="Respondida"?"#C8E6C9":"#FFF3E0"};color:${ic.estatus==="Respondida"?"#1B5E20":"#E65100"};padding:2px 8px;border-radius:20px;font-size:14px;font-weight:700">${ic.estatus||"Pendiente"}</span></td><td style="padding:9px 10px">${btn("Ver","","p",1)}</td></tr>`).join("")}</tbody></table>`;
 }
+window.seleccionarMedInter=function(val){
+  const ext=document.getElementById("ic_med_externo");
+  const hid=document.getElementById("ic_med");
+  if(val==="__externo__"){
+    if(ext)ext.style.display="block";
+    if(hid)hid.value="";
+  } else {
+    if(ext)ext.style.display="none";
+    if(hid)hid.value=val;
+  }
+}
+window.copiarDxInter=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  const {data}=await SB.from("consultas").select("analisis").eq("paciente_id",pid).not("analisis","is",null).order("created_at",{ascending:false}).limit(1);
+  if(data&&data[0]?.analisis){
+    const t=document.getElementById("ic_diag");
+    if(t){t.value=data[0].analisis;showToast("✓ Diagnóstico copiado");}
+  } else showToast("No hay diagnóstico en consultas anteriores",false);
+}
 window.abrirNuevaInter=function(){const f=document.getElementById("inter-form");if(f)f.style.display="block";}
 window.cerrarFormInter=function(){const f=document.getElementById("inter-form");if(f)f.style.display="none";}
 window.guardarInterconsulta=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
+  const sel=document.getElementById("ic_med_sel")?.value;
+  const medInter=sel==="__externo__"?(document.getElementById("ic_med")?.value||gv("ic_med")):gv("ic_med");
+  if(!medInter){showToast("Selecciona o escribe el médico interconsultante",false);return;}
   loading(true,"Guardando interconsulta...");
-  const {data,error}=await SB.from("interconsultas").insert({
+  const {error}=await SB.from("interconsultas").insert({
     paciente_id:pid,
     medico_solicitante_id:STATE.user?.id||null,
-    medico_interconsultante:gv("ic_med"),
+    medico_interconsultante:medInter,
     especialidad:gv("ic_esp"),
     diagnostico:gv("ic_diag"),
     tratamiento:gv("ic_trat"),
     motivos:gv("ic_mot"),
     prioridad:gv("ic_pri"),
     estatus:"Pendiente de respuesta"
-  }).select().single();
+  });
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
   showToast("✓ Interconsulta guardada");
