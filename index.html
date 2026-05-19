@@ -651,7 +651,7 @@ function pgExp(){
   const p=STATE.pat;
   if(!p){go("buscar");return;}
   const edad=p.fecha_nacimiento?calcEdad(p.fecha_nacimiento):"—";
-  const mods=[["ficha","Ficha de datos"],["ant","Antecedentes"],["inter","Interrogatorio"],["cons","Consultas"],["interconsultas","Interconsultas"],["anexos","Anexos y Laboratorios"],["vacunas","Vacunas"],["fisio","Fisioterapia"],["imagenes","Imágenes"],["cargos","Cargos"]];
+  const mods=[["ficha","Ficha de datos"],["triage","Triage / SV"],["ant","Antecedentes"],["inter","Interrogatorio"],["cons","Consultas"],["interconsultas","Interconsultas"],["anexos","Anexos y Laboratorios"],["vacunas","Vacunas"],["fisio","Fisioterapia"],["imagenes","Imágenes"],["cargos","Cargos"]];
   RR().innerHTML=nav()+`
   <div style="display:flex;flex-direction:column;height:calc(100vh - 46px);overflow:hidden">
     <div style="background:${PD};padding:6px 14px;display:flex;align-items:center;justify-content:space-between">
@@ -662,7 +662,7 @@ function pgExp(){
           <p style="color:rgba(255,255,255,.7);font-size:10px">Exp: ${p.numero_expediente||"—"} · ${edad} · ${p.sexo_biologico||"—"}</p>
         </div>
       </div>
-      <div style="display:flex;gap:5px">${["📝 Enfermería","📌 Notas","📅 Citas","💳 Pagos"].map(a=>`<button style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:3px 8px;color:#fff;cursor:pointer;font-size:9px">${a}</button>`).join("")}</div>
+      <div style="display:flex;gap:5px">${[["📝 Enfermería","pgEnfermeria()"],["📌 Notas","setET('anexos')"],["📅 Citas","showToast('Agenda próximamente')"],["💳 Pagos","showToast('Cargos próximamente')"]].map(([a,fn])=>`<button onclick="${fn}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:3px 8px;color:#fff;cursor:pointer;font-size:9px">${a}</button>`).join("")}</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;background:${PD};padding:0 10px">
       ${mods.map(([k,l])=>`<button onclick="setET('${k}')" style="padding:8px 11px;border:none;background:${STATE.expTab===k?"rgba(255,255,255,.15)":"transparent"};color:${STATE.expTab===k?"#fff":"rgba(255,255,255,.6)"};cursor:pointer;font-size:11px;font-weight:${STATE.expTab===k?700:400};border-bottom:${STATE.expTab===k?"3px solid #64B5F6":"3px solid transparent"};white-space:nowrap">${l}</button>`).join("")}
@@ -675,6 +675,7 @@ window.setET=function(t){STATE.expTab=t;pgExp();}
 function renderEB(){
   const b=document.getElementById("eb");if(!b)return;
   if(STATE.expTab==="ficha")renderFicha(b);
+  else if(STATE.expTab==="triage")renderTriage(b);
   else if(STATE.expTab==="ant")renderAnt(b);
   else if(STATE.expTab==="inter")renderInter(b);
   else if(STATE.expTab==="cons")renderConsultas(b);
@@ -1635,8 +1636,17 @@ async function cargarConsultas(){
 }
 
 window.abrirConsulta=async function(cid){
+  loading(true,"Cargando consulta...");
   const {data}=await SB.from("consultas").select("*").eq("id",cid).single();
-  STATE.consultaActual=data;go("consulta");
+  loading(false);
+  if(!data){showToast("Error",false);return;}
+  STATE.consultaActual=data;
+  if(!data.temperatura&&STATE.pat?.id){
+    const hoy=new Date().toISOString().split("T")[0];
+    const {data:sv}=await SB.from("signos_vitales").select("*").eq("paciente_id",STATE.pat.id).gte("fecha",hoy).order("fecha",{ascending:false}).limit(1);
+    if(sv&&sv[0])STATE.consultaActual._svHoy=sv[0];
+  }
+  go("consulta");
 }
 
 // ── INTERCONSULTAS ────────────────────────────────────────
@@ -2029,6 +2039,20 @@ const MOTIVOS_COMUNES={
 
 function pgConsulta(){
   const p=STATE.pat;const c=STATE.consultaActual||{};
+  // Combinar con signos vitales de triage del día
+  const sv=c._svHoy||{};
+  const vs={
+    temp:c.temperatura||sv.temperatura||"",
+    fc:c.frecuencia_cardiaca||sv.frecuencia_cardiaca||"",
+    fr:c.frecuencia_respiratoria||sv.frecuencia_respiratoria||"",
+    sat:c.saturacion_o2||sv.saturacion_o2||"",
+    peso:c.peso||sv.peso||"",
+    talla:c.talla||sv.talla||"",
+    imc:c.imc||sv.imc||"",
+    tas:c.presion_sistolica||sv.presion_sistolica||"",
+    tad:c.presion_diastolica||sv.presion_diastolica||"",
+    glu:c.glucosa||sv.glucosa||"",
+  };
   if(!p){go("buscar");return;}
   RR().innerHTML=nav()+`
   <div style="display:flex;flex-direction:column;height:calc(100vh - 46px);overflow:hidden">
@@ -2074,7 +2098,7 @@ function pgConsulta(){
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:12px;color:${TX}">💓 Signos vitales y datos antropométricos</b></div>
           <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            ${[["Temp. (°C)","cs_temp"],["Peso (kg)","cs_peso"],["F. Cardíaca (lat/min)","cs_fc"],["Talla (m)","cs_talla"],["F. Respiratoria (r/min)","cs_fr"],["Sat. O₂ (%)","cs_sat"],["Pres. Sistólica (mmHg)","cs_tas"],["Pres. Diastólica (mmHg)","cs_tad"],["Glucosa (mg/dL)","cs_glu"],["IMC","cs_imc"]].map(([l,id])=>`<div>${fld(l,`<input id="${id}" value="${c[id.replace("cs_","")]||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>`).join("")}
+            ${[["Temp. (°C)","cs_temp",vs.temp],["Peso (kg)","cs_peso",vs.peso],["F. Cardíaca (lat/min)","cs_fc",vs.fc],["Talla (m)","cs_talla",vs.talla],["F. Respiratoria (r/min)","cs_fr",vs.fr],["Sat. O₂ (%)","cs_sat",vs.sat],["Pres. Sistólica (mmHg)","cs_tas",vs.tas],["Pres. Diastólica (mmHg)","cs_tad",vs.tad],["Glucosa (mg/dL)","cs_glu",vs.glu],["IMC","cs_imc",vs.imc]].map(([l,id,val])=>`<div>${fld(l,`<input id="${id}" value="${val}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>`).join("")}
           </div>
         </div>
 
@@ -2846,6 +2870,163 @@ window.eliminarVacuna=async function(id){
   loading(false);
   showToast("✓ Registro eliminado");
   renderVacunas(document.getElementById("eb"));
+}
+
+// ── TRIAGE / SIGNOS VITALES ───────────────────────────────
+async function renderTriage(b){
+  const pid=STATE.pat?.id;if(!pid)return;
+  const {data}=await SB.from("signos_vitales").select("*").eq("paciente_id",pid).order("fecha",{ascending:false}).limit(20);
+  const hist=data||[];
+  const hoy=hist.filter(s=>s.fecha&&s.fecha.startsWith(new Date().toISOString().split("T")[0]));
+  const ultimo=hist[0]||{};
+
+  b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
+    <!-- Registro nuevo -->
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
+      <div style="background:${PD};padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
+        <b style="color:#fff;font-size:12px">💓 Registrar signos vitales y somatometría</b>
+        <span style="font-size:10px;color:rgba(255,255,255,.7)">${new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
+      </div>
+      <div style="padding:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          ${fld("Temperatura (°C)",`<input id="sv_temp" type="number" step="0.1" value="${ultimo.temperatura||""}" placeholder="36.5" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+          ${fld("F. Cardíaca (lat/min)",`<input id="sv_fc" type="number" value="${ultimo.frecuencia_cardiaca||""}" placeholder="72" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+          ${fld("F. Respiratoria (r/min)",`<input id="sv_fr" type="number" value="${ultimo.frecuencia_respiratoria||""}" placeholder="16" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+          ${fld("Sat. O₂ (%)",`<input id="sv_sat" type="number" step="0.1" value="${ultimo.saturacion_o2||""}" placeholder="98" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+          ${fld("Glucosa (mg/dL)",`<input id="sv_glu" type="number" value="${ultimo.glucosa||""}" placeholder="100" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          ${fld("Presión sistólica",`<input id="sv_tas" type="number" value="${ultimo.presion_sistolica||""}" placeholder="120" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+          ${fld("Presión diastólica",`<input id="sv_tad" type="number" value="${ultimo.presion_diastolica||""}" placeholder="80" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+          ${fld("Peso (kg)",`<input id="sv_peso" type="number" step="0.1" value="${ultimo.peso||""}" placeholder="70.0" oninput="calcIMC()" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+          ${fld("Talla (m)",`<input id="sv_talla" type="number" step="0.01" value="${ultimo.talla||""}" placeholder="1.70" oninput="calcIMC()" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+          ${fld("IMC",`<input id="sv_imc" value="${ultimo.imc||""}" placeholder="Auto" readonly style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;background:#F8F9FA;font-size:13px;font-weight:700">`)}
+          ${fld("Perímetro abdominal (cm)",`<input id="sv_pab" type="number" step="0.1" value="${ultimo.perimetro_abdominal||""}" placeholder="90" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">`)}
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px">
+          ${fld("Observaciones de enfermería",`<input id="sv_obs" value="" placeholder="Observaciones relevantes..." style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          ${fld("Registrado por",`<input id="sv_enf" value="${STATE.userProfile?`${STATE.userProfile.titulo||""} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""}" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="cargarSVEnConsulta()" style="background:#7B1FA2;color:#fff;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:11px;font-weight:600">📋 Cargar en consulta activa</button>
+          ${btn("💾 Guardar signos vitales","guardarSV('"+pid+"')","ok",1)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Historial -->
+    ${hist.length>0?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="background:#F8F9FA;padding:8px 14px;border-bottom:1px solid ${BR}"><b style="font-size:12px;color:${TX}">Historial de registros (${hist.length})</b></div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="background:${PL}">${["Fecha","Registró","T°","FC","FR","Sat.O₂","TA","Peso","Talla","IMC","Glu","P.Abd","Obs"].map(h=>`<th style="padding:7px 10px;text-align:left;font-weight:700;color:${TX};white-space:nowrap">${h}</th>`).join("")}</tr></thead>
+          <tbody>${hist.map((s,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}${hoy.includes(s)?" border-left: 3px solid "+P:""}">
+            <td style="padding:7px 10px;white-space:nowrap;${hoy.includes(s)?"font-weight:700;color:"+P:""}">${s.fecha?new Date(s.fecha).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}</td>
+            <td style="padding:7px 10px;white-space:nowrap">${s.usuario_nombre||"—"}</td>
+            <td style="padding:7px 10px">${s.temperatura??""}</td>
+            <td style="padding:7px 10px">${s.frecuencia_cardiaca??""}</td>
+            <td style="padding:7px 10px">${s.frecuencia_respiratoria??""}</td>
+            <td style="padding:7px 10px">${s.saturacion_o2??""}</td>
+            <td style="padding:7px 10px;white-space:nowrap">${s.presion_sistolica&&s.presion_diastolica?s.presion_sistolica+"/"+s.presion_diastolica:"—"}</td>
+            <td style="padding:7px 10px">${s.peso??""}</td>
+            <td style="padding:7px 10px">${s.talla??""}</td>
+            <td style="padding:7px 10px;font-weight:600">${s.imc??""}</td>
+            <td style="padding:7px 10px">${s.glucosa??""}</td>
+            <td style="padding:7px 10px">${s.perimetro_abdominal??""}</td>
+            <td style="padding:7px 10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.observaciones||""}</td>
+          </tr>`).join("")}</tbody>
+        </table>
+      </div>
+    </div>`:""}
+  </div>`;
+}
+
+window.calcIMC=function(){
+  const p=parseFloat(document.getElementById("sv_peso")?.value||0);
+  const t=parseFloat(document.getElementById("sv_talla")?.value||0);
+  const imc=document.getElementById("sv_imc");
+  if(p>0&&t>0&&imc)imc.value=(p/(t*t)).toFixed(1);
+}
+window.guardarSV=async function(pid){
+  loading(true,"Guardando signos vitales...");
+  const p=parseFloat(gv("sv_peso"))||null;const t=parseFloat(gv("sv_talla"))||null;
+  const imc=p&&t?parseFloat((p/(t*t)).toFixed(1)):null;
+  const payload={
+    paciente_id:pid,
+    usuario_id:STATE.user?.id||null,
+    usuario_nombre:gv("sv_enf"),
+    fecha:new Date().toISOString(),
+    temperatura:parseFloat(gv("sv_temp"))||null,
+    frecuencia_cardiaca:parseInt(gv("sv_fc"))||null,
+    frecuencia_respiratoria:parseInt(gv("sv_fr"))||null,
+    saturacion_o2:parseFloat(gv("sv_sat"))||null,
+    presion_sistolica:parseInt(gv("sv_tas"))||null,
+    presion_diastolica:parseInt(gv("sv_tad"))||null,
+    glucosa:parseFloat(gv("sv_glu"))||null,
+    peso:p,talla:t,imc,
+    perimetro_abdominal:parseFloat(gv("sv_pab"))||null,
+    observaciones:gv("sv_obs"),
+  };
+  const {error}=await SB.from("signos_vitales").insert(payload);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("✓ Signos vitales guardados");
+  setET("triage");
+}
+window.cargarSVEnConsulta=function(){
+  const set=(id,val)=>{const e=document.getElementById(id);if(e&&val!==null&&val!==undefined&&val!=="")e.value=val;};
+  set("cs_temp",gv("sv_temp"));set("cs_fc",gv("sv_fc"));
+  set("cs_fr",gv("sv_fr"));set("cs_sat",gv("sv_sat"));
+  set("cs_tas",gv("sv_tas"));set("cs_tad",gv("sv_tad"));
+  set("cs_glu",gv("sv_glu"));set("cs_peso",gv("sv_peso"));
+  set("cs_talla",gv("sv_talla"));set("cs_imc",gv("sv_imc"));
+  showToast("✓ Signos vitales cargados en la consulta");
+}
+
+// ── PÁGINA ENFERMERÍA ─────────────────────────────────────
+async function pgEnfermeria(){
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("Abre primero un expediente",false);return;}
+  STATE.enfermeriaMode=true;
+  const pat=STATE.pat;
+  const nomPac=`${pat.nombre||""} ${pat.apellido_paterno||""} ${pat.apellido_materno||""}`.trim();
+
+  RR().innerHTML=nav()+`
+  <div style="background:${PD};padding:8px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <b style="color:#fff;font-size:13px">🏥 Módulo Enfermería — ${nomPac}</b>
+      <span style="background:#FFE082;color:#E65100;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-left:8px">${calcEdad(pat.fecha_nacimiento)}</span>
+    </div>
+    ${btn("← Volver al expediente","cerrarEnfermeria()","s",1)}
+  </div>
+  <div style="background:#fff;border-bottom:1px solid ${BR};padding:4px 14px;display:flex;gap:0">
+    <button onclick="STATE.enfTab='sv';renderEnfTab()" style="padding:8px 14px;border:none;cursor:pointer;font-size:11px;font-weight:700;color:${P};border-bottom:3px solid ${P};background:transparent" id="etab_sv">💓 Signos vitales</button>
+    <button onclick="STATE.enfTab='ficha';renderEnfTab()" style="padding:8px 14px;border:none;cursor:pointer;font-size:11px;font-weight:500;color:${MU};border-bottom:3px solid transparent;background:transparent" id="etab_ficha">📋 Ficha del paciente</button>
+  </div>
+  <div id="enf-body" style="max-width:980px;margin:0 auto;padding:14px"></div>`;
+
+  STATE.enfTab="sv";
+  renderEnfTab();
+}
+
+async function renderEnfTab(){
+  const b=document.getElementById("enf-body");if(!b)return;
+  // Actualizar resaltado de pestañas
+  ["sv","ficha"].forEach(t=>{
+    const btn=document.getElementById("etab_"+t);
+    if(btn){
+      btn.style.color=STATE.enfTab===t?P:MU;
+      btn.style.borderBottom=STATE.enfTab===t?"3px solid "+P:"3px solid transparent";
+      btn.style.fontWeight=STATE.enfTab===t?700:500;
+    }
+  });
+  if(STATE.enfTab==="sv") await renderTriage(b);
+  else if(STATE.enfTab==="ficha") renderFicha(b);
+}
+
+window.cerrarEnfermeria=function(){
+  STATE.enfermeriaMode=false;
+  go("expediente");
 }
 
 // ── FISIOTERAPIA ──────────────────────────────────────────
