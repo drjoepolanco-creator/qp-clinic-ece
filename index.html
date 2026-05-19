@@ -651,7 +651,7 @@ function pgExp(){
   const p=STATE.pat;
   if(!p){go("buscar");return;}
   const edad=p.fecha_nacimiento?calcEdad(p.fecha_nacimiento):"—";
-  const mods=[["ficha","Ficha de datos"],["ant","Antecedentes"],["inter","Interrogatorio"],["cons","Consultas"],["interconsultas","Interconsultas"],["anexos","Anexos y Laboratorios"],["vacunas","Vacunas"],["imagenes","Imágenes"],["cargos","Cargos"]];
+  const mods=[["ficha","Ficha de datos"],["ant","Antecedentes"],["inter","Interrogatorio"],["cons","Consultas"],["interconsultas","Interconsultas"],["anexos","Anexos y Laboratorios"],["vacunas","Vacunas"],["fisio","Fisioterapia"],["imagenes","Imágenes"],["cargos","Cargos"]];
   RR().innerHTML=nav()+`
   <div style="display:flex;flex-direction:column;height:calc(100vh - 46px);overflow:hidden">
     <div style="background:${PD};padding:6px 14px;display:flex;align-items:center;justify-content:space-between">
@@ -681,6 +681,7 @@ function renderEB(){
   else if(STATE.expTab==="interconsultas")renderInterconsultas(b);
   else if(STATE.expTab==="anexos")renderAnexos(b);
   else if(STATE.expTab==="vacunas")renderVacunas(b);
+  else if(STATE.expTab==="fisio")renderFisio(b);
   else b.innerHTML=`<div style="padding:40px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🔧</div><p style="color:${MU}">Módulo disponible en próxima versión</p></div>`;
 }
 
@@ -2846,6 +2847,267 @@ window.eliminarVacuna=async function(id){
   showToast("✓ Registro eliminado");
   renderVacunas(document.getElementById("eb"));
 }
+
+// ── FISIOTERAPIA ──────────────────────────────────────────
+async function renderFisio(b){
+  const pid=STATE.pat?.id;if(!pid)return;
+  if(!STATE.fisioTab)STATE.fisioTab="notas";
+  const {data:prescs}=await SB.from("fisioterapia_prescripciones").select("id,created_at,diagnostico,num_sesiones").eq("paciente_id",pid).order("created_at",{ascending:false});
+  const {data:notas}=await SB.from("fisioterapia_notas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
+  const lista=prescs||[];
+
+  b.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
+    <!-- Tabs fisio -->
+    <div style="display:flex;gap:0;border-bottom:2px solid ${BR};margin-bottom:16px;flex-wrap:wrap">
+      <button onclick="STATE.fisioTab='notas';setET('fisio')" style="padding:8px 14px;border:none;background:transparent;cursor:pointer;font-size:11px;font-weight:${STATE.fisioTab==='notas'?700:500};color:${STATE.fisioTab==='notas'?P:MU};border-bottom:${STATE.fisioTab==='notas'?'3px solid '+P:'3px solid transparent'}">📝 Notas del fisioterapeuta</button>
+      ${lista.map((p,i)=>`<button onclick="STATE.fisioTab='p${p.id}';setET('fisio')" style="padding:8px 14px;border:none;background:transparent;cursor:pointer;font-size:11px;font-weight:${STATE.fisioTab==='p'+p.id?700:500};color:${STATE.fisioTab==='p'+p.id?P:MU};border-bottom:${STATE.fisioTab==='p'+p.id?'3px solid '+P:'3px solid transparent'}">Prescripción ${lista.length-i}</button>`).join("")}
+      <button onclick="STATE.fisioTab='nueva';setET('fisio')" style="padding:8px 14px;border:none;background:${P};color:#fff;cursor:pointer;font-size:11px;font-weight:700;border-radius:7px;margin-left:8px;margin-bottom:3px">➕ Nueva prescripción</button>
+    </div>
+
+    ${STATE.fisioTab==="notas"?renderFisioNotas(notas||[]):
+      STATE.fisioTab==="nueva"?renderFisioForm(null,pid):
+      lista.some(p=>"p"+p.id===STATE.fisioTab)?renderFisioVer(lista.find(p=>"p"+p.id===STATE.fisioTab),pid):
+      `<p style="text-align:center;padding:24px;color:${MU}">Selecciona una pestaña</p>`}
+  </div>`;
+}
+
+function renderFisioNotas(notas){
+  return`<div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
+      <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:12px">📝 Notas del fisioterapeuta</b></div>
+      <div style="padding:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+          ${fld("Fisioterapeuta",`<input id="fn_ft" value="${STATE.userProfile?`${STATE.userProfile.titulo||""} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          ${fld("Sesión #",`<input id="fn_ses" type="number" min="1" placeholder="Número de sesión" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        </div>
+        ${fld("Nota de evolución / observaciones de la sesión",ta("fn_nota","","Evolución del paciente, respuesta al tratamiento, cambios realizados, observaciones...",5))}
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar nota","guardarNotaFisio()","ok",1)}</div>
+      </div>
+    </div>
+    ${notas.length>0?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="background:#F8F9FA;padding:8px 14px;border-bottom:1px solid ${BR}"><b style="font-size:12px;color:${TX}">Historial de notas (${notas.length})</b></div>
+      ${notas.map(n=>`<div style="padding:12px 14px;border-bottom:1px solid ${BR}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div>
+            <span style="font-size:11px;font-weight:700;color:${P}">${n.fisioterapeuta||"Fisioterapeuta"}</span>
+            ${n.num_sesion?`<span style="background:${PL};color:${P};padding:1px 7px;border-radius:20px;font-size:10px;margin-left:8px">Sesión ${n.num_sesion}</span>`:""}
+          </div>
+          <span style="font-size:10px;color:${MU}">${n.created_at?new Date(n.created_at).toLocaleDateString("es-MX"):""}</span>
+        </div>
+        <p style="font-size:12px;color:${TX};line-height:1.6">${n.nota||""}</p>
+      </div>`).join("")}
+    </div>`:""}
+  </div>`;
+}
+
+function renderFisioForm(presc,pid){
+  const p=presc||{};
+  const pat=STATE.pat||{};
+  const med=STATE.userProfile||{};
+  const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+  const hoy=new Date().toISOString().split("T")[0];
+
+  // Opciones de tratamiento
+  const agentes=[["tens","TENS"],["ultrasonido","Ultrasonido"],["laser","Láser"],["radiofrecuencia","Radiofrecuencia"],["compresion","Compresión neumática"],["crioterapia","Crioterapia"],["termoterapia","Termoterapia (calor)"]];
+  const manual=[["masoterapia","Masoterapia"],["movilizacion","Movilización articular"],["manipulacion","Manipulación"],["miofascial","Técnicas miofasciales"],["puncion","Punción seca"],["vendaje","Vendaje neuromuscular"],["drenaje","Drenaje linfático"]];
+  const ejercicio=[["estiramiento","Estiramiento"],["fortalecimiento","Fortalecimiento"],["propiocepcion","Propiocepción / Equilibrio"],["postural","Reeducación postural"],["cadena","Cadena cinética"],["aerobico","Ejercicio aeróbico"],["pliometria","Pliometría"],["readaptacion","Readaptación deportiva"],["pilates","Pilates terapéutico"]];
+  const neuro=[["marcha","Reeducación de la marcha"],["sensoriomotriz","Estimulación sensoriomotriz"],["avd","AVD – independencia"],["cognitiva","Rehabilitación cognitiva"]];
+  const limitaciones=[["marcha","Marcha"],["laboral","Actividad laboral"],["deportiva","Actividad deportiva"],["avd_bas","AVD básicas"],["avd_ins","AVD instrumentales"]];
+
+  const chkGroup=(items,prefix,saved={})=>items.map(([k,v])=>`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;padding:4px 8px;background:${saved[k]?"#E3F2FD":"#F8F9FA"};border:1px solid ${saved[k]?"#90CAF9":BR};border-radius:6px">
+    <input type="checkbox" id="ft_${prefix}_${k}" ${saved[k]?"checked":""} style="accent-color:${P};width:13px;height:13px">${v}
+  </label>`).join("");
+
+  const sel={};if(p.tratamiento)Object.assign(sel,p.tratamiento);
+
+  return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+    <div style="background:${PD};padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+      <b style="color:#fff;font-size:12px">💪 ${presc?"Prescripción de Fisioterapia":"Nueva Prescripción de Fisioterapia"}</b>
+      ${presc?btn("✏️ Editar","editarFisio('"+presc.id+"')","s",1):""}
+    </div>
+    <div style="padding:16px">
+
+      <!-- SECCIÓN 1: Datos del paciente -->
+      <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
+        <b style="font-size:11px;color:${P};text-transform:uppercase">1. Datos del paciente</b>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:10px">
+        ${fld("Nombre completo",`<input id="ft_nom" value="${pat.nombre||""} ${pat.apellido_paterno||""} ${pat.apellido_materno||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Fecha de nacimiento",`<input id="ft_fnac" value="${pat.fecha_nacimiento||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Edad",`<input id="ft_edad" value="${calcEdad(pat.fecha_nacimiento)||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        ${fld("No. Expediente",`<input id="ft_exp" value="${pat.num_expediente||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Fecha de prescripción",`<input id="ft_fecha" type="date" value="${p.fecha||hoy}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Médico tratante",`<input id="ft_med" value="${p.medico||medNom}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Fisioterapeuta asignado",`<input id="ft_fisio" value="${p.fisioterapeuta||""}" placeholder="Nombre del fisioterapeuta" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        ${fld("Diagnóstico CIE-10 (código y nombre completo)",ta("ft_dx",p.diagnostico||"","Ej: M54.5 – Lumbago no especificado. Lumbalgia mecánica de inicio agudo...",2))}
+        ${fld("Región anatómica afectada",`<input id="ft_region" value="${p.region||""}" placeholder="Ej: Columna lumbar" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Lateralidad",`<div style="display:flex;gap:10px;margin-top:4px">${["Derecha","Izquierda","Bilateral","N/A"].map(v=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="radio" name="ft_lat" value="${v}" ${(p.lateralidad||"N/A")===v?"checked":""} style="accent-color:${P}">${v}</label>`).join("")}</div>`)}
+      </div>
+
+      <!-- SECCIÓN 2: Evaluación funcional -->
+      <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
+        <b style="font-size:11px;color:${P};text-transform:uppercase">2. Evaluación funcional</b>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+        ${fld("Dolor EVA (0-10)",`<div style="margin-top:4px"><input id="ft_eva" type="range" min="0" max="10" value="${p.eva||0}" oninput="document.getElementById('ft_eva_val').textContent=this.value" style="width:100%;accent-color:${P}"><div style="display:flex;justify-content:space-between;font-size:9px;color:${MU}"><span>0 Sin dolor</span><span id="ft_eva_val" style="font-weight:700;font-size:14px;color:${P}">${p.eva||0}</span><span>10 Insoportable</span></div></div>`)}
+        ${fld("Tiempo de evolución",`<input id="ft_evol" value="${p.tiempo_evolucion||""}" placeholder="Ej: 3 semanas, 2 meses" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+      <div style="margin-bottom:10px">${fld("Síntomas y signos clínicos principales",ta("ft_sint",p.sintomas||"","Describa síntomas, signos relevantes, hallazgos en la exploración física...",3))}</div>
+      <div style="margin-bottom:10px">${fld("Objetivo del tratamiento",ta("ft_obj",p.objetivo||"","Ej: Reducir dolor, recuperar rango de movimiento, reintegro deportivo...",2))}</div>
+      <div style="margin-bottom:14px">
+        <p style="font-size:11px;font-weight:700;color:${TX};margin-bottom:8px">Limitación funcional</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${chkGroup(limitaciones,"lim",sel.limitaciones||{})}</div>
+      </div>
+
+      <!-- SECCIÓN 3: Plan de tratamiento -->
+      <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
+        <b style="font-size:11px;color:${P};text-transform:uppercase">3. Plan de tratamiento <span style="font-weight:400;font-size:10px;color:${MU}">(marcar lo indicado)</span></b>
+      </div>
+      <div style="margin-bottom:12px">
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">⚡ Agentes físicos / Electroterapia</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${chkGroup(agentes,"ag",sel.agentes||{})}</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">🙌 Terapia manual</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${chkGroup(manual,"man",sel.manual||{})}</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">🏋️ Ejercicio terapéutico</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${chkGroup(ejercicio,"ej",sel.ejercicio||{})}</div>
+      </div>
+      <div style="margin-bottom:14px">
+        <p style="font-size:11px;font-weight:700;color:${MU};margin-bottom:6px">🧠 Terapia neurológica / ocupacional / pediátrica</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${chkGroup(neuro,"neu",sel.neuro||{})}</div>
+      </div>
+      <div style="margin-bottom:14px">${fld("Parámetros específicos / Medio físico",ta("ft_params",p.parametros||"","Especifique parámetros, intensidades, tiempos, técnicas adicionales...",3))}</div>
+      <div style="margin-bottom:14px">${fld("Plan de ejercicios en casa (HEP)",ta("ft_hep",p.hep||"","Home Exercise Program — ejercicios que el paciente debe realizar en casa...",3))}</div>
+
+      <!-- SECCIÓN 4: Dosificación -->
+      <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
+        <b style="font-size:11px;color:${P};text-transform:uppercase">4. Dosificación</b>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        ${fld("Número de sesiones",`<input id="ft_nses" type="number" value="${p.num_sesiones||""}" placeholder="Ej: 12" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Frecuencia semanal",`<select id="ft_freq" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["No especificada","1 vez/semana","2 veces/semana","3 veces/semana","4 veces/semana","5 veces/semana","Diario"].map(v=>`<option ${(p.frecuencia||"No especificada")===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+        ${fld("Fecha de inicio",`<input id="ft_finicio" type="date" value="${p.fecha_inicio||hoy}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Fecha estimada de alta",`<input id="ft_falta" type="date" value="${p.fecha_alta||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+      <div style="margin-bottom:14px">${fld("Precauciones / Contraindicaciones",ta("ft_contra",p.contraindicaciones||"","Especifique precauciones importantes o actividades contraindicadas...",2))}</div>
+
+      <!-- SECCIÓN 5: Control de sesiones -->
+      <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
+        <b style="font-size:11px;color:${P};text-transform:uppercase">5. Control de sesiones</b>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+        ${Array.from({length:20},(_,i)=>{const ses=p.sesiones_completadas||[];const done=ses.includes(i+1);return`<div onclick="toggleSesion(${i+1})" style="width:44px;height:44px;border-radius:8px;border:1.5px solid ${done?"#1565C0":BR};background:${done?PL:"#fff"};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column">
+          <span style="font-size:10px;font-weight:700;color:${done?P:MU}">${i+1}</span>
+          ${done?`<span style="font-size:8px;color:${P}">✓</span>`:`<span style="font-size:7px;color:${BR}">—</span>`}
+        </div>`;}).join("")}
+      </div>
+
+      <!-- SECCIÓN 6: Evolución y reevaluación -->
+      <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
+        <b style="font-size:11px;color:${P};text-transform:uppercase">6. Evolución y reevaluación</b>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        ${fld("Fecha de reevaluación",`<input id="ft_reev" type="date" value="${p.fecha_reeval||""}" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("EVA al alta / reevaluación",`<input id="ft_eva_alta" type="number" min="0" max="10" value="${p.eva_alta||""}" placeholder="0-10" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+      <div style="margin-bottom:16px">${fld("Notas de evolución / reevaluación",ta("ft_evol_nota",p.evolucion||"","Observaciones de la evolución del paciente, cambios en el plan, alta...",3))}</div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        ${btn("💊 Ver como PDF","generarPDFFisio()","s",1)}
+        ${btn("💾 Guardar prescripción","guardarFisio('"+pid+"','"+( presc?.id||"")+"')","ok",1)}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderFisioVer(presc,pid){
+  if(!presc)return`<p style="text-align:center;padding:24px;color:${MU}">Prescripción no encontrada</p>`;
+  return renderFisioForm(presc,pid);
+}
+
+window.toggleSesion=function(n){
+  if(!STATE.fisioSesiones)STATE.fisioSesiones=[];
+  const idx=STATE.fisioSesiones.indexOf(n);
+  if(idx>=0)STATE.fisioSesiones.splice(idx,1);else STATE.fisioSesiones.push(n);
+  // Re-render solo los boxes
+  const boxes=document.querySelectorAll("[data-sesion]");
+  // update visuals
+  setET("fisio");
+}
+
+window.guardarFisio=async function(pid,editId=""){
+  loading(true,"Guardando prescripción...");
+  // Recoger checkboxes
+  const grupos=["ag","man","ej","neu","lim"];
+  const keys={ag:["tens","ultrasonido","laser","radiofrecuencia","compresion","crioterapia","termoterapia"],man:["masoterapia","movilizacion","manipulacion","miofascial","puncion","vendaje","drenaje"],ej:["estiramiento","fortalecimiento","propiocepcion","postural","cadena","aerobico","pliometria","readaptacion","pilates"],neu:["marcha","sensoriomotriz","avd","cognitiva"],lim:["marcha","laboral","deportiva","avd_bas","avd_ins"]};
+  const trat={};
+  grupos.forEach(g=>{trat[g]={};(keys[g]||[]).forEach(k=>{const e=document.getElementById(`ft_${g}_${k}`);if(e)trat[g][k]=e.checked;});});
+
+  const lat=document.querySelector("input[name='ft_lat']:checked")?.value||"N/A";
+  const payload={
+    paciente_id:pid,
+    fecha:gv("ft_fecha"),medico:gv("ft_med"),fisioterapeuta:gv("ft_fisio"),
+    diagnostico:gv("ft_dx"),region:gv("ft_region"),lateralidad:lat,
+    eva:parseInt(document.getElementById("ft_eva")?.value||0),
+    tiempo_evolucion:gv("ft_evol"),sintomas:gv("ft_sint"),
+    objetivo:gv("ft_obj"),parametros:gv("ft_params"),hep:gv("ft_hep"),
+    tratamiento:trat,
+    num_sesiones:parseInt(gv("ft_nses"))||null,
+    frecuencia:gv("ft_freq"),
+    fecha_inicio:gv("ft_finicio"),fecha_alta:gv("ft_falta"),
+    contraindicaciones:gv("ft_contra"),
+    sesiones_completadas:STATE.fisioSesiones||[],
+    fecha_reeval:gv("ft_reev"),
+    eva_alta:gv("ft_eva_alta")?parseInt(gv("ft_eva_alta")):null,
+    evolucion:gv("ft_evol_nota"),
+  };
+
+  let res;
+  if(editId){
+    res=await SB.from("fisioterapia_prescripciones").update(payload).eq("id",editId).select().single();
+  } else {
+    res=await SB.from("fisioterapia_prescripciones").insert(payload).select().single();
+  }
+  loading(false);
+  if(res.error){showToast("Error: "+res.error.message,false);return;}
+  STATE.fisioTab="p"+res.data.id;
+  STATE.fisioSesiones=[];
+  showToast("✓ Prescripción guardada");
+  setET("fisio");
+}
+
+window.guardarNotaFisio=async function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  const nota=gv("fn_nota");if(!nota.trim()){showToast("Escribe la nota antes de guardar",false);return;}
+  loading(true,"Guardando nota...");
+  await SB.from("fisioterapia_notas").insert({
+    paciente_id:pid,
+    fisioterapeuta:gv("fn_ft"),
+    num_sesion:parseInt(gv("fn_ses"))||null,
+    nota,
+  });
+  loading(false);
+  showToast("✓ Nota guardada");
+  STATE.fisioTab="notas";
+  setET("fisio");
+}
+
+window.editarFisio=async function(id){
+  const {data}=await SB.from("fisioterapia_prescripciones").select("*").eq("id",id).single();
+  if(!data)return;
+  STATE.fisioSesiones=data.sesiones_completadas||[];
+  // La renderFisioVer ya muestra el form con los datos
+  renderFisio(document.getElementById("eb"));
+}
+
+window.generarPDFFisio=function(){showToast("PDF de fisioterapia — próximamente en la siguiente versión",false);}
 
 // ── CONFIGURACIÓN MENU ───────────────────────────────────
 window.toggleCfgMenu=function(){
