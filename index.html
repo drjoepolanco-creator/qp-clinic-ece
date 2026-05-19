@@ -346,50 +346,90 @@ window.doLogin=async function(){
 function showLoginError(msg){const e=document.getElementById("login-error");if(e){e.style.display="block";e.textContent=msg;}}
 
 // ── AGENDA ────────────────────────────────────────────────
-function pgAgenda(){
-  const hrs=["07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00"];
-  const hoy=new Date();
-  const dias=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
-  const meses=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-  const fechaStr=`${dias[hoy.getDay()].charAt(0).toUpperCase()+dias[hoy.getDay()].slice(1)} ${hoy.getDate()} / ${(hoy.getMonth()+1).toString().padStart(2,"0")} / ${hoy.getFullYear()}`;
+async function pgAgenda(){
+  const u=STATE.userProfile||{};
+  const isAdmin=u.rol==="admin";
+  let medicos=[];
+  if(isAdmin){
+    const {data}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,calendar_url,calendar_color,rol").eq("activo",true);
+    medicos=(data||[]).filter(m=>m.calendar_url?.trim());
+    window._medicosCal=medicos;
+  }
+
   RR().innerHTML=nav()+`
-  <div style="display:flex;height:calc(100vh - 46px);overflow:hidden">
-    <div style="width:220px;background:#fff;border-right:1px solid ${BR};padding:14px;overflow-y:auto;flex-shrink:0">
-      <b style="font-size:14px;color:${P};text-transform:uppercase">${meses[hoy.getMonth()].toUpperCase()} ${hoy.getFullYear()}</b>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;text-align:center;margin:10px 0">
-        ${["d","l","m","m","j","v","s"].map(d=>`<div style="font-size:14px;color:#aaa;font-weight:700;padding:2px">${d}</div>`).join("")}
-        ${Array(new Date(hoy.getFullYear(),hoy.getMonth(),1).getDay()).fill('<div></div>').join("")}
-        ${Array(new Date(hoy.getFullYear(),hoy.getMonth()+1,0).getDate()).fill(0).map((_,i)=>{const d=i+1,t=d===hoy.getDate();return`<div style="font-size:14px;padding:4px 1px;border-radius:4px;cursor:pointer;background:${t?P:"transparent"};color:${t?"#fff":"#333"};font-weight:${t?700:400}">${d}</div>`;}).join("")}
-      </div>
-      <p style="font-size:14px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:6px">Leyenda</p>
-      ${[["#FFA726","Por confirmar"],[SU,"Confirmada"],[DA,"Cancelada"]].map(([c,l])=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div style="width:8px;height:8px;border-radius:50%;background:${c}"></div><span style="font-size:14px;color:${MU}">${l}</span></div>`).join("")}
-      <p style="font-size:14px;font-weight:700;color:${MU};text-transform:uppercase;margin:12px 0 6px">Médicos QP Clinic</p>
-      ${["Dr. Polanco · Deporte","Dra. Castillo · Geriatría","Dra. Aldana · Nutrición","Lic. Hernández · Fisio"].map(m=>`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px solid ${BR}"><div style="width:6px;height:6px;border-radius:50%;background:${SU}"></div><span style="font-size:14px">${m}</span></div>`).join("")}
-    </div>
-    <div style="flex:1;overflow-y:auto;padding:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+  <div style="height:calc(100vh - 46px);display:flex;flex-direction:column">
+
+    <!-- Header -->
+    <div style="background:#fff;border-bottom:1px solid ${BR};padding:10px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <i class="ti ti-calendar" style="font-size:22px;color:${P}" aria-hidden="true"></i>
         <div>
-          <h2 style="font-size:20px;font-weight:800;color:${TX}">${fechaStr}</h2>
-          <p style="color:${MU};font-size:14px;margin-top:2px">Agenda del día</p>
+          <h2 style="font-size:16px;font-weight:700;color:${TX}">Agenda</h2>
+          <p style="font-size:12px;color:${MU}">Sincronizada con Google Calendar</p>
         </div>
-        <div style="display:flex;gap:8px">${btn("➕ Nueva cita","","p",1)}${btn("🔍 Buscar paciente","go('buscar')","s",1)}</div>
       </div>
-      <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-        ${hrs.map(h=>`<div style="display:flex;min-height:48px;border-bottom:1px solid ${BR}">
-          <div style="width:68px;padding:10px 14px;flex-shrink:0;border-right:1px solid ${BR};display:flex;align-items:flex-start">
-            <span style="font-size:14px;color:${MU};font-weight:500">${h}</span>
-          </div>
-          <div style="flex:1;padding:10px 14px;display:flex;align-items:center">
-            <span style="font-size:14px;color:#ddd">— disponible</span>
-          </div>
-        </div>`).join("")}
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        ${isAdmin&&medicos.length>1?`
+          ${medicos.map(m=>`<button onclick="seleccionarCalendario('${m.id}')"
+            style="padding:5px 12px;border:2px solid ${m.calendar_color||P};border-radius:20px;background:${STATE.calSeleccionado===m.id?""+( m.calendar_color||P):(STATE.calSeleccionado?'transparent':m.calendar_color||P)};color:${STATE.calSeleccionado===m.id||!STATE.calSeleccionado?"#fff":m.calendar_color||P};cursor:pointer;font-size:12px;font-weight:600;transition:all .2s">
+            ${m.titulo||""} ${(m.apellidos||"").split(" ")[0]}
+          </button>`).join("")}
+          <button onclick="STATE.calSeleccionado=null;pgAgenda()" style="padding:5px 12px;border:2px solid ${BR};border-radius:20px;background:transparent;color:${MU};cursor:pointer;font-size:12px">Todos</button>
+        `:""}
+        <a href="https://calendar.google.com" target="_blank"
+          style="background:${P};color:#fff;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:6px">
+          <i class="ti ti-external-link" style="font-size:15px" aria-hidden="true"></i> Abrir Google Calendar
+        </a>
       </div>
-      <div style="margin-top:20px;background:${PL};border-radius:10px;padding:16px;border:1px solid #B3E5FC">
-        <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:6px">🔗 Sistema conectado con Supabase</p>
-        <p style="font-size:14px;color:${MU}">Base de datos activa en <b>qpclinic.org</b>. Los pacientes, consultas y antecedentes se guardan en tiempo real.</p>
-      </div>
+    </div>
+
+    <!-- Calendario -->
+    <div style="flex:1;overflow:hidden;position:relative">
+      ${renderCalendarioView(u,medicos,isAdmin)}
     </div>
   </div>`;
+}
+
+function renderCalendarioView(u,medicos,isAdmin){
+  let url="";
+  if(isAdmin&&STATE.calSeleccionado){
+    url=(medicos||[]).find(x=>x.id===STATE.calSeleccionado)?.calendar_url||"";
+  } else if(isAdmin&&medicos?.length>0){
+    url=u.calendar_url||(medicos[0]?.calendar_url)||"";
+  } else {
+    url=u.calendar_url||"";
+  }
+
+  if(!url)return`<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+    <i class="ti ti-calendar-off" style="font-size:56px;color:#90A4AE;margin-bottom:16px" aria-hidden="true"></i>
+    <h3 style="font-size:16px;font-weight:700;color:${TX};margin-bottom:8px">Vincula tu Google Calendar</h3>
+    <p style="font-size:13px;color:${MU};max-width:400px;line-height:1.7;margin-bottom:8px">Ve a <b>Configuración → Mi perfil médico → Google Calendar</b> y pega el enlace de integración de tu calendario.</p>
+    <div style="background:#E8F5E9;border-radius:8px;padding:12px 16px;text-align:left;font-size:13px;color:#1B5E20;line-height:1.9;max-width:400px;margin:12px 0 20px">
+      <b>Cómo obtener el enlace:</b><br>
+      1. <a href="https://calendar.google.com/calendar/r/settings" target="_blank" style="color:${P}">Google Calendar → Configuración</a><br>
+      2. Selecciona tu calendario en la barra lateral<br>
+      3. Baja hasta <b>"Integrar calendario"</b><br>
+      4. Copia la URL del iframe y pégala en tu perfil
+    </div>
+    ${btn("⚙️ Ir a Mi perfil médico","go('perfil')","p",1)}
+  </div>`;
+
+  let embedUrl=url;
+  if(embedUrl.includes("calendar.google.com/calendar/embed")){
+    const sep=embedUrl.includes("?")?"&":"?";
+    if(!embedUrl.includes("mode="))embedUrl+=sep+"mode=WEEK";
+    if(!embedUrl.includes("ctz="))embedUrl+="&ctz=America%2FMexico_City";
+    if(!embedUrl.includes("hl="))embedUrl+="&hl=es";
+    if(!embedUrl.includes("wkst="))embedUrl+="&wkst=2";
+    if(!embedUrl.includes("showTitle="))embedUrl+="&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=1&bgcolor=%23ffffff";
+  }
+
+  return`<iframe src="${embedUrl}" style="width:100%;height:100%;border:none" frameborder="0" scrolling="no" allowfullscreen loading="lazy"></iframe>`;
+}
+
+window.seleccionarCalendario=function(id){
+  STATE.calSeleccionado=STATE.calSeleccionado===id?null:id;
+  pgAgenda();
 }
 
 // ── BUSCAR PACIENTES ──────────────────────────────────────
@@ -3615,6 +3655,7 @@ document.addEventListener("click",function(e){
 // ── MI PERFIL MÉDICO ──────────────────────────────────────
 function pgPerfil(){
   const u=STATE.userProfile||{};
+  const isAdmin=u.rol==="admin";
   RR().innerHTML=nav()+`
   <div style="max-width:800px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -3684,6 +3725,29 @@ function pgPerfil(){
             <span id="prev_ced2" style="color:${MU}">${u.cedula_esp_1?"Céd. Esp. "+u.cedula_esp_1:""}</span>
           </div>
         </div>
+      </div>
+
+      <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
+        <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:6px;text-transform:uppercase">📅 Google Calendar</p>
+        ${isAdmin?`
+        <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#1B5E20;line-height:1.8">
+          <b>Admin:</b> Tienes dos opciones:<br>
+          <b>1. URL maestra</b> (todos los médicos): en <a href="https://calendar.google.com/calendar/r/settings" target="_blank" style="color:${P}">Google Calendar → Configuración → tu cuenta principal → Integrar calendario</a><br>
+          <b>2. URL individual por médico</b>: en cada sub-calendario → Configuración → "Integrar calendario" → copiar el enlace del iframe.<br>
+          Con la URL individual en cada perfil de médico, los botones de color en la agenda funcionan para filtrar por doctor.
+        </div>`:`
+        <div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#1565C0;line-height:1.8">
+          Pide al administrador el enlace de tu calendario personal de QP Clinic, o ve a 
+          <a href="https://calendar.google.com/calendar/r/settings" target="_blank" style="color:${P}">Google Calendar → Configuración</a> 
+          → tu calendario en la barra lateral → <b>"Integrar calendario"</b> → copia la URL del iframe.
+        </div>`}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          ${fld("URL del iframe de Google Calendar",inp("pf_cal_url",u.calendar_url||"","https://calendar.google.com/calendar/embed?src=..."))}
+          ${fld("Color de tu agenda",`<div style="display:flex;align-items:center;gap:10px;margin-top:4px"><input id="pf_cal_color" type="color" value="${u.calendar_color||"#1565C0"}" style="width:48px;height:38px;border:1.5px solid ${BR};border-radius:8px;padding:2px;cursor:pointer"><span style="font-size:13px;color:${MU}">Aparece en los filtros de la agenda del admin</span></div>`)}
+        </div>
+        ${u.calendar_url?`<div style="margin-top:10px;background:#F8F9FA;border-radius:8px;overflow:hidden;border:1px solid ${BR};height:180px">
+          <iframe src="${u.calendar_url}&mode=WEEK&hl=es&showTitle=0&showNav=0&showDate=0&showPrint=0&showTabs=0&showCalendars=0" style="width:100%;height:100%;border:none" frameborder="0"></iframe>
+        </div>`:""}
       </div>
 
       <!-- Cambiar contraseña -->
@@ -3780,6 +3844,8 @@ window.guardarPerfil=async function(){
     institucion_esp_2:gv("pf_instsubesp").trim(),
     alta_especialidad:gv("pf_altaesp").trim(),
     institucion_alta:gv("pf_instaltaesp").trim(),
+    calendar_url:gv("pf_cal_url").trim(),
+    calendar_color:document.getElementById("pf_cal_color")?.value||"#1565C0",
   };
   // Subir firma si se seleccionó archivo
   const firmaFile=document.getElementById("pf_firma_file")?.files[0];
