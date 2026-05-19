@@ -22,11 +22,25 @@ input,select,textarea,button{font-family:inherit;font-size:14px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .upload-area{border:2px dashed #B3E5FC;border-radius:10px;padding:28px;text-align:center;cursor:pointer;background:#F0F9FF;transition:all .2s}
 .upload-area:hover{border-color:#0288D1;background:#E1F5FE}
+/* Sticky save footer */
+.sticky-save{position:sticky;bottom:0;background:#fff;border-top:1px solid #CFD8DC;padding:12px 16px;display:flex;justify-content:flex-end;gap:8px;z-index:10;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+/* Empty states */
+.empty-state{text-align:center;padding:48px 24px;color:#546E7A}
+.empty-state .empty-icon{font-size:48px;margin-bottom:12px;opacity:.4}
+.empty-state p{font-size:15px;font-weight:500;margin-bottom:8px}
+.empty-state small{font-size:13px;color:#90A4AE}
+/* Form sections */
+.form-section{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);overflow:hidden;margin-bottom:16px}
+.form-section-header{background:#1565C0;padding:10px 16px}
+.form-section-header b{color:#fff;font-size:13px}
+.form-section-body{padding:18px}
+/* Field labels bigger */
+.fld-label{font-size:12px;font-weight:600;color:#546E7A;text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px;display:block}
 </style>
 </head>
 <body>
 <div id="R" style="min-height:100vh"></div>
-<div id="toast" style="display:none;position:fixed;bottom:20px;right:20px;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 12px #00000030;color:#fff"></div>
+<div id="toast-container" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
 
 <script>
 // ── SUPABASE ──────────────────────────────────────────────
@@ -74,12 +88,21 @@ const RR=()=>document.getElementById("R");
 function go(pg,ex={}){Object.assign(STATE,{page:pg,...ex});draw();}
 function draw(){RR().innerHTML="";RR().className="fade";({login:pgLogin,agenda:pgAgenda,buscar:pgBuscar,expediente:pgExp,nuevo:pgNuevo,consulta:pgConsulta,perfil:pgPerfil,medicos:pgMedicos}[STATE.page]||pgLogin)();}
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
-function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">`;}
-function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
+function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`;}
+function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
 function ta(id,val,ph,rows=4){return`<textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;resize:vertical;outline:none;font-family:inherit;line-height:1.5">${val||""}</textarea>`;}
-function fld(l,inner,req=0){return`<div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:14px;font-weight:700;color:${MU};text-transform:uppercase">${l}${req?`<span style="color:${DA}"> *</span>`:""}</label>${inner}</div>`;}
+function fld(l,inner,req=0){return`<div style="display:flex;flex-direction:column;gap:5px"><label class="fld-label">${l}${req?`<span style="color:${DA}"> *</span>`:""}</label>${inner}</div>`;}
 function gv(id){const e=document.getElementById(id);return e?e.value:"";}
-function showToast(msg,ok=true){const t=document.getElementById("toast");t.style.background=ok?SU:DA;t.textContent=msg;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",3000);}
+function showToast(msg,ok=true){
+  let c=document.getElementById("toast-container");
+  if(!c){c=document.createElement("div");c.id="toast-container";c.style.cssText="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none";document.body.appendChild(c);}
+  const t=document.createElement("div");
+  t.style.cssText=`background:${ok?"#1B5E20":"#B71C1C"};color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;font-weight:500;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);transform:translateX(120%);transition:transform .25s ease;max-width:340px;pointer-events:auto`;
+  t.innerHTML=`<i class="ti ${ok?"ti-circle-check":"ti-alert-circle"}" style="font-size:20px;flex-shrink:0" aria-hidden="true"></i><span>${msg}</span>`;
+  c.appendChild(t);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>t.style.transform="translateX(0)"));
+  setTimeout(()=>{t.style.transform="translateX(120%)";setTimeout(()=>t.remove(),300);},3500);
+}
 function loading(show,msg="Guardando..."){STATE.loading=show;const l=document.getElementById("loading-overlay");if(l){l.style.display=show?"flex":"none";const m=document.getElementById("loading-msg");if(m)m.textContent=msg;}}
 function nav(){
   const u=STATE.userProfile;const p=STATE.pat;
@@ -128,7 +151,7 @@ function pgLogin(){
         <p style="color:${MU};font-size:14px;margin-top:4px">Expediente Clínico Electrónico</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:13px">
-        ${fld("Nombre de usuario",`<input id="lu" type="text" placeholder="Ej: dr.polanco" autocomplete="username" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">`)}
+        ${fld("Nombre de usuario",`<input id="lu" type="text" placeholder="Ej: dr.polanco" autocomplete="username" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`)}
         ${fld("Contraseña",inp("lp","","••••••••","password"))}
         <button id="login-btn" onclick="doLogin()" style="width:100%;padding:11px;background:${P};color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;margin-top:4px">Entrar al Sistema</button>
         <div id="login-error" style="display:none;background:#FFEBEE;color:${DA};padding:8px 12px;border-radius:7px;font-size:14px;text-align:center"></div>
@@ -379,8 +402,8 @@ async function pgBuscar(){
     </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <div style="flex:2;min-width:160px">${fld("Nombre, apellido o CURP",`<input id="bq" oninput="buscarPacs()" placeholder="Escriba para buscar..." style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>
-        <div style="flex:1;min-width:100px">${fld("No. Expediente",`<input id="bexp" placeholder="377223" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>
+        <div style="flex:2;min-width:160px">${fld("Nombre, apellido o CURP",`<input id="bq" oninput="buscarPacs()" placeholder="Escriba para buscar..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>
+        <div style="flex:1;min-width:100px">${fld("No. Expediente",`<input id="bexp" placeholder="377223" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>
         <div style="display:flex;align-items:flex-end">${btn("🔍 Buscar","buscarPacs()","p",1)}</div>
       </div>
     </div>
@@ -467,36 +490,36 @@ function renderNB(){
       <span style="color:${BR};margin:0 8px">|</span>
       <b>2</b> <span style="cursor:pointer;font-weight:600">Copiar datos pre-registrados por el paciente</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("CURP",`<div style="display:flex;gap:5px">${inp("nc","","XXXX000000XXXXXXXX")}<button style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
       ${fld("Folio clínica",inp("nfolio",""))}
       ${fld("Fecha de registro",inp("nfr",new Date().toLocaleDateString("es-MX")))}
     </div>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("Nombre(s) *",inp("nn","","Nombre(s)"),1)}
       ${fld("Primer Apellido *",inp("na","","Apellido paterno"),1)}
       ${fld("Segundo Apellido",inp("na2","","Apellido materno"))}
-      ${fld("Fecha de Nacimiento *",`<input id="nfnac" type="date" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`,1)}
+      ${fld("Fecha de Nacimiento *",`<input id="nfnac" type="date" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`,1)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("Sexo biológico *",sel("nsb",SEXO_BIO),1)}
       ${fld("Sexo CURP *",sel("nscurp",["Sin indicar","Mujer","Hombre"]),1)}
       ${fld("Género *",sel("ngen",GENEROS),1)}
       ${fld("Estado civil",sel("nec",ESTADOS_CIVILES))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("Tipo de sangre",sel("nts",TIPO_SANGRE))}
       ${fld("País de nacimiento *",sel("npais",PAISES,"MÉXICO"),1)}
       ${fld("Entidad Federativa *",sel("nef",ENTIDADES),1)}
       ${fld("¿Se considera migrante?",sel("nmig",MIGRANTE))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("¿Afromexicano?",sel("nafro",AFROMEX))}
       ${fld("¿Indígena?",sel("nindig",INDIGENA))}
       ${fld("Ocupación",inp("noc",""))}
       ${fld("Escolaridad",sel("nesc",ESCOLARIDAD))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("Celular *",inp("ncel","","55XXXXXXXX","tel"),1)}
       ${fld("Teléfono principal",inp("ntel","","55XXXXXXXX","tel"))}
       ${fld("Correo electrónico",inp("nmail","","correo@ejemplo.com","email"))}
@@ -507,7 +530,7 @@ function renderNB(){
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" id="ncons" style="accent-color:${P};width:15px;height:15px"> Firmó Consentimiento Informado</label>
     </div>`;
   else if(STATE.nuevoTab==="dom")nb.innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("Tipo de vialidad",sel("vt",["Calle","Avenida","Boulevard","Calzada","Carretera","Camino","Diagonal","Eje vial","Periférico","Retorno","Viaducto"]))}
       ${fld("Nombre",inp("vn",""))}
       ${fld("No. Exterior",inp("vne",""))}
@@ -527,7 +550,7 @@ function renderNB(){
     </div>
     <div style="border-top:1px solid ${BR};padding-top:16px">
       <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Seguro médico privado</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
         ${fld("¿Cuenta con seguro?",sel("nseg_tiene",["No","Sí"],"No"))}
         ${fld("Nombre del seguro",sel("nseg_nom",["No seleccionado","GNP","MetLife","AXA","Allianz","MAPFRE","HDI","Seguros Monterrey","Bupa México","Cigna","Otro"]))}
         ${fld("No. de póliza",inp("nseg_pol",""))}
@@ -539,7 +562,7 @@ function renderNB(){
       </div>
     </div>`;
   else if(STATE.nuevoTab==="dom")nb.innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("Tipo de vialidad",sel("vt",["Calle","Avenida","Boulevard","Calzada","Carretera","Camino","Diagonal","Eje vial","Periférico","Retorno","Viaducto"]))}
       ${fld("Nombre",inp("vn","","Nombre de calle, av, etc."))}
       ${fld("No. Exterior",inp("vne",""))}
@@ -554,7 +577,7 @@ function renderNB(){
     </div>`;
   else if(STATE.nuevoTab==="resp")nb.innerHTML=`
     <p style="font-size:14px;background:${PL};border-radius:7px;padding:9px 13px;margin-bottom:14px;color:${P}">⚠️ Obligatorio para pacientes menores de 18 años</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("Nombre(s)",inp("rnom",""))}
       ${fld("Apellido paterno",inp("rap",""))}
       ${fld("Apellido materno",inp("ram",""))}
@@ -775,37 +798,37 @@ function renderFB(){
   const fb=document.getElementById("fb");if(!fb)return;
   const p=STATE.pat;
   if(STATE.ficTab==="gen")fb.innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("No. Expediente",`<input value="${p.numero_expediente||'—'}" disabled style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;background:#F5F5F5">`)}
       ${fld("CURP",`<div style="display:flex;gap:5px">${inp("fe_curp",p.curp||"","XXXX000000XXXXXXXX")}<button style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
       ${fld("Folio clínica",inp("fe_folio",p.folio_clinica||""))}
       ${fld("Fecha de Registro",`<input value="${p.created_at?p.created_at.split("T")[0]:""}" disabled style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;background:#F5F5F5">`)}
     </div>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("Nombre(s) *",inp("fe_nom",p.nombre),1)}
       ${fld("Primer Apellido *",inp("fe_ap",p.apellido_paterno),1)}
       ${fld("Segundo Apellido",inp("fe_am",p.apellido_materno||""))}
-      ${fld("F. Nacimiento *",`<input id="fe_fnac" type="date" value="${p.fecha_nacimiento||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`,1)}
+      ${fld("F. Nacimiento *",`<input id="fe_fnac" type="date" value="${p.fecha_nacimiento||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`,1)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("Sexo biológico *",sel("fe_sb",SEXO_BIO,p.sexo_biologico||"Sin indicar"),1)}
       ${fld("Sexo CURP *",sel("fe_scurp",["Sin indicar","Mujer","Hombre"],p.sexo_curp||"Sin indicar"),1)}
       ${fld("Género *",sel("fe_gen",GENEROS,p.genero||"Sin indicar"),1)}
       ${fld("Estado civil",sel("fe_ec",ESTADOS_CIVILES,p.estado_civil||"Soltero(a)"))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("Tipo de sangre",sel("fe_ts",TIPO_SANGRE,p.tipo_sangre||"No conoce"))}
       ${fld("País de nacimiento *",sel("fe_pais",PAISES,p.pais_nacimiento||"MÉXICO"),1)}
       ${fld("Entidad Federativa *",sel("fe_ef",ENTIDADES,p.entidad_federativa||"Sin indicar"),1)}
       ${fld("¿Migrante?",sel("fe_mig",MIGRANTE,p.migrante||"Sin indicar"))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("¿Afromexicano?",sel("fe_afro",AFROMEX,p.afromexicano||"Se desconoce"))}
       ${fld("¿Indígena?",sel("fe_indig",INDIGENA,p.indigena||"Seleccione un valor"))}
       ${fld("Ocupación",inp("fe_oc",p.ocupacion||""))}
       ${fld("Escolaridad",sel("fe_esc",ESCOLARIDAD,p.escolaridad||"Sin indicar"))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("Celular",inp("fe_cel",p.celular||"","55XXXXXXXX","tel"))}
       ${fld("Teléfono principal",inp("fe_tel",p.telefono_principal||"","55XXXXXXXX","tel"))}
       ${fld("Correo electrónico",inp("fe_mail",p.correo||"","correo@ejemplo.com","email"))}
@@ -819,12 +842,12 @@ function renderFB(){
     const d=p.domicilio||{};
     fb.innerHTML=`
     <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:14px">Domicilio de residencia y datos de contacto</p>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 2fr 2fr;gap:10px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 2fr 2fr;gap:14px;margin-bottom:16px">
       ${fld("Vialidad",`<div style="display:flex;gap:5px">
         <select id="d_vial_tipo" style="padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;flex-shrink:0">
           ${["Calle","Avenida","Boulevard","Callejón","Carretera","Cerrada","Circuito","Circunvalación","Corredor","Diagonal","Eje vial","Pasaje","Peatonal","Periférico","Privada","Prolongación","Retorno","Viaducto"].map(v=>`<option ${(d.vialidad_tipo||"Calle")===v?"selected":""}>${v}</option>`).join("")}
         </select>
-        <input id="d_vial" value="${d.vialidad||""}" placeholder="Nombre de la calle" style="flex:1;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">
+        <input id="d_vial" value="${d.vialidad||""}" placeholder="Nombre de la calle" style="flex:1;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">
       </div>`)}
       ${fld("No. Exterior",inp("d_next",d.num_exterior||""))}
       ${fld("No. Interior",inp("d_nint",d.num_interior||"","Apto, depto..."))}
@@ -832,11 +855,11 @@ function renderFB(){
         <select id="d_asent_tipo" style="padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;flex-shrink:0">
           ${["Colonia","Barrio","Fraccionamiento","Pueblo","Residencial","Unidad Habitacional","Ejido","Ranchería","Zona Industrial","Ampliación","Condominio","Sección"].map(v=>`<option ${(d.asentamiento_tipo||"Colonia")===v?"selected":""}>${v}</option>`).join("")}
         </select>
-        <input id="d_asent" value="${d.asentamiento||""}" placeholder="Nombre de colonia" style="flex:1;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">
+        <input id="d_asent" value="${d.asentamiento||""}" placeholder="Nombre de colonia" style="flex:1;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">
       </div>`)}
       ${fld("Localidad / Municipio",inp("d_loc",d.localidad||""),"","",true)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
       ${fld("Municipio / Delegación *",inp("d_mun",d.municipio||""),1)}
       ${fld("Entidad Federativa *",sel("d_ef",["Sin indicar","Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de México","Coahuila","Colima","Durango","Estado de México","Guanajuato","Guerrero","Hidalgo","Jalisco","Michoacán","Morelos","Nayarit","Nuevo León","Oaxaca","Puebla","Querétaro","Quintana Roo","San Luis Potosí","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatán","Zacatecas"],d.entidad||"Sin indicar"),1)}
       ${fld("Código Postal *",inp("d_cp",d.codigo_postal||"","00000"),1)}
@@ -844,45 +867,45 @@ function renderFB(){
     </div>
     <div style="border-top:1px solid ${BR};padding-top:14px;margin-bottom:14px">
       <p style="font-size:14px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Datos de contacto</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
         ${fld("Teléfono principal",inp("d_tel1",d.telefono||p.telefono_principal||"","55XXXXXXXX","tel"))}
         ${fld("Teléfono secundario",inp("d_tel2",d.telefono2||"","55XXXXXXXX","tel"))}
         ${fld("Celular",inp("d_cel",d.celular||p.celular||"","55XXXXXXXX","tel"))}
         ${fld("Correo electrónico",inp("d_mail",d.correo||p.correo||"","correo@ejemplo.com","email"))}
       </div>
     </div>
-    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar domicilio","guardarDomicilio()","ok",1)}</div>`;
+    <div class="sticky-save">${btn("💾 Guardar domicilio","guardarDomicilio()","ok",1)}</div>`;
   }
   else if(STATE.ficTab==="lab"){
     const l=p.datos_laborales||{};
     fb.innerHTML=`
     <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:14px">Datos laborales</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
       ${fld("Número de Nómina",inp("l_nomina",l.num_nomina||""))}
       ${fld("Número de Seguridad Social",inp("l_nss",l.nss||"","XXXXXXXXXXX"))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
       ${fld("Empresa / Razón social",inp("l_empresa",l.empresa||""))}
       ${fld("RFC de la empresa",inp("l_rfc_emp",l.rfc_empresa||""))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
       ${fld("Área",inp("l_area",l.area||""))}
       ${fld("Departamento",inp("l_depto",l.departamento||""))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
       ${fld("Supervisor / Gerente / Jefe Dpto",inp("l_sup",l.supervisor||""))}
       ${fld("Puesto",inp("l_puesto",l.puesto||""))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
       ${fld("Salario base",inp("l_sal",l.salario_base||"","Ej: $10,000 MXN"))}
       ${fld("Salario diario integrado",inp("l_sdi",l.salario_diario||"","Ej: $500 MXN"))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      ${fld("Tipo de trabajador",`<select id="l_tipo_trab" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Sin indicar","Asalariado","Eventual","Eventual del campo","Jornalero urbano","Doméstico","Independiente","Por honorarios","Pensionado","Otro"].map(v=>`<option ${l.tipo_trabajador===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-      ${fld("Tipo de contrato",`<select id="l_tipo_cont" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Sin indicar","Base","Contrato por tiempo indeterminado","Contrato por tiempo determinado","Contrato por obra","Eventual","Honorarios","Becario","Practicante"].map(v=>`<option ${l.tipo_contrato===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      ${fld("Tipo de trabajador",`<select id="l_tipo_trab" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Sin indicar","Asalariado","Eventual","Eventual del campo","Jornalero urbano","Doméstico","Independiente","Por honorarios","Pensionado","Otro"].map(v=>`<option ${l.tipo_trabajador===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Tipo de contrato",`<select id="l_tipo_cont" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Sin indicar","Base","Contrato por tiempo indeterminado","Contrato por tiempo determinado","Contrato por obra","Eventual","Honorarios","Becario","Practicante"].map(v=>`<option ${l.tipo_contrato===v?"selected":""}>${v}</option>`).join("")}</select>`)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      ${fld("Fecha de ingreso",`<input id="l_fecha_ing" type="date" value="${l.fecha_ingreso||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      ${fld("Fecha de ingreso",`<input id="l_fecha_ing" type="date" value="${l.fecha_ingreso||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       ${fld("Antigüedad",inp("l_antig",l.antiguedad||"","Se calcula automáticamente"))}
     </div>
     <div style="margin-bottom:14px">
@@ -891,11 +914,11 @@ function renderFB(){
         Causó baja de la empresa
       </label>
       <div id="baja-fields" style="display:${l.baja?"grid":"none"};grid-template-columns:1fr 1fr;gap:12px">
-        ${fld("Fecha de la baja",`<input id="l_fecha_baja" type="date" value="${l.fecha_baja||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Motivo de baja",`<select id="l_motivo_baja" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["No especificado","Renuncia voluntaria","Rescisión de contrato","Término de contrato","Jubilación","Defunción","Otro"].map(v=>`<option ${l.motivo_baja===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+        ${fld("Fecha de la baja",`<input id="l_fecha_baja" type="date" value="${l.fecha_baja||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Motivo de baja",`<select id="l_motivo_baja" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["No especificado","Renuncia voluntaria","Rescisión de contrato","Término de contrato","Jubilación","Defunción","Otro"].map(v=>`<option ${l.motivo_baja===v?"selected":""}>${v}</option>`).join("")}</select>`)}
       </div>
     </div>
-    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar datos laborales","guardarLaborales()","ok",1)}</div>
+    <div class="sticky-save">${btn("💾 Guardar datos laborales","guardarLaborales()","ok",1)}</div>
     <script>
       document.getElementById('l_baja').addEventListener('change',function(){
         document.getElementById('baja-fields').style.display=this.checked?'grid':'none';
@@ -914,21 +937,21 @@ function renderFB(){
     const d=p.domicilio||{};
     fb.innerHTML=`
     <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:14px">Persona responsable del paciente (obligatorio para pacientes menores de 18 años)</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
       ${fld("Nombre",inp("r_nom",r.nombre||""))}
       ${fld("Apellido paterno",inp("r_ap",r.apellido_paterno||""))}
       ${fld("Apellido materno",inp("r_am",r.apellido_materno||""))}
-      ${fld("Vínculo con el paciente",`<select id="r_vinc" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Familiar","Padre","Madre","Tutor legal","Cónyuge","Hijo(a)","Hermano(a)","Abuelo(a)","Amigo(a)","Representante legal","Otro"].map(v=>`<option ${r.vinculo===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Vínculo con el paciente",`<select id="r_vinc" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Familiar","Padre","Madre","Tutor legal","Cónyuge","Hijo(a)","Hermano(a)","Abuelo(a)","Amigo(a)","Representante legal","Otro"].map(v=>`<option ${r.vinculo===v?"selected":""}>${v}</option>`).join("")}</select>`)}
     </div>
     <div style="margin-bottom:14px">
       <button onclick="copiarDireccionResponsable()" style="background:none;border:none;color:${AC};font-size:14px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline">** copiar dirección del paciente **</button>
     </div>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 2fr 2fr;gap:10px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 2fr 2fr;gap:14px;margin-bottom:16px">
       ${fld("Vialidad",`<div style="display:flex;gap:5px">
         <select id="r_vial_tipo" style="padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;flex-shrink:0">
           ${["Calle","Avenida","Boulevard","Callejón","Carretera","Cerrada","Circuito","Privada","Prolongación","Retorno"].map(v=>`<option ${(r.vialidad_tipo||"Calle")===v?"selected":""}>${v}</option>`).join("")}
         </select>
-        <input id="r_vial" value="${r.vialidad||""}" placeholder="Nombre de la calle" style="flex:1;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">
+        <input id="r_vial" value="${r.vialidad||""}" placeholder="Nombre de la calle" style="flex:1;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">
       </div>`)}
       ${fld("No. Exterior",inp("r_next",r.num_exterior||""))}
       ${fld("No. Interior",inp("r_nint",r.num_interior||""))}
@@ -936,23 +959,23 @@ function renderFB(){
         <select id="r_asent_tipo" style="padding:7px 8px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;flex-shrink:0">
           ${["Colonia","Barrio","Fraccionamiento","Pueblo","Residencial","Unidad Habitacional"].map(v=>`<option ${(r.asentamiento_tipo||"Colonia")===v?"selected":""}>${v}</option>`).join("")}
         </select>
-        <input id="r_asent" value="${r.asentamiento||""}" placeholder="Nombre de colonia" style="flex:1;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">
+        <input id="r_asent" value="${r.asentamiento||""}" placeholder="Nombre de colonia" style="flex:1;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">
       </div>`)}
       ${fld("Localidad",inp("r_loc",r.localidad||""))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
       ${fld("Municipio / Delegación",inp("r_mun",r.municipio||""))}
       ${fld("Entidad Federativa",sel("r_ef",["Sin indicar","Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de México","Coahuila","Colima","Durango","Estado de México","Guanajuato","Guerrero","Hidalgo","Jalisco","Michoacán","Morelos","Nayarit","Nuevo León","Oaxaca","Puebla","Querétaro","Quintana Roo","San Luis Potosí","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatán","Zacatecas"],r.entidad||"Sin indicar"))}
       ${fld("Código Postal",inp("r_cp",r.codigo_postal||"","00000"))}
       ${fld("País",inp("r_pais",r.pais||"MÉXICO"))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Teléfono principal",inp("r_tel1",r.telefono||"","55XXXXXXXX","tel"))}
       ${fld("Teléfono secundario",inp("r_tel2",r.telefono2||"","55XXXXXXXX","tel"))}
       ${fld("Celular",inp("r_cel",r.celular||"","55XXXXXXXX","tel"))}
       ${fld("Correo electrónico",inp("r_mail",r.correo||"","correo@ejemplo.com","email"))}
     </div>
-    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar responsable","guardarResponsable()","ok",1)}</div>`;
+    <div class="sticky-save">${btn("💾 Guardar responsable","guardarResponsable()","ok",1)}</div>`;
   }
   else if(STATE.ficTab==="seg"){
     const sg=p.seguro_medico||{};
@@ -969,33 +992,33 @@ function renderFB(){
     </div>
     <div style="border-top:1px solid ${BR};padding-top:16px;margin-bottom:14px">
       <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:12px">Seguro médico del paciente</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-        ${fld("Cuenta con seguro médico",`<select id="sg_tiene" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${sg.tiene==="No"?"selected":""}>No</option><option ${sg.tiene==="Sí"?"selected":""}>Sí</option></select>`)}
-        ${fld("Tipo de seguro",`<select id="sg_tipo" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>Tipo de seguro no seleccionado</option>${["Seguro de gastos médicos mayores","Seguro de gastos médicos menores","Seguro colectivo","Seguro empresarial","Seguro de vida con cobertura médica","Seguro de accidentes"].map(v=>`<option ${sg.tipo===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-        ${fld("Nombre del seguro médico",`<select id="sg_nombre" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>Seguro médico no seleccionado</option>${["AXA","Allianz","BBVA Seguros","Bupa México","Cigna","GNP Seguros","HDI Seguros","IMSS","ISSSTE","MAPFRE","MetLife","Monterrey New York Life","PEMEX Salud","SEDENA","SEMAR","Thona Seguros","Zurich"].map(v=>`<option ${sg.nombre===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+        ${fld("Cuenta con seguro médico",`<select id="sg_tiene" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${sg.tiene==="No"?"selected":""}>No</option><option ${sg.tiene==="Sí"?"selected":""}>Sí</option></select>`)}
+        ${fld("Tipo de seguro",`<select id="sg_tipo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>Tipo de seguro no seleccionado</option>${["Seguro de gastos médicos mayores","Seguro de gastos médicos menores","Seguro colectivo","Seguro empresarial","Seguro de vida con cobertura médica","Seguro de accidentes"].map(v=>`<option ${sg.tipo===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+        ${fld("Nombre del seguro médico",`<select id="sg_nombre" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>Seguro médico no seleccionado</option>${["AXA","Allianz","BBVA Seguros","Bupa México","Cigna","GNP Seguros","HDI Seguros","IMSS","ISSSTE","MAPFRE","MetLife","Monterrey New York Life","PEMEX Salud","SEDENA","SEMAR","Thona Seguros","Zurich"].map(v=>`<option ${sg.nombre===v?"selected":""}>${v}</option>`).join("")}</select>`)}
         ${fld("Otro seguro no incluido",inp("sg_otro",sg.otro||"","Especifique si no está en la lista"))}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-        ${fld("Fecha de inicio de vigencia",`<input id="sg_inicio" type="date" value="${sg.vigencia_inicio||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Fecha de fin de vigencia",`<input id="sg_fin" type="date" value="${sg.vigencia_fin||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+        ${fld("Fecha de inicio de vigencia",`<input id="sg_inicio" type="date" value="${sg.vigencia_inicio||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Fecha de fin de vigencia",`<input id="sg_fin" type="date" value="${sg.vigencia_fin||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
         ${fld("No. de póliza / No. de afiliación",inp("sg_poliza",sg.num_poliza||""))}
         ${fld("Folio del asegurado",inp("sg_folio",sg.folio||""))}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
         ${fld("Nombre del titular de la póliza",inp("sg_titular",sg.titular||""))}
-        ${fld("Tipo de beneficiario",`<select id="sg_benef" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>Tipo de beneficiario no seleccionado</option>${["Titular","Cónyuge","Hijo(a)","Dependiente económico","Otro"].map(v=>`<option ${sg.tipo_beneficiario===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+        ${fld("Tipo de beneficiario",`<select id="sg_benef" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>Tipo de beneficiario no seleccionado</option>${["Titular","Cónyuge","Hijo(a)","Dependiente económico","Otro"].map(v=>`<option ${sg.tipo_beneficiario===v?"selected":""}>${v}</option>`).join("")}</select>`)}
         ${fld("Importe de la suma asegurada",inp("sg_suma",sg.suma_asegurada||"","Ej: $500,000 MXN"))}
         ${fld("Anotaciones adicionales",inp("sg_notas",sg.notas||"","Observaciones del seguro"))}
       </div>
     </div>
-    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar seguro médico","guardarSeguro()","ok",1)}</div>`;
+    <div class="sticky-save">${btn("💾 Guardar seguro médico","guardarSeguro()","ok",1)}</div>`;
   }
   else if(STATE.ficTab==="fac"){
     const f=p.datos_facturacion||{};
     const REGIMENES=["Seleccione el régimen fiscal del paciente","601 - General de Ley Personas Morales","603 - Personas Morales con Fines no Lucrativos","605 - Sueldos y Salarios e Ingresos Asimilados a Salarios","606 - Arrendamiento","607 - Régimen de Enajenación o Adquisición de Bienes","608 - Demás ingresos","609 - Consolidación","610 - Residentes en el Extranjero sin Establecimiento Permanente en México","611 - Ingresos por Dividendos (socios y accionistas)","612 - Personas Físicas con Actividades Empresariales y Profesionales","614 - Ingresos por intereses","615 - Régimen de los ingresos por la obtención de premios","616 - Sin obligaciones fiscales","620 - Sociedades Cooperativas de Producción que optan por diferir sus ingresos","621 - Incorporación Fiscal","623 - Opcional para Grupos de Sociedades","624 - Coordinados","625 - Régimen de Plataformas Tecnológicas","626 - Régimen Simplificado de Confianza (RESICO)","629 - De los Regímenes Fiscales Preferentes y de las Empresas Multinacionales","630 - Enajenación de acciones en bolsa de valores"];
     fb.innerHTML=`
     <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:14px">Datos para facturación</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
       ${fld("RFC *",inp("f_rfc",f.rfc||"","XXXX000000XXX"))}
       ${fld("Código Postal *",inp("f_cp",f.codigo_postal||"","00000"))}
       ${fld("Correo para enviar facturas",inp("f_mail",f.correo||"","facturacion@ejemplo.com","email"))}
@@ -1004,15 +1027,15 @@ function renderFB(){
       ${fld("Razón social (como aparece en su Constancia de Situación Fiscal)",inp("f_razon",f.razon_social||"","Nombre o razón social exacta del SAT"))}
     </div>
     <div style="margin-bottom:12px">
-      ${fld("Régimen fiscal",`<select id="f_regimen" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${REGIMENES.map(v=>`<option ${f.regimen===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Régimen fiscal",`<select id="f_regimen" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${REGIMENES.map(v=>`<option ${f.regimen===v?"selected":""}>${v}</option>`).join("")}</select>`)}
     </div>
     <div style="margin-bottom:16px">
-      ${fld("Uso del CFDI",`<select id="f_uso_cfdi" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["No especificado","G01 - Adquisición de mercancias","G02 - Devoluciones, descuentos o bonificaciones","G03 - Gastos en general","I01 - Construcciones","I02 - Mobilario y equipo de oficina por inversiones","I03 - Equipo de transporte","I04 - Equipo de computo y accesorios","I05 - Dados, troqueles, moldes, matrices y herramental","I06 - Comunicaciones telefónicas","I07 - Comunicaciones satelitales","I08 - Otra maquinaria y equipo","D01 - Honorarios médicos, dentales y gastos hospitalarios","D02 - Gastos médicos por incapacidad o discapacidad","D03 - Gastos funerales","D04 - Donativos","D05 - Intereses reales efectivamente pagados por créditos hipotecarios (casa habitación)","D06 - Aportaciones voluntarias al SAR","D07 - Primas por seguros de gastos médicos","D08 - Gastos de transportación escolar obligatoria","D09 - Depósitos en cuentas para el ahorro, primas que tengan como base planes de pensiones","D10 - Pagos por servicios educativos (colegiaturas)","S01 - Sin efectos fiscales","CP01 - Pagos","CN01 - Nómina"].map(v=>`<option ${f.uso_cfdi===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Uso del CFDI",`<select id="f_uso_cfdi" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["No especificado","G01 - Adquisición de mercancias","G02 - Devoluciones, descuentos o bonificaciones","G03 - Gastos en general","I01 - Construcciones","I02 - Mobilario y equipo de oficina por inversiones","I03 - Equipo de transporte","I04 - Equipo de computo y accesorios","I05 - Dados, troqueles, moldes, matrices y herramental","I06 - Comunicaciones telefónicas","I07 - Comunicaciones satelitales","I08 - Otra maquinaria y equipo","D01 - Honorarios médicos, dentales y gastos hospitalarios","D02 - Gastos médicos por incapacidad o discapacidad","D03 - Gastos funerales","D04 - Donativos","D05 - Intereses reales efectivamente pagados por créditos hipotecarios (casa habitación)","D06 - Aportaciones voluntarias al SAR","D07 - Primas por seguros de gastos médicos","D08 - Gastos de transportación escolar obligatoria","D09 - Depósitos en cuentas para el ahorro, primas que tengan como base planes de pensiones","D10 - Pagos por servicios educativos (colegiaturas)","S01 - Sin efectos fiscales","CP01 - Pagos","CN01 - Nómina"].map(v=>`<option ${f.uso_cfdi===v?"selected":""}>${v}</option>`).join("")}</select>`)}
     </div>
     <div style="margin-bottom:16px">
       ${fld("Anotaciones generales",ta("f_notas",f.notas||"","Observaciones de facturación, condiciones especiales...",3))}
     </div>
-    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar datos de facturación","guardarFacturacion()","ok",1)}</div>`;
+    <div class="sticky-save">${btn("💾 Guardar datos de facturación","guardarFacturacion()","ok",1)}</div>`;
   }
 }
 window.guardarFacturacion=async function(){
@@ -1292,7 +1315,7 @@ function renderAB(){
 
   else if(STATE.antTab==="pat"){
     const selCount=Object.values(STATE.patData).filter(Boolean).length;
-    ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px"><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Generales</p>${patG.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Adicciones</p>${patA.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Exantemáticas</p>${patEx.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Infectocontagiosas</p>${patI.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Crónico-degenerativas</p>${patC.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div></div>${selCount>0?`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:14px;font-weight:700;color:#1B5E20;margin-right:4px">✓ Seleccionados:</span>${Object.entries(STATE.patData).filter(([,v])=>v).map(([k])=>`<span style="background:#C8E6C9;color:#1B5E20;padding:2px 8px;border-radius:20px;font-size:14px;font-weight:600">${k}</span>`).join("")}</div>`:""}<div style="border-top:2px dashed ${BR};padding-top:16px"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"><div><p style="font-size:14px;font-weight:700;color:${TX}">Otras enfermedades identificadas como antecedentes personales patológicos</p><p style="font-size:14px;color:${MU};margin-top:2px">Enfermedades adicionales no incluidas en las listas anteriores</p></div><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"><span style="font-size:14px;color:${MU};font-weight:600">Plantillas:</span>${PLANTILLAS_PAT.map(pl=>`<button onclick="insertPlantilla('${pl.txt.replace(/'/g,"\\'")}')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:14px;font-weight:600">${pl.lbl}</button>`).join("")}</div></div><textarea id="pat-otras" rows="5" placeholder="Ej: Sinusitis en la infancia remitida sin secuelas ni complicaciones." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;font-size:14px;line-height:1.6">${STATE.patOtrasNotes||""}</textarea><div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar notas","guardarAnt()","ok",1)}</div></div>`;
+    ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px"><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Generales</p>${patG.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Adicciones</p>${patA.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Exantemáticas</p>${patEx.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Infectocontagiosas</p>${patI.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Crónico-degenerativas</p>${patC.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div></div>${selCount>0?`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:14px;font-weight:700;color:#1B5E20;margin-right:4px">✓ Seleccionados:</span>${Object.entries(STATE.patData).filter(([,v])=>v).map(([k])=>`<span style="background:#C8E6C9;color:#1B5E20;padding:2px 8px;border-radius:20px;font-size:14px;font-weight:600">${k}</span>`).join("")}</div>`:""}<div style="border-top:2px dashed ${BR};padding-top:16px"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"><div><p style="font-size:14px;font-weight:700;color:${TX}">Otras enfermedades identificadas como antecedentes personales patológicos</p><p style="font-size:14px;color:${MU};margin-top:2px">Enfermedades adicionales no incluidas en las listas anteriores</p></div><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"><span style="font-size:14px;color:${MU};font-weight:600">Plantillas:</span>${PLANTILLAS_PAT.map(pl=>`<button onclick="insertPlantilla('${pl.txt.replace(/'/g,"\\'")}')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:14px;font-weight:600">${pl.lbl}</button>`).join("")}</div></div><textarea id="pat-otras" rows="5" placeholder="Ej: Sinusitis en la infancia remitida sin secuelas ni complicaciones." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;font-size:14px;line-height:1.6">${STATE.patOtrasNotes||""}</textarea><div class="sticky-save">${btn("💾 Guardar notas","guardarAnt()","ok",1)}</div></div>`;
   }
   else if(STATE.antTab==="nop"){
     STATE._plantillaDep=`ANTECEDENTES NO PATOLÓGICOS — DEPORTIVOS\n\n• Familiares: ninguno.\n• Deportes practicados anteriormente: \n   - Logros: ninguno.\n• Ejercicio actual: \n   - Inicio: \n   - Frecuencia de entrenamiento (Días/horas): \n   - Logros más importantes: \n• Proyección: mejorar su forma física y estado de salud.\n• Alimentación: \n   - Número de comidas: \n   - ¿Completa? Cereales y tubérculos__ Prod. origen animal__ Leche__ Leguminosas__ Verduras__ Frutas__ Aceites y grasas__\n   - Lugar: __% casa\n\nHÁBITOS PERSONALES\nBaño: \nDefecación: \nLavarse los dientes: \nHabitación (cuartos, piso, techo, ventanas, hab, servicios): \nTabaquismo (cig/día/años): \nAlcoholismo (bebidas/frecuencia): \nToxicomanías (esp/día/años): \nAlimentación (frecuencia/tipo): \nDeportes (act. física/frecuencia): \nEscolaridad: \nInmunizaciones: \nHipersensibilidad/Alergias: \nTrabajo/Descanso: \nPasatiempos:`;
@@ -1307,7 +1330,7 @@ function renderAB(){
       <button onclick="cargarPlantillaNop('limpiar')" style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:14px;font-weight:600">✕ Limpiar</button>
     </div>
     <textarea id="nopa" rows="20" placeholder="Antecedentes no patológicos..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:monospace;font-size:14px;line-height:1.7">${STATE.antNoPatText||""}</textarea>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
+    <div class="sticky-save">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
   }
   else if(STATE.antTab==="al"){
     if(!STATE.alTab)STATE.alTab="comunes";
@@ -1345,7 +1368,7 @@ function renderAB(){
           </div>`).join("")}
         </div>
         <div style="margin-bottom:10px">
-          ${fld("Otras alergias no listadas",`<input id="al-otra" placeholder="Escriba y presione Agregar..." style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          ${fld("Otras alergias no listadas",`<input id="al-otra" placeholder="Escriba y presione Agregar..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
           <button onclick="agregarOtraAlergia()" style="width:100%;margin-top:6px;padding:7px;background:${P};color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600">+ Agregar alergia manual</button>
         </div>
         <div style="display:flex;gap:8px">
@@ -1355,7 +1378,7 @@ function renderAB(){
       </div>
     </div>`;
   }
-  else if(STATE.antTab==="med"){ab.innerHTML=`<p style="font-size:14px;color:${MU};margin-bottom:10px;background:${PL};padding:8px 12px;border-radius:7px">Medicamentos usados en los últimos 6 meses. Nombre, duración y dosis.</p>${ta("meda",STATE.medText||"","Ej: Metformina 850mg — 1 tab c/12h — 3 meses",8)}<div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;}
+  else if(STATE.antTab==="med"){ab.innerHTML=`<p style="font-size:14px;color:${MU};margin-bottom:10px;background:${PL};padding:8px 12px;border-radius:7px">Medicamentos usados en los últimos 6 meses. Nombre, duración y dosis.</p>${ta("meda",STATE.medText||"","Ej: Metformina 850mg — 1 tab c/12h — 3 meses",8)}<div class="sticky-save">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;}
   else if(STATE.antTab==="dis"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Agregar discapacidad — Clasificación CIF (OMS)</p><select id="discap-sel" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px;margin-bottom:8px">${CIF_CAT.map(c=>`<option ${c.startsWith("—")?"disabled":""}>${c}</option>`).join("")}</select>${btn("➕ Agregar al expediente","addDiscap()","p",1)}</div><div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Discapacidades registradas</p>${STATE.discapacidades.length===0?`<div style="background:#FFF3E0;border:1.5px solid #FFCC80;border-radius:8px;padding:14px;text-align:center;color:#E65100;font-size:14px">No hay discapacidades registradas</div>`:`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${STATE.discapacidades.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:${i<STATE.discapacidades.length-1?"1px solid "+BR:"none"};background:${i%2?"#FAFAFA":"#fff"}"><div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:${P};flex-shrink:0"></div><span style="font-size:14px">${d}</span></div><button onclick="removeDiscap(${i})" style="background:none;border:none;color:${DA};cursor:pointer;font-size:14px;font-weight:700">✕</button></div>`).join("")}</div>`}</div></div>`;}
   else if(STATE.antTab==="gin"){
     const g=STATE.ginData||{};
@@ -1363,53 +1386,53 @@ function renderAB(){
     <div style="display:flex;gap:6px;margin-bottom:14px">${btn("💾 Guardar gineco-obstétricos","guardarGineco()","ok",1)}</div>
 
     <!-- MENARQUIA -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-      ${fld("Menarquia (edad)",`<input id="g_men" value="${g.menarquia||""}" placeholder="Ej: 12 años" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("FUM (Fecha Última Menstruación)",`<input id="g_fum" value="${g.fum||""}" placeholder="DD/MM/AAAA" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Ritmo menstrual",`<input id="g_ritmo" value="${g.ritmo||""}" placeholder="Ej: 28 x 5" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Menopausia",`<input id="g_meno" value="${g.menopausia||""}" placeholder="Edad o No aplica" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Menarquia (edad)",`<input id="g_men" value="${g.menarquia||""}" placeholder="Ej: 12 años" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("FUM (Fecha Última Menstruación)",`<input id="g_fum" value="${g.fum||""}" placeholder="DD/MM/AAAA" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Ritmo menstrual",`<input id="g_ritmo" value="${g.ritmo||""}" placeholder="Ej: 28 x 5" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Menopausia",`<input id="g_meno" value="${g.menopausia||""}" placeholder="Edad o No aplica" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
 
     <!-- CARACTERÍSTICAS DE LA MENSTRUACIÓN -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Características de la Menstruación</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-      ${fld("Duración (días)",`<input id="g_dur" value="${g.duracion||""}" placeholder="Ej: 5" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Cantidad de sangre",`<select id="g_cant" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${g.cantidad==="No especificado"?"selected":""}>No especificado</option><option ${g.cantidad==="Escasa"?"selected":""}>Escasa</option><option ${g.cantidad==="Normal"?"selected":""}>Normal</option><option ${g.cantidad==="Abundante"?"selected":""}>Abundante</option><option ${g.cantidad==="Muy abundante"?"selected":""}>Muy abundante</option></select>`)}
-      ${fld("Frecuencia",`<select id="g_frec" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${g.frecuencia==="No especificado"?"selected":""}>No especificado</option><option ${g.frecuencia==="Regular"?"selected":""}>Regular</option><option ${g.frecuencia==="Irregular"?"selected":""}>Irregular</option><option ${g.frecuencia==="Oligomenorrea"?"selected":""}>Oligomenorrea</option><option ${g.frecuencia==="Amenorrea"?"selected":""}>Amenorrea</option><option ${g.frecuencia==="Polimenorrea"?"selected":""}>Polimenorrea</option></select>`)}
-      ${fld("Presencia de dolor",`<select id="g_dolor" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${g.dolor==="No"?"selected":""}>No</option><option ${g.dolor==="Sí leve"?"selected":""}>Sí — leve</option><option ${g.dolor==="Sí moderado"?"selected":""}>Sí — moderado</option><option ${g.dolor==="Sí intenso"?"selected":""}>Sí — intenso</option><option ${g.dolor==="Dismenorrea primaria"?"selected":""}>Dismenorrea primaria</option><option ${g.dolor==="Dismenorrea secundaria"?"selected":""}>Dismenorrea secundaria</option></select>`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Duración (días)",`<input id="g_dur" value="${g.duracion||""}" placeholder="Ej: 5" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Cantidad de sangre",`<select id="g_cant" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${g.cantidad==="No especificado"?"selected":""}>No especificado</option><option ${g.cantidad==="Escasa"?"selected":""}>Escasa</option><option ${g.cantidad==="Normal"?"selected":""}>Normal</option><option ${g.cantidad==="Abundante"?"selected":""}>Abundante</option><option ${g.cantidad==="Muy abundante"?"selected":""}>Muy abundante</option></select>`)}
+      ${fld("Frecuencia",`<select id="g_frec" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${g.frecuencia==="No especificado"?"selected":""}>No especificado</option><option ${g.frecuencia==="Regular"?"selected":""}>Regular</option><option ${g.frecuencia==="Irregular"?"selected":""}>Irregular</option><option ${g.frecuencia==="Oligomenorrea"?"selected":""}>Oligomenorrea</option><option ${g.frecuencia==="Amenorrea"?"selected":""}>Amenorrea</option><option ${g.frecuencia==="Polimenorrea"?"selected":""}>Polimenorrea</option></select>`)}
+      ${fld("Presencia de dolor",`<select id="g_dolor" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${g.dolor==="No"?"selected":""}>No</option><option ${g.dolor==="Sí leve"?"selected":""}>Sí — leve</option><option ${g.dolor==="Sí moderado"?"selected":""}>Sí — moderado</option><option ${g.dolor==="Sí intenso"?"selected":""}>Sí — intenso</option><option ${g.dolor==="Dismenorrea primaria"?"selected":""}>Dismenorrea primaria</option><option ${g.dolor==="Dismenorrea secundaria"?"selected":""}>Dismenorrea secundaria</option></select>`)}
     </div>
     <div style="margin-bottom:16px">${fld("Presencia de otras secreciones vaginales",ta("g_sec",g.secreciones||"","Describa características del flujo, color, olor, consistencia, cantidad...",3))}</div>
 
     <!-- ACTIVIDAD SEXUAL -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Actividad Sexual</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-      ${fld("Vida sexual activa",`<select id="g_vsa" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option ${g.vida_sexual==="No"?"selected":""}>No</option><option ${g.vida_sexual==="Sí"?"selected":""}>Sí</option><option ${g.vida_sexual==="No especificado"?"selected":""}>No especificado</option></select>`)}
-      ${fld("Edad de inicio",`<input id="g_eis" value="${g.edad_inicio||""}" placeholder="Años" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Número de parejas",`<input id="g_np" value="${g.num_parejas||""}" placeholder="Número" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Método anticonceptivo",`<select id="g_mac" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No usa</option><option ${g.mac==="Barrera (condón)"?"selected":""}>Barrera (condón)</option><option ${g.mac==="Píldora anticonceptiva"?"selected":""}>Píldora anticonceptiva</option><option ${g.mac==="DIU"?"selected":""}>DIU</option><option ${g.mac==="Parche"?"selected":""}>Parche</option><option ${g.mac==="Implante subdérmico"?"selected":""}>Implante subdérmico</option><option ${g.mac==="Inyectable"?"selected":""}>Inyectable</option><option ${g.mac==="Ligadura de trompas"?"selected":""}>Ligadura de trompas</option><option ${g.mac==="Vasectomía de pareja"?"selected":""}>Vasectomía de pareja</option><option ${g.mac==="Abstinencia"?"selected":""}>Abstinencia</option><option ${g.mac==="Ritmo"?"selected":""}>Ritmo</option><option ${g.mac==="Otro"?"selected":""}>Otro</option></select>`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+      ${fld("Vida sexual activa",`<select id="g_vsa" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${g.vida_sexual==="No"?"selected":""}>No</option><option ${g.vida_sexual==="Sí"?"selected":""}>Sí</option><option ${g.vida_sexual==="No especificado"?"selected":""}>No especificado</option></select>`)}
+      ${fld("Edad de inicio",`<input id="g_eis" value="${g.edad_inicio||""}" placeholder="Años" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Número de parejas",`<input id="g_np" value="${g.num_parejas||""}" placeholder="Número" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Método anticonceptivo",`<select id="g_mac" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No usa</option><option ${g.mac==="Barrera (condón)"?"selected":""}>Barrera (condón)</option><option ${g.mac==="Píldora anticonceptiva"?"selected":""}>Píldora anticonceptiva</option><option ${g.mac==="DIU"?"selected":""}>DIU</option><option ${g.mac==="Parche"?"selected":""}>Parche</option><option ${g.mac==="Implante subdérmico"?"selected":""}>Implante subdérmico</option><option ${g.mac==="Inyectable"?"selected":""}>Inyectable</option><option ${g.mac==="Ligadura de trompas"?"selected":""}>Ligadura de trompas</option><option ${g.mac==="Vasectomía de pareja"?"selected":""}>Vasectomía de pareja</option><option ${g.mac==="Abstinencia"?"selected":""}>Abstinencia</option><option ${g.mac==="Ritmo"?"selected":""}>Ritmo</option><option ${g.mac==="Otro"?"selected":""}>Otro</option></select>`)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      ${fld("Tipo de relaciones",`<select id="g_rel" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option><option ${g.relaciones==="Heterosexuales"?"selected":""}>Heterosexuales</option><option ${g.relaciones==="Homosexuales"?"selected":""}>Homosexuales</option><option ${g.relaciones==="Bisexuales"?"selected":""}>Bisexuales</option></select>`)}
+      ${fld("Tipo de relaciones",`<select id="g_rel" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option><option ${g.relaciones==="Heterosexuales"?"selected":""}>Heterosexuales</option><option ${g.relaciones==="Homosexuales"?"selected":""}>Homosexuales</option><option ${g.relaciones==="Bisexuales"?"selected":""}>Bisexuales</option></select>`)}
       ${fld("Enfermedades de transmisión sexual",ta("g_ets",g.ets||"","Especifique si aplica...",3))}
     </div>
 
     <!-- PAPANICOLAOU / COLPOSCOPÍA -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Estudios Ginecológicos</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-      ${fld("Último Papanicolaou",`<input id="g_pap" value="${g.papanicolaou||""}" placeholder="Fecha o resultado" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Resultado PAP",`<select id="g_papres" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No realizado</option><option ${g.pap_resultado==="Normal"?"selected":""}>Normal</option><option ${g.pap_resultado==="ASCUS"?"selected":""}>ASCUS</option><option ${g.pap_resultado==="NIC I"?"selected":""}>NIC I</option><option ${g.pap_resultado==="NIC II"?"selected":""}>NIC II</option><option ${g.pap_resultado==="NIC III"?"selected":""}>NIC III</option><option ${g.pap_resultado==="Carcinoma"?"selected":""}>Carcinoma</option></select>`)}
-      ${fld("Última colposcopía",`<input id="g_col" value="${g.colposcopia||""}" placeholder="Fecha o resultado" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Última mastografía",`<input id="g_mast" value="${g.mastografia||""}" placeholder="Fecha o resultado" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Último Papanicolaou",`<input id="g_pap" value="${g.papanicolaou||""}" placeholder="Fecha o resultado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Resultado PAP",`<select id="g_papres" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No realizado</option><option ${g.pap_resultado==="Normal"?"selected":""}>Normal</option><option ${g.pap_resultado==="ASCUS"?"selected":""}>ASCUS</option><option ${g.pap_resultado==="NIC I"?"selected":""}>NIC I</option><option ${g.pap_resultado==="NIC II"?"selected":""}>NIC II</option><option ${g.pap_resultado==="NIC III"?"selected":""}>NIC III</option><option ${g.pap_resultado==="Carcinoma"?"selected":""}>Carcinoma</option></select>`)}
+      ${fld("Última colposcopía",`<input id="g_col" value="${g.colposcopia||""}" placeholder="Fecha o resultado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Última mastografía",`<input id="g_mast" value="${g.mastografia||""}" placeholder="Fecha o resultado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
 
     <!-- INFORMACIÓN DE EMBARAZOS -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Información de Embarazos Previos</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-      ${(()=>{const nums=["Ninguno","1","2","3","4","5","6","7","8","9","10+"];const campos=[["Gestaciones","gestaciones"],["Partos","partos"],["Abortos","abortos"],["Cesáreas","cesareas"]];return campos.map(([l,k])=>fld(l,`<select id="g_${k}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${nums.map(n=>"<option"+(g[k]===n?" selected":"")+">"+n+"</option>").join("")}</select>`)).join("");})()}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+      ${(()=>{const nums=["Ninguno","1","2","3","4","5","6","7","8","9","10+"];const campos=[["Gestaciones","gestaciones"],["Partos","partos"],["Abortos","abortos"],["Cesáreas","cesareas"]];return campos.map(([l,k])=>fld(l,`<select id="g_${k}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${nums.map(n=>"<option"+(g[k]===n?" selected":"")+">"+n+"</option>").join("")}</select>`)).join("");})()}
     </div>
     <div style="margin-bottom:16px">${fld("Antecedentes perinatales de importancia",ta("g_peri",g.perinatales||"","Complicaciones obstétricas, partos pretérmino, pérdidas fetales, malformaciones...",4))}</div>
-    <div style="margin-bottom:16px">${fld("Lactancia materna",`<select id="g_lac" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option><option ${g.lactancia==="Sí"?"selected":""}>Sí</option><option ${g.lactancia==="No"?"selected":""}>No</option><option ${g.lactancia==="Actualmente"?"selected":""}>Actualmente</option></select>`)}</div>
-    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar gineco-obstétricos","guardarGineco()","ok",1)}</div>`;
+    <div style="margin-bottom:16px">${fld("Lactancia materna",`<select id="g_lac" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option><option ${g.lactancia==="Sí"?"selected":""}>Sí</option><option ${g.lactancia==="No"?"selected":""}>No</option><option ${g.lactancia==="Actualmente"?"selected":""}>Actualmente</option></select>`)}</div>
+    <div class="sticky-save">${btn("💾 Guardar gineco-obstétricos","guardarGineco()","ok",1)}</div>`;
   }
   else if(STATE.antTab==="neo"){
     const n=STATE.neoData||{};
@@ -1419,20 +1442,20 @@ function renderAB(){
 
     <!-- PRODUCTO DE LA GESTA -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Producto de la Gesta</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-      ${fld("Producto de la gesta No.",`<input id="n_gesta" value="${n.num_gesta||""}" placeholder="Ej: 1, 2, 3..." style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Tipo de embarazo",`<select id="n_temb" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option>${["Único","Gemelar","Trigemelar","Múltiple"].map(v=>`<option ${n.tipo_emb===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-      ${fld("Control prenatal",`<select id="n_cpre" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option>${["Sí, adecuado","Sí, incompleto","No tuvo","Parcial"].map(v=>`<option ${n.control_pre===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-      ${fld("Semanas de gestación al nacer",`<input id="n_sgest" value="${n.semanas_gest||""}" placeholder="Ej: 38 SDG" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Producto de la gesta No.",`<input id="n_gesta" value="${n.num_gesta||""}" placeholder="Ej: 1, 2, 3..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Tipo de embarazo",`<select id="n_temb" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option>${["Único","Gemelar","Trigemelar","Múltiple"].map(v=>`<option ${n.tipo_emb===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Control prenatal",`<select id="n_cpre" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option>${["Sí, adecuado","Sí, incompleto","No tuvo","Parcial"].map(v=>`<option ${n.control_pre===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Semanas de gestación al nacer",`<input id="n_sgest" value="${n.semanas_gest||""}" placeholder="Ej: 38 SDG" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
 
     <!-- DATOS DE LA MADRE -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Datos de la Madre</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-      ${fld("Gestaciones de la madre",`<select id="n_mgest" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["0","1","2","3","4","5","6","7","8","9","10+"].map(v=>`<option ${n.m_gestaciones===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-      ${fld("Partos",`<select id="n_mpar" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5","6","7","8","9","10+"].map(v=>`<option ${n.m_partos===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-      ${fld("Abortos",`<select id="n_mab" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5","6"].map(v=>`<option ${n.m_abortos===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-      ${fld("Cesáreas",`<select id="n_mces" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5"].map(v=>`<option ${n.m_cesareas===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Gestaciones de la madre",`<select id="n_mgest" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["0","1","2","3","4","5","6","7","8","9","10+"].map(v=>`<option ${n.m_gestaciones===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Partos",`<select id="n_mpar" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5","6","7","8","9","10+"].map(v=>`<option ${n.m_partos===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Abortos",`<select id="n_mab" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5","6"].map(v=>`<option ${n.m_abortos===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Cesáreas",`<select id="n_mces" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Ninguno","1","2","3","4","5"].map(v=>`<option ${n.m_cesareas===v?"selected":""}>${v}</option>`).join("")}</select>`)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Patologías maternas durante el embarazo",ta("n_pat_mat",n.pat_maternas||"","Ej: Diabetes gestacional, Preeclampsia, Infecciones, TORCH...",3))}
@@ -1441,20 +1464,20 @@ function renderAB(){
 
     <!-- DATOS AL NACER -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Datos al Nacer</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-      ${fld("Tipo de parto",`<select id="n_tparto" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No especificado</option>${["Eutócico (vaginal)","Distócico (fórceps/vacuum)","Cesárea programada","Cesárea urgente"].map(v=>`<option ${n.tipo_parto===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-      ${fld("Hospital de nacimiento",`<input id="n_hosp" value="${n.hospital||""}" placeholder="Nombre del hospital" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Ciudad de nacimiento",`<input id="n_ciudad" value="${n.ciudad_nac||""}" placeholder="Ciudad" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+      ${fld("Tipo de parto",`<select id="n_tparto" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option>${["Eutócico (vaginal)","Distócico (fórceps/vacuum)","Cesárea programada","Cesárea urgente"].map(v=>`<option ${n.tipo_parto===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Hospital de nacimiento",`<input id="n_hosp" value="${n.hospital||""}" placeholder="Nombre del hospital" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Ciudad de nacimiento",`<input id="n_ciudad" value="${n.ciudad_nac||""}" placeholder="Ciudad" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-      ${fld("Peso al nacer (kg)",`<input id="n_peso" value="${n.peso_nac||""}" placeholder="Ej: 3.2" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Talla al nacer (cm)",`<input id="n_talla" value="${n.talla_nac||""}" placeholder="Ej: 50" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Perímetro cefálico (cm)",`<input id="n_pc" value="${n.per_cefalico||""}" placeholder="Ej: 34" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Apgar 1 min",`<select id="n_apg1" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No registrado</option>${["1","2","3","4","5","6","7","8","9","10"].map(v=>`<option ${n.apgar1===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-      ${fld("Apgar 5 min",`<select id="n_apg5" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>No registrado</option>${["1","2","3","4","5","6","7","8","9","10"].map(v=>`<option ${n.apgar5===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+      ${fld("Peso al nacer (kg)",`<input id="n_peso" value="${n.peso_nac||""}" placeholder="Ej: 3.2" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Talla al nacer (cm)",`<input id="n_talla" value="${n.talla_nac||""}" placeholder="Ej: 50" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Perímetro cefálico (cm)",`<input id="n_pc" value="${n.per_cefalico||""}" placeholder="Ej: 34" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Apgar 1 min",`<select id="n_apg1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No registrado</option>${["1","2","3","4","5","6","7","8","9","10"].map(v=>`<option ${n.apgar1===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+      ${fld("Apgar 5 min",`<select id="n_apg5" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No registrado</option>${["1","2","3","4","5","6","7","8","9","10"].map(v=>`<option ${n.apgar5===v?"selected":""}>${v}</option>`).join("")}</select>`)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      ${fld("Reanimación",`<select id="n_reanim" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>Ninguna</option>${["Estimulación táctil","Oxígeno libre","VPP (ventilación a presión positiva)","Intubación","Masaje cardíaco","Medicamentos"].map(v=>`<option ${n.reanimacion===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      ${fld("Reanimación",`<select id="n_reanim" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>Ninguna</option>${["Estimulación táctil","Oxígeno libre","VPP (ventilación a presión positiva)","Intubación","Masaje cardíaco","Medicamentos"].map(v=>`<option ${n.reanimacion===v?"selected":""}>${v}</option>`).join("")}</select>`)}
       ${fld("Complicaciones al nacimiento",ta("n_comp",n.complicaciones||"","Ej: Asfixia perinatal, Hipoxia, Sepsis, SDR...",3))}
     </div>
 
@@ -1476,8 +1499,8 @@ function renderAB(){
         <label style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer;font-size:14px"><input type="checkbox" ${n.seno_materno?"checked":""} onchange="toggleNeo('seno_materno')" style="accent-color:${P};width:14px;height:14px"> Seno materno</label>
         <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" ${n.formula?"checked":""} onchange="toggleNeo('formula')" style="accent-color:${P};width:14px;height:14px"> Fórmula láctea</label>
       </div>
-      ${fld("Fórmula actual",`<input id="n_form_act" value="${n.formula_actual||""}" placeholder="Nombre de la fórmula" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Otras fórmulas previas",`<input id="n_form_prev" value="${n.formula_prev||""}" placeholder="Fórmulas usadas anteriormente" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Fórmula actual",`<input id="n_form_act" value="${n.formula_actual||""}" placeholder="Nombre de la fórmula" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Otras fórmulas previas",`<input id="n_form_prev" value="${n.formula_prev||""}" placeholder="Fórmulas usadas anteriormente" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
 
     <!-- TAMIZAJE -->
@@ -1493,14 +1516,14 @@ function renderAB(){
 
     <!-- DESARROLLO PSICOMOTOR -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Desarrollo Psicomotor</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-      ${fld("Sostuvo cabeza (meses)",`<input id="n_cab" value="${n.sostuvo_cab||""}" placeholder="Ej: 3" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Se sentó solo (meses)",`<input id="n_sent" value="${n.se_sento||""}" placeholder="Ej: 6" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Caminó (meses)",`<input id="n_cam" value="${n.camino||""}" placeholder="Ej: 12" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Primeras palabras (meses)",`<input id="n_pal" value="${n.primeras_pal||""}" placeholder="Ej: 12" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${fld("Sostuvo cabeza (meses)",`<input id="n_cab" value="${n.sostuvo_cab||""}" placeholder="Ej: 3" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Se sentó solo (meses)",`<input id="n_sent" value="${n.se_sento||""}" placeholder="Ej: 6" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Caminó (meses)",`<input id="n_cam" value="${n.camino||""}" placeholder="Ej: 12" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      ${fld("Primeras palabras (meses)",`<input id="n_pal" value="${n.primeras_pal||""}" placeholder="Ej: 12" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
     <div style="margin-bottom:16px">${fld("Observaciones generales del período neonatal",ta("n_obs",n.observaciones||"","Observaciones adicionales relevantes...",3))}</div>
-    <div style="display:flex;justify-content:flex-end">${btn("💾 Guardar antecedentes neonatales","guardarNeonatales()","ok",1)}</div>`;
+    <div class="sticky-save">${btn("💾 Guardar antecedentes neonatales","guardarNeonatales()","ok",1)}</div>`;
   }
   else if(STATE.antTab==="oc"){
     const ocList=["Alergias oculares","Ambliopía","Astenopía (fatiga visual)","Astigmatismo","Atrofia óptica","Blefaritis","Catarata congénita","Catarata senil","Catarata traumática","Celulitis orbitaria","Cirugía refractiva previa","Chalación","Conjuntivitis alérgica","Conjuntivitis bacteriana","Conjuntivitis viral","Coroiditis","Degeneración macular","Desprendimiento de retina","Distrofia corneal","Edema corneal","Edema de papila","Ectropión","Enfermedad ocular","Entropión","Episcleritis","Escleritis","Estrabismo","Glaucoma","Glaucoma congénito","Glaucoma de ángulo abierto","Glaucoma de ángulo cerrado","Glaucoma secundario","Hemorragia subconjuntival","Hipermetropía","Iridociclitis","Leucoma corneal","Luxación del cristalino","Melanoma uveal","Miopía","Neuritis óptica","Nistagmo","Oclusión arterial de retina","Oclusión venosa de retina","Ojo seco","Orzuelo","Pingüécula","Presbicia","Ptosis palpebral","Pterigión","Pseudofaquia (operado de Catarata)","Queratitis","Queratocono","Retinitis pigmentosa","Retinoblastoma","Retinopatía diabética","Trauma ocular","Tumores palpebrales","Uveítis","Úlcera corneal","Xantelasma"];
@@ -1516,7 +1539,7 @@ function renderAB(){
     </div>
     <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:6px;text-transform:uppercase">Otros antecedentes</p>
     ${ta("oc-otros",STATE.patData["oc_otros"]||"","Otros antecedentes oculares no incluidos en la lista...",4)}
-    <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
+    <div class="sticky-save">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
   }
   else{ab.innerHTML=`<p style="text-align:center;padding:24px;color:${MU}">Sección disponible · sin datos capturados aún</p>`;}
 }
@@ -1647,7 +1670,7 @@ async function cargarConsultas(){
   const pid=STATE.pat?.id;if(!pid)return;
   const {data,error}=await SB.from("consultas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const cl=document.getElementById("consultas-lista");if(!cl)return;
-  if(error||!data||data.length===0){cl.innerHTML=`<p style="text-align:center;padding:24px;color:${MU}">No hay consultas registradas. ${btn("➕ Crear primera consulta","go('consulta')","p",1)}</p>`;return;}
+  if(error||!data||data.length===0){cl.innerHTML=`<div class="empty-state"><div class="empty-icon"><i class="ti ti-notes-medical" aria-hidden="true"></i></div><p>Sin consultas registradas</p><small>Crea la primera consulta con el botón de abajo</small><br><br>${btn("➕ Nueva consulta","go('consulta')","p",1)}</div>`;return;}
 
   // Cargar nombres de médicos que falten
   const uids=[...new Set(data.filter(c=>!c.medico_nombre&&c.medico_id).map(c=>c.medico_id))];
@@ -1813,8 +1836,8 @@ async function renderDocsAnexos(ab){
     </div>
     <div id="form-subida" style="display:none;background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:14px;margin-bottom:14px">
       <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Subir documento al expediente</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        ${fld("Título del documento *",`<input id="doc-titulo" placeholder="Ej: RESULTADO LABORATORIO MAYO 2026" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        ${fld("Título del documento *",`<input id="doc-titulo" placeholder="Ej: RESULTADO LABORATORIO MAYO 2026" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
         ${fld("Tipo",sel("doc-tipo",["Resultado de laboratorio","Resultado de gabinete","Informe médico","Carta / Referencia","Consentimiento adicional","RX / Imagen diagnóstica","Receta médica","Otro"]))}
       </div>
       <div class="upload-area" onclick="triggerFileInput()">
@@ -2071,7 +2094,7 @@ async function renderAnotaciones(ab){
         ${sel("anot-tipo",["Nota clínica","Llamada telefónica","Mensaje WhatsApp","Nota de enfermería","Observación","Otro"])}
       </div>
       ${ta("anot-texto","","Escriba aquí la anotación...",3)}
-      <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar anotación","guardarAnotacion()","ok",1)}</div>
+      <div class="sticky-save">${btn("💾 Guardar anotación","guardarAnotacion()","ok",1)}</div>
     </div>
     ${anots.map(a=>`<div style="background:#fff;border:1.5px solid ${BR};border-radius:8px;padding:12px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
@@ -2165,7 +2188,7 @@ function pgConsulta(){
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">💓 Signos vitales y datos antropométricos</b></div>
           <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            ${[["Temp. (°C)","cs_temp",vs.temp],["Peso (kg)","cs_peso",vs.peso],["F. Cardíaca (lat/min)","cs_fc",vs.fc],["Talla (m)","cs_talla",vs.talla],["F. Respiratoria (r/min)","cs_fr",vs.fr],["Sat. O₂ (%)","cs_sat",vs.sat],["Pres. Sistólica (mmHg)","cs_tas",vs.tas],["Pres. Diastólica (mmHg)","cs_tad",vs.tad],["Glucosa (mg/dL)","cs_glu",vs.glu],["IMC","cs_imc",vs.imc]].map(([l,id,val])=>`<div>${fld(l,`<input id="${id}" value="${val}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>`).join("")}
+            ${[["Temp. (°C)","cs_temp",vs.temp],["Peso (kg)","cs_peso",vs.peso],["F. Cardíaca (lat/min)","cs_fc",vs.fc],["Talla (m)","cs_talla",vs.talla],["F. Respiratoria (r/min)","cs_fr",vs.fr],["Sat. O₂ (%)","cs_sat",vs.sat],["Pres. Sistólica (mmHg)","cs_tas",vs.tas],["Pres. Diastólica (mmHg)","cs_tad",vs.tad],["Glucosa (mg/dL)","cs_glu",vs.glu],["IMC","cs_imc",vs.imc]].map(([l,id,val])=>`<div>${fld(l,`<input id="${id}" value="${val}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>`).join("")}
           </div>
         </div>
 
@@ -2305,7 +2328,7 @@ function pgConsulta(){
             </div>
 
             <!-- Labs + Gabinete + Plan en grid -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
               <div style="border:1.5px solid ${BR};border-radius:10px;overflow:hidden">
                 <div style="background:#F8F9FA;padding:7px 12px;display:flex;justify-content:space-between;align-items:center">
                   <b style="font-size:14px;color:${TX}">🔬 Laboratorios</b>
@@ -2614,8 +2637,8 @@ function renderRecipeModal(tipo="receta"){
         <button onclick="enviarRecetaEmail('${tipo}')" style="flex:1;padding:9px;background:#EA4335;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">📧 Correo</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${fld("Teléfono para WhatsApp",`<input id="recipe-tel" value="${p.celular||""}" placeholder="10 dígitos" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Correo electrónico",`<input id="recipe-email" value="${p.correo_electronico||""}" placeholder="correo@ejemplo.com" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Teléfono para WhatsApp",`<input id="recipe-tel" value="${p.celular||""}" placeholder="10 dígitos" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Correo electrónico",`<input id="recipe-email" value="${p.correo_electronico||""}" placeholder="correo@ejemplo.com" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
     </div>
   </div>`;
@@ -2854,17 +2877,17 @@ async function renderVacunas(b){
         <!-- Formulario nueva vacuna -->
         <div style="background:${PL};border-radius:10px;padding:14px;margin-bottom:16px">
           <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Registrar vacuna aplicada</p>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-            ${fld("Vacuna *",`<select id="vac-nombre" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="">Seleccione...</option>${ESQUEMA.map(v=>`<option>${v.nombre}</option>`).join("")}<option>Otra vacuna</option></select>`)}
-            ${fld("Fecha de aplicación *",`<input id="vac-fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-            ${fld("Dosis / No. de dosis",`<input id="vac-dosis" placeholder="Ej: 1ª dosis, Refuerzo..." style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-            ${fld("Lote",`<input id="vac-lote" placeholder="No. de lote" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-bottom:14px">
+            ${fld("Vacuna *",`<select id="vac-nombre" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Seleccione...</option>${ESQUEMA.map(v=>`<option>${v.nombre}</option>`).join("")}<option>Otra vacuna</option></select>`)}
+            ${fld("Fecha de aplicación *",`<input id="vac-fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+            ${fld("Dosis / No. de dosis",`<input id="vac-dosis" placeholder="Ej: 1ª dosis, Refuerzo..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+            ${fld("Lote",`<input id="vac-lote" placeholder="No. de lote" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-            ${fld("Laboratorio / Fabricante",`<input id="vac-lab" placeholder="Ej: Pfizer, AstraZeneca, Birmex..." style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-            ${fld("Observaciones",`<input id="vac-obs" placeholder="Reacciones, sitio de aplicación..." style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            ${fld("Laboratorio / Fabricante",`<input id="vac-lab" placeholder="Ej: Pfizer, AstraZeneca, Birmex..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+            ${fld("Observaciones",`<input id="vac-obs" placeholder="Reacciones, sitio de aplicación..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
           </div>
-          <div style="display:flex;justify-content:flex-end">${btn("💉 Registrar vacuna","guardarVacuna()","ok",1)}</div>
+          <div class="sticky-save">${btn("💉 Registrar vacuna","guardarVacuna()","ok",1)}</div>
         </div>
 
         <!-- Vacunas registradas -->
@@ -2950,24 +2973,21 @@ async function renderImagenes(b){
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:16px">
       <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">🖼️ Subir imagen</b></div>
       <div style="padding:14px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
           ${fld("Nombre de la imagen *",inp("img_nom","","Ej: Rx columna lumbar, ECG, foto herida..."))}
-          ${fld("Categoría",`<select id="img_cat" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Radiografía","Resonancia magnética","Ultrasonido","Tomografía","Electrocardiograma","Foto clínica","Resultado de laboratorio","Estudio de gabinete","Otro"].map(v=>`<option>${v}</option>`).join("")}</select>`)}
+          ${fld("Categoría",`<select id="img_cat" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Radiografía","Resonancia magnética","Ultrasonido","Tomografía","Electrocardiograma","Foto clínica","Resultado de laboratorio","Estudio de gabinete","Otro"].map(v=>`<option>${v}</option>`).join("")}</select>`)}
         </div>
         ${fld("Descripción / observaciones",inp("img_desc","","Hallazgos, fecha del estudio, institución..."))}
         <div style="margin-top:10px;margin-bottom:10px">
           <label style="display:block;font-size:14px;font-weight:700;color:${MU};margin-bottom:5px;text-transform:uppercase">Archivo (imagen o PDF)</label>
           <input type="file" id="img_file" accept="image/*,.pdf" style="font-size:14px;width:100%">
         </div>
-        <div style="display:flex;justify-content:flex-end">${btn("⬆️ Subir imagen","subirImagen('"+pid+"')","ok",1)}</div>
+        <div class="sticky-save">${btn("⬆️ Subir imagen","subirImagen('"+pid+"')","ok",1)}</div>
       </div>
     </div>
 
     <!-- Galería -->
-    ${imgs.length===0?`<div style="background:#fff;border-radius:10px;padding:40px;text-align:center;color:${MU}">
-      <div style="font-size:48px;margin-bottom:12px">🖼️</div>
-      <p style="font-size:14px;font-weight:600">No hay imágenes cargadas aún</p>
-    </div>`:`
+    ${imgs.length===0?`<div class="empty-state"><div class="empty-icon"><i class="ti ti-photo" aria-hidden="true"></i></div><p>No hay imágenes en el expediente</p><small>Sube radiografías, estudios, fotos clínicas o cualquier documento visual</small></div>`:`
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px">
       ${imgs.map(img=>`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
         <div style="height:160px;background:#F0F4F8;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="verImagen('${img.storage_path}','${img.nombre}')">
@@ -3054,17 +3074,17 @@ async function pgPagos(){
     <!-- Nuevo pago -->
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;margin-bottom:16px">
       <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Registrar nuevo pago</p>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-bottom:10px">
-        ${fld("Concepto *",`<select id="pago_con" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Consulta médica","Consulta de seguimiento","Sesión de fisioterapia","Estudio de laboratorio","Estudio de gabinete","Paquete de consultas","Plan nutricional","Programa deportivo","Procedimiento","Certificado médico","Otro"].map(v=>`<option>${v}</option>`).join("")}</select>`)}
-        ${fld("Monto (MXN) *",`<input id="pago_monto" type="number" step="0.01" placeholder="0.00" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Forma de pago",`<select id="pago_forma" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["Efectivo","Tarjeta de débito","Tarjeta de crédito","Transferencia","SPEI","PayPal","CoDi","Cheque"].map(v=>`<option>${v}</option>`).join("")}</select>`)}
-        ${fld("Fecha",`<input id="pago_fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-bottom:14px">
+        ${fld("Concepto *",`<select id="pago_con" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Consulta médica","Consulta de seguimiento","Sesión de fisioterapia","Estudio de laboratorio","Estudio de gabinete","Paquete de consultas","Plan nutricional","Programa deportivo","Procedimiento","Certificado médico","Otro"].map(v=>`<option>${v}</option>`).join("")}</select>`)}
+        ${fld("Monto (MXN) *",`<input id="pago_monto" type="number" step="0.01" placeholder="0.00" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Forma de pago",`<select id="pago_forma" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Efectivo","Tarjeta de débito","Tarjeta de crédito","Transferencia","SPEI","PayPal","CoDi","Cheque"].map(v=>`<option>${v}</option>`).join("")}</select>`)}
+        ${fld("Fecha",`<input id="pago_fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px">
         ${fld("Notas / observaciones",inp("pago_notas","","Ej: Pago de 3 sesiones, descuento aplicado..."))}
         ${fld("Registrado por",inp("pago_por",STATE.userProfile?`${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""))}
       </div>
-      <div style="display:flex;justify-content:flex-end">${btn("💾 Registrar pago","registrarPago('"+pid+"')","ok",1)}</div>
+      <div class="sticky-save">${btn("💾 Registrar pago","registrarPago('"+pid+"')","ok",1)}</div>
     </div>
 
     <!-- Lista pagos -->
@@ -3119,14 +3139,14 @@ async function renderTriage(b){
         <span style="font-size:14px;color:rgba(255,255,255,.7)">${new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
       </div>
       <div style="padding:14px">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
           ${fld("Temperatura (°C)",`<input id="sv_temp" type="number" step="0.1" value="${ultimo.temperatura||""}" placeholder="36.5" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
           ${fld("F. Cardíaca (lat/min)",`<input id="sv_fc" type="number" value="${ultimo.frecuencia_cardiaca||""}" placeholder="72" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
           ${fld("F. Respiratoria (r/min)",`<input id="sv_fr" type="number" value="${ultimo.frecuencia_respiratoria||""}" placeholder="16" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
           ${fld("Sat. O₂ (%)",`<input id="sv_sat" type="number" step="0.1" value="${ultimo.saturacion_o2||""}" placeholder="98" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
           ${fld("Glucosa (mg/dL)",`<input id="sv_glu" type="number" value="${ultimo.glucosa||""}" placeholder="100" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
           ${fld("Presión sistólica",`<input id="sv_tas" type="number" value="${ultimo.presion_sistolica||""}" placeholder="120" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
           ${fld("Presión diastólica",`<input id="sv_tad" type="number" value="${ultimo.presion_diastolica||""}" placeholder="80" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
           ${fld("Peso (kg)",`<input id="sv_peso" type="number" step="0.1" value="${ultimo.peso||""}" placeholder="70.0" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
@@ -3134,7 +3154,7 @@ async function renderTriage(b){
           ${fld("IMC",`<input id="sv_imc" value="${ultimo.imc||""}" placeholder="Auto" readonly style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;background:#F8F9FA;font-size:14px;font-weight:700">`)}
           ${fld("Perímetro abdominal (cm)",`<input id="sv_pab" type="number" step="0.1" value="${ultimo.perimetro_abdominal||""}" placeholder="90" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
         </div>
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
           ${fld("Observaciones de enfermería",`<input id="sv_obs" value="" placeholder="Observaciones relevantes..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
           ${fld("Registrado por",`<input id="sv_enf" value="${STATE.userProfile?`${STATE.userProfile.titulo||""} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""}" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
         </div>
@@ -3297,12 +3317,12 @@ function renderFisioNotas(notas){
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
       <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">📝 Notas del fisioterapeuta</b></div>
       <div style="padding:14px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
-          ${fld("Fisioterapeuta",`<input id="fn_ft" value="${STATE.userProfile?`${STATE.userProfile.titulo||""} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Sesión #",`<input id="fn_ses" type="number" min="1" placeholder="Número de sesión" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          ${fld("Fisioterapeuta",`<input id="fn_ft" value="${STATE.userProfile?`${STATE.userProfile.titulo||""} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+          ${fld("Sesión #",`<input id="fn_ses" type="number" min="1" placeholder="Número de sesión" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
         </div>
         ${fld("Nota de evolución / observaciones de la sesión",ta("fn_nota","","Evolución del paciente, respuesta al tratamiento, cambios realizados, observaciones...",5))}
-        <div style="display:flex;justify-content:flex-end;margin-top:8px">${btn("💾 Guardar nota","guardarNotaFisio()","ok",1)}</div>
+        <div class="sticky-save">${btn("💾 Guardar nota","guardarNotaFisio()","ok",1)}</div>
       </div>
     </div>
     ${notas.length>0?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
@@ -3352,16 +3372,16 @@ function renderFisioForm(presc,pid){
       <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
         <b style="font-size:14px;color:${P};text-transform:uppercase">1. Datos del paciente</b>
       </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:10px">
-        ${fld("Nombre completo",`<input id="ft_nom" value="${pat.nombre||""} ${pat.apellido_paterno||""} ${pat.apellido_materno||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Fecha de nacimiento",`<input id="ft_fnac" value="${pat.fecha_nacimiento||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Edad",`<input id="ft_edad" value="${calcEdad(pat.fecha_nacimiento)||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-bottom:14px">
+        ${fld("Nombre completo",`<input id="ft_nom" value="${pat.nombre||""} ${pat.apellido_paterno||""} ${pat.apellido_materno||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Fecha de nacimiento",`<input id="ft_fnac" value="${pat.fecha_nacimiento||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Edad",`<input id="ft_edad" value="${calcEdad(pat.fecha_nacimiento)||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
-        ${fld("No. Expediente",`<input id="ft_exp" value="${pat.num_expediente||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Fecha de prescripción",`<input id="ft_fecha" type="date" value="${p.fecha||hoy}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Médico tratante",`<input id="ft_med" value="${p.medico||medNom}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Fisioterapeuta asignado",`<input id="ft_fisio" value="${p.fisioterapeuta||""}" placeholder="Nombre del fisioterapeuta" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        ${fld("No. Expediente",`<input id="ft_exp" value="${pat.num_expediente||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Fecha de prescripción",`<input id="ft_fecha" type="date" value="${p.fecha||hoy}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Médico tratante",`<input id="ft_med" value="${p.medico||medNom}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Fisioterapeuta asignado",`<input id="ft_fisio" value="${p.fisioterapeuta||""}" placeholder="Nombre del fisioterapeuta" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:14px">
         ${fld("Diagnóstico CIE-10 (código y nombre completo)",`
@@ -3377,7 +3397,7 @@ function renderFisioForm(presc,pid){
             </div>
             ${ta("ft_dx",p.diagnostico||"","Ej: M54.5 – Lumbago no especificado. Lumbalgia mecánica de inicio agudo...",3)}
           </div>`)}
-        ${fld("Región anatómica afectada",`<input id="ft_region" value="${p.region||""}" placeholder="Ej: Columna lumbar" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Región anatómica afectada",`<input id="ft_region" value="${p.region||""}" placeholder="Ej: Columna lumbar" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
         ${fld("Lateralidad",`<div style="display:flex;gap:10px;margin-top:4px">${["Derecha","Izquierda","Bilateral","N/A"].map(v=>`<label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer"><input type="radio" name="ft_lat" value="${v}" ${(p.lateralidad||"N/A")===v?"checked":""} style="accent-color:${P}">${v}</label>`).join("")}</div>`)}
       </div>
 
@@ -3385,9 +3405,9 @@ function renderFisioForm(presc,pid){
       <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
         <b style="font-size:14px;color:${P};text-transform:uppercase">2. Evaluación funcional</b>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
         ${fld("Dolor EVA (0-10)",`<div style="margin-top:4px"><input id="ft_eva" type="range" min="0" max="10" value="${p.eva||0}" oninput="document.getElementById('ft_eva_val').textContent=this.value" style="width:100%;accent-color:${P}"><div style="display:flex;justify-content:space-between;font-size:14px;color:${MU}"><span>0 Sin dolor</span><span id="ft_eva_val" style="font-weight:700;font-size:14px;color:${P}">${p.eva||0}</span><span>10 Insoportable</span></div></div>`)}
-        ${fld("Tiempo de evolución",`<input id="ft_evol" value="${p.tiempo_evolucion||""}" placeholder="Ej: 3 semanas, 2 meses" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Tiempo de evolución",`<input id="ft_evol" value="${p.tiempo_evolucion||""}" placeholder="Ej: 3 semanas, 2 meses" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
       <div style="margin-bottom:10px">${fld("Síntomas y signos clínicos principales",ta("ft_sint",p.sintomas||"","Describa síntomas, signos relevantes, hallazgos en la exploración física...",3))}</div>
       <div style="margin-bottom:10px">${fld("Objetivo del tratamiento",ta("ft_obj",p.objetivo||"","Ej: Reducir dolor, recuperar rango de movimiento, reintegro deportivo...",2))}</div>
@@ -3423,11 +3443,11 @@ function renderFisioForm(presc,pid){
       <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
         <b style="font-size:14px;color:${P};text-transform:uppercase">4. Dosificación</b>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
-        ${fld("Número de sesiones",`<input id="ft_nses" type="number" value="${p.num_sesiones||""}" placeholder="Ej: 12" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Frecuencia semanal",`<select id="ft_freq" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${["No especificada","1 vez/semana","2 veces/semana","3 veces/semana","4 veces/semana","5 veces/semana","Diario"].map(v=>`<option ${(p.frecuencia||"No especificada")===v?"selected":""}>${v}</option>`).join("")}</select>`)}
-        ${fld("Fecha de inicio",`<input id="ft_finicio" type="date" value="${p.fecha_inicio||hoy}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Fecha estimada de alta",`<input id="ft_falta" type="date" value="${p.fecha_alta||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        ${fld("Número de sesiones",`<input id="ft_nses" type="number" value="${p.num_sesiones||""}" placeholder="Ej: 12" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Frecuencia semanal",`<select id="ft_freq" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["No especificada","1 vez/semana","2 veces/semana","3 veces/semana","4 veces/semana","5 veces/semana","Diario"].map(v=>`<option ${(p.frecuencia||"No especificada")===v?"selected":""}>${v}</option>`).join("")}</select>`)}
+        ${fld("Fecha de inicio",`<input id="ft_finicio" type="date" value="${p.fecha_inicio||hoy}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Fecha estimada de alta",`<input id="ft_falta" type="date" value="${p.fecha_alta||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
       <div style="margin-bottom:14px">${fld("Precauciones / Contraindicaciones",ta("ft_contra",p.contraindicaciones||"","Especifique precauciones importantes o actividades contraindicadas...",2))}</div>
 
@@ -3447,8 +3467,8 @@ function renderFisioForm(presc,pid){
         <b style="font-size:14px;color:${P};text-transform:uppercase">6. Evolución y reevaluación</b>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-        ${fld("Fecha de reevaluación",`<input id="ft_reev" type="date" value="${p.fecha_reeval||""}" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("EVA al alta / reevaluación",`<input id="ft_eva_alta" type="number" min="0" max="10" value="${p.eva_alta||""}" placeholder="0-10" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Fecha de reevaluación",`<input id="ft_reev" type="date" value="${p.fecha_reeval||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("EVA al alta / reevaluación",`<input id="ft_eva_alta" type="number" min="0" max="10" value="${p.eva_alta||""}" placeholder="0-10" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
       <div style="margin-bottom:16px">${fld("Notas de evolución / reevaluación",ta("ft_evol_nota",p.evolucion||"","Observaciones de la evolución del paciente, cambios en el plan, alta...",3))}</div>
 
@@ -3766,7 +3786,7 @@ async function pgMedicos(){
         </div>
       </div>
       <!-- Datos personales -->
-      <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:12px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:14px;margin-bottom:16px">
         ${fld("Título",sel("nu_titulo",["Dr.","Dra.","Lic.","M.C.","M.N.","Esp.","M.D.","Enf."]))}
         ${fld("Nombre(s) *",inp("nu_nom",""),1)}
         ${fld("Apellidos *",inp("nu_ap",""),1)}
@@ -3774,12 +3794,12 @@ async function pgMedicos(){
       <!-- Cédulas -->
       <div style="background:#F8F9FA;border-radius:8px;padding:12px;margin-bottom:12px">
         <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:10px;text-transform:uppercase">Cédulas profesionales</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
           ${fld("Título de grado",inp("nu_grado","","Ej: Médico Cirujano"))}
           ${fld("Institución de grado",inp("nu_instgrado","","Ej: UNAM"))}
           ${fld("Cédula profesional",inp("nu_ced",""))}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
           ${fld("Especialidad",inp("nu_esp","","Ej: Nutrición Clínica"))}
           ${fld("Institución especialidad",inp("nu_instesp","","Ej: IPN"))}
           ${fld("Cédula de especialidad",inp("nu_cedesp",""))}
@@ -3791,7 +3811,7 @@ async function pgMedicos(){
         </div>
       </div>
       <!-- Contacto -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
         ${fld("Correo para recetas y documentos",inp("nu_mailreceta","","correo@qpclinic.mx","email"))}
         ${fld("Teléfono / Celular",inp("nu_tel",""))}
       </div>
