@@ -2083,10 +2083,7 @@ function pgConsulta(){
             <b style="font-size:12px;color:${TX}">🫀 Exploración física</b>
             <span style="font-size:10px;color:${MU};background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA puede sugerir en este campo</span>
           </div>
-          <div style="padding:12px;display:flex;gap:10px">
-            <div style="width:70px;background:${PL};border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:120px;font-size:28px;flex-shrink:0">🧍</div>
-            <div style="flex:1">${ta("cs_expl",c.exploracion_fisica||"","La IA puede sugerir hallazgos a buscar. El médico completa con los encontrados...",6)}</div>
-          </div>
+          <div style="padding:12px">${ta("cs_expl",c.exploracion_fisica||"","La IA puede sugerir hallazgos a buscar. El médico completa con los encontrados...",6)}</div>
         </div>
 
         <!-- DIAGNÓSTICO -->
