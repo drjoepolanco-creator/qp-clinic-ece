@@ -674,7 +674,7 @@ function pgExp(){
       {k:"vacunas",icon:"ti-vaccine",label:"Vacunas"},
       {k:"imagenes",icon:"ti-photo",label:"Imágenes"},
     ]},
-    {label:"Especialidades",items:[
+    {label:"",items:[
       {k:"fisio",icon:"ti-walk",label:"Fisioterapia"},
     ]},
   ];
@@ -707,7 +707,7 @@ function pgExp(){
       <div style="width:210px;flex-shrink:0;background:#fff;border-right:1px solid ${BR};overflow-y:auto;padding:10px 0">
         ${GRUPOS.map(g=>`
           <div style="padding:6px 16px 3px">
-            <p style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;letter-spacing:.5px;margin:0">${g.label}</p>
+            <p style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;letter-spacing:.5px;margin:0;${g.label?'':'display:none'}">${g.label}</p>
           </div>
           ${g.items.map(item=>{
             const activo=STATE.expTab===item.k;
@@ -3260,25 +3260,34 @@ window.cerrarEnfermeria=function(){
 async function renderFisio(b){
   const pid=STATE.pat?.id;if(!pid)return;
   if(!STATE.fisioTab)STATE.fisioTab="notas";
-  const {data:prescs}=await SB.from("fisioterapia_prescripciones").select("id,created_at,diagnostico,num_sesiones").eq("paciente_id",pid).order("created_at",{ascending:false});
+  const {data:prescs}=await SB.from("fisioterapia_prescripciones").select("id,created_at,diagnostico,num_sesiones,fecha,fisioterapeuta").eq("paciente_id",pid).order("created_at",{ascending:false});
   const {data:notas}=await SB.from("fisioterapia_notas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const lista=prescs||[];
-
+  const tabSt=(activo)=>`padding:10px 16px;border:none;cursor:pointer;font-size:13px;font-weight:${activo?700:500};color:${activo?P:MU};background:${activo?"#E3F2FD":"transparent"};border-bottom:2px solid ${activo?P:"transparent"};display:flex;align-items:center;gap:6px;white-space:nowrap`;
   b.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
-    <!-- Tabs fisio -->
-    <div style="display:flex;gap:0;border-bottom:2px solid ${BR};margin-bottom:16px;flex-wrap:wrap">
-      <button onclick="STATE.fisioTab='notas';setET('fisio')" style="padding:8px 14px;border:none;background:transparent;cursor:pointer;font-size:14px;font-weight:${STATE.fisioTab==='notas'?700:500};color:${STATE.fisioTab==='notas'?P:MU};border-bottom:${STATE.fisioTab==='notas'?'3px solid '+P:'3px solid transparent'}">📝 Notas del fisioterapeuta</button>
-      ${lista.map((p,i)=>`<button onclick="STATE.fisioTab='p${p.id}';setET('fisio')" style="padding:8px 14px;border:none;background:transparent;cursor:pointer;font-size:14px;font-weight:${STATE.fisioTab==='p'+p.id?700:500};color:${STATE.fisioTab==='p'+p.id?P:MU};border-bottom:${STATE.fisioTab==='p'+p.id?'3px solid '+P:'3px solid transparent'}">Prescripción ${lista.length-i}</button>`).join("")}
-      <button onclick="STATE.fisioTab='nueva';setET('fisio')" style="padding:8px 14px;border:none;background:${P};color:#fff;cursor:pointer;font-size:14px;font-weight:700;border-radius:7px;margin-left:8px;margin-bottom:3px">➕ Nueva prescripción</button>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;align-items:center;padding:0 4px;background:#FAFAFA">
+        <button onclick="STATE.fisioTab='notas';renderFisio(document.getElementById('eb'))" style="${tabSt(STATE.fisioTab==='notas')}">
+          <i class="ti ti-notes" style="font-size:16px" aria-hidden="true"></i> Notas
+        </button>
+        ${lista.map((p,i)=>`<button onclick="STATE.fisioTab='p${p.id}';STATE.fisioSesiones=${JSON.stringify(p.sesiones_completadas||[])};renderFisio(document.getElementById('eb'))" style="${tabSt(STATE.fisioTab==='p'+p.id)}">
+          <i class="ti ti-clipboard-text" style="font-size:15px" aria-hidden="true"></i>
+          Prescripción ${lista.length-i}
+          <span style="font-size:12px;opacity:.7">${(p.fecha||p.created_at?.split("T")[0]||"")}</span>
+        </button>`).join("")}
+        <button onclick="STATE.fisioTab='nueva';STATE.fisioSesiones=[];renderFisio(document.getElementById('eb'))" style="${tabSt(STATE.fisioTab==='nueva')}">
+          <i class="ti ti-plus" style="font-size:15px" aria-hidden="true"></i> Nueva prescripción
+        </button>
+      </div>
+      <div>
+        ${STATE.fisioTab==="notas"?renderFisioNotas(notas||[]):
+          STATE.fisioTab==="nueva"?renderFisioForm(null,pid):
+          lista.some(p=>"p"+p.id===STATE.fisioTab)?renderFisioVer(lista.find(p=>"p"+p.id===STATE.fisioTab),pid):
+          `<p style="text-align:center;padding:24px;color:${MU}">Selecciona una pestaña</p>`}
+      </div>
     </div>
-
-    ${STATE.fisioTab==="notas"?renderFisioNotas(notas||[]):
-      STATE.fisioTab==="nueva"?renderFisioForm(null,pid):
-      lista.some(p=>"p"+p.id===STATE.fisioTab)?renderFisioVer(lista.find(p=>"p"+p.id===STATE.fisioTab),pid):
-      `<p style="text-align:center;padding:24px;color:${MU}">Selecciona una pestaña</p>`}
   </div>`;
 }
-
 function renderFisioNotas(notas){
   return`<div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
