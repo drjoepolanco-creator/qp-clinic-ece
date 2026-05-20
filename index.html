@@ -2966,13 +2966,39 @@ window.enviarRecetaWA=async function(tipo){
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
   const med=STATE.medProfile||{};
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
-  const contenido=document.getElementById("recipe-content")?.value||"";
   const titulos={receta:"Receta médica",lab:"Solicitud de laboratorio",gab:"Solicitud de gabinete"};
   const celFinal=tel.replace(/\D/g,"");
   const cel=celFinal.length===10?"52"+celFinal:celFinal;
-  const msg=`🏥 *QP Clinic — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\n${contenido}\n\n_Insurgentes Sur 933, Nápoles, CDMX_\n_qpclinic.org_`;
-  window.open(`https://wa.me/${cel}?text=${encodeURIComponent(msg)}`,"_blank");
-  showToast("✓ Abriendo WhatsApp");
+
+  loading(true,"Generando PDF para enviar...");
+  try{
+    // Generar PDF como blob
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+    // Usar la misma función de generación pero capturar el blob
+    await generarPDFReceta._buildDoc(doc,tipo);
+    const pdfBlob=doc.output("blob");
+
+    // Subir a Supabase Storage (carpeta temporal)
+    const fname=`recetas-temp/${STATE.pat?.id||"tmp"}_${Date.now()}.pdf`;
+    const {error:upErr}=await SB.storage.from("expedientes").upload(fname,pdfBlob,{contentType:"application/pdf",upsert:true});
+    if(upErr)throw upErr;
+
+    const {data:urlData}=SB.storage.from("expedientes").getPublicUrl(fname);
+    const pdfUrl=urlData.publicUrl;
+
+    loading(false);
+    const msg=`🏥 *QP Clinic — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\n📄 Descarga tu documento aquí:\n${pdfUrl}\n\n_Insurgentes Sur 933, Nápoles, CDMX_\n_qpclinic.org_`;
+    window.open(`https://wa.me/${cel}?text=${encodeURIComponent(msg)}`,"_blank");
+    showToast("✓ Abriendo WhatsApp con enlace al PDF");
+  }catch(e){
+    loading(false);
+    // Fallback: descarga local + abrir WhatsApp
+    await generarPDFReceta(tipo);
+    const msg=`🏥 *QP Clinic — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\nEl PDF se descargó en tu dispositivo. Adjúntalo en WhatsApp.\n\n_qpclinic.org_`;
+    setTimeout(()=>window.open(`https://wa.me/${cel}?text=${encodeURIComponent(msg)}`,"_blank"),1500);
+    showToast("PDF descargado — adjúntalo en WhatsApp");
+  }
 }
 
 window.enviarRecetaEmail=function(tipo){
@@ -4082,9 +4108,11 @@ async function pgMedicos(){
       </div>
       <!-- Firma -->
       <div style="background:#F8F9FA;border-radius:8px;padding:12px;margin-bottom:14px">
-        <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:6px;text-transform:uppercase">Rúbrica / Firma digital</p>
-        <p style="font-size:14px;color:${MU};margin-bottom:8px">Sube una imagen JPG o PNG de la rúbrica del médico (fondo blanco o transparente)</p>
+        <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:4px;text-transform:uppercase">Rúbrica / Firma digital</p>
+        <p style="font-size:13px;color:${MU};margin-bottom:10px">El médico puede subirla él mismo desde <b>Configuración → Mi perfil</b>. Como administrador también puedes hacerlo aquí.</p>
+        <div id="firma-preview-admin" style="margin-bottom:8px"></div>
         <input type="file" id="nu_firma_file" accept="image/jpeg,image/png" style="font-size:14px">
+        <button type="button" onclick="quitarFirmaAdmin()" style="display:block;margin-top:8px;background:none;border:1px solid ${DA};color:${DA};border-radius:6px;padding:4px 12px;cursor:pointer;font-size:13px">🗑️ Quitar firma guardada</button>
       </div>
       <input type="hidden" id="nu_editing_id" value="">
       <div style="display:flex;justify-content:flex-end;gap:8px">
@@ -4105,6 +4133,17 @@ window.mostrarFormNuevoUsuario=function(uid=""){
 window.ocultarFormNuevoUsuario=function(){
   const f=document.getElementById("form-nuevo-usuario");if(f)f.style.display="none";
 }
+window.quitarFirmaAdmin=async function(){
+  const uid=gv("nu_editing_id");
+  if(!uid){showToast("Primero selecciona un médico para editar",false);return;}
+  if(!confirm("¿Quitar la firma digital de este médico?"))return;
+  loading(true,"Quitando firma...");
+  await SB.from("usuarios").update({firma_digital:null}).eq("id",uid);
+  loading(false);
+  const prev=document.getElementById("firma-preview-admin");
+  if(prev)prev.innerHTML="";
+  showToast("✓ Firma eliminada");
+}
 window.editarMedico=async function(uid){
   const {data}=await SB.from("usuarios").select("*").eq("id",uid).single();
   if(!data)return;
@@ -4120,6 +4159,16 @@ window.editarMedico=async function(uid){
   set("nu_altaesp",data.alta_especialidad||"");set("nu_instaltaesp",data.institucion_alta||"");
   set("nu_subesp",data.subespecialidad||"");
   set("nu_mailreceta",data.email||"");set("nu_tel",data.telefono||"");
+  // Mostrar firma actual
+  const prev=document.getElementById("firma-preview-admin");
+  if(prev&&data.firma_digital){
+    prev.innerHTML=`<div style="padding:8px;background:#fff;border:1px solid ${BR};border-radius:7px;display:inline-block;margin-bottom:4px">
+      <p style="font-size:11px;color:${MU};margin-bottom:4px">Firma actual:</p>
+      <img src="${data.firma_digital}" style="max-height:48px;max-width:160px;object-fit:contain">
+    </div>`;
+  } else if(prev){
+    prev.innerHTML=`<p style="font-size:12px;color:${MU};font-style:italic">Sin firma registrada</p>`;
+  }
   document.getElementById("form-nuevo-usuario").scrollIntoView({behavior:"smooth"});
 }
 window.guardarNuevoUsuario=async function(){
