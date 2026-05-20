@@ -499,6 +499,7 @@ window.abrirExpediente=async function(id){
   STATE.patData=ap?JSON.parse(JSON.stringify(ap.seleccionados||{})):{};
   STATE.patOtrasNotes=ap?ap.notas_otras||"":"";
   STATE.famData=af?JSON.parse(JSON.stringify(af.datos||{})):{};
+  STATE.famNotas=af?.notas||"";
   STATE.alergs=al?JSON.parse(JSON.stringify(al.lista||[])):[];
   STATE.discapacidades=disc?disc.map(d=>d.categoria):[];
   STATE.ginData=gin||{};
@@ -1254,7 +1255,8 @@ window.guardarAnt=async function(){
     if(otros)STATE.patData["oc_otros"]=otros.value;
     await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="fam"){
-    await SB.from("antecedentes_familiares").upsert({paciente_id:pid,datos:STATE.famData},{onConflict:"paciente_id"});
+    STATE.famNotas=gv("fam_notas")||"";
+    await SB.from("antecedentes_familiares").upsert({paciente_id:pid,datos:STATE.famData,notas:STATE.famNotas},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="al"){
     await SB.from("alergias").upsert({paciente_id:pid,lista:STATE.alergs},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="nop"){
@@ -1351,7 +1353,13 @@ function renderAB(){
   const patC=["Diabetes Mellitus","Hipertensión Arterial Sistémica","Dislipidemias","Obesidad","Neoplásicas","Enf. reumatológicas","Enfermedad de Gota","Enf. psiquiátricas","Enf. sistema nervioso","Enf. sistema cardiovascular","Enf. sistema respiratorio","Enf. sistema gastrointestinal","Enf. sistema urinario","Enf. sistema musculoesquelético","Enf. sistema tegumentario","Enf. endocrinológicas","Enf. inmunológicas"];
   const alergsComun=["ALERGIAS NEGADAS","ÁCAROS","ALIMENTOS","CHOCOLATE","FRUTOS SECOS","HONGOS","HUMEDAD","LATEX","MARISCOS","MASCOTAS","MOHO","NÍQUEL","PICADURA DE INSECTOS","POLEN","POLVO","SOL"];
 
-  if(STATE.antTab==="fam"){ab.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:500px;width:100%"><thead><tr style="background:${PL}"><th style="padding:8px 12px;text-align:left;font-size:14px;width:220px;color:${TX}">Enfermedad</th>${rels.map(r=>`<th style="padding:10px 12px;font-size:14px;text-align:center;color:${TX}">${r}</th>`).join("")}</tr></thead><tbody>${enfs.map((e,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:8px 12px;font-size:14px">${e}</td>${rels.map(r=>`<td style="text-align:center;padding:8px"><input type="checkbox" ${STATE.famData[e+"_"+r]?"checked":""} onchange="toggleFam('${e}','${r}')" style="accent-color:${P};cursor:pointer;width:15px;height:15px"></td>`).join("")}</tr>`).join("")}</tbody></table></div>`;}
+  if(STATE.antTab==="fam"){
+    const notaFam=STATE.famNotas||STATE.antData?.familiares?.notas||"";
+    ab.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:500px;width:100%"><thead><tr style="background:${PL}"><th style="padding:8px 12px;text-align:left;font-size:14px;width:220px;color:${TX}">Enfermedad</th>${rels.map(r=>`<th style="padding:10px 12px;font-size:14px;text-align:center;color:${TX}">${r}</th>`).join("")}</tr></thead><tbody>${enfs.map((e,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:8px 12px;font-size:14px">${e}</td>${rels.map(r=>`<td style="text-align:center;padding:8px"><input type="checkbox" ${STATE.famData[e+"_"+r]?"checked":""} onchange="toggleFam('${e}','${r}')" style="accent-color:${P};cursor:pointer;width:15px;height:15px"></td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <div style="margin-top:14px">
+      ${fld("Observaciones y notas adicionales",`<textarea id="fam_notas" rows="4" placeholder="Especifique detalles relevantes de los antecedentes heredofamiliares, edades de diagnóstico, causas de fallecimiento, etc." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-size:14px;line-height:1.6">${notaFam}</textarea>`)}
+    </div>`;
+  }
 
   else if(STATE.antTab==="pat"){
     const selCount=Object.values(STATE.patData).filter(Boolean).length;
