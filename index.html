@@ -771,7 +771,7 @@ function pgExp(){
         </div>
       </div>
       <div style="display:flex;gap:6px">
-        ${[["🏥 Enfermería","pgEnfermeria()"],["📝 Notas","setET('anexos')"],["📅 Citas","showToast('Agenda próximamente')"],["💳 Pagos","pgPagos()"]].map(([a,fn])=>`<button onclick="${fn}" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:7px;padding:5px 10px;color:#fff;cursor:pointer;font-size:13px;font-weight:500">${a}</button>`).join("")}
+        ${[["🏥 Enfermería","pgEnfermeria()"],["📅 Citas","showToast('Agenda próximamente')"],["💳 Pagos","pgPagos()"]].map(([a,fn])=>`<button onclick="${fn}" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:7px;padding:5px 10px;color:#fff;cursor:pointer;font-size:13px;font-weight:500">${a}</button>`).join("")}
         <button onclick="go('buscar')" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:5px 10px;color:rgba(255,255,255,.7);cursor:pointer;font-size:13px">✕</button>
       </div>
     </div>
@@ -3134,8 +3134,15 @@ async function renderImagenes(b){
         </div>
         ${fld("Descripción / observaciones",inp("img_desc","","Hallazgos, fecha del estudio, institución..."))}
         <div style="margin-top:10px;margin-bottom:10px">
-          <label style="display:block;font-size:14px;font-weight:700;color:${MU};margin-bottom:5px;text-transform:uppercase">Archivo (imagen o PDF)</label>
-          <input type="file" id="img_file" accept="image/*,.pdf" style="font-size:14px;width:100%">
+          <label class="fld-label">Archivo (imagen o PDF)</label>
+          <input type="file" id="img_file" accept="image/*,.pdf" onchange="previewImagen(this)" style="font-size:14px;width:100%">
+          <div id="img-preview" style="display:none;margin-top:10px;border:1.5px solid ${BR};border-radius:8px;overflow:hidden;max-height:240px;background:#F8F9FA;text-align:center">
+            <img id="img-preview-src" style="max-height:240px;max-width:100%;object-fit:contain;display:none">
+            <div id="img-preview-pdf" style="display:none;padding:24px;color:${MU}">
+              <i class="ti ti-file-type-pdf" style="font-size:48px;color:#E53935;display:block;margin-bottom:8px" aria-hidden="true"></i>
+              <span id="img-preview-pdf-name" style="font-size:13px;font-weight:600"></span>
+            </div>
+          </div>
         </div>
         <div class="sticky-save">${btn("⬆️ Subir imagen","subirImagen('"+pid+"')","ok",1)}</div>
       </div>
@@ -3167,6 +3174,31 @@ async function renderImagenes(b){
   </div>`;
 }
 
+window.previewImagen=function(input){
+  const file=input.files[0];
+  const preview=document.getElementById("img-preview");
+  const imgEl=document.getElementById("img-preview-src");
+  const pdfEl=document.getElementById("img-preview-pdf");
+  const pdfName=document.getElementById("img-preview-pdf-name");
+  if(!file||!preview)return;
+  preview.style.display="block";
+  if(file.type==="application/pdf"){
+    imgEl.style.display="none";
+    pdfEl.style.display="block";
+    if(pdfName)pdfName.textContent=file.name;
+  } else {
+    pdfEl.style.display="none";
+    imgEl.style.display="block";
+    const reader=new FileReader();
+    reader.onload=e=>{if(imgEl)imgEl.src=e.target.result;};
+    reader.readAsDataURL(file);
+  }
+  // Auto-sugerir nombre si está vacío
+  const nomInput=document.getElementById("img_nom");
+  if(nomInput&&!nomInput.value){
+    nomInput.value=file.name.replace(/\.[^/.]+$/,"").replace(/[_-]/g," ");
+  }
+}
 window.subirImagen=async function(pid){
   const nom=gv("img_nom");if(!nom.trim()){showToast("Escribe el nombre de la imagen",false);return;}
   const file=document.getElementById("img_file")?.files[0];if(!file){showToast("Selecciona un archivo",false);return;}
