@@ -1295,7 +1295,7 @@ window.guardarGineco=async function(){
     num_parejas:gv("g_np"),mac:gv("g_mac"),relaciones:gv("g_rel"),ets:gv("g_ets"),
     papanicolaou:gv("g_pap"),pap_resultado:gv("g_papres"),colposcopia:gv("g_col"),mastografia:gv("g_mast"),
     gestaciones:gv("g_gestaciones"),partos:gv("g_partos"),abortos:gv("g_abortos"),cesareas:gv("g_cesareas"),
-    perinatales:gv("g_peri"),lactancia:gv("g_lac"),
+    perinatales:gv("g_peri"),lactancia:gv("g_lac"),observaciones:gv("g_obs"),
   };
   STATE.ginData=g;
   await SB.from("antecedentes_gineco").upsert({
@@ -1457,7 +1457,7 @@ function renderAB(){
       ${fld("Vida sexual activa",`<select id="g_vsa" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${g.vida_sexual==="No"?"selected":""}>No</option><option ${g.vida_sexual==="Sí"?"selected":""}>Sí</option><option ${g.vida_sexual==="No especificado"?"selected":""}>No especificado</option></select>`)}
       ${fld("Edad de inicio",`<input id="g_eis" value="${g.edad_inicio||""}" placeholder="Años" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       ${fld("Número de parejas",`<input id="g_np" value="${g.num_parejas||""}" placeholder="Número" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-      ${fld("Método anticonceptivo",`<select id="g_mac" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No usa</option><option ${g.mac==="Barrera (condón)"?"selected":""}>Barrera (condón)</option><option ${g.mac==="Píldora anticonceptiva"?"selected":""}>Píldora anticonceptiva</option><option ${g.mac==="DIU"?"selected":""}>DIU</option><option ${g.mac==="Parche"?"selected":""}>Parche</option><option ${g.mac==="Implante subdérmico"?"selected":""}>Implante subdérmico</option><option ${g.mac==="Inyectable"?"selected":""}>Inyectable</option><option ${g.mac==="Ligadura de trompas"?"selected":""}>Ligadura de trompas</option><option ${g.mac==="Vasectomía de pareja"?"selected":""}>Vasectomía de pareja</option><option ${g.mac==="Abstinencia"?"selected":""}>Abstinencia</option><option ${g.mac==="Ritmo"?"selected":""}>Ritmo</option><option ${g.mac==="Otro"?"selected":""}>Otro</option></select>`)}
+      ${fld("Método anticonceptivo",`<select id="g_mac" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No usa</option><option ${g.mac==="Barrera (condón)"?"selected":""}>Barrera (condón)</option><option ${g.mac==="Píldora anticonceptiva"?"selected":""}>Píldora anticonceptiva</option><option ${g.mac==="DIU"?"selected":""}>DIU</option><option ${g.mac==="DIU hormonal"?"selected":""}>DIU hormonal</option><option ${g.mac==="Parche"?"selected":""}>Parche</option><option ${g.mac==="Implante subdérmico"?"selected":""}>Implante subdérmico</option><option ${g.mac==="Inyectable"?"selected":""}>Inyectable</option><option ${g.mac==="Ligadura de trompas"?"selected":""}>Ligadura de trompas</option><option ${g.mac==="Vasectomía de pareja"?"selected":""}>Vasectomía de pareja</option><option ${g.mac==="Abstinencia"?"selected":""}>Abstinencia</option><option ${g.mac==="Ritmo"?"selected":""}>Ritmo</option><option ${g.mac==="Otro"?"selected":""}>Otro</option></select>`)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Tipo de relaciones",`<select id="g_rel" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option><option ${g.relaciones==="Heterosexuales"?"selected":""}>Heterosexuales</option><option ${g.relaciones==="Homosexuales"?"selected":""}>Homosexuales</option><option ${g.relaciones==="Bisexuales"?"selected":""}>Bisexuales</option></select>`)}
@@ -1480,6 +1480,7 @@ function renderAB(){
     </div>
     <div style="margin-bottom:16px">${fld("Antecedentes perinatales de importancia",ta("g_peri",g.perinatales||"","Complicaciones obstétricas, partos pretérmino, pérdidas fetales, malformaciones...",4))}</div>
     <div style="margin-bottom:16px">${fld("Lactancia materna",`<select id="g_lac" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option><option ${g.lactancia==="Sí"?"selected":""}>Sí</option><option ${g.lactancia==="No"?"selected":""}>No</option><option ${g.lactancia==="Actualmente"?"selected":""}>Actualmente</option></select>`)}</div>
+    <div style="margin-bottom:16px">${fld("Observaciones ginecológicas adicionales relevantes",ta("g_obs",g.observaciones||"","Hallazgos relevantes, cirugías ginecológicas previas, tratamientos hormonales, historia de ETS, otros datos de importancia clínica...",4))}</div>
     <div class="sticky-save">${btn("💾 Guardar gineco-obstétricos","guardarGineco()","ok",1)}</div>`;
   }
   else if(STATE.antTab==="neo"){
