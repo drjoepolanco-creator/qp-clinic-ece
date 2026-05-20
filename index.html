@@ -489,20 +489,28 @@ window.abrirExpediente=async function(id){
   STATE.ficTab="gen";
   STATE.consultaActual=null;
   // Cargar antecedentes en paralelo
-  const [{data:ap},{data:af},{data:al},{data:disc},{data:gin}]=await Promise.all([
+  const [{data:ap},{data:af},{data:al},{data:disc},{data:gin},{data:anp}]=await Promise.all([
     SB.from("antecedentes_patologicos").select("*").eq("paciente_id",id).maybeSingle(),
     SB.from("antecedentes_familiares").select("*").eq("paciente_id",id).maybeSingle(),
     SB.from("alergias").select("*").eq("paciente_id",id).maybeSingle(),
     SB.from("discapacidades").select("categoria").eq("paciente_id",id),
     SB.from("antecedentes_gineco").select("*").eq("paciente_id",id).maybeSingle(),
+    SB.from("antecedentes_no_patologicos").select("*").eq("paciente_id",id).maybeSingle(),
   ]);
   STATE.patData=ap?JSON.parse(JSON.stringify(ap.seleccionados||{})):{};
   STATE.patOtrasNotes=ap?ap.notas_otras||"":"";
   STATE.famData=af?JSON.parse(JSON.stringify(af.datos||{})):{};
   STATE.famNotas=af?.notas||"";
   STATE.alergs=al?JSON.parse(JSON.stringify(al.lista||[])):[];
+  STATE.alOtrosText=al?.otros||"";
   STATE.discapacidades=disc?disc.map(d=>d.categoria):[];
   STATE.ginData=gin||{};
+  STATE.antNoPatText=anp?.texto||"";
+  STATE.otrosText=anp?.otros||"";
+  // También cargar medicamentos otros
+  const {data:medDB}=await SB.from("medicamentos_usados").select("texto,otros").eq("paciente_id",id).maybeSingle();
+  STATE.medText=medDB?.texto||"";
+  STATE.medOtrosText=medDB?.otros||"";
   go("expediente");
 }
 
@@ -801,7 +809,16 @@ function pgExp(){
   </div>`;
   renderEB();
 }
-window.setET=function(t){STATE.expTab=t;pgExp();}
+window.setET=function(t){
+  STATE.expTab=t;
+  // Resetear sub-pestaña al cambiar sección
+  if(t==="ant")STATE.antTab="fam";
+  else if(t==="ficha")STATE.ficTab="gen";
+  else if(t==="cons")STATE.consTab=null;
+  else if(t==="anexos")STATE.anexoTab="docs";
+  else if(t==="fisio")STATE.fisioTab="notas";
+  pgExp();
+}
 function renderEB(){
   const b=document.getElementById("eb");if(!b)return;
   if(STATE.expTab==="ficha")renderFicha(b);
@@ -1247,6 +1264,9 @@ window.guardarAnt=async function(){
   const nota=document.getElementById("pat-otras");if(nota)STATE.patOtrasNotes=nota.value;
   const texto=document.getElementById("nopa");if(texto)STATE.antNoPatText=texto.value;
   const med=document.getElementById("meda");if(med)STATE.medText=med.value;
+  const otros=document.getElementById("ant_otros");if(otros)STATE.otrosText=otros.value;
+  const alOtros=document.getElementById("al_otros_txt");if(alOtros)STATE.alOtrosText=alOtros.value;
+  const medOtros=document.getElementById("med_otros_txt");if(medOtros)STATE.medOtrosText=medOtros.value;
 
   if(STATE.antTab==="pat"){
     await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
@@ -1258,11 +1278,13 @@ window.guardarAnt=async function(){
     STATE.famNotas=gv("fam_notas")||"";
     await SB.from("antecedentes_familiares").upsert({paciente_id:pid,datos:STATE.famData,notas:STATE.famNotas},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="al"){
-    await SB.from("alergias").upsert({paciente_id:pid,lista:STATE.alergs},{onConflict:"paciente_id"});
+    await SB.from("alergias").upsert({paciente_id:pid,lista:STATE.alergs,otros:STATE.alOtrosText||""},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="nop"){
     await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:STATE.antNoPatText||""},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="med"){
-    await SB.from("medicamentos_usados").upsert({paciente_id:pid,texto:STATE.medText||""},{onConflict:"paciente_id"});
+    await SB.from("medicamentos_usados").upsert({paciente_id:pid,texto:STATE.medText||"",otros:STATE.medOtrosText||""},{onConflict:"paciente_id"});
+  } else if(STATE.antTab==="ot"){
+    await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:STATE.antNoPatText||"",otros:STATE.otrosText||""},{onConflict:"paciente_id"});
   }
   loading(false);
   showToast("✓ Antecedentes guardados en el expediente");
@@ -1397,12 +1419,20 @@ function renderAB(){
         <div style="display:flex;gap:0;margin-bottom:12px;border:1.5px solid ${BR};border-radius:8px;overflow:hidden">
           <button onclick="STATE.alTab='comunes';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='comunes'?P:'#fff'};color:${alSelTab==='comunes'?'#fff':MU};cursor:pointer;font-size:14px;font-weight:${alSelTab==='comunes'?700:500};border-right:1px solid ${BR}">🌿 Más comunes</button>
           <button onclick="STATE.alTab='medamb';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='medamb'?P:'#fff'};color:${alSelTab==='medamb'?'#fff':MU};cursor:pointer;font-size:14px;font-weight:${alSelTab==='medamb'?700:500};border-right:1px solid ${BR}">🌎 Medio ambiente</button>
-          <button onclick="STATE.alTab='medicamentos';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='medicamentos'?P:'#fff'};color:${alSelTab==='medicamentos'?'#fff':MU};cursor:pointer;font-size:14px;font-weight:${alSelTab==='medicamentos'?700:500}">💊 Medicamentos</button>
+          <button onclick="STATE.alTab='medicamentos';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='medicamentos'?P:'#fff'};color:${alSelTab==='medicamentos'?'#fff':MU};cursor:pointer;font-size:14px;font-weight:${alSelTab==='medicamentos'?700:500};border-right:1px solid ${BR}">💊 Medicamentos</button>
+          <button onclick="STATE.alTab='otros_al';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='otros_al'?P:'#fff'};color:${alSelTab==='otros_al'?'#fff':MU};cursor:pointer;font-size:14px;font-weight:${alSelTab==='otros_al'?700:500}">✏️ Otros</button>
         </div>
+        ${alSelTab==='otros_al'?`
+          <div style="margin-bottom:12px">
+            <p style="font-size:13px;color:${MU};background:${PL};padding:8px 12px;border-radius:7px;margin-bottom:10px">Alergias no incluidas en las listas anteriores: alimentos específicos, materiales, sustancias químicas, reacciones cutáneas, intolerancia a medicamentos no listados, etc.</p>
+            ${fld("Otras alergias — texto libre",ta("al_otros_txt",STATE.alOtrosText||"","Describe aquí cualquier alergia o reacción adversa no contemplada en las listas...",8))}
+          </div>
+          <div class="sticky-save">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>
+        `:`
         <div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden;max-height:420px;overflow-y:auto">
           ${lista.map(a=>{const sel=STATE.alergs.includes(a);return`<div onclick="toggleAlerg('${a.replace(/'/g,"\\'")}');renderAB()" style="padding:8px 13px;border-bottom:1px solid ${BR};cursor:pointer;background:${sel?PL:'#fff'};color:${sel?P:'#263238'};font-weight:${sel?700:400};font-size:14px;display:flex;align-items:center;gap:8px"><span style="font-size:14px">${sel?'✅':'⬜'}</span>${a}</div>`;}).join("")}
         </div>
-        <p style="font-size:14px;color:${MU};margin-top:8px;padding:6px 10px;background:#F8F9FA;border-radius:6px">💡 Haz clic en cualquier alergia para agregarla o quitarla del registro</p>
+        <p style="font-size:14px;color:${MU};margin-top:8px;padding:6px 10px;background:#F8F9FA;border-radius:6px">💡 Haz clic en cualquier alergia para agregarla o quitarla del registro</p>`}
       </div>
 
       <!-- Columna derecha: registro -->
@@ -1426,8 +1456,26 @@ function renderAB(){
       </div>
     </div>`;
   }
-  else if(STATE.antTab==="med"){ab.innerHTML=`<p style="font-size:14px;color:${MU};margin-bottom:10px;background:${PL};padding:8px 12px;border-radius:7px">Medicamentos usados en los últimos 6 meses. Nombre, duración y dosis.</p>${ta("meda",STATE.medText||"","Ej: Metformina 850mg — 1 tab c/12h — 3 meses",8)}<div class="sticky-save">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;}
+  else if(STATE.antTab==="med"){
+    ab.innerHTML=`
+    <p style="font-size:14px;color:${MU};margin-bottom:10px;background:${PL};padding:8px 12px;border-radius:7px">Medicamentos usados en los últimos 6 meses. Nombre, dosis y duración.</p>
+    ${ta("meda",STATE.medText||"","Ej: Metformina 850mg — 1 tab c/12h — 3 meses",8)}
+    <div style="margin-top:16px;border-top:1px solid ${BR};padding-top:14px">
+      ${fld("Otros medicamentos o suplementos relevantes",ta("med_otros_txt",STATE.medOtrosText||"","Suplementos vitamínicos, productos herbolarios, homeopatía, medicamentos sin receta, sustancias deportivas, etc.",5))}
+    </div>
+    <div class="sticky-save">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
+  }
   else if(STATE.antTab==="dis"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Agregar discapacidad — Clasificación CIF (OMS)</p><select id="discap-sel" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px;margin-bottom:8px">${CIF_CAT.map(c=>`<option ${c.startsWith("—")?"disabled":""}>${c}</option>`).join("")}</select>${btn("➕ Agregar al expediente","addDiscap()","p",1)}</div><div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Discapacidades registradas</p>${STATE.discapacidades.length===0?`<div style="background:#FFF3E0;border:1.5px solid #FFCC80;border-radius:8px;padding:14px;text-align:center;color:#E65100;font-size:14px">No hay discapacidades registradas</div>`:`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${STATE.discapacidades.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:${i<STATE.discapacidades.length-1?"1px solid "+BR:"none"};background:${i%2?"#FAFAFA":"#fff"}"><div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:${P};flex-shrink:0"></div><span style="font-size:14px">${d}</span></div><button onclick="removeDiscap(${i})" style="background:none;border:none;color:${DA};cursor:pointer;font-size:14px;font-weight:700">✕</button></div>`).join("")}</div>`}</div></div>`;}
+  else if(STATE.antTab==="ot"){
+    ab.innerHTML=`
+    <div style="margin-bottom:14px">
+      <div style="background:${PL};border-radius:8px;padding:10px 14px;margin-bottom:14px">
+        <p style="font-size:13px;color:${P}">Antecedentes relevantes no incluidos en las secciones anteriores: cirugías previas, hospitalizaciones, transfusiones, enfermedades infecciosas importantes, adicciones, exposición a sustancias tóxicas, tatuajes, piercings, donación de sangre u órganos, etc.</p>
+      </div>
+      ${fld("Otros antecedentes de importancia clínica",ta("ant_otros",STATE.otrosText||"","Escribe aquí cualquier antecedente relevante no contemplado en las secciones anteriores...",12))}
+    </div>
+    <div class="sticky-save">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
+  }
   else if(STATE.antTab==="gin"){
     const g=STATE.ginData||{};
     ab.innerHTML=`
