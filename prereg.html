@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Pre-registro — QP Clinic</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#F0F4F8;color:#263238;min-height:100vh}
+.header{background:#0D47A1;color:#fff;padding:16px 20px;display:flex;align-items:center;gap:12px}
+.logo{height:38px;border-radius:6px}
+.header h1{font-size:16px;font-weight:700}
+.header p{font-size:12px;opacity:.8}
+.container{max-width:600px;margin:0 auto;padding:16px}
+.card{background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.1);overflow:hidden;margin-bottom:16px}
+.card-header{background:#1565C0;padding:12px 16px}
+.card-header h2{color:#fff;font-size:14px;font-weight:700}
+.card-body{padding:16px}
+.step-bar{display:flex;gap:6px;margin:14px 0}
+.step{flex:1;height:5px;border-radius:3px;background:#CFD8DC;transition:background .3s}
+.step.done{background:#1565C0}
+.step.active{background:#42A5F5}
+label{display:block;font-size:12px;font-weight:600;color:#546E7A;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;margin-top:12px}
+input,select,textarea{width:100%;padding:11px 13px;border:1.5px solid #CFD8DC;border-radius:8px;font-size:15px;outline:none;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:#1565C0}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border:1.5px solid #CFD8DC;border-radius:20px;cursor:pointer;font-size:13px;margin:3px;background:#fff;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.chip.sel{background:#E3F2FD;border-color:#1565C0;color:#1565C0;font-weight:600}
+.btn{display:block;width:100%;padding:14px;background:#1565C0;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;-webkit-tap-highlight-color:transparent}
+.btn:active{background:#0D47A1}
+.btn-sec{background:#fff;color:#1565C0;border:2px solid #1565C0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.success{text-align:center;padding:40px 20px}
+.success .icon{font-size:64px;margin-bottom:16px}
+.success h2{font-size:22px;font-weight:700;color:#1B5E20;margin-bottom:8px}
+.success p{color:#546E7A;font-size:15px;line-height:1.6}
+.note{background:#E3F2FD;border-radius:8px;padding:10px 14px;font-size:13px;color:#1565C0;margin-bottom:12px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <img class="logo" src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic">
+  <div>
+    <h1>QP Clinic — Pre-registro</h1>
+    <p>Completa tu información para agilizar tu consulta</p>
+  </div>
+</div>
+
+<div class="container">
+  <div id="loading-screen" style="text-align:center;padding:40px">
+    <p style="font-size:16px;color:#546E7A">⏳ Verificando enlace...</p>
+  </div>
+  <div id="main-form" style="display:none">
+    <div class="step-bar">
+      <div class="step active" id="st1"></div>
+      <div class="step" id="st2"></div>
+      <div class="step" id="st3"></div>
+    </div>
+    <div id="step1">
+      <div class="card">
+        <div class="card-header"><h2>Paso 1 de 3 — Datos personales y domicilio</h2></div>
+        <div class="card-body">
+          <div class="note">Solo tarda 3 minutos. Tus datos están protegidos y se usan únicamente para tu atención médica.</div>
+          <div class="grid2">
+            <div><label>Fecha de nacimiento</label><input type="date" id="pr_fnac"></div>
+            <div><label>CURP (opcional)</label><input id="pr_curp" placeholder="XXXX000000XXXXXXXX" maxlength="18" style="text-transform:uppercase"></div>
+          </div>
+          <div class="grid2">
+            <div><label>Estado civil</label>
+              <select id="pr_ecivil">
+                <option value="">Seleccionar</option>
+                <option>Soltero(a)</option><option>Casado(a)</option><option>Unión libre</option>
+                <option>Divorciado(a)</option><option>Viudo(a)</option><option>Separado(a)</option>
+              </select>
+            </div>
+            <div><label>Ocupación</label><input id="pr_ocup" placeholder="Ej: Ingeniero, maestro..."></div>
+          </div>
+          <label>Correo electrónico</label>
+          <input type="email" id="pr_correo" placeholder="correo@ejemplo.com">
+
+          <label style="margin-top:18px;font-size:13px;color:#1565C0">📍 Domicilio</label>
+          <div class="grid2">
+            <div><label>Calle</label><input id="pr_calle" placeholder="Nombre de la calle"></div>
+            <div><label>Número</label><input id="pr_num" placeholder="Ext / Int"></div>
+          </div>
+          <div class="grid2">
+            <div><label>Colonia</label><input id="pr_col" placeholder="Nombre de la colonia"></div>
+            <div><label>Código postal</label><input id="pr_cp" placeholder="00000" type="number"></div>
+          </div>
+          <div class="grid2">
+            <div><label>Municipio / Alcaldía</label><input id="pr_mun" placeholder="Ej: Benito Juárez"></div>
+            <div><label>Estado</label>
+              <select id="pr_estado">
+                <option value="">Seleccionar</option>
+                <option>Ciudad de México</option><option>Estado de México</option><option>Jalisco</option>
+                <option>Nuevo León</option><option>Puebla</option><option>Guanajuato</option>
+                <option>Veracruz</option><option>Michoacán</option><option>Oaxaca</option>
+                <option>Chihuahua</option><option>Baja California</option><option>Sonora</option>
+                <option>Tamaulipas</option><option>Guerrero</option><option>Otro</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn" onclick="irPaso2()">Continuar →</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="step2" style="display:none">
+      <div class="card">
+        <div class="card-header"><h2>Paso 2 de 3 — Antecedentes médicos</h2></div>
+        <div class="card-body">
+          <label>¿Tienes alguna de estas enfermedades? (toca las que apliquen)</label>
+          <div id="chips-pat" style="margin:8px 0 12px">
+            ${["Diabetes mellitus tipo 1","Diabetes mellitus tipo 2","Hipertensión arterial","Asma","EPOC","Hipotiroidismo","Hipertiroidismo","Artritis reumatoide","Artritis psoriásica","Fibromialgia","Epilepsia","Migraña","Insuficiencia renal","Cardiopatía","Cáncer","VIH","Hepatitis","Tuberculosis","Obesidad","Ninguna de las anteriores"].map(e=>`<span class="chip" onclick="toggleChip(this,'pat')">${e}</span>`).join("")}
+          </div>
+          <label>Cirugías o procedimientos previos (opcional)</label>
+          <textarea id="pr_cirug" rows="2" placeholder="Ej: Apendicectomía 2015, fractura de rodilla 2019..."></textarea>
+          <label style="margin-top:14px">¿Eres alérgico(a) a alguno de estos? (toca los que apliquen)</label>
+          <div id="chips-al" style="margin:8px 0 12px">
+            ${["Penicilina","Amoxicilina","Ampicilina","Sulfa","AINEs (Ibuprofeno, Naproxeno)","Aspirina","Metamizol (Dipirona)","Látex","Polvo","Polen","Ácaros","Ninguna conocida"].map(e=>`<span class="chip" onclick="toggleChip(this,'al')">${e}</span>`).join("")}
+          </div>
+          <label>Otras alergias no listadas (opcional)</label>
+          <input id="pr_alerg_otros" placeholder="Escribe aquí cualquier otra alergia...">
+          <label style="margin-top:14px">Medicamentos que tomas actualmente (opcional)</label>
+          <textarea id="pr_meds" rows="3" placeholder="Nombre, dosis y frecuencia de cada medicamento..."></textarea>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="btn btn-sec" onclick="irPaso(1)" style="flex:1">← Atrás</button>
+            <button class="btn" onclick="irPaso3()" style="flex:2">Continuar →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="step3" style="display:none">
+      <div class="card">
+        <div class="card-header"><h2>Paso 3 de 3 — Estilo de vida</h2></div>
+        <div class="card-body">
+          <label>Actividad física</label>
+          <select id="pr_af">
+            <option value="">Seleccionar</option>
+            <option>Sedentario (no hace ejercicio)</option>
+            <option>Ligera (1-2 veces por semana)</option>
+            <option>Moderada (3-4 veces por semana)</option>
+            <option>Intensa (5+ veces por semana)</option>
+            <option>Deportista de alto rendimiento</option>
+          </select>
+          <label style="margin-top:14px">Tabaquismo</label>
+          <select id="pr_tab">
+            <option value="">Seleccionar</option>
+            <option>No fumador</option><option>Ex fumador</option>
+            <option>Fumador ocasional</option><option>Fumador activo</option>
+          </select>
+          <label style="margin-top:14px">Consumo de alcohol</label>
+          <select id="pr_alc">
+            <option value="">Seleccionar</option>
+            <option>No consume</option><option>Ocasional (fiestas)</option>
+            <option>Moderado (fines de semana)</option><option>Frecuente (varios días a la semana)</option>
+          </select>
+          <label style="margin-top:14px">¿Algo más que tu médico deba saber? (opcional)</label>
+          <textarea id="pr_notas" rows="3" placeholder="Dieta especial, estrés laboral, condiciones especiales..."></textarea>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="btn btn-sec" onclick="irPaso(2)" style="flex:1">← Atrás</button>
+            <button class="btn" onclick="enviarPreregistro()" id="btn-enviar" style="flex:2">✓ Enviar mi pre-registro</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="success-screen" style="display:none">
+    <div class="success">
+      <div class="icon">🎉</div>
+      <h2>¡Pre-registro completado!</h2>
+      <p>Tu información fue enviada correctamente a QP Clinic.<br><br>El equipo médico ya tiene acceso a tus datos y estará listo para atenderte.<br><br><strong>¡Nos vemos en tu consulta!</strong></p>
+      <div style="margin-top:24px;background:#E8F5E9;border-radius:10px;padding:14px;text-align:left">
+        <p style="font-size:13px;color:#1B5E20;line-height:1.7">
+          📍 <strong>QP Clinic</strong><br>
+          Insurgentes Sur 933, Nápoles, CDMX<br>
+          📞 55 5682 4345 / 56 4423 7028
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div id="error-screen" style="display:none">
+    <div class="success">
+      <div class="icon">❌</div>
+      <h2>Enlace inválido</h2>
+      <p>Este enlace no es válido o ya fue utilizado.<br><br>Por favor contacta a QP Clinic para obtener un nuevo enlace.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL="https://ebukjdxeekhzeurmhgkj.supabase.co";
+const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidWtqZHhlZWtoemV1cm1oZ2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxNTE0MDcsImV4cCI6MjA2MTcyNzQwN30.GCBMIGfnzE8PrUMNiJMKlCkNI1sMmIX8InoLFAP0_YE";
+const {createClient}=supabase;
+const SB_CLI=createClient(SB_URL,SB_KEY);
+
+const params=new URLSearchParams(window.location.search);
+const TOKEN=params.get("token");
+let PREREG_ID=null;
+const selPat=new Set();const selAl=new Set();
+
+async function init(){
+  if(!TOKEN){showError();return;}
+  const {data,error}=await SB_CLI.from("pre_registros").select("*").eq("token",TOKEN).single();
+  if(error||!data){showError();return;}
+  if(data.completado){
+    document.getElementById("loading-screen").innerHTML=`<div class="success"><div class="icon">✅</div><h2>Ya completaste tu pre-registro</h2><p>Tus datos ya están guardados en QP Clinic. ¡Nos vemos en tu consulta!</p></div>`;
+    return;
+  }
+  PREREG_ID=data.id;
+  document.getElementById("loading-screen").style.display="none";
+  document.getElementById("main-form").style.display="block";
+}
+function showError(){
+  document.getElementById("loading-screen").style.display="none";
+  document.getElementById("error-screen").style.display="block";
+}
+function toggleChip(el,tipo){
+  el.classList.toggle("sel");
+  const s=tipo==="pat"?selPat:selAl;
+  if(el.classList.contains("sel"))s.add(el.textContent.trim());
+  else s.delete(el.textContent.trim());
+}
+function irPaso(n){
+  document.getElementById("step1").style.display=n===1?"block":"none";
+  document.getElementById("step2").style.display=n===2?"block":"none";
+  document.getElementById("step3").style.display=n===3?"block":"none";
+  ["st1","st2","st3"].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    el.className="step"+(i+1<n?" done":i+1===n?" active":"");
+  });
+  window.scrollTo(0,0);
+}
+function irPaso2(){irPaso(2);}
+function irPaso3(){irPaso(3);}
+async function enviarPreregistro(){
+  const btn=document.getElementById("btn-enviar");
+  btn.textContent="⏳ Enviando...";btn.disabled=true;
+  const datos={
+    fecha_nacimiento:document.getElementById("pr_fnac").value,
+    curp:document.getElementById("pr_curp").value.toUpperCase(),
+    estado_civil:document.getElementById("pr_ecivil").value,
+    ocupacion:document.getElementById("pr_ocup").value,
+    correo:document.getElementById("pr_correo").value,
+    domicilio:{
+      calle:document.getElementById("pr_calle").value,
+      numero:document.getElementById("pr_num").value,
+      colonia:document.getElementById("pr_col").value,
+      cp:document.getElementById("pr_cp").value,
+      municipio:document.getElementById("pr_mun").value,
+      estado:document.getElementById("pr_estado").value,
+    },
+    patologicos:[...selPat],
+    cirugias:document.getElementById("pr_cirug").value,
+    alergias:[...selAl],
+    alergias_otros:document.getElementById("pr_alerg_otros").value,
+    medicamentos:document.getElementById("pr_meds").value,
+    actividad_fisica:document.getElementById("pr_af").value,
+    tabaco:document.getElementById("pr_tab").value,
+    alcohol:document.getElementById("pr_alc").value,
+    nopa_otros:document.getElementById("pr_notas").value,
+  };
+  const {error}=await SB_CLI.from("pre_registros").update({datos,completado:true,fecha_completado:new Date().toISOString()}).eq("id",PREREG_ID);
+  if(error){btn.textContent="✓ Enviar mi pre-registro";btn.disabled=false;alert("Error al enviar. Intenta de nuevo.");return;}
+  document.getElementById("main-form").style.display="none";
+  document.getElementById("success-screen").style.display="block";
+}
+init();
+</script>
+</body>
+</html>

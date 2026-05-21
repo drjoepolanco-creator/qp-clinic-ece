@@ -534,10 +534,15 @@ window.setNT=function(t){STATE.nuevoTab=t;renderNB();}
 function renderNB(){
   const nb=document.getElementById("nb");if(!nb)return;
   if(STATE.nuevoTab==="gen")nb.innerHTML=`
-    <div style="background:${PL};border-radius:8px;padding:9px 14px;margin-bottom:14px;font-size:14px;color:${P}">
-      <b>1</b> <span style="cursor:pointer;font-weight:600">Enviar enlace de pre-registro al paciente</span>
-      <span style="color:${BR};margin:0 8px">|</span>
-      <b>2</b> <span style="cursor:pointer;font-weight:600">Copiar datos pre-registrados por el paciente</span>
+    <div style="background:${PL};border-radius:8px;padding:9px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button onclick="enviarPreregistro()" style="background:${P};color:#fff;border:none;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-send" style="font-size:15px" aria-hidden="true"></i> <b>1</b> Enviar enlace de pre-registro
+      </button>
+      <span style="color:${MU}">|</span>
+      <button onclick="copiarPreregistro()" style="background:#fff;color:${P};border:1.5px solid ${P};border-radius:7px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-clipboard-copy" style="font-size:15px" aria-hidden="true"></i> <b>2</b> Copiar datos pre-registrados
+      </button>
+      <div id="prereg-status" style="margin-left:auto;font-size:13px;color:${MU}"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("CURP",`<div style="display:flex;gap:5px">${inp("nc","","XXXX000000XXXXXXXX")}<button style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
@@ -663,6 +668,83 @@ function renderNB(){
     <div style="margin-top:12px">${fld("Anotaciones generales",ta("fans","","Notas adicionales...",3))}</div>`;
 }
 
+window.enviarPreregistro=async function(){
+  const nom=gv("nn").trim();const ap=gv("na").trim();
+  const cel=(gv("ncel")||gv("ntelmov")||"").trim();
+  if(!nom||!ap){showToast("Ingresa nombre y apellido antes de enviar el pre-registro",false);return;}
+  if(!cel){showToast("Ingresa el celular del paciente",false);return;}
+  loading(true,"Generando enlace...");
+  const token=crypto.randomUUID();
+  const nombrePac=`${nom} ${ap} ${gv("na2")||""}`.trim();
+  const {error}=await SB.from("pre_registros").insert({token,nombre_paciente:nombrePac,celular:cel.replace(/\D/g,""),completado:false});
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  STATE.preregToken=token;STATE.preregNombre=nombrePac;
+  const link=`https://qpclinic.org/prereg.html?token=${token}`;
+  const celWA=cel.replace(/\D/g,"");const celFmt=celWA.length===10?"52"+celWA:celWA;
+  const msg=`🏥 *QP Clinic — Pre-registro*\n\nHola ${nom}, te saludamos de QP Clinic.\n\nPor favor llena tu información antes de tu consulta:\n\n👉 ${link}\n\nToma solo 3 minutos desde tu celular.\n\n_QP Clinic • Insurgentes Sur 933, CDMX_`;
+  window.open(`https://wa.me/${celFmt}?text=${encodeURIComponent(msg)}`,"_blank");
+  const st=document.getElementById("prereg-status");
+  if(st)st.innerHTML=`<span style="background:#C8E6C9;color:#1B5E20;padding:3px 10px;border-radius:20px;font-weight:600">✓ Enlace enviado por WhatsApp</span>`;
+  showToast("✓ Enlace de pre-registro enviado");
+}
+window.copiarPreregistro=async function(){
+  const token=STATE.preregToken;
+  const nom=gv("nn").trim();const ap=gv("na").trim();
+  loading(true,"Buscando pre-registro...");
+  let data;
+  if(token){
+    const r=await SB.from("pre_registros").select("*").eq("token",token).single();
+    data=r.data;
+  } else if(nom){
+    const r=await SB.from("pre_registros").select("*").ilike("nombre_paciente",`%${nom}%`).eq("completado",true).order("created_at",{ascending:false}).limit(1);
+    data=r.data?.[0];
+  }
+  loading(false);
+  if(!data){showToast("No se encontró un pre-registro para este paciente",false);return;}
+  if(!data.completado){
+    const st=document.getElementById("prereg-status");
+    if(st)st.innerHTML=`<span style="background:#FFF8E1;color:#E65100;padding:3px 10px;border-radius:20px;font-weight:600">⏳ El paciente aún no ha completado el formulario</span>`;
+    showToast("El paciente aún no ha completado el pre-registro",false);return;
+  }
+  aplicarPreregistro(data);
+}
+function aplicarPreregistro(r){
+  STATE.preregDatos=r.datos||{};
+  const d=STATE.preregDatos;
+  const setV=(id,v)=>{const e=document.getElementById(id);if(e&&v!==undefined&&v!=="")e.value=v;};
+  setV("nc",d.curp);setV("nfnac",d.fecha_nacimiento);
+  setV("noc",d.ocupacion);setV("nmail",d.correo);
+  // Mostrar modal con resumen
+  const overlay=document.createElement("div");
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px";
+  const secciones=[
+    ["📋 Datos personales",[["Fecha de nacimiento",d.fecha_nacimiento],["CURP",d.curp],["Estado civil",d.estado_civil],["Ocupación",d.ocupacion],["Correo",d.correo]]],
+    ["📍 Domicilio",[["Calle",d.domicilio?.calle],["Número",d.domicilio?.numero],["Colonia",d.domicilio?.colonia],["Municipio",d.domicilio?.municipio],["Estado",d.domicilio?.estado],["CP",d.domicilio?.cp]]],
+    ["🏥 Antecedentes patológicos",[["Padecimientos",(d.patologicos||[]).join(", ")||"Ninguno indicado"]]],
+    ["💊 Alergias y medicamentos",[["Alergias",(d.alergias||[]).join(", ")||"Ninguna"],["Medicamentos actuales",d.medicamentos||"Ninguno"]]],
+    ["🏃 No patológicos",[["Actividad física",d.actividad_fisica],["Tabaco",d.tabaco],["Alcohol",d.alcohol],["Otras notas",d.nopa_otros]]],
+  ];
+  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="background:#0D47A1;padding:14px 18px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center">
+      <b style="color:#fff;font-size:15px">📋 Pre-registro completado — ${r.nombre_paciente}</b>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:18px">
+      ${secciones.map(([titulo,campos])=>`<div style="margin-bottom:14px">
+        <p style="font-size:12px;font-weight:700;color:#1565C0;text-transform:uppercase;border-bottom:1px solid #CFD8DC;padding-bottom:4px;margin-bottom:8px">${titulo}</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          ${campos.filter(([,v])=>v).map(([k,v])=>`<div style="background:#F8F9FA;border-radius:6px;padding:6px 10px"><span style="font-size:11px;color:#546E7A;display:block">${k}</span><span style="font-size:13px;font-weight:600;color:#263238">${v}</span></div>`).join("")}
+        </div>
+      </div>`).join("")}
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;padding-top:12px;border-top:1px solid #CFD8DC">
+        <button onclick="this.closest('[style*=fixed]').remove()" style="background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px">Cerrar</button>
+        <button onclick="STATE.preregParaAplicar=STATE.preregDatos;showToast('✓ Se aplicará al guardar el expediente');this.closest('[style*=fixed]').remove();document.getElementById('prereg-status').innerHTML='<span style=background:#C8E6C9;color:#1B5E20;padding:3px 10px;border-radius:20px;font-weight:600>✅ Datos listos — guarda el paciente</span>'" style="background:#1565C0;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">✓ Aplicar al expediente</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
 window.guardarNuevoPac=async function(){
   const nom=gv("nn"),apP=gv("na");
   if(!nom.trim()||!apP.trim()){showToast("Nombre y apellido paterno son requeridos",false);return;}
