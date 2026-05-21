@@ -2370,7 +2370,12 @@ function pgConsulta(){
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🔍 Análisis / Diagnóstico</b>
-            <span style="font-size:14px;color:#7B1FA2;background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA sugiere CIE-10</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button onclick="sugerirDxIA()" style="background:linear-gradient(135deg,#7B1FA2,#1565C0);color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px">
+                <i class="ti ti-brain" style="font-size:15px" aria-hidden="true"></i> Sugerir diagnósticos CIE-10 con IA
+              </button>
+              <span style="font-size:13px;color:#7B1FA2;background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA</span>
+            </div>
           </div>
           <div id="diagnosticos-ia" style="display:none;padding:8px 12px;border-bottom:1px solid ${BR};background:#F3E5F5"></div>
           <div style="padding:12px">${ta("cs_anal",c.analisis||"","Diagnóstico(s) con código CIE-10...",8)}</div>
@@ -2546,6 +2551,73 @@ window.agregarMotivo=function(motivo){
 // ── MODAL IA ──────────────────────────────────────────────
 let _recognition=null;let _grabando=false;let _transcripcion="";let _timerGrab=null;let _segundos=0;
 
+window.sugerirDxIA=async function(){
+  const subj=gv("cs_subj");
+  const expl=gv("cs_expl");
+  const analActual=gv("cs_anal");
+  const trat=gv("cs_trat");
+  if(!subj&&!expl&&!analActual){showToast("Escribe primero el motivo de consulta o exploración física",false);return;}
+
+  const dxDiv=document.getElementById("diagnosticos-ia");
+  if(dxDiv){
+    dxDiv.style.display="block";
+    dxDiv.innerHTML=`<div style="display:flex;align-items:center;gap:8px;color:#7B1FA2;font-size:13px"><span class="spin">⚙️</span> Analizando nota y generando diagnósticos CIE-10...</div>`;
+  }
+
+  const nota=`MOTIVO DE CONSULTA:\n${subj}\n\nEXPLORACIÓN FÍSICA:\n${expl}\n\nANÁLISIS PREVIO:\n${analActual}\n\nTRATAMIENTO:\n${trat}`;
+
+  try{
+    const res=await fetch("/api/ia-medica",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        tipo:"diagnosticos_cie10",
+        nota,
+        instruccion:`Eres un médico experto en codificación CIE-10. Analiza la nota médica y propón los diagnósticos más probables con su código CIE-10 exacto.
+Responde ÚNICAMENTE en formato JSON sin texto adicional:
+{"diagnosticos":[{"codigo":"M54.5","nombre":"Lumbago no especificado","certeza":"Principal"},{"codigo":"M51.1","nombre":"Degeneración de disco lumbar","certeza":"Secundario"}]}
+Incluye entre 1 y 5 diagnósticos ordenados por probabilidad. Certeza: Principal, Secundario, o Diferencial.`
+      })
+    });
+    const data=await res.json();
+    let dx=[];
+    try{
+      const txt=data.resultado||data.content||"";
+      const match=txt.match(/\{[\s\S]*\}/);
+      if(match)dx=JSON.parse(match[0]).diagnosticos||[];
+    }catch(e){dx=[];}
+
+    if(!dxDiv)return;
+    if(dx.length===0){
+      dxDiv.innerHTML=`<p style="font-size:13px;color:#7B1FA2;padding:4px">No se pudo generar diagnósticos. Verifica que haya contenido en la nota.</p>`;
+      return;
+    }
+    dxDiv.innerHTML=`
+      <p style="font-size:12px;font-weight:700;color:#7B1FA2;margin-bottom:8px;text-transform:uppercase">Diagnósticos sugeridos — haz clic para agregar al análisis</p>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px">
+        ${dx.map(d=>`<button onclick="agregarDxAlAnalisis('${d.codigo} – ${d.nombre.replace(/'/g,"\\'")}',this)"
+          style="background:#fff;border:1.5px solid #CE93D8;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;text-align:left"
+          data-sel="">
+          <b style="color:#6A1B9A">${d.codigo}</b> <span style="color:#263238">– ${d.nombre}</span>
+          <span style="font-size:11px;background:#F3E5F5;color:#9C27B0;padding:1px 6px;border-radius:10px;margin-left:4px">${d.certeza}</span>
+        </button>`).join("")}
+      </div>
+      <button onclick="agregarTodosLosDx()" style="background:#7B1FA2;color:#fff;border:none;border-radius:7px;padding:5px 14px;cursor:pointer;font-size:13px;font-weight:600">✓ Agregar todos</button>
+      <button onclick="document.getElementById('diagnosticos-ia').style.display='none'" style="background:none;border:1px solid #CE93D8;color:#7B1FA2;border-radius:7px;padding:5px 14px;cursor:pointer;font-size:13px;margin-left:6px">✕ Cerrar</button>`;
+  }catch(e){
+    if(dxDiv)dxDiv.innerHTML=`<p style="font-size:13px;color:${DA}">Error al conectar con la IA.</p>`;
+  }
+}
+window.agregarDxAlAnalisis=function(texto,btn){
+  const ta=document.getElementById("cs_anal");
+  if(!ta)return;
+  ta.value=(ta.value.trim()?ta.value.trim()+"\n":"")+texto;
+  if(btn){btn.style.background="#E1BEE7";btn.style.borderColor="#7B1FA2";}
+  showToast("✓ "+texto.split("–")[0].trim()+" agregado");
+}
+window.agregarTodosLosDx=function(){
+  document.querySelectorAll("#diagnosticos-ia button[onclick^='agregarDxAlAnalisis']").forEach(b=>b.click());
+}
 window.abrirModalIA=function(){
   const m=document.getElementById("modal-ia");
   if(m)m.style.display="flex";
