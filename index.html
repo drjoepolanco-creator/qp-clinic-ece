@@ -90,7 +90,64 @@ function draw(){RR().innerHTML="";RR().className="fade";({login:pgLogin,agenda:p
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
 function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`;}
 function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
-function ta(id,val,ph,rows=4){return`<textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;resize:vertical;outline:none;font-family:inherit;line-height:1.5">${val||""}</textarea>`;}
+function ta(id,val,ph,rows=4){return`<div style="position:relative"><textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:10px 40px 10px 13px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;line-height:1.5;font-size:14px">${val||""}</textarea><button type="button" onclick="dictarCampo('${id}')" id="mic_${id}" title="Dictar con micrófono" style="position:absolute;top:8px;right:8px;background:none;border:1.5px solid ${BR};border-radius:7px;padding:3px 6px;cursor:pointer;font-size:14px;color:${MU};transition:all .2s;z-index:1">🎤</button></div>`;}
+
+// ── DICTADO POR VOZ ──────────────────────────────────────
+let _dictRecog=null;
+let _dictActive=null;
+window.dictarCampo=function(fieldId){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    showToast("Tu navegador no soporta dictado por voz. Usa Google Chrome.",false);return;
+  }
+  const btn=document.getElementById("mic_"+fieldId);
+  // Si ya está activo en este campo, detener
+  if(_dictActive===fieldId&&_dictRecog){
+    _dictRecog.stop();return;
+  }
+  // Si hay otro campo activo, detenerlo
+  if(_dictRecog){_dictRecog.stop();}
+
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  _dictRecog=new SR();
+  _dictRecog.lang="es-MX";
+  _dictRecog.continuous=true;
+  _dictRecog.interimResults=true;
+  _dictActive=fieldId;
+
+  // Estado visual: activo
+  if(btn){btn.textContent="⏹";btn.style.background="#FFEBEE";btn.style.borderColor="#E53935";btn.style.color="#E53935";}
+
+  let interim="";
+  const ta=document.getElementById(fieldId);
+  const base=ta?ta.value:"";
+
+  _dictRecog.onresult=function(e){
+    interim="";
+    let final="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript;
+      else interim+=e.results[i][0].transcript;
+    }
+    if(ta){
+      ta.value=base+(base&&final?" ":"")+final+(interim?` [${interim}]`:"");
+      ta.scrollTop=ta.scrollHeight;
+    }
+  };
+  _dictRecog.onend=function(){
+    // Limpiar el [interim] residual
+    if(ta)ta.value=ta.value.replace(/\s?\[.*?\]$/,"");
+    if(btn){btn.textContent="🎤";btn.style.background="none";btn.style.borderColor=BR;btn.style.color=MU;}
+    _dictActive=null;_dictRecog=null;
+    showToast("✓ Dictado finalizado");
+  };
+  _dictRecog.onerror=function(e){
+    if(btn){btn.textContent="🎤";btn.style.background="none";btn.style.borderColor=BR;btn.style.color=MU;}
+    _dictActive=null;_dictRecog=null;
+    if(e.error!=="aborted")showToast("Error de micrófono: "+e.error,false);
+  };
+  _dictRecog.start();
+  showToast("🎤 Dictando — habla ahora. Clic en ⏹ para detener");
+}
 function fld(l,inner,req=0){return`<div style="display:flex;flex-direction:column;gap:5px"><label class="fld-label">${l}${req?`<span style="color:${DA}"> *</span>`:""}</label>${inner}</div>`;}
 function gv(id){const e=document.getElementById(id);return e?e.value:"";}
 function showToast(msg,ok=true){
