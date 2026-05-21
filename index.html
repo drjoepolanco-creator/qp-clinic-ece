@@ -41,7 +41,6 @@ input,select,textarea,button{font-family:inherit;font-size:14px}
 <body>
 <div id="R" style="min-height:100vh"></div>
 <div id="toast-container" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
-
 <script>
 // ── SUPABASE ──────────────────────────────────────────────
 const { createClient } = supabase;
@@ -49,7 +48,6 @@ const SB = createClient(
   'https://ebukjdxeekhzeurmhgkj.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidWtqZHhlZWtoemV1cm1oZ2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDI3NDAsImV4cCI6MjA5NDM3ODc0MH0.eXaNf2lXjU8_q0CeYz8CHUBZJftp9_JZY153uZFWYVQ'
 );
-
 // ── ESTADO GLOBAL ─────────────────────────────────────────
 const P="#1565C0",PD="#0D47A1",PL="#E3F2FD",AC="#0288D1",SU="#2E7D32",DA="#C62828",BR="#CFD8DC",TX="#1A237E",MU="#546E7A",WA="#25D366";
 const WA_CLINICA="525644237028"; // WhatsApp oficial QP Clinic
@@ -65,7 +63,6 @@ let STATE={
   // UI
   loading:false
 };
-
 // ── CATÁLOGOS ─────────────────────────────────────────────
 const GENEROS=["Sin indicar","No especificado (se desconoce)","Masculino","Femenino","Transgénero","Transexual","Travesti","Intersexual","Otro"];
 const ESTADOS_CIVILES=["Soltero(a)","Casado(a)","Divorciado(a)","Separado(a)","Unión Libre","Viudo(a)","Otro","Se ignora"];
@@ -82,7 +79,6 @@ const PAISES=["MÉXICO","ESTADOS UNIDOS DE AMÉRICA","ARGENTINA","BRASIL","CANAD
 const ESPECIALIDADES=["Medicina del Deporte","Ortopedia y Traumatología","Medicina Interna","Cardiología","Neumología","Gastroenterología","Endocrinología","Neurología","Psiquiatría","Dermatología","Oftalmología","Otorrinolaringología","Urología","Ginecología y Obstetricia","Pediatría","Geriatría","Reumatología","Nefrología","Nutrición Clínica","Fisioterapia y Rehabilitación","Medicina Física y Rehabilitación","Algología / Dolor","Cirugía General","Otra especialidad"];
 const CIF_CAT=["Seleccione una categoría","— FUNCIONES CORPORALES —","Funciones mentales","Funciones sensoriales y dolor","Funciones de la voz y el habla","Funciones del sistema cardiovascular, hematológico, inmunológico y respiratorio","Funciones del sistema digestivo, metabólico y endocrino","Funciones genitourinarias y reproductoras","Funciones neuromusculoesqueléticas y relacionadas con el movimiento","Funciones de la piel y estructuras relacionadas","— ACTIVIDADES Y PARTICIPACIÓN —","Aprendizaje y aplicación del conocimiento","Tareas y demandas generales","Comunicación","Movilidad","Autocuidado","Vida doméstica","Interacciones y relaciones interpersonales","Áreas principales de la vida","Vida comunitaria, social y cívica","— FACTORES AMBIENTALES —","Productos y tecnología","Entorno natural y cambios derivados de la actividad humana","Apoyo y relaciones","Actitudes","Servicios, sistemas y políticas"];
 const PLANTILLAS_PAT=[{lbl:"Hipertensión",txt:"Hipertensión Arterial Sistémica diagnosticada en ___, en tratamiento con ___, controlada/no controlada."},{lbl:"Diabetes",txt:"Diabetes Mellitus tipo 2 diagnosticada en ___, en tratamiento con ___, HbA1c de ___."},{lbl:"Cx previa",txt:"Antecedente quirúrgico: ___ (fecha ___). Evolución postoperatoria sin complicaciones."},{lbl:"Fractura",txt:"Fractura de ___ en el año ___, manejo ___, consolidación adecuada sin secuelas."},{lbl:"Alérgico",txt:"Reacción alérgica a ___ manifestada como ___. Manejado con ___."},{lbl:"Sin ant.",txt:"Niega antecedentes patológicos de importancia."}];
-
 // ── HELPERS UI ────────────────────────────────────────────
 const RR=()=>document.getElementById("R");
 function go(pg,ex={}){Object.assign(STATE,{page:pg,...ex});draw();}
@@ -91,7 +87,6 @@ function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none
 function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`;}
 function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
 function ta(id,val,ph,rows=4){return`<div style="position:relative"><textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:10px 40px 10px 13px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;line-height:1.5;font-size:14px">${val||""}</textarea><button type="button" onclick="dictarCampo('${id}')" id="mic_${id}" title="Dictar con micrófono" style="position:absolute;top:8px;right:8px;background:none;border:1.5px solid ${BR};border-radius:7px;padding:3px 6px;cursor:pointer;font-size:14px;color:${MU};transition:all .2s;z-index:1">🎤</button></div>`;}
-
 // ── DICTADO POR VOZ ──────────────────────────────────────
 let _dictRecog=null;
 let _dictActive=null;
@@ -106,21 +101,17 @@ window.dictarCampo=function(fieldId){
   }
   // Si hay otro campo activo, detenerlo
   if(_dictRecog){_dictRecog.stop();}
-
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   _dictRecog=new SR();
   _dictRecog.lang="es-MX";
   _dictRecog.continuous=true;
   _dictRecog.interimResults=true;
   _dictActive=fieldId;
-
   // Estado visual: activo
   if(btn){btn.textContent="⏹";btn.style.background="#FFEBEE";btn.style.borderColor="#E53935";btn.style.color="#E53935";}
-
   let interim="";
   const ta=document.getElementById(fieldId);
   const base=ta?ta.value:"";
-
   _dictRecog.onresult=function(e){
     interim="";
     let final="";
@@ -190,14 +181,12 @@ function nav(){
     </div>
   </div>`;
 }
-
 // ── AUTH ──────────────────────────────────────────────────
 async function cerrarSesion(){
   await SB.auth.signOut();
   STATE.user=null;STATE.userProfile=null;STATE.pat=null;
   go("login");
 }
-
 // ── LOGIN ──────────────────────────────────────────────────
 function pgLogin(){
   RR().innerHTML=`
@@ -217,7 +206,6 @@ function pgLogin(){
       <p style="text-align:center;font-size:14px;color:${AC};margin-top:10px;font-style:italic">"Ciencia, calidez y compromiso"</p>
     </div>
   </div>
-
   <div id="modal-legal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:16px">
     <div style="background:#fff;border-radius:14px;width:100%;max-width:680px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px #00000040">
       <div style="padding:14px 20px;border-bottom:1px solid #CFD8DC;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
@@ -233,7 +221,6 @@ function pgLogin(){
       </div>
     </div>
   </div>`;}
-
 window.abrirLegal=function(tab){
   const m=document.getElementById("modal-legal");
   if(m){m.style.display="flex";switchLegal(tab);}
@@ -259,17 +246,13 @@ window.switchLegal=function(tab){
   if(tab==="terminos") c.innerHTML=TERMINOS_HTML;
   else c.innerHTML=PRIVACIDAD_HTML;
 }
-
 const TERMINOS_HTML=`
 <h2 style="font-size:15px;font-weight:800;color:#1A237E;margin-bottom:4px">TÉRMINOS Y CONDICIONES DE USO</h2>
 <p style="color:#546E7A;font-size:14px;margin-bottom:16px">QP Clinic — Expediente Clínico Electrónico | Versión 1.0 | Vigente desde mayo 2026</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">1. OBJETO</h3>
 <p>Los presentes Términos y Condiciones regulan el acceso y uso del sistema de Expediente Clínico Electrónico (ECE) de <strong>QP Clinic — Especialistas en Salud Integral</strong>, con domicilio en Insurgentes Sur 933, Ciudad de México, en adelante "QP Clinic". Al acceder al sistema, el usuario acepta íntegramente estos términos.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">2. USUARIOS AUTORIZADOS</h3>
 <p>El acceso al ECE está restringido exclusivamente al personal médico, paramédico y administrativo de QP Clinic debidamente registrado y autorizado. Queda estrictamente prohibido compartir credenciales de acceso. Cada usuario es responsable de todas las acciones realizadas con su cuenta.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">3. USO ACEPTABLE</h3>
 <p>El sistema debe utilizarse exclusivamente para:</p>
 <ul style="margin:6px 0 6px 20px">
@@ -279,10 +262,8 @@ const TERMINOS_HTML=`
   <li>Actividades directamente relacionadas con la atención médica en QP Clinic</li>
 </ul>
 <p>Queda prohibido el uso del sistema para fines distintos a los médico-clínicos, la extracción masiva de datos, o cualquier actividad que vulnere la privacidad de los pacientes.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">4. CONFIDENCIALIDAD Y SECRETO MÉDICO</h3>
 <p>Toda información contenida en los expedientes clínicos es estrictamente confidencial. El personal autorizado está obligado a guardar secreto profesional conforme a lo dispuesto en la <strong>Ley General de Salud</strong>, el <strong>Código de Ética Médica</strong> y la <strong>NOM-004-SSA3-2012</strong> sobre el Expediente Clínico. La divulgación no autorizada de información de pacientes constituye una violación grave sujeta a sanciones legales y laborales.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">5. NORMATIVIDAD APLICABLE</h3>
 <p>El presente sistema cumple con:</p>
 <ul style="margin:6px 0 6px 20px">
@@ -291,39 +272,30 @@ const TERMINOS_HTML=`
   <li><strong>Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP)</strong></li>
   <li><strong>Ley General de Salud</strong> y su Reglamento en materia de prestación de servicios de atención médica</li>
 </ul>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">6. PROPIEDAD INTELECTUAL</h3>
 <p>El sistema ECE, su diseño, código y contenido son propiedad de QP Clinic. Queda prohibida su reproducción, modificación o distribución sin autorización expresa y por escrito.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">7. LIMITACIÓN DE RESPONSABILIDAD</h3>
 <p>QP Clinic no será responsable por daños derivados del uso inadecuado del sistema, pérdida de datos por causas de fuerza mayor, o interrupciones del servicio ajenas a su control. El usuario asume la responsabilidad de la veracidad y exactitud de los datos que registra en el sistema.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">8. MODIFICACIONES</h3>
 <p>QP Clinic se reserva el derecho de modificar estos Términos y Condiciones en cualquier momento. Los cambios serán notificados a los usuarios y entrarán en vigor a partir de su publicación en el sistema.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">9. JURISDICCIÓN</h3>
 <p>Para cualquier controversia derivada del uso de este sistema, las partes se someten a la jurisdicción de los tribunales competentes de la Ciudad de México, renunciando a cualquier otro fuero que pudiera corresponderles.</p>
-
 <p style="margin-top:16px;padding:10px;background:#E3F2FD;border-radius:7px;color:#1565C0;font-size:14px">📋 Para dudas o aclaraciones sobre estos términos, contáctenos en: <strong>recepcion@qpclinic.mx</strong></p>`;
-
 const PRIVACIDAD_HTML=`
 <h2 style="font-size:15px;font-weight:800;color:#1A237E;margin-bottom:4px">AVISO DE PRIVACIDAD</h2>
 <p style="color:#546E7A;font-size:14px;margin-bottom:16px">QP Clinic — Expediente Clínico Electrónico | Versión 1.0 | Vigente desde mayo 2026</p>
 <p style="background:#FFF8E1;border-left:4px solid #FFA726;padding:10px 14px;border-radius:0 7px 7px 0;margin-bottom:14px;font-size:14px">De conformidad con lo previsto en la <strong>Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP)</strong> y su Reglamento, QP Clinic pone a su disposición el presente Aviso de Privacidad.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">I. IDENTIDAD Y DOMICILIO DEL RESPONSABLE</h3>
 <p><strong>QP Clinic — Especialistas en Salud Integral</strong><br>
 Domicilio: Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México, C.P. 03810<br>
 Correo electrónico: recepcion@qpclinic.mx<br>
 Sitio web: www.qpclinic.org</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">II. DATOS PERSONALES QUE SE RECABAN</h3>
 <p>Para la prestación de servicios médicos, QP Clinic recaba las siguientes categorías de datos personales:</p>
 <p><strong>Datos de identificación:</strong> nombre completo, fecha de nacimiento, sexo, CURP, estado civil, nacionalidad, escolaridad, ocupación.</p>
 <p><strong>Datos de contacto:</strong> domicilio, teléfono, celular, correo electrónico.</p>
 <p><strong>Datos de salud (datos sensibles):</strong> antecedentes heredofamiliares, antecedentes personales patológicos y no patológicos, diagnósticos, tratamientos, signos vitales, estudios de laboratorio y gabinete, notas médicas, alergias, medicamentos e información relacionada con su estado de salud.</p>
 <p><strong>Datos financieros:</strong> información de facturación (RFC, régimen fiscal), datos de seguro médico.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">III. FINALIDADES DEL TRATAMIENTO</h3>
 <p><strong>Finalidades primarias (necesarias para la atención médica):</strong></p>
 <ul style="margin:6px 0 6px 20px">
@@ -341,7 +313,6 @@ Sitio web: www.qpclinic.org</p>
   <li>Evaluación de la calidad de la atención médica recibida</li>
   <li>Fines estadísticos internos (datos anonimizados)</li>
 </ul>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">IV. TRANSFERENCIAS DE DATOS</h3>
 <p>QP Clinic podrá transferir sus datos personales, sin requerir su consentimiento, en los siguientes casos:</p>
 <ul style="margin:6px 0 6px 20px">
@@ -350,23 +321,18 @@ Sitio web: www.qpclinic.org</p>
   <li>A autoridades sanitarias (COFEPRIS, Secretaría de Salud) cuando la ley lo requiera</li>
   <li>A su compañía de seguros médicos, únicamente para los trámites que usted autorice</li>
 </ul>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">V. DERECHOS ARCO</h3>
 <p>Usted tiene derecho a <strong>Acceder, Rectificar, Cancelar u Oponerse</strong> al tratamiento de sus datos personales. Para ejercer estos derechos deberá presentar solicitud por escrito a:</p>
 <p style="background:#E3F2FD;padding:10px 14px;border-radius:7px;margin:8px 0"><strong>Correo:</strong> recepcion@qpclinic.mx<br>
 <strong>Domicilio:</strong> Insurgentes Sur 933, CDMX<br>
 <strong>Horario:</strong> Lunes a viernes de 8:00 a 20:00 horas</p>
 <p>Su solicitud deberá contener: nombre completo, domicilio, copia de identificación oficial y descripción clara de los datos y el derecho que desea ejercer. QP Clinic responderá en un plazo máximo de <strong>20 días hábiles</strong>.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">VI. SEGURIDAD DE LOS DATOS</h3>
 <p>QP Clinic implementa medidas de seguridad administrativas, técnicas y físicas para proteger sus datos personales contra daño, pérdida, alteración, destrucción o acceso no autorizado. El sistema utiliza cifrado SSL/TLS, autenticación segura y bases de datos protegidas conforme a estándares internacionales.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">VII. CAMBIOS AL AVISO DE PRIVACIDAD</h3>
 <p>Cualquier modificación a este Aviso de Privacidad será notificada a través del sistema ECE y/o por correo electrónico con al menos 30 días de anticipación a su entrada en vigor.</p>
-
 <h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">VIII. AUTORIDAD</h3>
 <p>Si considera que su derecho a la protección de datos personales ha sido vulnerado, puede acudir al <strong>Instituto Nacional de Transparencia, Acceso a la Información y Protección de Datos Personales (INAI)</strong>, www.inai.org.mx</p>
-
 <p style="margin-top:16px;padding:10px;background:#E8F5E9;border-radius:7px;color:#2E7D32;font-size:14px">✅ Última actualización: Mayo 2026 | Este aviso cumple con la LFPDPPP y su Reglamento, la NOM-004-SSA3-2012 y la NOM-024-SSA3-2012.</p>`;
 window.doLogin=async function(){
   let usuario=gv("lu").trim().toLowerCase();
@@ -374,7 +340,6 @@ window.doLogin=async function(){
   if(!usuario||!pass){showLoginError("Ingresa tu usuario y contraseña");return;}
   const lb=document.getElementById("login-btn");
   lb.textContent="Entrando...";lb.disabled=true;
-
   // Si no tiene @ lo tratamos como username → buscar email en usuarios
   let email=usuario;
   if(!usuario.includes("@")){
@@ -387,7 +352,6 @@ window.doLogin=async function(){
       email=usuario+"@qpclinic.mx";
     }
   }
-
   const {data,error}=await SB.auth.signInWithPassword({email,password:pass});
   if(error){
     showLoginError("Usuario o contraseña incorrectos");
@@ -401,7 +365,6 @@ window.doLogin=async function(){
   go("agenda");
 }
 function showLoginError(msg){const e=document.getElementById("login-error");if(e){e.style.display="block";e.textContent=msg;}}
-
 // ── AGENDA ────────────────────────────────────────────────
 async function pgAgenda(){
   const u=STATE.userProfile||{};
@@ -412,11 +375,8 @@ async function pgAgenda(){
     medicos=(data||[]).filter(m=>m.calendar_url?.trim());
     window._medicosCal=medicos;
   }
-
   RR().innerHTML=nav()+`
   <div style="height:calc(100vh - 46px);display:flex;flex-direction:column">
-
-    <!-- Header -->
     <div style="background:#fff;border-bottom:1px solid ${BR};padding:10px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div style="display:flex;align-items:center;gap:10px">
         <i class="ti ti-calendar" style="font-size:22px;color:${P}" aria-hidden="true"></i>
@@ -439,14 +399,11 @@ async function pgAgenda(){
         </a>
       </div>
     </div>
-
-    <!-- Calendario -->
     <div style="flex:1;overflow:hidden;position:relative">
       ${renderCalendarioView(u,medicos,isAdmin)}
     </div>
   </div>`;
 }
-
 function renderCalendarioView(u,medicos,isAdmin){
   let url="";
   if(isAdmin&&STATE.calSeleccionado){
@@ -456,7 +413,6 @@ function renderCalendarioView(u,medicos,isAdmin){
   } else {
     url=u.calendar_url||"";
   }
-
   if(!url)return`<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
     <i class="ti ti-calendar-off" style="font-size:56px;color:#90A4AE;margin-bottom:16px" aria-hidden="true"></i>
     <h3 style="font-size:16px;font-weight:700;color:${TX};margin-bottom:8px">Vincula tu Google Calendar</h3>
@@ -470,7 +426,6 @@ function renderCalendarioView(u,medicos,isAdmin){
     </div>
     ${btn("⚙️ Ir a Mi perfil médico","go('perfil')","p",1)}
   </div>`;
-
   let embedUrl=url;
   if(embedUrl.includes("calendar.google.com/calendar/embed")){
     const sep=embedUrl.includes("?")?"&":"?";
@@ -480,15 +435,12 @@ function renderCalendarioView(u,medicos,isAdmin){
     if(!embedUrl.includes("wkst="))embedUrl+="&wkst=2";
     if(!embedUrl.includes("showTitle="))embedUrl+="&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=1&bgcolor=%23ffffff";
   }
-
   return`<iframe src="${embedUrl}" style="width:100%;height:100%;border:none" frameborder="0" scrolling="no" allowfullscreen loading="lazy"></iframe>`;
 }
-
 window.seleccionarCalendario=function(id){
   STATE.calSeleccionado=STATE.calSeleccionado===id?null:id;
   pgAgenda();
 }
-
 // ── BUSCAR PACIENTES ──────────────────────────────────────
 async function pgBuscar(){
   RR().innerHTML=nav()+`
@@ -570,7 +522,6 @@ window.abrirExpediente=async function(id){
   STATE.medOtrosText=medDB?.otros||"";
   go("expediente");
 }
-
 // ── NUEVO PACIENTE ────────────────────────────────────────
 function pgNuevo(){
   RR().innerHTML=nav()+`
@@ -724,7 +675,6 @@ function renderNB(){
     </div>
     <div style="margin-top:12px">${fld("Anotaciones generales",ta("fans","","Notas adicionales...",3))}</div>`;
 }
-
 window.enviarPreregistro=async function(){
   const nom=gv("nn").trim();const ap=gv("na").trim();
   const cel=(gv("ncel")||gv("ntelmov")||"").trim();
@@ -805,11 +755,9 @@ function aplicarPreregistro(r){
 window.guardarNuevoPac=async function(){
   const nom=gv("nn"),apP=gv("na");
   if(!nom.trim()||!apP.trim()){showToast("Nombre y apellido paterno son requeridos",false);return;}
-
   // Verificar sesión activa
   const {data:{session}}=await SB.auth.getSession();
   if(!session){showToast("Sesión expirada — vuelve a iniciar sesión",false);go("login");return;}
-
   loading(true,"Registrando paciente...");
   const payload={
     nombre:nom.trim().toUpperCase(),
@@ -838,16 +786,13 @@ window.guardarNuevoPac=async function(){
     firmo_consentimiento:document.getElementById("ncons")?.checked||false,
     created_by:session.user.id
   };
-
   const {data,error}=await SB.from("pacientes").insert(payload).select().single();
   loading(false);
-
   if(error){
     console.error("Error Supabase:",error);
     showToast("Error: "+error.message,false);
     return;
   }
-
   STATE.pat=data;
   STATE.expTab="ficha";
   STATE.ficTab="gen";
@@ -857,11 +802,9 @@ window.guardarNuevoPac=async function(){
   STATE.alergs=["ALERGIAS NEGADAS"];
   STATE.discapacidades=[];
   STATE.consultaActual=null;
-
   showToast("✓ Paciente registrado — Exp. "+data.numero_expediente);
   go("expediente");
 }
-
 // ── EXPEDIENTE ────────────────────────────────────────────
 function pgExp(){
   const p=STATE.pat;
@@ -870,7 +813,6 @@ function pgExp(){
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim();
   const iniciales=(p.nombre?.[0]||"")+(p.apellido_paterno?.[0]||"");
   const alergias=STATE.alergs?.filter(a=>a&&a!=="ALERGIAS NEGADAS")||[];
-
   const GRUPOS=[
     {label:"Identificación",items:[
       {k:"ficha",icon:"ti-id-badge",label:"Ficha de datos"},
@@ -893,11 +835,8 @@ function pgExp(){
       {k:"fisio",icon:"ti-walk",label:"Fisioterapia"},
     ]},
   ];
-
   RR().innerHTML=nav()+`
   <div style="display:flex;flex-direction:column;height:calc(100vh - 46px);overflow:hidden">
-
-    <!-- Barra paciente -->
     <div style="background:${PD};padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0">${iniciales||"?"}</div>
@@ -914,11 +853,7 @@ function pgExp(){
         <button onclick="go('buscar')" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:5px 10px;color:rgba(255,255,255,.7);cursor:pointer;font-size:13px">✕</button>
       </div>
     </div>
-
-    <!-- Cuerpo: sidebar + contenido -->
     <div style="display:flex;flex:1;overflow:hidden">
-
-      <!-- Sidebar -->
       <div style="width:210px;flex-shrink:0;background:#fff;border-right:1px solid ${BR};overflow-y:auto;padding:10px 0">
         ${GRUPOS.map(g=>`
           <div style="padding:6px 16px 3px">
@@ -933,16 +868,12 @@ function pgExp(){
           }).join("")}
           <div style="height:8px"></div>
         `).join("")}
-
-        <!-- Nueva consulta -->
         <div style="padding:10px 12px;border-top:1px solid ${BR};margin-top:4px">
           <button onclick="go('consulta')" style="width:100%;padding:9px 12px;background:${P};color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">
             <i class="ti ti-plus" aria-hidden="true"></i> Nueva consulta
           </button>
         </div>
       </div>
-
-      <!-- Contenido -->
       <div id="eb" style="flex:1;overflow-y:auto;background:#F0F4F8"></div>
     </div>
   </div>`;
@@ -972,7 +903,6 @@ function renderEB(){
   else if(STATE.expTab==="fisio")renderFisio(b);
   else b.innerHTML=`<div style="padding:40px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🔧</div><p style="color:${MU}">Módulo disponible en próxima versión</p></div>`;
 }
-
 // ── FICHA DE DATOS ────────────────────────────────────────
 function renderFicha(b){
   const p=STATE.pat;
@@ -1377,7 +1307,6 @@ window.guardarFicha=async function(){
   STATE.pat=data;
   showToast("✓ Datos del paciente actualizados");
 }
-
 // ── ANTECEDENTES ──────────────────────────────────────────
 function renderAnt(b){
   b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
@@ -1406,7 +1335,6 @@ window.guardarAnt=async function(){
   const otros=document.getElementById("ant_otros");if(otros)STATE.otrosText=otros.value;
   const alOtros=document.getElementById("al_otros_txt");if(alOtros)STATE.alOtrosText=alOtros.value;
   const medOtros=document.getElementById("med_otros_txt");if(medOtros)STATE.medOtrosText=medOtros.value;
-
   if(STATE.antTab==="pat"){
     await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="oc"){
@@ -1512,7 +1440,6 @@ window.removeDiscap=async function(idx){
   await SB.from("discapacidades").delete().eq("paciente_id",pid).eq("categoria",cat);
   STATE.discapacidades.splice(idx,1);saveABTextareas();renderAB();showToast("✓ Eliminada");
 }
-
 function renderAB(){
   const ab=document.getElementById("ab");if(!ab)return;
   const enfs=["Diabetes Mellitus","Hipertensión Arterial","Dislipidemias","Neoplasias","Malformaciones hereditarias","Alergias","Enf. psiquiátricas","Enf. neurológicas","Enf. cardiovasculares","Enf. broncopulmonares","Enf. tiroideas","Enf. renales","Enf. osteoarticulares","Enf. infectocontagiosas"];
@@ -1523,7 +1450,6 @@ function renderAB(){
   const patI=["COVID-19","Influenza","Faringoamigdalitis","Fiebre Reumática","Hepatitis","Parotiditis (paperas)","Mononucleosis infecciosa","Parasitosis","Tifoidea","Dengue","Toxoplasmosis","Brucelosis","Leptospirosis","Amebiasis","Neurocisticercosis","Transmisión sexual","Tuberculosis","Otra infectocontagiosa"];
   const patC=["Diabetes Mellitus","Hipertensión Arterial Sistémica","Dislipidemias","Obesidad","Neoplásicas","Enf. reumatológicas","Enfermedad de Gota","Enf. psiquiátricas","Enf. sistema nervioso","Enf. sistema cardiovascular","Enf. sistema respiratorio","Enf. sistema gastrointestinal","Enf. sistema urinario","Enf. sistema musculoesquelético","Enf. sistema tegumentario","Enf. endocrinológicas","Enf. inmunológicas"];
   const alergsComun=["ALERGIAS NEGADAS","ÁCAROS","ALIMENTOS","CHOCOLATE","FRUTOS SECOS","HONGOS","HUMEDAD","LATEX","MARISCOS","MASCOTAS","MOHO","NÍQUEL","PICADURA DE INSECTOS","POLEN","POLVO","SOL"];
-
   if(STATE.antTab==="fam"){
     const notaFam=STATE.famNotas||STATE.antData?.familiares?.notas||"";
     ab.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:500px;width:100%"><thead><tr style="background:${PL}"><th style="padding:8px 12px;text-align:left;font-size:14px;width:220px;color:${TX}">Enfermedad</th>${rels.map(r=>`<th style="padding:10px 12px;font-size:14px;text-align:center;color:${TX}">${r}</th>`).join("")}</tr></thead><tbody>${enfs.map((e,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:8px 12px;font-size:14px">${e}</td>${rels.map(r=>`<td style="text-align:center;padding:8px"><input type="checkbox" ${STATE.famData[e+"_"+r]?"checked":""} onchange="toggleFam('${e}','${r}')" style="accent-color:${P};cursor:pointer;width:15px;height:15px"></td>`).join("")}</tr>`).join("")}</tbody></table></div>
@@ -1531,16 +1457,13 @@ function renderAB(){
       ${fld("Observaciones y notas adicionales",`<textarea id="fam_notas" rows="4" placeholder="Especifique detalles relevantes de los antecedentes heredofamiliares, edades de diagnóstico, causas de fallecimiento, etc." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-size:14px;line-height:1.6">${notaFam}</textarea>`)}
     </div>`;
   }
-
   else if(STATE.antTab==="pat"){
     const selCount=Object.values(STATE.patData).filter(Boolean).length;
     ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px"><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Generales</p>${patG.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Adicciones</p>${patA.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Exantemáticas</p>${patEx.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Infectocontagiosas</p>${patI.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Crónico-degenerativas</p>${patC.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div></div>${selCount>0?`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:14px;font-weight:700;color:#1B5E20;margin-right:4px">✓ Seleccionados:</span>${Object.entries(STATE.patData).filter(([,v])=>v).map(([k])=>`<span style="background:#C8E6C9;color:#1B5E20;padding:2px 8px;border-radius:20px;font-size:14px;font-weight:600">${k}</span>`).join("")}</div>`:""}<div style="border-top:2px dashed ${BR};padding-top:16px"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"><div><p style="font-size:14px;font-weight:700;color:${TX}">Otras enfermedades identificadas como antecedentes personales patológicos</p><p style="font-size:14px;color:${MU};margin-top:2px">Enfermedades adicionales no incluidas en las listas anteriores</p></div><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"><span style="font-size:14px;color:${MU};font-weight:600">Plantillas:</span>${PLANTILLAS_PAT.map(pl=>`<button onclick="insertPlantilla('${pl.txt.replace(/'/g,"\\'")}')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:14px;font-weight:600">${pl.lbl}</button>`).join("")}</div></div><textarea id="pat-otras" rows="5" placeholder="Ej: Sinusitis en la infancia remitida sin secuelas ni complicaciones." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;font-size:14px;line-height:1.6">${STATE.patOtrasNotes||""}</textarea><div class="sticky-save">${btn("💾 Guardar notas","guardarAnt()","ok",1)}</div></div>`;
   }
   else if(STATE.antTab==="nop"){
     STATE._plantillaDep=`ANTECEDENTES NO PATOLÓGICOS — DEPORTIVOS\n\n• Familiares: ninguno.\n• Deportes practicados anteriormente: \n   - Logros: ninguno.\n• Ejercicio actual: \n   - Inicio: \n   - Frecuencia de entrenamiento (Días/horas): \n   - Logros más importantes: \n• Proyección: mejorar su forma física y estado de salud.\n• Alimentación: \n   - Número de comidas: \n   - ¿Completa? Cereales y tubérculos__ Prod. origen animal__ Leche__ Leguminosas__ Verduras__ Frutas__ Aceites y grasas__\n   - Lugar: __% casa\n\nHÁBITOS PERSONALES\nBaño: \nDefecación: \nLavarse los dientes: \nHabitación (cuartos, piso, techo, ventanas, hab, servicios): \nTabaquismo (cig/día/años): \nAlcoholismo (bebidas/frecuencia): \nToxicomanías (esp/día/años): \nAlimentación (frecuencia/tipo): \nDeportes (act. física/frecuencia): \nEscolaridad: \nInmunizaciones: \nHipersensibilidad/Alergias: \nTrabajo/Descanso: \nPasatiempos:`;
-
     STATE._plantillaGen=`ANTECEDENTES NO PATOLÓGICOS — GENERALES\n\nHÁBITOS PERSONALES\nBaño: \nDefecación: \nLavarse los dientes: \nHabitación (cuartos, piso, techo, ventanas, hab, servicios): \nTabaquismo (cig/día/años): \nAlcoholismo (bebidas/frecuencia): \nToxicomanías (esp/día/años): \nAlimentación: \n   - Número de comidas: \n   - Tipo de dieta: \n   - Lugar: __% casa\nActividad física (tipo/frecuencia): \nEscolaridad: \nInmunizaciones: \nHipersensibilidad/Alergias: \nTrabajo/Descanso: \nPasatiempos:`;
-
     ab.innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
       <span style="font-size:14px;color:${MU};font-weight:600">Plantillas rápidas:</span>
@@ -1556,15 +1479,11 @@ function renderAB(){
     const alergsComun=["ÁCAROS","ALIMENTOS (general)","CHOCOLATE","COLORANTES ALIMENTARIOS","CONSERVADORES","FRUTOS SECOS","GLUTEN","HUEVO","HUMEDAD","LÁTEX","LECHE / LÁCTEOS","MARISCOS","MASCOTAS (pelo de animal)","MARISCOS","MOHO","NÍQUEL","PESCADO","PICADURA DE INSECTOS","PINO / RESINAS","PIQUETE DE ABEJA","PIQUETE DE AVISPA","PLÁSTICO","POLEN","POLVO","SOYA","SOL / LUZ SOLAR","TRIGO"];
     const alergsMediamb=["ÁCAROS DEL POLVO","AIRE FRÍO","BIÓXIDO DE AZUFRE","CLORO","CONTAMINACIÓN AMBIENTAL","COSMÉTICOS / PERFUMES","DETERGENTES","GASES INDUSTRIALES","HOLLÍN / SMOG","HONGOS AMBIENTALES","HUMO DE CIGARRO","HUMO DE LEÑA","LATEX","METALES (níquel, cromo)","MOHO DOMÉSTICO","OZONO","PINTURAS / BARNICES","PLAGUICIDAS","PÓLENES (gramíneas)","PÓLENES (árboles)","PÓLENES (malezas)","POLVO CASERO","POLVO DE HARINA","PRODUCTOS DE LIMPIEZA","RADIACIÓN UV","TIERRA / BARRO"];
     const alergsMed=["ÁCIDO ACETILSALICÍLICO (Aspirina)","AMOXICILINA","AMOXICILINA/CLAVULANATO","AMPICILINA","ANTIINFLAMATORIOS (AINEs)","AZITROMICINA","CARBAMAZEPINA","CEFALOSPORINAS","CIPROFLOXACINO","CLARITROMICINA","CLINDAMICINA","CLOPIDOGREL","CODEÍNA","CONTRASTE YODADO","DICLOFENACO","ERITROMICINA","FENITOÍNA","IBUPROFENO","KETOROLACO","LEVOFLOXACINO","LIDOCAÍNA (anestésico local)","METRONIDAZOL","MORFINA","NAPROXENO","NITROFURANTOÍNA","PENICILINA","PIROXICAM","SULFONAMIDAS (sulfas)","TETRACICLINAS","TRAMADOL","VANCOMICINA"];
-
     const lista=STATE.alTab==="comunes"?alergsComun:STATE.alTab==="medamb"?alergsMediamb:alergsMed;
     const alSelTab=STATE.alTab;
-
     ab.innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <!-- Columna izquierda: listas -->
       <div>
-        <!-- Sub-tabs alergias -->
         <div style="display:flex;gap:0;margin-bottom:12px;border:1.5px solid ${BR};border-radius:8px;overflow:hidden">
           <button onclick="STATE.alTab='comunes';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='comunes'?P:'#fff'};color:${alSelTab==='comunes'?'#fff':MU};cursor:pointer;font-size:14px;font-weight:${alSelTab==='comunes'?700:500};border-right:1px solid ${BR}">🌿 Más comunes</button>
           <button onclick="STATE.alTab='medamb';renderAB()" style="flex:1;padding:7px 6px;border:none;background:${alSelTab==='medamb'?P:'#fff'};color:${alSelTab==='medamb'?'#fff':MU};cursor:pointer;font-size:14px;font-weight:${alSelTab==='medamb'?700:500};border-right:1px solid ${BR}">🌎 Medio ambiente</button>
@@ -1583,8 +1502,6 @@ function renderAB(){
         </div>
         <p style="font-size:14px;color:${MU};margin-top:8px;padding:6px 10px;background:#F8F9FA;border-radius:6px">💡 Haz clic en cualquier alergia para agregarla o quitarla del registro</p>`}
       </div>
-
-      <!-- Columna derecha: registro -->
       <div>
         <div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:8px;padding:14px;margin-bottom:10px;min-height:200px">
           <b style="font-size:14px;color:#E65100;display:block;margin-bottom:8px">⚠️ Alergias registradas del paciente</b>
@@ -1629,16 +1546,12 @@ function renderAB(){
     const g=STATE.ginData||{};
     ab.innerHTML=`
     <div style="display:flex;gap:6px;margin-bottom:14px">${btn("💾 Guardar gineco-obstétricos","guardarGineco()","ok",1)}</div>
-
-    <!-- MENARQUIA -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Menarquia (edad)",`<input id="g_men" value="${g.menarquia||""}" placeholder="Ej: 12 años" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       ${fld("FUM (Fecha Última Menstruación)",`<input id="g_fum" value="${g.fum||""}" placeholder="DD/MM/AAAA" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       ${fld("Ritmo menstrual",`<input id="g_ritmo" value="${g.ritmo||""}" placeholder="Ej: 28 x 5" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       ${fld("Menopausia",`<input id="g_meno" value="${g.menopausia||""}" placeholder="Edad o No aplica" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
-
-    <!-- CARACTERÍSTICAS DE LA MENSTRUACIÓN -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Características de la Menstruación</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Duración (días)",`<input id="g_dur" value="${g.duracion||""}" placeholder="Ej: 5" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
@@ -1647,8 +1560,6 @@ function renderAB(){
       ${fld("Presencia de dolor",`<select id="g_dolor" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${g.dolor==="No"?"selected":""}>No</option><option ${g.dolor==="Sí leve"?"selected":""}>Sí — leve</option><option ${g.dolor==="Sí moderado"?"selected":""}>Sí — moderado</option><option ${g.dolor==="Sí intenso"?"selected":""}>Sí — intenso</option><option ${g.dolor==="Dismenorrea primaria"?"selected":""}>Dismenorrea primaria</option><option ${g.dolor==="Dismenorrea secundaria"?"selected":""}>Dismenorrea secundaria</option></select>`)}
     </div>
     <div style="margin-bottom:16px">${fld("Presencia de otras secreciones vaginales",ta("g_sec",g.secreciones||"","Describa características del flujo, color, olor, consistencia, cantidad...",3))}</div>
-
-    <!-- ACTIVIDAD SEXUAL -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Actividad Sexual</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
       ${fld("Vida sexual activa",`<select id="g_vsa" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${g.vida_sexual==="No"?"selected":""}>No</option><option ${g.vida_sexual==="Sí"?"selected":""}>Sí</option><option ${g.vida_sexual==="No especificado"?"selected":""}>No especificado</option></select>`)}
@@ -1660,8 +1571,6 @@ function renderAB(){
       ${fld("Tipo de relaciones",`<select id="g_rel" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option><option ${g.relaciones==="Heterosexuales"?"selected":""}>Heterosexuales</option><option ${g.relaciones==="Homosexuales"?"selected":""}>Homosexuales</option><option ${g.relaciones==="Bisexuales"?"selected":""}>Bisexuales</option></select>`)}
       ${fld("Enfermedades de transmisión sexual",ta("g_ets",g.ets||"","Especifique si aplica...",3))}
     </div>
-
-    <!-- PAPANICOLAOU / COLPOSCOPÍA -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Estudios Ginecológicos</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Último Papanicolaou",`<input id="g_pap" value="${g.papanicolaou||""}" placeholder="Fecha o resultado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
@@ -1669,8 +1578,6 @@ function renderAB(){
       ${fld("Última colposcopía",`<input id="g_col" value="${g.colposcopia||""}" placeholder="Fecha o resultado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       ${fld("Última mastografía",`<input id="g_mast" value="${g.mastografia||""}" placeholder="Fecha o resultado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
-
-    <!-- INFORMACIÓN DE EMBARAZOS -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Información de Embarazos Previos</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
       ${(()=>{const nums=["Ninguno","1","2","3","4","5","6","7","8","9","10+"];const campos=[["Gestaciones","gestaciones"],["Partos","partos"],["Abortos","abortos"],["Cesáreas","cesareas"]];return campos.map(([l,k])=>fld(l,`<select id="g_${k}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${nums.map(n=>"<option"+(g[k]===n?" selected":"")+">"+n+"</option>").join("")}</select>`)).join("");})()}
@@ -1685,8 +1592,6 @@ function renderAB(){
     const terapias=["Fototerapia","CPAP","Intubación","Exsanguineotransfusión","Catéter central","Catéter umbilical","Circuncisión","Otra cirugía","Factor surfactante","Ventilación mecánica","Oxígeno suplementario","Antibióticos IV"];
     ab.innerHTML=`
     <div style="display:flex;gap:6px;margin-bottom:14px">${btn("💾 Guardar antecedentes neonatales","guardarNeonatales()","ok",1)}</div>
-
-    <!-- PRODUCTO DE LA GESTA -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Producto de la Gesta</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Producto de la gesta No.",`<input id="n_gesta" value="${n.num_gesta||""}" placeholder="Ej: 1, 2, 3..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
@@ -1694,8 +1599,6 @@ function renderAB(){
       ${fld("Control prenatal",`<select id="n_cpre" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option>${["Sí, adecuado","Sí, incompleto","No tuvo","Parcial"].map(v=>`<option ${n.control_pre===v?"selected":""}>${v}</option>`).join("")}</select>`)}
       ${fld("Semanas de gestación al nacer",`<input id="n_sgest" value="${n.semanas_gest||""}" placeholder="Ej: 38 SDG" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
-
-    <!-- DATOS DE LA MADRE -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Datos de la Madre</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Gestaciones de la madre",`<select id="n_mgest" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["0","1","2","3","4","5","6","7","8","9","10+"].map(v=>`<option ${n.m_gestaciones===v?"selected":""}>${v}</option>`).join("")}</select>`)}
@@ -1707,8 +1610,6 @@ function renderAB(){
       ${fld("Patologías maternas durante el embarazo",ta("n_pat_mat",n.pat_maternas||"","Ej: Diabetes gestacional, Preeclampsia, Infecciones, TORCH...",3))}
       ${fld("Medicamentos maternos durante el embarazo",ta("n_med_mat",n.med_maternos||"","Ej: Ácido fólico, Hierro, Antibióticos, Corticosteroides...",3))}
     </div>
-
-    <!-- DATOS AL NACER -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Datos al Nacer</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
       ${fld("Tipo de parto",`<select id="n_tparto" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option>${["Eutócico (vaginal)","Distócico (fórceps/vacuum)","Cesárea programada","Cesárea urgente"].map(v=>`<option ${n.tipo_parto===v?"selected":""}>${v}</option>`).join("")}</select>`)}
@@ -1726,8 +1627,6 @@ function renderAB(){
       ${fld("Reanimación",`<select id="n_reanim" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>Ninguna</option>${["Estimulación táctil","Oxígeno libre","VPP (ventilación a presión positiva)","Intubación","Masaje cardíaco","Medicamentos"].map(v=>`<option ${n.reanimacion===v?"selected":""}>${v}</option>`).join("")}</select>`)}
       ${fld("Complicaciones al nacimiento",ta("n_comp",n.complicaciones||"","Ej: Asfixia perinatal, Hipoxia, Sepsis, SDR...",3))}
     </div>
-
-    <!-- TERAPIAS UTILIZADAS -->
     <div style="margin-bottom:14px">
       <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:8px">Terapias utilizadas en el período neonatal</p>
       <div style="display:flex;flex-wrap:wrap;gap:8px">
@@ -1736,8 +1635,6 @@ function renderAB(){
         </label>`).join("")}
       </div>
     </div>
-
-    <!-- ALIMENTACIÓN -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Alimentación</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       <div>
@@ -1748,8 +1645,6 @@ function renderAB(){
       ${fld("Fórmula actual",`<input id="n_form_act" value="${n.formula_actual||""}" placeholder="Nombre de la fórmula" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       ${fld("Otras fórmulas previas",`<input id="n_form_prev" value="${n.formula_prev||""}" placeholder="Fórmulas usadas anteriormente" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
-
-    <!-- TAMIZAJE -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Tamizaje Neonatal</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       <div>
@@ -1759,8 +1654,6 @@ function renderAB(){
       </div>
       ${fld("Alteraciones encontradas en tamizaje",ta("n_tam_alt",n.tamiz_alt||"","Describa alteraciones encontradas...",4))}
     </div>
-
-    <!-- DESARROLLO PSICOMOTOR -->
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Desarrollo Psicomotor</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Sostuvo cabeza (meses)",`<input id="n_cab" value="${n.sostuvo_cab||""}" placeholder="Ej: 3" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
@@ -1789,7 +1682,6 @@ function renderAB(){
   }
   else{ab.innerHTML=`<p style="text-align:center;padding:24px;color:${MU}">Sección disponible · sin datos capturados aún</p>`;}
 }
-
 // ── INTERROGATORIO ────────────────────────────────────────
 function renderInter(b){
   const SIS=[
@@ -1803,7 +1695,6 @@ function renderInter(b){
     {key:"osteomuscular",label:"🦴 Sistema Osteomuscular",icon:"🦴",sintomas:["Artralgia","Artritis","Mialgia","Debilidad muscular","Rigidez matutina","Rigidez vespertina","Limitación funcional","Inflamación articular","Crepitación articular","Calor articular","Rubor articular","Deformidad articular","Fenómeno de Raynaud","Dolor lumbar","Lumbalgia mecánica","Lumbalgia inflamatoria","Cervicalgia","Dorsalgia","Contractura muscular","Claudicación","Atrofia muscular","Escoliosis","Luxaciones frecuentes","Esguinces recurrentes","Fractura patológica"]},
     {key:"nervioso",label:"🧠 Sistema Nervioso",icon:"🧠",sintomas:["Cefalea tensional","Cefalea en racimo","Migraña","Mareo","Vértigo","Síncope","Convulsiones","Crisis epilépticas","Parestesias","Entumecimiento","Debilidad focal","Hemiplejía","Paresia","Pérdida de memoria","Amnesia","Cambios en personalidad","Insomnio","Hipersomnia","Somnolencia diurna","Dificultad para concentrarse","Afasia","Disartria","Diplopia","Visión borrosa","Amaurosis","Tinnitus","Acúfenos","Tremor en reposo","Tremor de intención","Ataxia","Incoordinación","Anosmia","Hiposmia","Agusia","Disgeusia","Alteración de la marcha","Caídas frecuentes"]},
   ];
-
   b.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="background:${PD};padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
@@ -1817,12 +1708,10 @@ function renderInter(b){
   </div>`;
   cargarInterrogatorio(SIS);
 }
-
 async function cargarInterrogatorio(SIS){
   const pid=STATE.pat?.id;if(!pid)return;
   const {data}=await SB.from("interrogatorio_aparatos").select("*").eq("paciente_id",pid).maybeSingle();
   const ig=document.getElementById("inter-grid");if(!ig)return;
-
   ig.innerHTML=SIS.map(s=>`
     <div style="border:1.5px solid ${BR};border-radius:10px;overflow:hidden">
       <div style="background:${PL};padding:8px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
@@ -1840,7 +1729,6 @@ async function cargarInterrogatorio(SIS){
     </div>
   `).join("");
 }
-
 window.addSintoma=function(key,txt){
   const ta=document.getElementById("inter_"+key);if(!ta)return;
   if(ta.value==="NORMAL"||ta.value==="Interrogado y negado")ta.value="";
@@ -1861,7 +1749,6 @@ window.guardarInterrogatorio=async function(){
   await SB.from("interrogatorio_aparatos").upsert(payload,{onConflict:"paciente_id"});
   loading(false);
   showToast("✓ Interrogatorio guardado");
-
   // Mostrar resumen
   const hoy=new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
   const resumen=campos.map(c=>{
@@ -1871,10 +1758,8 @@ window.guardarInterrogatorio=async function(){
     const esNegado=val.trim().toLowerCase().includes("interrogado y negado");
     return{etiqueta:etiquetas[c],val,esNormal,esNegado};
   }).filter(Boolean);
-
   const previo=document.getElementById("inter-resumen");
   if(previo)previo.remove();
-
   const div=document.createElement("div");
   div.id="inter-resumen";
   div.style.cssText=`max-width:1100px;margin:0 auto 0;padding:0 14px`;
@@ -1891,11 +1776,9 @@ window.guardarInterrogatorio=async function(){
       ${resumen.length===0?`<p style="grid-column:span 3;text-align:center;color:${MU};font-size:14px">Sin datos capturados</p>`:""}
     </div>
   </div>`;
-
   const grid=document.getElementById("inter-grid");
   if(grid&&grid.parentNode)grid.parentNode.insertBefore(div,grid);
 }
-
 // ── CONSULTAS ─────────────────────────────────────────────
 function renderConsultas(b){
   b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
@@ -1917,7 +1800,6 @@ async function cargarConsultas(){
   const {data,error}=await SB.from("consultas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const cl=document.getElementById("consultas-lista");if(!cl)return;
   if(error||!data||data.length===0){cl.innerHTML=`<div class="empty-state"><div class="empty-icon"><i class="ti ti-notes-medical" aria-hidden="true"></i></div><p>Sin consultas registradas</p><small>Crea la primera consulta con el botón de abajo</small><br><br>${btn("➕ Nueva consulta","go('consulta')","p",1)}</div>`;return;}
-
   // Cargar nombres de médicos que falten
   const uids=[...new Set(data.filter(c=>!c.medico_nombre&&c.medico_id).map(c=>c.medico_id))];
   const medMap={};
@@ -1925,7 +1807,6 @@ async function cargarConsultas(){
     const {data:uData}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2").in("id",uids);
     (uData||[]).forEach(u=>{medMap[u.id]=`${u.titulo||"Dr."} ${u.nombre||""} ${u.apellidos||""}`.trim();});
   }
-
   // Verificar cierre automático 24h - ya manejado arriba
   const now2=new Date();
   for(const c of data){
@@ -1937,7 +1818,6 @@ async function cargarConsultas(){
       }
     }
   }
-
   cl.innerHTML=`<table style="width:100%;border-collapse:collapse">
     <thead><tr style="background:${PL}">
       ${["Especialista","Fecha","Motivo de consulta","Diagnóstico","Estado",""].map(h=>`<th style="padding:10px 12px;text-align:left;font-size:14px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}
@@ -1970,7 +1850,6 @@ async function cargarConsultas(){
     </tbody>
   </table>`;
 }
-
 window.abrirConsulta=async function(cid){
   loading(true,"Cargando consulta...");
   const {data}=await SB.from("consultas").select("*").eq("id",cid).single();
@@ -1984,20 +1863,17 @@ window.abrirConsulta=async function(cid){
   }
   go("consulta");
 }
-
 // ── INTERCONSULTAS ────────────────────────────────────────
 async function renderInterconsultas(b){
   // Cargar médicos del sistema
   const {data:medicos}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2,rol").eq("activo",true).order("apellidos");
   const med=STATE.userProfile||{};
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
-
   const medOptions=(medicos||[]).map(m=>{
     const nombre=`${m.titulo||""} ${m.nombre||""} ${m.apellidos||""}`.trim();
     const esp=m.especialidad_2||m.especialidad_1||"";
     return`<option value="${nombre}${esp?" | "+esp:""}">${nombre}${esp?" — "+esp:""}</option>`;
   }).join("");
-
   b.innerHTML=`<div style="max-width:1000px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">INTERCONSULTA / REFERIDO MÉDICO</b></div>
@@ -2102,7 +1978,6 @@ window.guardarInterconsulta=async function(){
   cerrarFormInter();
   cargarInterconsultas();
 }
-
 // ── ANEXOS ────────────────────────────────────────────────
 function renderAnexos(b){
   b.innerHTML=`<div style="max-width:1000px;margin:0 auto;padding:14px" class="fade">
@@ -2181,7 +2056,6 @@ async function renderDocsAnexos(ab){
         </tr>`).join("")}
       </tbody>
     </table>
-    <!-- Modal firma digital -->
     <div id="modal-firma" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
       <div style="background:#fff;border-radius:14px;padding:24px;width:460px;box-shadow:0 16px 40px #00000040">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -2284,7 +2158,6 @@ window.enviarFirmaWAGlobal=async function(){
   if(checks.length===0){showToast("Selecciona al menos un documento",false);return;}
   const docs=Array.from(checks).map(c=>c.dataset.doc);
   const codigo=Math.random().toString(36).substring(2,8).toUpperCase();
-
   // Guardar documentos pendientes con código de firma
   if(pid){
     await SB.from("anexos").insert(docs.map(d=>({
@@ -2297,7 +2170,6 @@ window.enviarFirmaWAGlobal=async function(){
       fecha:new Date().toISOString().split("T")[0],
     })));
   }
-
   const celLimpio=cel.replace(/\D/g,"");
   const celFinal=celLimpio.length===10?"52"+celLimpio:celLimpio;
   const nomPac=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno}`:"Paciente";
@@ -2385,7 +2257,6 @@ window.enviarFirmaWA=async function(){
   ocultarModalFirma();
 }
 window.enviarFirmaEmail=function(){showToast("✓ Enlace enviado por correo al paciente");ocultarModalFirma();}
-
 async function renderAnotaciones(ab){
   const pid=STATE.pat?.id;if(!pid)return;
   const {data}=await SB.from("anotaciones").select("*").eq("paciente_id",pid).order("fecha",{ascending:false});
@@ -2416,7 +2287,6 @@ window.guardarAnotacion=async function(){
   loading(false);showToast("✓ Anotación guardada");
   renderAnotaciones(document.getElementById("anexo-body"));
 }
-
 // ── CONSULTA SOAP ─────────────────────────────────────────
 // ── MOTIVOS COMUNES ───────────────────────────────────────
 const MOTIVOS_COMUNES={
@@ -2430,7 +2300,6 @@ const MOTIVOS_COMUNES={
   "🦴 Osteomuscular":["Dolor lumbar / Lumbalgia","Cervicalgia","Dorsalgia","Artralgia","Mialgia generalizada","Osteoartritis"],
   "🌡️ General":["Fiebre","Astenia / Fatiga crónica","Pérdida de peso involuntaria","Chequeo médico general","Seguimiento de tratamiento","Resultado de laboratorios"]
 };
-
 function pgConsulta(){
   const p=STATE.pat;const c=STATE.consultaActual||{};
   // Combinar con signos vitales de triage del día
@@ -2451,7 +2320,15 @@ function pgConsulta(){
   RR().innerHTML=nav()+`
   <div style="display:flex;flex-direction:column;height:calc(100vh - 46px);overflow:hidden">
     <div style="background:${PD};padding:6px 14px;display:flex;align-items:center;justify-content:space-between">
-      <b style="color:#fff;font-size:14px">📋 Consulta / Nota de Evolución — ${p.nombre} ${p.apellido_paterno}</b>
+      <div>
+        <b style="color:#fff;font-size:14px">📋 Consulta — ${p.nombre} ${p.apellido_paterno}</b>
+        <span style="color:rgba(255,255,255,.75);font-size:13px;margin-left:10px">
+          ${c.fecha||new Date().toISOString().split("T")[0]}
+          · Inicio: <b>${c.hora_inicio||c.hora||new Date().toTimeString().substring(0,5)}</b>
+          ${c.hora_fin?` · Fin: <b>${c.hora_fin}</b>`:""}
+          ${c.medico_nombre?" · "+c.medico_nombre:""}
+        </span>
+      </div>
       <span style="background:#FFE082;color:#E65100;padding:2px 8px;border-radius:20px;font-size:14px;font-weight:700">${calcEdad(p.fecha_nacimiento)}</span>
     </div>
     <div style="background:#fff;border-bottom:1px solid ${BR};padding:7px 12px;display:flex;gap:6px;flex-wrap:wrap">
@@ -2465,8 +2342,6 @@ function pgConsulta(){
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px;background:#F0F4F8">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1200px;margin:0 auto">
-
-        <!-- SUBJETIVO -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🎤 Subjetivo (motivos de consulta)</b>
@@ -2481,22 +2356,16 @@ function pgConsulta(){
           </div>
           <div style="padding:12px">${ta("cs_subj",c.subjetivo||"","Describa el motivo de consulta e interrogatorio...",8)}</div>
         </div>
-
-        <!-- ALERGIAS -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">⚠️ Alergias</b></div>
           <div style="padding:12px">${ta("cs_alerg",c.alergias_nota||(STATE.alergs.length?STATE.alergs.join(", "):"Sin alergias conocidas"),"",5)}</div>
         </div>
-
-        <!-- SIGNOS VITALES -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">💓 Signos vitales y datos antropométricos</b></div>
           <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
             ${[["Temp. (°C)","cs_temp",vs.temp],["Peso (kg)","cs_peso",vs.peso],["F. Cardíaca (lat/min)","cs_fc",vs.fc],["Talla (m)","cs_talla",vs.talla],["F. Respiratoria (r/min)","cs_fr",vs.fr],["Sat. O₂ (%)","cs_sat",vs.sat],["Pres. Sistólica (mmHg)","cs_tas",vs.tas],["Pres. Diastólica (mmHg)","cs_tad",vs.tad],["Glucosa (mg/dL)","cs_glu",vs.glu],["IMC","cs_imc",vs.imc]].map(([l,id,val])=>`<div>${fld(l,`<input id="${id}" value="${val}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>`).join("")}
           </div>
         </div>
-
-        <!-- EXPLORACIÓN FÍSICA -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🫀 Exploración física</b>
@@ -2504,8 +2373,6 @@ function pgConsulta(){
           </div>
           <div style="padding:12px">${ta("cs_expl",c.exploracion_fisica||"","La IA puede sugerir hallazgos a buscar. El médico completa con los encontrados...",6)}</div>
         </div>
-
-        <!-- DIAGNÓSTICO -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🔍 Análisis / Diagnóstico</b>
@@ -2519,8 +2386,6 @@ function pgConsulta(){
           <div id="diagnosticos-ia" style="display:none;padding:8px 12px;border-bottom:1px solid ${BR};background:#F3E5F5"></div>
           <div style="padding:12px">${ta("cs_anal",c.analisis||"","Diagnóstico(s) con código CIE-10...",8)}</div>
         </div>
-
-        <!-- TRATAMIENTO -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">💊 Tratamiento</b>
@@ -2528,8 +2393,6 @@ function pgConsulta(){
           </div>
           <div style="padding:12px">${ta("cs_trat",c.tratamiento||"","Medicamentos, dosis, medidas generales...",8)}</div>
         </div>
-
-        <!-- LABORATORIO -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🔬 Laboratorio</b>
@@ -2537,8 +2400,6 @@ function pgConsulta(){
           </div>
           <div style="padding:12px">${ta("cs_lab",c.laboratorio||"","BH, QS, EGO, PCR...",6)}</div>
         </div>
-
-        <!-- GABINETE -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">📡 Estudios de gabinete</b>
@@ -2546,8 +2407,6 @@ function pgConsulta(){
           </div>
           <div style="padding:12px">${ta("cs_gab",c.gabinete||"","RX, USG, IRM...",6)}</div>
         </div>
-
-        <!-- PLAN -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">📋 Plan</b></div>
           <div style="padding:12px">${ta("cs_plan",c.plan||"","Seguimiento, indicaciones de alarma, actividad deportiva...",6)}</div>
@@ -2558,17 +2417,13 @@ function pgConsulta(){
         ${btn("💾 Guardar consulta","guardarConsulta()","ok",1)}
       </div>
     </div>
-
-    <!-- MODAL IA -->
     <div id="modal-ia" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto">
       <div style="background:#fff;border-radius:16px;width:100%;max-width:680px;margin:0 auto;box-shadow:0 20px 60px #00000040;overflow:hidden">
-        <!-- Header IA -->
         <div style="background:linear-gradient(135deg,#7B1FA2,#1565C0);padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
           <div><b style="color:#fff;font-size:14px">🤖 Generador de Nota Médica con IA</b><p style="color:rgba(255,255,255,.8);font-size:14px;margin-top:2px">Usa el micrófono, transcribe y genera la nota completa</p></div>
           <button onclick="cerrarModalIA()" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700">✕</button>
         </div>
         <div style="padding:16px">
-          <!-- Grabación -->
           <div style="background:linear-gradient(135deg,#F3E5F5,#E3F2FD);border-radius:10px;padding:14px;margin-bottom:14px">
             <p style="font-size:14px;font-weight:700;color:#1A237E;margin-bottom:10px">🎤 Paso 1: Graba el interrogatorio</p>
             <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
@@ -2590,17 +2445,11 @@ function pgConsulta(){
               <p style="font-size:14px;color:#546E7A;align-self:center">O escribe directamente el interrogatorio arriba</p>
             </div>
           </div>
-
-          <!-- Botón generar -->
           <button id="btn-generar-ia" onclick="generarNotaIA()" style="width:100%;padding:12px;background:linear-gradient(135deg,#7B1FA2,#1565C0);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px">
             ✨ Paso 2: Generar Nota Médica Completa
           </button>
-
-          <!-- Resultados IA -->
           <div id="ia-resultados" style="display:none">
             <p style="font-size:14px;font-weight:700;color:#7B1FA2;text-transform:uppercase;margin-bottom:10px;text-align:center">✅ Nota generada — Revisa y aplica</p>
-
-            <!-- Subjetivo -->
             <div style="border:1.5px solid #CE93D8;border-radius:10px;overflow:hidden;margin-bottom:10px">
               <div style="background:#F3E5F5;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
                 <b style="font-size:14px;color:#7B1FA2">🎤 Subjetivo sugerido</b>
@@ -2608,8 +2457,6 @@ function pgConsulta(){
               </div>
               <textarea id="ia_subj" rows="3" style="width:100%;border:none;padding:10px 12px;font-size:14px;resize:none;outline:none;font-family:inherit;line-height:1.6"></textarea>
             </div>
-
-            <!-- Exploración -->
             <div style="border:1.5px solid #B3E5FC;border-radius:10px;overflow:hidden;margin-bottom:10px">
               <div style="background:#E3F2FD;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
                 <b style="font-size:14px;color:${P}">🫀 Exploración física sugerida</b>
@@ -2617,8 +2464,6 @@ function pgConsulta(){
               </div>
               <textarea id="ia_expl" rows="4" style="width:100%;border:none;padding:10px 12px;font-size:14px;resize:none;outline:none;font-family:inherit;line-height:1.6"></textarea>
             </div>
-
-            <!-- Diagnósticos CIE-10 -->
             <div style="border:1.5px solid #A5D6A7;border-radius:10px;overflow:hidden;margin-bottom:10px">
               <div style="background:#E8F5E9;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
                 <b style="font-size:14px;color:#2E7D32">🔍 Diagnósticos diferenciales CIE-10</b>
@@ -2626,8 +2471,6 @@ function pgConsulta(){
               </div>
               <div id="ia_diagnosticos_lista" style="padding:10px 12px"></div>
             </div>
-
-            <!-- Tratamiento -->
             <div style="border:1.5px solid #FFE082;border-radius:10px;overflow:hidden;margin-bottom:10px">
               <div style="background:#FFF8E1;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
                 <b style="font-size:14px;color:#E65100">💊 Tratamiento sugerido</b>
@@ -2635,8 +2478,6 @@ function pgConsulta(){
               </div>
               <textarea id="ia_trat" rows="4" style="width:100%;border:none;padding:10px 12px;font-size:14px;resize:none;outline:none;font-family:inherit;line-height:1.6"></textarea>
             </div>
-
-            <!-- Labs + Gabinete + Plan en grid -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
               <div style="border:1.5px solid ${BR};border-radius:10px;overflow:hidden">
                 <div style="background:#F8F9FA;padding:7px 12px;display:flex;justify-content:space-between;align-items:center">
@@ -2660,7 +2501,6 @@ function pgConsulta(){
               </div>
               <textarea id="ia_plan" rows="3" style="width:100%;border:none;padding:8px 12px;font-size:14px;resize:none;outline:none;font-family:inherit;line-height:1.5"></textarea>
             </div>
-
             <button onclick="aplicarTodoIA()" style="width:100%;padding:12px;background:linear-gradient(135deg,#2E7D32,#1565C0);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
               ✅ Aplicar TODO a la consulta y cerrar
             </button>
@@ -2668,12 +2508,9 @@ function pgConsulta(){
         </div>
       </div>
     </div>
-
-    <!-- MODAL RECETA -->
     <div id="recipe-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto"></div>
   </div>`;
 }
-
 // ── MOTIVOS COMUNES ───────────────────────────────────────
 window.toggleMotivos=function(){
   const d=document.getElementById("motivos-dropdown");
@@ -2686,25 +2523,20 @@ window.agregarMotivo=function(motivo){
   ta.value+=sep+"Motivo de consulta: "+motivo+".";
   ta.focus();
 }
-
 // ── MODAL IA ──────────────────────────────────────────────
 let _recognition=null;let _grabando=false;let _transcripcion="";let _timerGrab=null;let _segundos=0;
-
 window.sugerirDxIA=async function(){
   const subj=gv("cs_subj");
   const expl=gv("cs_expl");
   const analActual=gv("cs_anal");
   const trat=gv("cs_trat");
   if(!subj&&!expl&&!analActual){showToast("Escribe primero el motivo de consulta o exploración física",false);return;}
-
   const dxDiv=document.getElementById("diagnosticos-ia");
   if(dxDiv){
     dxDiv.style.display="block";
     dxDiv.innerHTML=`<div style="display:flex;align-items:center;gap:8px;color:#7B1FA2;font-size:13px"><span class="spin">⚙️</span> Analizando nota y generando diagnósticos CIE-10...</div>`;
   }
-
   const nota=`MOTIVO DE CONSULTA:\n${subj}\n\nEXPLORACIÓN FÍSICA:\n${expl}\n\nANÁLISIS PREVIO:\n${analActual}\n\nTRATAMIENTO:\n${trat}`;
-
   try{
     const res=await fetch("/api/ia-medica",{
       method:"POST",
@@ -2725,7 +2557,6 @@ Incluye entre 1 y 5 diagnósticos ordenados por probabilidad. Certeza: Principal
       const match=txt.match(/\{[\s\S]*\}/);
       if(match)dx=JSON.parse(match[0]).diagnosticos||[];
     }catch(e){dx=[];}
-
     if(!dxDiv)return;
     if(dx.length===0){
       dxDiv.innerHTML=`<p style="font-size:13px;color:#7B1FA2;padding:4px">No se pudo generar diagnósticos. Verifica que haya contenido en la nota.</p>`;
@@ -2890,19 +2721,23 @@ window.aplicarTodoIA=function(){
   cerrarModalIA();
   showToast("✓ Nota completa aplicada a la consulta");
 }
-
 window.guardarConsulta=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
-  // Verificar que no esté bloqueada
   if(STATE.consultaActual?.bloqueada){showToast("Esta nota está cerrada y no puede editarse",false);return;}
   loading(true,"Guardando consulta...");
   const med=STATE.userProfile||{};
   const medNombre=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+  const ahora=new Date();
+  const fechaHoy=ahora.toISOString().split("T")[0];
+  const horaAhora=ahora.toTimeString().substring(0,5);
   const payload={
     paciente_id:pid,
     medico_id:STATE.user?.id||null,
     medico_nombre:medNombre,
     medico_especialidad:med.especialidad_2||med.especialidad_1||"",
+    fecha:fechaHoy,
+    hora:horaAhora,
+    hora_inicio:STATE.consultaActual?.hora_inicio||horaAhora,
     subjetivo:gv("cs_subj"),alergias_nota:gv("cs_alerg"),
     temperatura:parseFloat(gv("cs_temp"))||null,
     frecuencia_cardiaca:parseFloat(gv("cs_fc"))||null,
@@ -2922,6 +2757,7 @@ window.guardarConsulta=async function(){
   if(STATE.consultaActual?.id){
     res=await SB.from("consultas").update(payload).eq("id",STATE.consultaActual.id).select().single();
   } else {
+    payload.hora_inicio=horaAhora;
     res=await SB.from("consultas").insert(payload).select().single();
   }
   loading(false);
@@ -2929,31 +2765,31 @@ window.guardarConsulta=async function(){
   STATE.consultaActual=res.data;
   showToast("✓ Consulta guardada");
 }
-
 window.firmarNota=async function(){
   const cid=STATE.consultaActual?.id;if(!cid)return;
   if(!confirm("¿Firmar y cerrar esta nota? No podrá editarse después."))return;
   loading(true,"Firmando nota...");
   const med=STATE.userProfile||{};
   const medNombre=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+  const horaFin=new Date().toTimeString().substring(0,5);
   await SB.from("consultas").update({
     bloqueada:true,
     firma_medico:medNombre,
     fecha_firma:new Date().toISOString(),
+    hora_fin:horaFin,
   }).eq("id",cid);
   loading(false);
   STATE.consultaActual.bloqueada=true;
+  STATE.consultaActual.hora_fin=horaFin;
   showToast("✓ Nota firmada y cerrada");
   cerrarConsulta();
 }
-
 window.cerrarConsulta=function(){STATE.consultaActual=null;go("expediente");}
 window.showRecipe=function(tipo="receta"){
   const m=document.getElementById("recipe-modal");
   if(m){m.dataset.tipo=tipo;m.style.display="flex";renderRecipeModal(tipo);}
 }
 window.hideRecipe=function(){const m=document.getElementById("recipe-modal");if(m)m.style.display="none";}
-
 function renderRecipeModal(tipo="receta"){
   const m=document.getElementById("recipe-modal");if(!m)return;
   const p=STATE.pat||{};
@@ -2963,32 +2799,25 @@ function renderRecipeModal(tipo="receta"){
   const gabTxt=document.getElementById("cs_gab")?.value||"";
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim();
   const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
-
   const tipoOpts=[
     {id:"receta",label:"💊 Receta médica",content:tratTxt},
     {id:"lab",label:"🔬 Solicitud de laboratorio",content:labTxt},
     {id:"gab",label:"📡 Solicitud de gabinete",content:gabTxt},
   ];
   const actual=tipoOpts.find(t=>t.id===tipo)||tipoOpts[0];
-
   m.innerHTML=`<div style="background:#fff;border-radius:14px;width:100%;max-width:560px;box-shadow:0 16px 40px #00000040;overflow:hidden;max-height:90vh;overflow-y:auto">
     <div style="background:${PD};padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
       <b style="color:#fff;font-size:14px">📄 Documentos clínicos</b>
       <button onclick="hideRecipe()" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-weight:700">✕</button>
     </div>
     <div style="padding:16px">
-      <!-- Tipo de documento -->
       <div style="display:flex;gap:6px;margin-bottom:14px">
         ${tipoOpts.map(t=>`<button onclick="showRecipe('${t.id}')" style="flex:1;padding:7px 4px;border:${t.id===tipo?"2px solid "+P:"1.5px solid "+BR};border-radius:7px;background:${t.id===tipo?PL:"#fff"};color:${t.id===tipo?P:MU};cursor:pointer;font-size:14px;font-weight:${t.id===tipo?700:500}">${t.label}</button>`).join("")}
       </div>
-
-      <!-- Contenido editable -->
       <div style="margin-bottom:12px">
         <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:6px;text-transform:uppercase">Contenido del documento</p>
         <textarea id="recipe-content" rows="6" style="width:100%;padding:10px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;outline:none;font-family:monospace;resize:vertical;line-height:1.6">${actual.content||""}</textarea>
       </div>
-
-      <!-- Vista previa encabezado -->
       <div style="border:1px solid ${BR};border-radius:8px;padding:12px;background:#FAFAFA;margin-bottom:14px;font-size:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:1.5px solid #263238">
           <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:40px">
@@ -3005,8 +2834,6 @@ function renderRecipeModal(tipo="receta"){
         <div><b>PACIENTE:</b> ${nomPac} &nbsp;&nbsp; <b>FECHA:</b> ${hoy}</div>
         <div style="color:${MU}">Edad: ${calcEdad(p.fecha_nacimiento)} &nbsp; Nac: ${p.fecha_nacimiento||""}</div>
       </div>
-
-      <!-- Opciones de envío -->
       <div style="display:flex;gap:8px;margin-bottom:10px">
         <button onclick="generarPDFReceta('${tipo}')" style="flex:1;padding:9px;background:#1565C0;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">⬇️ Descargar PDF</button>
         <button onclick="enviarRecetaWA('${tipo}')" style="flex:1;padding:9px;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">💬 WhatsApp</button>
@@ -3019,7 +2846,6 @@ function renderRecipeModal(tipo="receta"){
     </div>
   </div>`;
 }
-
 window.generarPDFReceta=async function(tipo="receta"){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
@@ -3030,7 +2856,6 @@ window.generarPDFReceta=async function(tipo="receta"){
   const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim().toUpperCase();
   const W=216, M=15; // W=ancho carta, M=margen
-
   // ── Función imagen con proporción ──
   async function addImg(url,x,y,maxH,maxW){
     try{
@@ -3044,7 +2869,6 @@ window.generarPDFReceta=async function(tipo="receta"){
       return{w,h};
     }catch(e){return{w:0,h:0};}
   }
-
   // ── CALCULAR LÍNEAS del médico ──
   const credLines=[];
   credLines.push({txt:medNom,bold:true,sz:9});
@@ -3062,16 +2886,13 @@ window.generarPDFReceta=async function(tipo="receta"){
     credLines.push({txt:`Céd. Subesp. ${med.cedula_subesp}`,bold:false,sz:8});
   if(med.alta_especialidad)
     credLines.push({txt:`Alta Especialidad en ${med.alta_especialidad}${med.institucion_alta?" "+med.institucion_alta:""}`.toUpperCase(),bold:false,sz:8});
-
   const headerH=Math.max(18, credLines.length*4.5+4);
   const lineY=headerH+4;
-
   // ── LOGO izquierda ──
   await addImg(
     "https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",
     M, 7, headerH-2, 35
   );
-
   // ── DATOS MÉDICO derecha ──
   let ry=12;
   for(const cl of credLines){
@@ -3084,11 +2905,9 @@ window.generarPDFReceta=async function(tipo="receta"){
     doc.text(txt,W-M,ry,{align:"right"});
     ry+=cl.sz===9?4.8:4;
   }
-
   // ── LÍNEA SEPARADORA ──
   doc.setDrawColor(38,50,56);doc.setLineWidth(0.6);
   doc.line(M,lineY,W-M,lineY);
-
   // ── DATOS PACIENTE ──
   const py=lineY+6;
   doc.setFontSize(8.5);doc.setTextColor(38,50,56);
@@ -3096,18 +2915,15 @@ window.generarPDFReceta=async function(tipo="receta"){
   doc.setFont("helvetica","normal");doc.text(nomPac,M+45,py);
   doc.setFont("helvetica","bold");doc.text("FECHA:",W-M-27,py);
   doc.setFont("helvetica","normal");doc.text(hoy,W-M,py,{align:"right"});
-
   const py2=py+5;
   doc.setFont("helvetica","bold");doc.text("Edad:",M,py2);
   doc.setFont("helvetica","normal");doc.text(calcEdad(p.fecha_nacimiento)||"",M+12,py2);
   doc.setFont("helvetica","bold");doc.text("Fecha de nacimiento:",M+46,py2);
   doc.setFont("helvetica","normal");doc.text(p.fecha_nacimiento||"",M+88,py2);
-
   // ── LÍNEA ──
   const l2y=py2+4;
   doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);
   doc.line(M,l2y,W-M,l2y);
-
   // ── LEYENDA ALERGIA ──
   let contentY=l2y+7;
   if(tipo==="receta"){
@@ -3117,7 +2933,6 @@ window.generarPDFReceta=async function(tipo="receta"){
     doc.line(M,l2y+7,W-M,l2y+7);
     contentY=l2y+13;
   }
-
   // ── TÍTULO ──
   const titulos={receta:"TRATAMIENTO",lab:"SOLICITUD DE LABORATORIO",gab:"SOLICITUD DE ESTUDIOS DE GABINETE"};
   doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
@@ -3125,7 +2940,6 @@ window.generarPDFReceta=async function(tipo="receta"){
   doc.setLineWidth(0.4);doc.setDrawColor(38,50,56);
   doc.line(M,contentY+1,M+doc.getTextWidth(titulos[tipo]),contentY+1);
   contentY+=7;
-
   // ── CONTENIDO ──
   const maxContentY=135; // media carta
   doc.setFontSize(8.5);doc.setTextColor(38,50,56);
@@ -3141,12 +2955,10 @@ window.generarPDFReceta=async function(tipo="receta"){
       contentY+=4.5;
     }
   }
-
   // ── FIRMA CENTRADA ──
   const firmaLineY=148;
   const firmaLineX1=W/2-38;
   const firmaLineX2=W/2+38;
-
   if(med.firma_digital){
     // Calcular proporciones sin dibujar
     try{
@@ -3166,7 +2978,6 @@ window.generarPDFReceta=async function(tipo="receta"){
   doc.line(firmaLineX1,firmaLineY,firmaLineX2,firmaLineY);
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
   doc.text("FIRMA DEL MÉDICO",W/2,firmaLineY+5,{align:"center"});
-
   // ── FOOTER ──
   doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
   doc.line(M,158,W-M,158);
@@ -3175,7 +2986,6 @@ window.generarPDFReceta=async function(tipo="receta"){
   doc.text(med.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México C.P. 03810",W/2,167,{align:"center"});
   doc.text("Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,171,{align:"center"});
   doc.text(med.email||"dr.polanco@qpclinic.mx",W/2,175,{align:"center"});
-
   const nombre=tipo==="receta"?"Receta":tipo==="lab"?"Solicitud_Lab":"Solicitud_Gabinete";
   doc.save(`${nombre}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
   showToast("✓ PDF generado");
@@ -3190,7 +3000,6 @@ window.enviarRecetaWA=async function(tipo){
   const titulos={receta:"Receta médica",lab:"Solicitud de laboratorio",gab:"Solicitud de gabinete"};
   const celFinal=tel.replace(/\D/g,"");
   const cel=celFinal.length===10?"52"+celFinal:celFinal;
-
   loading(true,"Generando PDF para enviar...");
   try{
     // Generar PDF como blob
@@ -3199,15 +3008,12 @@ window.enviarRecetaWA=async function(tipo){
     // Usar la misma función de generación pero capturar el blob
     await generarPDFReceta._buildDoc(doc,tipo);
     const pdfBlob=doc.output("blob");
-
     // Subir a Supabase Storage (carpeta temporal)
     const fname=`recetas-temp/${STATE.pat?.id||"tmp"}_${Date.now()}.pdf`;
     const {error:upErr}=await SB.storage.from("expedientes").upload(fname,pdfBlob,{contentType:"application/pdf",upsert:true});
     if(upErr)throw upErr;
-
     const {data:urlData}=SB.storage.from("expedientes").getPublicUrl(fname);
     const pdfUrl=urlData.publicUrl;
-
     loading(false);
     const msg=`🏥 *QP Clinic — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\n📄 Descarga tu documento aquí:\n${pdfUrl}\n\n_Insurgentes Sur 933, Nápoles, CDMX_\n_qpclinic.org_`;
     window.open(`https://wa.me/${cel}?text=${encodeURIComponent(msg)}`,"_blank");
@@ -3221,7 +3027,6 @@ window.enviarRecetaWA=async function(tipo){
     showToast("PDF descargado — adjúntalo en WhatsApp");
   }
 }
-
 window.enviarRecetaEmail=function(tipo){
   const email=document.getElementById("recipe-email")?.value||STATE.pat?.correo_electronico||"";
   if(!email){showToast("Ingresa el correo del paciente",false);return;}
@@ -3234,7 +3039,6 @@ window.enviarRecetaEmail=function(tipo){
   window.open(`mailto:${email}?subject=${subject}&body=${body}`);
   showToast("✓ Abriendo cliente de correo");
 }
-
 // ── UTILIDADES ────────────────────────────────────────────
 function calcEdad(fnac){
   if(!fnac)return"—";
@@ -3246,13 +3050,11 @@ function calcEdad(fnac){
   if(meses<0){años--;meses+=12;}
   return años>0?`${años}a ${meses}m`:`${meses} meses`;
 }
-
 // ── VACUNAS ───────────────────────────────────────────────
 async function renderVacunas(b){
   const pid=STATE.pat?.id;if(!pid)return;
   const {data}=await SB.from("vacunas").select("*").eq("paciente_id",pid).order("fecha_aplicacion",{ascending:false});
   const vacunas=data||[];
-
   const ESQUEMA=[
     {nombre:"BCG",dosis:"Única",edad:"Al nacer"},
     {nombre:"Hepatitis B",dosis:"3 dosis",edad:"0, 2 y 6 meses"},
@@ -3271,12 +3073,10 @@ async function renderVacunas(b){
     {nombre:"Antirrábica",dosis:"Post-exposición",edad:"Según indicación"},
     {nombre:"Fiebre Tifoidea",dosis:"Según exposición",edad:"Viajeros/riesgo"},
   ];
-
   b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">💉 ESQUEMA DE VACUNACIÓN</b></div>
       <div style="padding:16px">
-        <!-- Formulario nueva vacuna -->
         <div style="background:${PL};border-radius:10px;padding:14px;margin-bottom:16px">
           <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Registrar vacuna aplicada</p>
           <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-bottom:14px">
@@ -3291,8 +3091,6 @@ async function renderVacunas(b){
           </div>
           <div class="sticky-save">${btn("💉 Registrar vacuna","guardarVacuna()","ok",1)}</div>
         </div>
-
-        <!-- Vacunas registradas -->
         ${vacunas.length>0?`
         <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Vacunas registradas (${vacunas.length})</p>
         <div style="overflow-x:auto">
@@ -3318,8 +3116,6 @@ async function renderVacunas(b){
           <p style="font-size:14px;font-weight:600">No hay vacunas registradas aún</p>
           <p style="font-size:14px;margin-top:4px">Use el formulario de arriba para registrar las vacunas aplicadas</p>
         </div>`}
-
-        <!-- Esquema recomendado referencia -->
         <div style="margin-top:20px;border-top:1px solid ${BR};padding-top:16px">
           <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:10px;text-transform:uppercase">📋 Esquema de vacunación de referencia (Cartilla Nacional de Salud)</p>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
@@ -3363,15 +3159,12 @@ window.eliminarVacuna=async function(id){
   showToast("✓ Registro eliminado");
   renderVacunas(document.getElementById("eb"));
 }
-
 // ── IMÁGENES ──────────────────────────────────────────────
 async function renderImagenes(b){
   const pid=STATE.pat?.id;if(!pid)return;
   const {data}=await SB.from("imagenes_expediente").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const imgs=data||[];
-
   b.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
-    <!-- Upload -->
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:16px">
       <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">🖼️ Subir imagen</b></div>
       <div style="padding:14px">
@@ -3394,8 +3187,6 @@ async function renderImagenes(b){
         <div class="sticky-save">${btn("⬆️ Subir imagen","subirImagen('"+pid+"')","ok",1)}</div>
       </div>
     </div>
-
-    <!-- Galería -->
     ${imgs.length===0?`<div class="empty-state"><div class="empty-icon"><i class="ti ti-photo" aria-hidden="true"></i></div><p>No hay imágenes en el expediente</p><small>Sube radiografías, estudios, fotos clínicas o cualquier documento visual</small></div>`:`
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px">
       ${imgs.map(img=>`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
@@ -3420,7 +3211,6 @@ async function renderImagenes(b){
     </div>`}
   </div>`;
 }
-
 window.previewImagen=function(input){
   const file=input.files[0];
   const preview=document.getElementById("img-preview");
@@ -3477,7 +3267,6 @@ window.eliminarImagen=async function(id,path){
   loading(false);showToast("✓ Imagen eliminada");
   setET("imagenes");
 }
-
 // ── PAGOS ─────────────────────────────────────────────────
 async function pgPagos(){
   const pid=STATE.pat?.id;if(!pid){showToast("Abre primero un expediente",false);return;}
@@ -3486,7 +3275,6 @@ async function pgPagos(){
   const {data}=await SB.from("pagos").select("*").eq("paciente_id",pid).order("fecha",{ascending:false});
   const pagos=data||[];
   const total=pagos.reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
-
   RR().innerHTML=nav()+`
   <div style="max-width:900px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -3496,16 +3284,12 @@ async function pgPagos(){
       </div>
       ${btn("← Volver","go('expediente')","s",1)}
     </div>
-
-    <!-- Resumen -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${[["Total pagado","$"+total.toLocaleString("es-MX",{minimumFractionDigits:2}),"#1B5E20","#E8F5E9"],["Consultas pagadas",pagos.filter(p=>p.concepto?.toLowerCase().includes("consulta")).length.toString(),"#1565C0","#E3F2FD"],["Último pago",pagos[0]?pagos[0].fecha||"—":"Sin pagos","#E65100","#FFF8E1"]].map(([l,v,c,bg])=>`<div style="background:${bg};border-radius:10px;padding:14px 16px">
         <p style="font-size:14px;color:${MU};margin-bottom:4px">${l}</p>
         <p style="font-size:18px;font-weight:800;color:${c}">${v}</p>
       </div>`).join("")}
     </div>
-
-    <!-- Nuevo pago -->
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;margin-bottom:16px">
       <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Registrar nuevo pago</p>
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-bottom:14px">
@@ -3520,8 +3304,6 @@ async function pgPagos(){
       </div>
       <div class="sticky-save">${btn("💾 Registrar pago","registrarPago('"+pid+"')","ok",1)}</div>
     </div>
-
-    <!-- Lista pagos -->
     ${pagos.length>0?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:${PL}">${["Fecha","Concepto","Monto","Forma de pago","Notas","Registró",""].map(h=>`<th style="padding:9px 12px;text-align:left;font-size:14px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
@@ -3556,7 +3338,6 @@ window.eliminarPago=async function(id){
   showToast("✓ Pago eliminado");
   pgPagos();
 }
-
 // ── TRIAGE / SIGNOS VITALES ───────────────────────────────
 async function renderTriage(b){
   const pid=STATE.pat?.id;if(!pid)return;
@@ -3564,9 +3345,7 @@ async function renderTriage(b){
   const hist=data||[];
   const hoy=hist.filter(s=>s.fecha&&s.fecha.startsWith(new Date().toISOString().split("T")[0]));
   const ultimo=hist[0]||{};
-
   b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
-    <!-- Registro nuevo -->
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
       <div style="background:${PD};padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
         <b style="color:#fff;font-size:14px">💓 Registrar signos vitales y somatometría</b>
@@ -3598,8 +3377,6 @@ async function renderTriage(b){
         </div>
       </div>
     </div>
-
-    <!-- Historial -->
     ${hist.length>0?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="background:#F8F9FA;padding:8px 14px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">Historial de registros (${hist.length})</b></div>
       <div style="overflow-x:auto">
@@ -3625,7 +3402,6 @@ async function renderTriage(b){
     </div>`:""}
   </div>`;
 }
-
 window.calcIMC=function(){
   const p=parseFloat(document.getElementById("sv_peso")?.value||0);
   const t=parseFloat(document.getElementById("sv_talla")?.value||0);
@@ -3667,7 +3443,6 @@ window.cargarSVEnConsulta=function(){
   set("cs_talla",gv("sv_talla"));set("cs_imc",gv("sv_imc"));
   showToast("✓ Signos vitales cargados en la consulta");
 }
-
 // ── PÁGINA ENFERMERÍA ─────────────────────────────────────
 async function pgEnfermeria(){
   const pid=STATE.pat?.id;
@@ -3675,7 +3450,6 @@ async function pgEnfermeria(){
   STATE.enfermeriaMode=true;
   const pat=STATE.pat;
   const nomPac=`${pat.nombre||""} ${pat.apellido_paterno||""} ${pat.apellido_materno||""}`.trim();
-
   RR().innerHTML=nav()+`
   <div style="background:${PD};padding:8px 16px;display:flex;align-items:center;justify-content:space-between">
     <div>
@@ -3689,11 +3463,9 @@ async function pgEnfermeria(){
     <button onclick="STATE.enfTab='ficha';renderEnfTab()" style="padding:8px 14px;border:none;cursor:pointer;font-size:14px;font-weight:500;color:${MU};border-bottom:3px solid transparent;background:transparent" id="etab_ficha">📋 Ficha del paciente</button>
   </div>
   <div id="enf-body" style="max-width:980px;margin:0 auto;padding:14px"></div>`;
-
   STATE.enfTab="sv";
   renderEnfTab();
 }
-
 async function renderEnfTab(){
   const b=document.getElementById("enf-body");if(!b)return;
   // Actualizar resaltado de pestañas
@@ -3708,12 +3480,10 @@ async function renderEnfTab(){
   if(STATE.enfTab==="sv") await renderTriage(b);
   else if(STATE.enfTab==="ficha") renderFicha(b);
 }
-
 window.cerrarEnfermeria=function(){
   STATE.enfermeriaMode=false;
   go("expediente");
 }
-
 // ── FISIOTERAPIA ──────────────────────────────────────────
 async function renderFisio(b){
   const pid=STATE.pat?.id;if(!pid)return;
@@ -3774,35 +3544,28 @@ function renderFisioNotas(notas){
     </div>`:""}
   </div>`;
 }
-
 function renderFisioForm(presc,pid){
   const p=presc||{};
   const pat=STATE.pat||{};
   const med=STATE.userProfile||{};
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
   const hoy=new Date().toISOString().split("T")[0];
-
   // Opciones de tratamiento
   const agentes=[["tens","TENS"],["ultrasonido","Ultrasonido"],["laser","Láser"],["radiofrecuencia","Radiofrecuencia"],["compresion","Compresión neumática"],["crioterapia","Crioterapia"],["termoterapia","Termoterapia (calor)"]];
   const manual=[["masoterapia","Masoterapia"],["movilizacion","Movilización articular"],["manipulacion","Manipulación"],["miofascial","Técnicas miofasciales"],["puncion","Punción seca"],["vendaje","Vendaje neuromuscular"],["drenaje","Drenaje linfático"]];
   const ejercicio=[["estiramiento","Estiramiento"],["fortalecimiento","Fortalecimiento"],["propiocepcion","Propiocepción / Equilibrio"],["postural","Reeducación postural"],["cadena","Cadena cinética"],["aerobico","Ejercicio aeróbico"],["pliometria","Pliometría"],["readaptacion","Readaptación deportiva"],["pilates","Pilates terapéutico"]];
   const neuro=[["marcha","Reeducación de la marcha"],["sensoriomotriz","Estimulación sensoriomotriz"],["avd","AVD – independencia"],["cognitiva","Rehabilitación cognitiva"]];
   const limitaciones=[["marcha","Marcha"],["laboral","Actividad laboral"],["deportiva","Actividad deportiva"],["avd_bas","AVD básicas"],["avd_ins","AVD instrumentales"]];
-
   const chkGroup=(items,prefix,saved={})=>items.map(([k,v])=>`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:14px;padding:4px 8px;background:${saved[k]?"#E3F2FD":"#F8F9FA"};border:1px solid ${saved[k]?"#90CAF9":BR};border-radius:6px">
     <input type="checkbox" id="ft_${prefix}_${k}" ${saved[k]?"checked":""} style="accent-color:${P};width:13px;height:13px">${v}
   </label>`).join("");
-
   const sel={};if(p.tratamiento)Object.assign(sel,p.tratamiento);
-
   return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
     <div style="background:${PD};padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
       <b style="color:#fff;font-size:14px">💪 ${presc?"Prescripción de Fisioterapia":"Nueva Prescripción de Fisioterapia"}</b>
       ${presc?btn("✏️ Editar","editarFisio('"+presc.id+"')","s",1):""}
     </div>
     <div style="padding:16px">
-
-      <!-- SECCIÓN 1: Datos del paciente -->
       <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
         <b style="font-size:14px;color:${P};text-transform:uppercase">1. Datos del paciente</b>
       </div>
@@ -3834,8 +3597,6 @@ function renderFisioForm(presc,pid){
         ${fld("Región anatómica afectada",`<input id="ft_region" value="${p.region||""}" placeholder="Ej: Columna lumbar" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
         ${fld("Lateralidad",`<div style="display:flex;gap:10px;margin-top:4px">${["Derecha","Izquierda","Bilateral","N/A"].map(v=>`<label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer"><input type="radio" name="ft_lat" value="${v}" ${(p.lateralidad||"N/A")===v?"checked":""} style="accent-color:${P}">${v}</label>`).join("")}</div>`)}
       </div>
-
-      <!-- SECCIÓN 2: Evaluación funcional -->
       <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
         <b style="font-size:14px;color:${P};text-transform:uppercase">2. Evaluación funcional</b>
       </div>
@@ -3849,8 +3610,6 @@ function renderFisioForm(presc,pid){
         <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:8px">Limitación funcional</p>
         <div style="display:flex;flex-wrap:wrap;gap:6px">${chkGroup(limitaciones,"lim",sel.limitaciones||{})}</div>
       </div>
-
-      <!-- SECCIÓN 3: Plan de tratamiento -->
       <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
         <b style="font-size:14px;color:${P};text-transform:uppercase">3. Plan de tratamiento <span style="font-weight:400;font-size:14px;color:${MU}">(marcar lo indicado)</span></b>
       </div>
@@ -3872,8 +3631,6 @@ function renderFisioForm(presc,pid){
       </div>
       <div style="margin-bottom:14px">${fld("Parámetros específicos / Medio físico",ta("ft_params",p.parametros||"","Especifique parámetros, intensidades, tiempos, técnicas adicionales...",3))}</div>
       <div style="margin-bottom:14px">${fld("Plan de ejercicios en casa (HEP)",ta("ft_hep",p.hep||"","Home Exercise Program — ejercicios que el paciente debe realizar en casa...",3))}</div>
-
-      <!-- SECCIÓN 4: Dosificación -->
       <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
         <b style="font-size:14px;color:${P};text-transform:uppercase">4. Dosificación</b>
       </div>
@@ -3884,8 +3641,6 @@ function renderFisioForm(presc,pid){
         ${fld("Fecha estimada de alta",`<input id="ft_falta" type="date" value="${p.fecha_alta||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
       <div style="margin-bottom:14px">${fld("Precauciones / Contraindicaciones",ta("ft_contra",p.contraindicaciones||"","Especifique precauciones importantes o actividades contraindicadas...",2))}</div>
-
-      <!-- SECCIÓN 5: Control de sesiones -->
       <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
         <b style="font-size:14px;color:${P};text-transform:uppercase">5. Control de sesiones</b>
       </div>
@@ -3895,8 +3650,6 @@ function renderFisioForm(presc,pid){
           ${done?`<span style="font-size:8px;color:${P}">✓</span>`:`<span style="font-size:7px;color:${BR}">—</span>`}
         </div>`;}).join("")}
       </div>
-
-      <!-- SECCIÓN 6: Evolución y reevaluación -->
       <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:14px">
         <b style="font-size:14px;color:${P};text-transform:uppercase">6. Evolución y reevaluación</b>
       </div>
@@ -3905,7 +3658,6 @@ function renderFisioForm(presc,pid){
         ${fld("EVA al alta / reevaluación",`<input id="ft_eva_alta" type="number" min="0" max="10" value="${p.eva_alta||""}" placeholder="0-10" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
       <div style="margin-bottom:16px">${fld("Notas de evolución / reevaluación",ta("ft_evol_nota",p.evolucion||"","Observaciones de la evolución del paciente, cambios en el plan, alta...",3))}</div>
-
       <div style="display:flex;justify-content:flex-end;gap:8px">
         ${btn("💊 Ver como PDF","generarPDFFisio()","s",1)}
         ${btn("💾 Guardar prescripción","guardarFisio('"+pid+"','"+( presc?.id||"")+"')","ok",1)}
@@ -3913,12 +3665,10 @@ function renderFisioForm(presc,pid){
     </div>
   </div>`;
 }
-
 function renderFisioVer(presc,pid){
   if(!presc)return`<p style="text-align:center;padding:24px;color:${MU}">Prescripción no encontrada</p>`;
   return renderFisioForm(presc,pid);
 }
-
 window.toggleDxMenu=async function(){
   const menu=document.getElementById("dx-menu");
   if(!menu)return;
@@ -3967,7 +3717,6 @@ window.toggleSesion=function(n){
   // update visuals
   setET("fisio");
 }
-
 window.guardarFisio=async function(pid,editId=""){
   loading(true,"Guardando prescripción...");
   // Recoger checkboxes
@@ -3975,7 +3724,6 @@ window.guardarFisio=async function(pid,editId=""){
   const keys={ag:["tens","ultrasonido","laser","radiofrecuencia","compresion","crioterapia","termoterapia"],man:["masoterapia","movilizacion","manipulacion","miofascial","puncion","vendaje","drenaje"],ej:["estiramiento","fortalecimiento","propiocepcion","postural","cadena","aerobico","pliometria","readaptacion","pilates"],neu:["marcha","sensoriomotriz","avd","cognitiva"],lim:["marcha","laboral","deportiva","avd_bas","avd_ins"]};
   const trat={};
   grupos.forEach(g=>{trat[g]={};(keys[g]||[]).forEach(k=>{const e=document.getElementById(`ft_${g}_${k}`);if(e)trat[g][k]=e.checked;});});
-
   const lat=document.querySelector("input[name='ft_lat']:checked")?.value||"N/A";
   const payload={
     paciente_id:pid,
@@ -3994,7 +3742,6 @@ window.guardarFisio=async function(pid,editId=""){
     eva_alta:gv("ft_eva_alta")?parseInt(gv("ft_eva_alta")):null,
     evolucion:gv("ft_evol_nota"),
   };
-
   let res;
   if(editId){
     res=await SB.from("fisioterapia_prescripciones").update(payload).eq("id",editId).select().single();
@@ -4008,7 +3755,6 @@ window.guardarFisio=async function(pid,editId=""){
   showToast("✓ Prescripción guardada");
   setET("fisio");
 }
-
 window.guardarNotaFisio=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
   const nota=gv("fn_nota");if(!nota.trim()){showToast("Escribe la nota antes de guardar",false);return;}
@@ -4024,7 +3770,6 @@ window.guardarNotaFisio=async function(){
   STATE.fisioTab="notas";
   setET("fisio");
 }
-
 window.editarFisio=async function(id){
   const {data}=await SB.from("fisioterapia_prescripciones").select("*").eq("id",id).single();
   if(!data)return;
@@ -4032,9 +3777,7 @@ window.editarFisio=async function(id){
   // La renderFisioVer ya muestra el form con los datos
   renderFisio(document.getElementById("eb"));
 }
-
 window.generarPDFFisio=function(){showToast("PDF de fisioterapia — próximamente en la siguiente versión",false);}
-
 // ── CONFIGURACIÓN MENU ───────────────────────────────────
 window.toggleCfgMenu=function(){
   const m=document.getElementById("cfg-menu");
@@ -4045,7 +3788,6 @@ document.addEventListener("click",function(e){
   const m=document.getElementById("cfg-menu");
   if(m&&w&&!w.contains(e.target))m.style.display="none";
 });
-
 // ── MI PERFIL MÉDICO ──────────────────────────────────────
 function pgPerfil(){
   const u=STATE.userProfile||{};
@@ -4120,7 +3862,6 @@ function pgPerfil(){
           </div>
         </div>
       </div>
-
       <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
         <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:6px;text-transform:uppercase">📅 Google Calendar</p>
         ${isAdmin?`
@@ -4131,8 +3872,8 @@ function pgPerfil(){
           Con la URL individual en cada perfil de médico, los botones de color en la agenda funcionan para filtrar por doctor.
         </div>`:`
         <div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#1565C0;line-height:1.8">
-          Pide al administrador el enlace de tu calendario personal de QP Clinic, o ve a 
-          <a href="https://calendar.google.com/calendar/r/settings" target="_blank" style="color:${P}">Google Calendar → Configuración</a> 
+          Pide al administrador el enlace de tu calendario personal de QP Clinic, o ve a
+          <a href="https://calendar.google.com/calendar/r/settings" target="_blank" style="color:${P}">Google Calendar → Configuración</a>
           → tu calendario en la barra lateral → <b>"Integrar calendario"</b> → copia la URL del iframe.
         </div>`}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -4143,8 +3884,6 @@ function pgPerfil(){
           <iframe src="${u.calendar_url}&mode=WEEK&hl=es&showTitle=0&showNav=0&showDate=0&showPrint=0&showTabs=0&showCalendars=0" style="width:100%;height:100%;border:none" frameborder="0"></iframe>
         </div>`:""}
       </div>
-
-      <!-- Cambiar contraseña -->
       <div style="border-top:1px solid ${BR};margin:16px 0;padding-top:16px">
         <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:12px;text-transform:uppercase">🔐 Seguridad — Cambiar contraseña</p>
         <div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#E65100">
@@ -4162,7 +3901,6 @@ function pgPerfil(){
         <div id="pass-strength" style="height:4px;border-radius:2px;background:${BR};margin-top:-8px;margin-bottom:4px;transition:all .3s"></div>
         <p id="pass-msg" style="font-size:12px;color:${MU}"></p>
       </div>
-
     </div>
   </div>`;
   ["pf_titulo","pf_nom","pf_ap","pf_esp1","pf_instgrado","pf_ced1","pf_esp2","pf_instesp","pf_ced2"].forEach(id=>{
@@ -4262,7 +4000,6 @@ window.guardarPerfil=async function(){
   showToast("✓ Perfil médico actualizado");
   pgPerfil(); // recargar para mostrar la firma
 }
-
 // ── MÉDICOS DEL SISTEMA (solo admin) ──────────────────────
 async function pgMedicos(){
   if(STATE.userProfile?.rol!=="admin"){go("agenda");showToast("Acceso restringido al administrador",false);return;}
@@ -4275,20 +4012,15 @@ async function pgMedicos(){
       </div>
       ${btn("➕ Agregar médico / usuario","mostrarFormNuevoUsuario()","p",1)}
     </div>
-
-    <!-- Instrucciones -->
     <div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;padding:12px;margin-bottom:16px;font-size:14px;color:#E65100">
       ⚠️ <b>Paso 1:</b> Crea el usuario en <b>Supabase → Authentication → Users → Add user</b> con correo y contraseña temporal.<br>
       <b>Paso 2:</b> Aquí llena su perfil completo (cédulas, firma, datos de contacto).
     </div>
-
-    <!-- Formulario nuevo usuario -->
     <div id="form-nuevo-usuario" style="display:none;background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:20px;margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <h3 style="font-size:14px;font-weight:700;color:${TX}" id="form-med-titulo">Agregar médico / usuario</h3>
         ${btn("✕","ocultarFormNuevoUsuario()","d",1)}
       </div>
-      <!-- Acceso al sistema -->
       <div style="background:${PL};border-radius:8px;padding:12px;margin-bottom:14px">
         <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:10px;text-transform:uppercase">Acceso al sistema</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
@@ -4297,13 +4029,11 @@ async function pgMedicos(){
           ${fld("Rol",sel("nu_rol",["medico","nutriologo","psicologo","fisioterapeuta","enfermeria","recepcion","admin"]))}
         </div>
       </div>
-      <!-- Datos personales -->
       <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:14px;margin-bottom:16px">
         ${fld("Título",sel("nu_titulo",['Dr.', 'Dra.', 'Lic.', 'LTF', 'LFT', 'M.C.', 'M.N.', 'Esp.', 'M.D.', 'Enf.', 'Psic.', 'PhD']))}
         ${fld("Nombre(s) *",inp("nu_nom",""),1)}
         ${fld("Apellidos *",inp("nu_ap",""),1)}
       </div>
-      <!-- Cédulas -->
       <div style="background:#F8F9FA;border-radius:8px;padding:12px;margin-bottom:12px">
         <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:10px;text-transform:uppercase">Cédulas profesionales</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
@@ -4322,12 +4052,10 @@ async function pgMedicos(){
           ${fld("Subespecialidad",inp("nu_subesp",""))}
         </div>
       </div>
-      <!-- Contacto -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
         ${fld("Correo para recetas y documentos",inp("nu_mailreceta","","correo@qpclinic.mx","email"))}
         ${fld("Teléfono / Celular",inp("nu_tel",""))}
       </div>
-      <!-- Firma -->
       <div style="background:#F8F9FA;border-radius:8px;padding:12px;margin-bottom:14px">
         <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:4px;text-transform:uppercase">Rúbrica / Firma digital</p>
         <p style="font-size:13px;color:${MU};margin-bottom:10px">El médico puede subirla él mismo desde <b>Configuración → Mi perfil</b>. Como administrador también puedes hacerlo aquí.</p>
@@ -4340,8 +4068,6 @@ async function pgMedicos(){
         ${btn("💾 Guardar perfil","guardarNuevoUsuario()","ok",1)}
       </div>
     </div>
-
-    <!-- Lista de médicos -->
     <div id="medicos-lista"><div style="text-align:center;padding:32px;color:${MU}"><span class="spin" style="font-size:24px;display:block;margin-bottom:8px">⚙️</span>Cargando...</div></div>
   </div>`;
   await cargarMedicos();
@@ -4398,7 +4124,6 @@ window.guardarNuevoUsuario=async function(){
   const email=gv("nu_email").trim().toLowerCase();
   const nom=gv("nu_nom").trim();const ap=gv("nu_ap").trim();
   if(!nom||!ap){showToast("Nombre y apellidos son requeridos",false);return;}
-
   let uid=editingId;
   if(!uid){
     if(!email){showToast("Ingresa el correo del usuario (el mismo que pusiste en Supabase)",false);return;}
@@ -4407,7 +4132,6 @@ window.guardarNuevoUsuario=async function(){
     if(!uData){loading(false);showToast("No se encontró el usuario. Créalo primero en Supabase → Authentication → Users",false);return;}
     uid=uData.id;
   }
-
   // Subir firma si se seleccionó
   let firmaUrl=null;
   const firmaFile=document.getElementById("nu_firma_file")?.files[0];
@@ -4420,7 +4144,6 @@ window.guardarNuevoUsuario=async function(){
       firmaUrl=urlData.publicUrl+"?t="+Date.now();
     }
   }
-
   loading(true,"Guardando perfil...");
   const payload={
     username:username||undefined,
@@ -4434,7 +4157,6 @@ window.guardarNuevoUsuario=async function(){
     activo:true,
   };
   if(firmaUrl)payload.firma_digital=firmaUrl;
-
   const {error}=await SB.from("usuarios").update(payload).eq("id",uid);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
@@ -4442,7 +4164,6 @@ window.guardarNuevoUsuario=async function(){
   ocultarFormNuevoUsuario();
   cargarMedicos();
 }
-
 const ROLES_LABEL={
   admin:"🔑 Admin",medico:"👨‍⚕️ Médico",nutriologo:"🥗 Nutriólogo",
   psicologo:"🧠 Psicólogo",fisioterapeuta:"🏃 Fisio",
@@ -4457,7 +4178,6 @@ const ROLES_COLOR={
   enfermeria:"background:#FFF8E1;color:#E65100",
   recepcion:"background:#ECEFF1;color:#546E7A"
 };
-
 async function cargarMedicos(){
   const {data,error}=await SB.from("usuarios").select("*").order("apellidos");
   const ml=document.getElementById("medicos-lista");if(!ml)return;
@@ -4499,7 +4219,6 @@ window.toggleUsuario=async function(id,activo){
   showToast(activo?"✓ Usuario activado":"✓ Usuario desactivado");
   cargarMedicos();
 }
-
 // ── HELPER: DATOS DEL MÉDICO ACTUAL ──────────────────────
 function getMedicoData(){
   const u=STATE.userProfile||{};
@@ -4522,7 +4241,6 @@ function getMedicoData(){
     email:u.email||"",
   };
 }
-
 // ── DOCUMENTOS LEGALES MEJORADOS (NOM-004, LGS) ──────────
 function getDocumentoHTML(tipo, paciente){
   const m=getMedicoData();
@@ -4531,7 +4249,6 @@ function getDocumentoHTML(tipo, paciente){
   const nomPac=`${p.nombre||"_____________"} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim();
   const edadPac=p.fecha_nacimiento?calcEdad(p.fecha_nacimiento):"___";
   const creds=`${m.especialidad_1}${m.cedula_medico?" — Céd. Prof. "+m.cedula_medico:""}${m.especialidad_2?"\n"+m.especialidad_2+(m.cedula_esp_1?" — Céd. Esp. "+m.cedula_esp_1:""):""}`;
-
   const header=`<div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid #1565C0;padding-bottom:10px;margin-bottom:16px">
     <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:52px">
     <div style="text-align:right;font-size:14px;line-height:1.7;color:#263238">
@@ -4543,7 +4260,6 @@ function getDocumentoHTML(tipo, paciente){
     </div>
   </div>
   <p style="font-size:14px;color:#546E7A;text-align:right;margin-bottom:14px">Ciudad de México, ${hoy}</p>`;
-
   const footer=`<div style="margin-top:28px;border-top:1px solid #CFD8DC;padding-top:16px">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
       <div style="text-align:center">
@@ -4563,13 +4279,9 @@ function getDocumentoHTML(tipo, paciente){
     </div>
     <p style="font-size:14px;color:#90A4AE;text-align:center;margin-top:12px">Documento generado conforme a la NOM-004-SSA3-2012 del Expediente Clínico y los Arts. 80-84 del Reglamento de la Ley General de Salud en Materia de Prestación de Servicios de Atención Médica.</p>
   </div>`;
-
   const titulo=(t,sub="")=>`<div style="text-align:center;margin-bottom:16px"><h2 style="font-size:15px;font-weight:800;color:#1A237E;text-transform:uppercase">${t}</h2>${sub?`<p style="font-size:14px;color:#546E7A;margin-top:3px">${sub}</p>`:""}</div>`;
-
   const sec=(t,body)=>`<div style="margin-bottom:12px"><p style="font-size:14px;font-weight:700;color:#1565C0;margin-bottom:4px">${t}</p><p style="font-size:14px;line-height:1.8;color:#263238">${body}</p></div>`;
-
   const docs={
-
     // 1. CONSENTIMIENTO INFORMADO GENERAL
     "general":`${header}
     ${titulo("Consentimiento Informado General","NOM-004-SSA3-2012 | Ley General de Salud Art. 51 Bis 1")}
@@ -4580,7 +4292,6 @@ function getDocumentoHTML(tipo, paciente){
     ${sec("4. Derecho a retirar el consentimiento","Entiendo que puedo abandonar el plan de tratamiento propuesto en cualquier momento, de conformidad con el Art. 51 Bis 1 de la Ley General de Salud. Comprendo que el abandono del tratamiento puede implicar consecuencias adversas para mi salud, sobre las cuales he sido debidamente informado(a).")}
     ${sec("5. Confidencialidad","Toda la información relacionada con mi atención médica será tratada con estricta confidencialidad, conforme a la NOM-004-SSA3-2012 y la Ley Federal de Protección de Datos Personales en Posesión de los Particulares.")}
     ${footer}`,
-
     // 2. CONSENTIMIENTO TELEMEDICINA
     "telemedicina":`${header}
     ${titulo("Consentimiento Informado para Servicios de Telemedicina / Telesalud","NOM-024-SSA3-2012 | NOM-004-SSA3-2012")}
@@ -4590,7 +4301,6 @@ function getDocumentoHTML(tipo, paciente){
     ${sec("Riesgos potenciales","• La transmisión de información médica podría verse alterada por fallas técnicas.<br>• La información médica podría ser interrumpida o accedida por personas no autorizadas (a pesar de medidas de protección).<br>• Los servicios de telemedicina pueden no ser tan completos como los servicios presenciales.<br>• En casos poco frecuentes, la información transmitida puede ser insuficiente para la toma de decisiones.<br>• En casos excepcionales, los protocolos de seguridad pueden fallar.")}
     ${sec("Declaraciones","1. Entiendo que mi información de atención médica puede ser compartida con fines de tratamiento conforme a la LFPDPPP.<br>2. Tengo el derecho de negar o retirar mi consentimiento en cualquier momento sin afectar mi derecho a recibir atención presencial futura.<br>3. Existen métodos alternativos de atención, incluida la interacción presencial, y puedo elegirlos en cualquier momento.<br>4. Las leyes que protegen la confidencialidad de mi información médica aplican también a la telemedicina.<br>5. La transmisión de vídeo puede ser retenida con fines de documentación clínica.<br>6. No se garantizan los mismos resultados que en consulta presencial.")}
     ${footer}`,
-
     // 3. CONSENTIMIENTO QP CLINIC DR.
     "qpclinic":`${header}
     ${titulo("Consentimiento Informado para Tratamiento Médico-Deportivo","NOM-004-SSA3-2012 | Ley General de Salud")}
@@ -4601,7 +4311,6 @@ function getDocumentoHTML(tipo, paciente){
     ${sec("Riesgos personalizados","Existen riesgos individualizados que dependen de factores como la edad, enfermedades previas, alergias, tratamientos concomitantes y hábitos del paciente, que pueden incrementar o no la incidencia de los riesgos señalados u otros no mencionados, los cuales serán discutidos de manera personalizada.")}
     ${sec("Declaración de comprensión","Habiendo sido informado(a) de manera clara y suficiente sobre los beneficios, riesgos y alternativas del tratamiento, y habiendo podido formular todas las preguntas pertinentes con respuestas satisfactorias, otorgo mi consentimiento libre y voluntario para iniciar el tratamiento médico-deportivo descrito.")}
     ${footer}`,
-
     // 4. SEGUIMIENTO MÉDICO-DEPORTIVO
     "seguimiento":`${header}
     ${titulo("Carta de Compromiso — Seguimiento Médico-Deportivo","NOM-004-SSA3-2012 | QP Clinic")}
@@ -4611,7 +4320,6 @@ function getDocumentoHTML(tipo, paciente){
     ${sec("Condiciones","1. Una vez finalizado el periodo de vigencia, NO se repondrán los servicios no tomados.<br>2. Una vez contratado el periodo, por ningún motivo se realizarán devoluciones económicas.<br>3. Los resultados no se garantizan si el paciente sigue recomendaciones de terceros, metodología, fármacos o sustancias no prescritas explícitamente mediante receta médica firmada por ${m.nombre_completo}.")}
     ${sec("Renovación","En caso de querer continuar el seguimiento, el paquete subsecuente deberá pagarse en su totalidad a más tardar el día que termine la vigencia del anterior. Si el reinicio ocurre después de 4 semanas del fin de vigencia, se deberá contratar un paquete de costo inicial.")}
     ${footer}`,
-
     // 5. USO DE EAA
     "eaa":`${header}
     ${titulo("Consentimiento Informado — Uso de Esteroides Anabólicos Androgénicos (EAA)","NOM-004-SSA3-2012 | Ley General de Salud Art. 51 Bis")}
@@ -4620,7 +4328,6 @@ function getDocumentoHTML(tipo, paciente){
     ${sec("Riesgos para la salud","He sido informado(a) de que el uso de EAA puede generar riesgos para la salud e incluso para la vida, que incluyen:<br><b>Cardiovasculares:</b> Hipertensión arterial, aumento de masa ventricular, hipertrofia concéntrica del ventrículo izquierdo, aumento en la capacidad de coagulación, trombosis, tromboembolia pulmonar, infarto agudo al miocardio, evento vascular cerebral.<br><b>Hepáticos:</b> Hepatitis, peliosis, hipertensión portal, várices esofágicas, adenoma hepatocelular, carcinoma hepatocelular, angiosarcoma hepático.<br><b>Renales:</b> Disminución del filtrado glomerular e insuficiencia renal.<br><b>Metabólicos:</b> Aumento del colesterol LDL, disminución del colesterol HDL, aumento de triglicéridos, disminución de respuesta inmunológica.<br><b>Psiquiátricos:</b> Hostilidad, agresiones, depresión, manía, insomnio, psicosis.<br><b>Reproductivos:</b> Oligospermia, azoospermia, atrofia testicular, disfunción eréctil, priapismo.<br><b>Locales:</b> Infección del sitio de aplicación, abscesos.<br><b>Reacciones adversas graves:</b> Anafilaxia. <b>Muerte.</b>")}
     ${sec("Declaración de consentimiento","Conociendo los riesgos previamente descritos, solicito voluntariamente la prescripción médica de EAA. Este tratamiento se realizará bajo seguimiento médico periódico orientado a disminuir los posibles efectos adversos, sin que ello los elimine. Entiendo que puedo revocar este consentimiento en cualquier momento.")}
     ${footer}`,
-
     // 6. INFILTRACIONES
     "infiltraciones":`${header}
     ${titulo("Consentimiento Informado para Tratamiento con Infiltraciones","NOM-004-SSA3-2012 | Ley General de Salud")}
@@ -4632,7 +4339,6 @@ function getDocumentoHTML(tipo, paciente){
     ${sec("Alternativas al procedimiento","La lesión puede tratarse con medicación antiinflamatoria, reposo relativo o medidas fisioterapéuticas, con sus propios perfiles de eficacia y seguridad.")}
     ${sec("Declaración","He leído la información proporcionada, he sido informado(a) por el médico tratante, entiendo los riesgos y beneficios del procedimiento, he comprendido las posibles alternativas y mis dudas han sido aclaradas satisfactoriamente. Otorgo mi consentimiento para que me sea practicado el procedimiento de infiltración. Soy conocedor(a) de que en caso de urgencia o causas imprevistas podrán utilizarse las actuaciones médicas necesarias para mantenerme con vida. Sé que puedo revocar este consentimiento en cualquier momento.")}
     ${footer}`,
-
     // 7. PRUEBA DE ESFUERZO
     "esfuerzo":`${header}
     ${titulo("Consentimiento Informado para Prueba de Esfuerzo","NOM-004-SSA3-2012 | NOM-006-SSA3-2011")}
@@ -4643,7 +4349,6 @@ function getDocumentoHTML(tipo, paciente){
     ${sec("Beneficios","Determinación del nivel de esfuerzo apropiado, optimización del entrenamiento, detección de patología cardíaca y evaluación del riesgo cardiovascular para la actividad deportiva.")}
     ${sec("Declaración","He recibido y comprendido la hoja de información. He tenido oportunidad de aclarar mis dudas en entrevista con el médico tratante. He recibido respuesta a todas mis preguntas. Tomo la decisión de manera libre y voluntaria.")}
     ${footer}`,
-
     // 8. GLP-1 / OZEMPIC
     "glp1":`${header}
     ${titulo("Consentimiento Informado — Tratamiento con Agonistas GLP-1","NOM-004-SSA3-2012 | Semaglutida (Ozempic®) / Tirzepatida (Mounjaro®)")}
@@ -4657,7 +4362,6 @@ function getDocumentoHTML(tipo, paciente){
     ${sec("Alternativas terapéuticas","Existen otros antidiabéticos y aproximaciones para el manejo de obesidad, con sus propios perfiles de eficacia y seguridad, discutidas con el médico tratante.")}
     ${sec("Declaración de consentimiento","He sido informado(a) de los beneficios, riesgos y alternativas del tratamiento. Comprendo que puedo rechazarlo o discontinuarlo en cualquier momento. Acepto iniciar el tratamiento bajo supervisión médica, comprometiéndome a reportar con prontitud cualquier cambio visual u otro efecto adverso.")}
     ${footer}`,
-
     // 9. AVISO DE PRIVACIDAD (simplificado para firma)
     "privacidad":`${header}
     ${titulo("Aviso de Privacidad Simplificado","LFPDPPP | Para firma del paciente")}
@@ -4669,10 +4373,8 @@ function getDocumentoHTML(tipo, paciente){
     ${sec("Consentimiento del paciente","Al firmar el presente documento, el paciente manifiesta haber leído y comprendido el Aviso de Privacidad completo disponible en qpclinic.org y otorga su consentimiento para el tratamiento de sus datos personales, incluyendo los datos sensibles de salud, para las finalidades señaladas.")}
     ${footer}`,
   };
-
   return docs[tipo]||`<p>Documento no encontrado</p>`;
 }
-
 // ── INIT ──────────────────────────────────────────────────
 (async function init(){
   const {data:{session}}=await SB.auth.getSession();
