@@ -1336,9 +1336,19 @@ window.cargarPlantillaNop=function(tipo){
 window.toggleOcular=function(o){
   STATE.patData["oc_"+o]=!STATE.patData["oc_"+o];
 }
-window.toggleFam=function(e,r){STATE.famData[e+"_"+r]=!STATE.famData[e+"_"+r];renderAB();}
-window.togglePat=function(p){STATE.patData[p]=!STATE.patData[p];renderAB();}
-window.toggleAlerg=function(a){STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];}
+// Guardar contenido de textareas antes de re-renderizar
+function saveABTextareas(){
+  const fam=document.getElementById("fam_notas");if(fam)STATE.famNotas=fam.value;
+  const otros=document.getElementById("ant_otros");if(otros)STATE.otrosText=otros.value;
+  const alOt=document.getElementById("al_otros_txt");if(alOt)STATE.alOtrosText=alOt.value;
+  const medOt=document.getElementById("med_otros_txt");if(medOt)STATE.medOtrosText=medOt.value;
+  const meda=document.getElementById("meda");if(meda)STATE.medText=meda.value;
+  const nopa=document.getElementById("nopa");if(nopa)STATE.antNoPatText=nopa.value;
+  const patOt=document.getElementById("pat-otras");if(patOt)STATE.patOtrasNotes=patOt.value;
+}
+window.toggleFam=function(e,r){saveABTextareas();STATE.famData[e+"_"+r]=!STATE.famData[e+"_"+r];renderAB();}
+window.togglePat=function(p){saveABTextareas();STATE.patData[p]=!STATE.patData[p];renderAB();}
+window.toggleAlerg=function(a){saveABTextareas();STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];}
 window.agregarOtraAlergia=function(){
   const inp=document.getElementById("al-otra");
   if(!inp||!inp.value.trim()){showToast("Escribe el nombre de la alergia",false);return;}
@@ -1361,7 +1371,7 @@ window.removeDiscap=async function(idx){
   const pid=STATE.pat?.id;if(!pid)return;
   const cat=STATE.discapacidades[idx];
   await SB.from("discapacidades").delete().eq("paciente_id",pid).eq("categoria",cat);
-  STATE.discapacidades.splice(idx,1);renderAB();showToast("✓ Eliminada");
+  STATE.discapacidades.splice(idx,1);saveABTextareas();renderAB();showToast("✓ Eliminada");
 }
 
 function renderAB(){
@@ -2330,7 +2340,7 @@ function pgConsulta(){
                 ${items.map(m=>`<button onclick="agregarMotivo('${m.replace(/'/g,"\\'")}');toggleMotivos()" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:20px;padding:3px 10px;cursor:pointer;font-size:14px;font-weight:500">${m}</button>`).join("")}
               </div>`).join("")}
           </div>
-          <div style="padding:12px">${ta("cs_subj",c.subjetivo||"","Describa el motivo de consulta e interrogatorio...",5)}</div>
+          <div style="padding:12px">${ta("cs_subj",c.subjetivo||"","Describa el motivo de consulta e interrogatorio...",8)}</div>
         </div>
 
         <!-- ALERGIAS -->
@@ -2363,7 +2373,7 @@ function pgConsulta(){
             <span style="font-size:14px;color:#7B1FA2;background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA sugiere CIE-10</span>
           </div>
           <div id="diagnosticos-ia" style="display:none;padding:8px 12px;border-bottom:1px solid ${BR};background:#F3E5F5"></div>
-          <div style="padding:12px">${ta("cs_anal",c.analisis||"","Diagnóstico(s) con código CIE-10...",5)}</div>
+          <div style="padding:12px">${ta("cs_anal",c.analisis||"","Diagnóstico(s) con código CIE-10...",8)}</div>
         </div>
 
         <!-- TRATAMIENTO -->
@@ -2372,7 +2382,7 @@ function pgConsulta(){
             <b style="font-size:14px;color:${TX}">💊 Tratamiento</b>
             <button onclick="showRecipe()" style="background:#1B5E20;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">Receta electrónica</button>
           </div>
-          <div style="padding:12px">${ta("cs_trat",c.tratamiento||"","Medicamentos, dosis, medidas generales...",5)}</div>
+          <div style="padding:12px">${ta("cs_trat",c.tratamiento||"","Medicamentos, dosis, medidas generales...",8)}</div>
         </div>
 
         <!-- LABORATORIO -->
@@ -2381,7 +2391,7 @@ function pgConsulta(){
             <b style="font-size:14px;color:${TX}">🔬 Laboratorio</b>
             <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
           </div>
-          <div style="padding:12px">${ta("cs_lab",c.laboratorio||"","BH, QS, EGO, PCR...",4)}</div>
+          <div style="padding:12px">${ta("cs_lab",c.laboratorio||"","BH, QS, EGO, PCR...",6)}</div>
         </div>
 
         <!-- GABINETE -->
@@ -2390,13 +2400,13 @@ function pgConsulta(){
             <b style="font-size:14px;color:${TX}">📡 Estudios de gabinete</b>
             <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
           </div>
-          <div style="padding:12px">${ta("cs_gab",c.gabinete||"","RX, USG, IRM...",4)}</div>
+          <div style="padding:12px">${ta("cs_gab",c.gabinete||"","RX, USG, IRM...",6)}</div>
         </div>
 
         <!-- PLAN -->
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">📋 Plan</b></div>
-          <div style="padding:12px">${ta("cs_plan",c.plan||"","Seguimiento, indicaciones de alarma, actividad deportiva...",3)}</div>
+          <div style="padding:12px">${ta("cs_plan",c.plan||"","Seguimiento, indicaciones de alarma, actividad deportiva...",6)}</div>
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 0;max-width:1200px;margin:0 auto">
