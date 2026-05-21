@@ -2636,9 +2636,14 @@ Incluye entre 1 y 5 diagnósticos ordenados por probabilidad. Certeza: Principal
     const data=await res.json();
     let dx=[];
     try{
-      const txt=data.resultado||data.content||"";
-      const match=txt.match(/\{[\s\S]*\}/);
-      if(match)dx=JSON.parse(match[0]).diagnosticos||[];
+      // Formato 1: { diagnosticos: [...] } directo
+      if(Array.isArray(data.diagnosticos)) dx=data.diagnosticos;
+      // Formato 2: { resultado: "{...}" } string JSON
+      else if(data.resultado){
+        const txt=data.resultado;
+        const match=txt.match(/\{[\s\S]*\}/);
+        if(match)dx=JSON.parse(match[0]).diagnosticos||[];
+      }
     }catch(e){dx=[];}
     if(!dxDiv)return;
     if(dx.length===0){
