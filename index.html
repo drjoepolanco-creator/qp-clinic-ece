@@ -2602,13 +2602,24 @@ window.sugerirDxIA=async function(){
   const expl=gv("cs_expl");
   const analActual=gv("cs_anal");
   const trat=gv("cs_trat");
-  if(!subj&&!expl&&!analActual){showToast("Escribe primero el motivo de consulta o exploración física",false);return;}
+  const plan=gv("cs_plan");
+  const lab=gv("cs_lab");
+  // Usar cualquier campo disponible
+  const hayContenido=subj||expl||analActual||trat||plan||lab;
+  if(!hayContenido){showToast("Escribe al menos el motivo de consulta en Subjetivo antes de pedir diagnósticos",false);return;}
   const dxDiv=document.getElementById("diagnosticos-ia");
   if(dxDiv){
     dxDiv.style.display="block";
     dxDiv.innerHTML=`<div style="display:flex;align-items:center;gap:8px;color:#7B1FA2;font-size:13px"><span class="spin">⚙️</span> Analizando nota y generando diagnósticos CIE-10...</div>`;
   }
-  const nota=`MOTIVO DE CONSULTA:\n${subj}\n\nEXPLORACIÓN FÍSICA:\n${expl}\n\nANÁLISIS PREVIO:\n${analActual}\n\nTRATAMIENTO:\n${trat}`;
+  const nota=[
+    subj&&`MOTIVO DE CONSULTA:\n${subj}`,
+    expl&&`EXPLORACIÓN FÍSICA:\n${expl}`,
+    analActual&&`ANÁLISIS PREVIO:\n${analActual}`,
+    trat&&`TRATAMIENTO:\n${trat}`,
+    plan&&`PLAN:\n${plan}`,
+    lab&&`LABORATORIO SOLICITADO:\n${lab}`,
+  ].filter(Boolean).join("\n\n");
   try{
     const res=await fetch("/api/ia-medica",{
       method:"POST",
