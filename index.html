@@ -82,7 +82,24 @@ const PLANTILLAS_PAT=[{lbl:"Hipertensión",txt:"Hipertensión Arterial Sistémic
 // ── HELPERS UI ────────────────────────────────────────────
 const RR=()=>document.getElementById("R");
 function go(pg,ex={}){Object.assign(STATE,{page:pg,...ex});draw();}
-function draw(){RR().innerHTML="";RR().className="fade";({login:pgLogin,agenda:pgAgenda,buscar:pgBuscar,expediente:pgExp,nuevo:pgNuevo,consulta:pgConsulta,perfil:pgPerfil,medicos:pgMedicos}[STATE.page]||pgLogin)();}
+// ── BITÁCORA DE ACCESO (NOM-024) ─────────────────────────
+async function logBitacora(accion,detalle="",paciente_id=null){
+  try{
+    const u=STATE.userProfile||{};
+    await SB.from("bitacora_accesos").insert({
+      usuario_id:STATE.user?.id||null,
+      usuario_nombre:`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim()||"Desconocido",
+      usuario_rol:u.rol||"—",
+      accion,
+      detalle,
+      paciente_id:paciente_id||STATE.pat?.id||null,
+      paciente_nombre:STATE.pat?`${STATE.pat.nombre||""} ${STATE.pat.apellido_paterno||""}`.trim():null,
+      ip_referencia:window.location.hostname,
+      timestamp:new Date().toISOString(),
+    });
+  }catch(e){/* silencioso — no interrumpir flujo */}
+}
+function draw(){RR().innerHTML="";RR().className="fade";({login:pgLogin,agenda:pgAgenda,buscar:pgBuscar,expediente:pgExp,nuevo:pgNuevo,consulta:pgConsulta,perfil:pgPerfil,medicos:pgMedicos,bitacora:pgBitacora}[STATE.page]||pgLogin)();}
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
 function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`;}
 function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
@@ -165,7 +182,8 @@ function nav(){
         <button onclick="go('perfil');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">👨‍⚕️ Mi perfil médico</button>
         ${STATE.userProfile?.rol==="admin"?`<div style="border-top:1px solid #CFD8DC"></div>
         <div style="padding:6px 16px;font-size:14px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5">Solo Administrador</div>
-        <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>`:""}
+        <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>
+        <button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>`:""}
       </div>
     </div>
     <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
@@ -362,10 +380,50 @@ window.doLogin=async function(){
   const {data:prof}=await SB.from("usuarios").select("*").eq("id",data.user.id).maybeSingle();
   STATE.userProfile=prof;
   STATE.medProfile=prof; // alias para recetas y documentos
+  logBitacora("INICIO DE SESIÓN","Login exitoso",null);
   go("agenda");
 }
 function showLoginError(msg){const e=document.getElementById("login-error");if(e){e.style.display="block";e.textContent=msg;}}
 // ── AGENDA ────────────────────────────────────────────────
+async function pgBitacora(){
+  if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
+  loading(true,"Cargando bitácora...");
+  const {data}=await SB.from("bitacora_accesos").select("*").order("timestamp",{ascending:false}).limit(200);
+  loading(false);
+  const registros=data||[];
+  RR().innerHTML=nav()+`
+  <div style="max-width:1100px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h2 style="font-size:18px;font-weight:700;color:${TX}">📋 Bitácora de acceso — NOM-024</h2>
+        <p style="font-size:13px;color:${MU}">Registro de todas las acciones en el sistema (últimos 200)</p>
+      </div>
+      ${btn("← Volver","go('agenda')","s",1)}
+    </div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:${PL}">
+          ${["Fecha y hora","Usuario","Rol","Acción","Detalle","Paciente"].map(h=>`<th style="padding:9px 12px;text-align:left;font-size:12px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}
+        </tr></thead>
+        <tbody>
+          ${registros.map((r,i)=>{
+            const ACCION_COLOR={"INICIO DE SESIÓN":"#1565C0","APERTURA DE EXPEDIENTE":"#2E7D32","GUARDADO DE NOTA":"#E65100","FIRMA DE NOTA":"#6A1B9A","CIERRE DE SESIÓN":"#546E7A"};
+            const col=ACCION_COLOR[r.accion]||MU;
+            const ts=r.timestamp?new Date(r.timestamp).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}):""
+            return`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+              <td style="padding:8px 12px;font-size:12px;white-space:nowrap;color:${MU}">${ts}</td>
+              <td style="padding:8px 12px;font-size:13px;font-weight:600;color:${TX}">${r.usuario_nombre||"—"}</td>
+              <td style="padding:8px 12px;font-size:12px;color:${MU}">${r.usuario_rol||"—"}</td>
+              <td style="padding:8px 12px"><span style="background:${col}15;color:${col};border:1px solid ${col}40;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap">${r.accion||"—"}</span></td>
+              <td style="padding:8px 12px;font-size:12px;color:${MU};max-width:200px">${r.detalle||"—"}</td>
+              <td style="padding:8px 12px;font-size:12px;color:${P}">${r.paciente_nombre||"—"}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
 async function pgAgenda(){
   const u=STATE.userProfile||{};
   const isAdmin=u.rol==="admin";
@@ -497,6 +555,7 @@ window.abrirExpediente=async function(id){
   loading(false);
   if(error||!data){showToast("Error al cargar expediente",false);return;}
   STATE.pat=data;
+  logBitacora("APERTURA DE EXPEDIENTE",`Exp. #${data.numero_expediente||data.id?.substring(0,8)||""}`,data.id);
   STATE.expTab="ficha";
   STATE.ficTab="gen";
   STATE.consultaActual=null;
@@ -2777,6 +2836,7 @@ window.guardarConsulta=async function(){
   loading(false);
   if(res.error){showToast("Error: "+res.error.message,false);return;}
   STATE.consultaActual=res.data;
+  logBitacora("GUARDADO DE NOTA",`Tipo: ${payload.tipo_nota||"Nota de evolución"}`);
   showToast("✓ Consulta guardada");
 }
 window.firmarNota=async function(){
@@ -2795,6 +2855,7 @@ window.firmarNota=async function(){
   loading(false);
   STATE.consultaActual.bloqueada=true;
   STATE.consultaActual.hora_fin=horaFin;
+  logBitacora("FIRMA DE NOTA",`Nota cerrada y firmada a las ${horaFin}`);
   showToast("✓ Nota firmada y cerrada");
   cerrarConsulta();
 }
