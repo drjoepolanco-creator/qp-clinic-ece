@@ -2598,13 +2598,18 @@ window.agregarMotivo=function(motivo){
 // ── MODAL IA ──────────────────────────────────────────────
 let _recognition=null;let _grabando=false;let _transcripcion="";let _timerGrab=null;let _segundos=0;
 window.sugerirDxIA=async function(){
-  const subj=gv("cs_subj");
-  const expl=gv("cs_expl");
-  const analActual=gv("cs_anal");
-  const trat=gv("cs_trat");
-  const plan=gv("cs_plan");
-  const lab=gv("cs_lab");
-  // Usar cualquier campo disponible
+  // Leer campos con fallback directo al DOM
+  const getVal=(id)=>{
+    const el=document.getElementById(id);
+    return el?el.value.trim():"";
+  };
+  const subj=getVal("cs_subj");
+  const expl=getVal("cs_expl");
+  const analActual=getVal("cs_anal");
+  const trat=getVal("cs_trat");
+  const plan=getVal("cs_plan");
+  const lab=getVal("cs_lab");
+
   const hayContenido=subj||expl||analActual||trat||plan||lab;
   if(!hayContenido){showToast("Escribe al menos el motivo de consulta en Subjetivo antes de pedir diagnósticos",false);return;}
   const dxDiv=document.getElementById("diagnosticos-ia");
@@ -2620,20 +2625,17 @@ window.sugerirDxIA=async function(){
     plan&&`PLAN:\n${plan}`,
     lab&&`LABORATORIO SOLICITADO:\n${lab}`,
   ].filter(Boolean).join("\n\n");
+  const payload={tipo:"diagnosticos_cie10",nota,instruccion:`Eres un médico experto en codificación CIE-10. Analiza la nota médica y propón los diagnósticos más probables con su código CIE-10 exacto. Responde ÚNICAMENTE en formato JSON sin texto adicional: {"diagnosticos":[{"codigo":"M54.5","nombre":"Lumbago no especificado","certeza":"Principal"}]}. Incluye entre 1 y 5 diagnósticos. Certeza: Principal, Secundario, o Diferencial.`};
+  console.log("📤 Enviando a IA:", JSON.stringify(payload).substring(0,300));
   try{
     const res=await fetch("/api/ia-medica",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        tipo:"diagnosticos_cie10",
-        nota,
-        instruccion:`Eres un médico experto en codificación CIE-10. Analiza la nota médica y propón los diagnósticos más probables con su código CIE-10 exacto.
-Responde ÚNICAMENTE en formato JSON sin texto adicional:
-{"diagnosticos":[{"codigo":"M54.5","nombre":"Lumbago no especificado","certeza":"Principal"},{"codigo":"M51.1","nombre":"Degeneración de disco lumbar","certeza":"Secundario"}]}
-Incluye entre 1 y 5 diagnósticos ordenados por probabilidad. Certeza: Principal, Secundario, o Diferencial.`
-      })
+      body:JSON.stringify(payload)
     });
+    console.log("📥 Status HTTP:", res.status);
     const data=await res.json();
+    console.log("🔍 ia-medica respuesta:", JSON.stringify(data).substring(0,500));
     let dx=[];
     try{
       // Formato 1: { diagnosticos: [...] } directo
@@ -2644,10 +2646,18 @@ Incluye entre 1 y 5 diagnósticos ordenados por probabilidad. Certeza: Principal
         const match=txt.match(/\{[\s\S]*\}/);
         if(match)dx=JSON.parse(match[0]).diagnosticos||[];
       }
-    }catch(e){dx=[];}
+      // Formato 3: error visible
+      else if(data.error){
+        if(dxDiv)dxDiv.innerHTML=`<p style="font-size:13px;color:${DA};padding:8px">❌ Error del servidor: ${data.error}</p>`;
+        return;
+      }
+    }catch(e){
+      console.error("Parse error:",e);
+      dx=[];
+    }
     if(!dxDiv)return;
     if(dx.length===0){
-      dxDiv.innerHTML=`<p style="font-size:13px;color:#7B1FA2;padding:4px">No se pudo generar diagnósticos. Verifica que haya contenido en la nota.</p>`;
+      dxDiv.innerHTML=`<p style="font-size:13px;color:#7B1FA2;padding:4px">No se pudo parsear diagnósticos. Ver consola del navegador (F12 → Console) para ver la respuesta exacta.</p>`;
       return;
     }
     dxDiv.innerHTML=`
