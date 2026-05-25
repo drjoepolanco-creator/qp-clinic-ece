@@ -2628,33 +2628,24 @@ window.sugerirDxIA=async function(){
   const payload={tipo:"diagnosticos_cie10",nota,instruccion:`Eres un médico experto en codificación CIE-10. Analiza la nota médica y propón los diagnósticos más probables con su código CIE-10 exacto. Responde ÚNICAMENTE en formato JSON sin texto adicional: {"diagnosticos":[{"codigo":"M54.5","nombre":"Lumbago no especificado","certeza":"Principal"}]}. Incluye entre 1 y 5 diagnósticos. Certeza: Principal, Secundario, o Diferencial.`};
   console.log("📤 Enviando a IA:", JSON.stringify(payload).substring(0,300));
   try{
-    const res=await fetch("/api/ia-medica",{
+    const res=await fetch("/api/cie10",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload)
+      body:JSON.stringify({nota})
     });
     console.log("📥 Status HTTP:", res.status);
     const data=await res.json();
-    console.log("🔍 ia-medica respuesta:", JSON.stringify(data).substring(0,500));
+    console.log("🔍 ia-medica respuesta:", JSON.stringify(data).substring(0,300));
     let dx=[];
     try{
-      // Formato 1: { diagnosticos: [...] } directo
-      if(Array.isArray(data.diagnosticos)) dx=data.diagnosticos;
-      // Formato 2: { resultado: "{...}" } string JSON
-      else if(data.resultado){
-        const txt=data.resultado;
-        const match=txt.match(/\{[\s\S]*\}/);
+      // Formato directo Anthropic: data.content[0].text
+      const txt=data.content?.[0]?.text||data.diagnosticos||data.resultado||"";
+      if(Array.isArray(txt))dx=txt;
+      else{
+        const match=String(txt).match(/\{[\s\S]*\}/);
         if(match)dx=JSON.parse(match[0]).diagnosticos||[];
       }
-      // Formato 3: error visible
-      else if(data.error){
-        if(dxDiv)dxDiv.innerHTML=`<p style="font-size:13px;color:${DA};padding:8px">❌ Error del servidor: ${data.error}</p>`;
-        return;
-      }
-    }catch(e){
-      console.error("Parse error:",e);
-      dx=[];
-    }
+    }catch(e){console.error("Parse:",e);dx=[];}
     if(!dxDiv)return;
     if(dx.length===0){
       dxDiv.innerHTML=`<p style="font-size:13px;color:#7B1FA2;padding:4px">No se pudo parsear diagnósticos. Ver consola del navegador (F12 → Console) para ver la respuesta exacta.</p>`;
