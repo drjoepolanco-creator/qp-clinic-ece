@@ -3876,51 +3876,7 @@ window.editarFisio=async function(id){
   // La renderFisioVer ya muestra el form con los datos
   renderFisio(document.getElementById("eb"));
 }
-window.generarPDFFisio=async function(){
-  const tabId=STATE.fisioTab;
-  let pr={};
-  if(tabId&&tabId.startsWith("p")){
-    const {data}=await SB.from("fisioterapia_prescripciones").select("*").eq("id",tabId.replace("p","")).single();
-    if(data)pr=data;
-  }
-  const pat=STATE.pat||{};
-  const med=STATE.medProfile||STATE.userProfile||{};
-  const nomPac=`${pat.nombre||""} ${pat.apellido_paterno||""} ${pat.apellido_materno||""}`.trim();
-  const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
-  const trat=pr.tratamiento||{};
-  const LABELS={tens:"TENS",ultrasonido:"Ultrasonido",laser:"Láser",radiofrecuencia:"Radiofrecuencia",compresion:"Compresión neumática",crioterapia:"Crioterapia",termoterapia:"Termoterapia",masoterapia:"Masoterapia",movilizacion:"Movilización articular",manipulacion:"Manipulación",miofascial:"Técnicas miofasciales",puncion:"Punción seca",vendaje:"Vendaje neuromuscular",drenaje:"Drenaje linfático",estiramiento:"Estiramiento",fortalecimiento:"Fortalecimiento",propiocepcion:"Propiocepción",postural:"Reeducación postural",cadena:"Cadena cinética",aerobico:"Ejercicio aeróbico",pliometria:"Pliometría",readaptacion:"Readaptación deportiva",pilates:"Pilates terapéutico",marcha:"Reeducación de marcha",sensoriomotriz:"Estimulación sensoriomotriz",avd:"AVD independencia",cognitiva:"Rehabilitación cognitiva"};
-  const getSelTrat=(grupo)=>Object.entries(trat[grupo]||{}).filter(([,v])=>v).map(([k])=>LABELS[k]||k).join(" · ")||"—";
-  const ses=pr.sesiones_completadas||[];
-  const row=(l,v)=>v?`<tr><td style="font-weight:600;color:#546E7A;padding:4px 8px;width:180px;border:1px solid #CFD8DC">${l}</td><td style="padding:4px 8px;border:1px solid #CFD8DC">${v}</td></tr>`:"";
-  const sec=(t)=>`<tr><td colspan="2" style="background:#1565C0;color:#fff;font-weight:700;padding:6px 10px;font-size:13px">${t}</td></tr>`;
-  const html=`\u003c!DOCTYPE html\u003e\u003chtml lang="es"\u003e\u003chead\u003e<meta charset="UTF-8"><title>Prescripción Fisioterapia</title>
-  <style>body{font-family:Arial,sans-serif;font-size:13px;color:#263238;margin:0;padding:20px}
-  @media print{@page{margin:12mm;size:letter}body{padding:0}.no-print{display:none}}
-  table{width:100%;border-collapse:collapse;margin-bottom:12px}
-  .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1565C0;padding-bottom:10px;margin-bottom:14px}
-  .btn{background:#1565C0;color:#fff;border:none;padding:8px 18px;border-radius:7px;cursor:pointer;font-size:14px;margin-bottom:14px}
-  .sesion{display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;border-radius:4px;margin:2px;font-size:11px;font-weight:700}
-  .done{background:#1565C0;color:#fff}.pend{background:#F0F4F8;color:#90A4AE;border:1px solid #CFD8DC}<\/style>\u003c/head\u003e\u003cbody\u003e
-  <button class="btn no-print" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
-  <div class="header"><div><img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:45px"></div>
-  <div style="text-align:right;font-size:12px"><b style="font-size:14px">${medNom}</b><br>${med.especialidad_1||""}${med.institucion_grado?" — "+med.institucion_grado:""}<br>${med.cedula_medico?"Céd. Prof. "+med.cedula_medico:""}<br>${med.especialidad_2?"Esp. en "+med.especialidad_2+(med.institucion_esp_1?" "+med.institucion_esp_1:""):""}</div></div>
-  <h2 style="text-align:center;background:#E3F2FD;padding:8px;border-radius:6px;font-size:15px;color:#1565C0">💪 PRESCRIPCIÓN DE FISIOTERAPIA</h2>
-  <table>${sec("1. DATOS DEL PACIENTE")}${row("Paciente",nomPac)}${row("Fecha de nacimiento",pat.fecha_nacimiento)}${row("Edad",calcEdad(pat.fecha_nacimiento))}${row("No. Expediente",pat.numero_expediente)}${row("Fecha",pr.fecha)}${row("Médico tratante",pr.medico||medNom)}${row("Fisioterapeuta",pr.fisioterapeuta)}
-  ${sec("2. DIAGNÓSTICO Y EVALUACIÓN")}${row("Diagnóstico CIE-10",pr.diagnostico)}${row("Región afectada",pr.region)}${row("Lateralidad",pr.lateralidad)}${row("Dolor EVA",pr.eva!==undefined?pr.eva+"/10":"")}${row("Tiempo de evolución",pr.tiempo_evolucion)}${row("Síntomas principales",pr.sintomas)}${row("Objetivo",pr.objetivo)}
-  ${sec("3. PLAN DE TRATAMIENTO")}${row("Agentes físicos",getSelTrat("ag"))}${row("Terapia manual",getSelTrat("man"))}${row("Ejercicio terapéutico",getSelTrat("ej"))}${row("Terapia neurológica",getSelTrat("neu"))}${row("Parámetros específicos",pr.parametros)}${row("Ejercicios en casa (HEP)",pr.hep)}${row("Precauciones",pr.contraindicaciones)}
-  ${sec("4. DOSIFICACIÓN")}${row("Sesiones",pr.num_sesiones)}${row("Frecuencia",pr.frecuencia)}${row("Fecha de inicio",pr.fecha_inicio)}${row("Fecha de alta estimada",pr.fecha_alta)}
-  ${sec("5. CONTROL DE SESIONES")}<tr><td colspan="2" style="padding:10px;border:1px solid #CFD8DC">${Array.from({length:20},(_,i)=>`<span class="sesion ${ses.includes(i+1)?"done":"pend"}">${i+1}</span>`).join("")}</td></tr>
-  ${sec("6. EVOLUCIÓN Y REEVALUACIÓN")}${row("Fecha de reevaluación",pr.fecha_reeval)}${row("EVA al alta",pr.eva_alta!==null&&pr.eva_alta!==undefined?pr.eva_alta+"/10":"")}${row("Notas de evolución",pr.evolucion)}
-  </table>
-  ${med.firma_digital?`<div style="text-align:center;margin-top:20px"><img src="${med.firma_digital}" style="max-height:60px"><br><div style="width:180px;border-top:1px solid #263238;margin:4px auto;padding-top:4px"><b style="font-size:12px">FIRMA DEL MÉDICO</b></div></div>`:""}
-  <div style="text-align:center;font-size:11px;color:#546E7A;border-top:1px solid #CFD8DC;margin-top:16px;padding-top:8px">${medNom} • Insurgentes Sur 933, Nápoles, CDMX • qpclinic.org</div>
-  \u003c/body\u003e\u003c/html\u003e`;
-  const blob=new Blob([html],{type:"text/html"});
-  const url=URL.createObjectURL(blob);
-  const win=window.open(url,"_blank");
-  if(!win)showToast("Permite popups en qpclinic.org para ver el PDF",false);
-  else showToast("✓ Abierto — usa el botón 🖨️ para guardar como PDF");
-}
+window.generarPDFFisio=function(){showToast("PDF de fisioterapia — próximamente",false);}
 
 </script>
 </body>
