@@ -3874,6 +3874,12 @@ window.generarPDFFisio=async function(){
   try{
   if(!window.jspdf){showToast("Cargando librería PDF, intenta en 3 segundos",false);return;}
   const {jsPDF}=window.jspdf;
+  // Wrapper seguro — convierte todo a string
+  const T=(doc,txt,x,y,opts)=>{
+    const s=txt===null||txt===undefined?"":String(txt);
+    try{opts?T(doc,s,x,y,opts):T(doc,s,x,y);}
+    catch(e){console.warn("text fail:",s,x,y,e);}
+  };
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
   const pid=STATE.pat?.id;
   const pat=STATE.pat||{};
@@ -3898,29 +3904,29 @@ window.generarPDFFisio=async function(){
   // ── ENCABEZADO ──
   await addImg("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",M,6,15,32);
   doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(13,71,161);
-  doc.text("PRESCRIPCIÓN DE FISIOTERAPIA",W/2,10,{align:"center"});
+  T(doc,"PRESCRIPCIÓN DE FISIOTERAPIA",W/2,10,{align:"center"});
   doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
-  doc.text(medNom,W-M,9,{align:"right"});
-  doc.text([med.especialidad_1,med.institucion_grado].filter(Boolean).join(" ").toUpperCase(),W-M,13,{align:"right"});
-  if(med.cedula_medico)doc.text(`Céd. Prof. ${med.cedula_medico}`,W-M,17,{align:"right"});
-  if(med.especialidad_2)doc.text(`Especialidad en ${med.especialidad_2}${med.institucion_esp_1?" "+med.institucion_esp_1:""}`.toUpperCase(),W-M,21,{align:"right"});
-  if(med.cedula_esp_1)doc.text(`Céd. Esp. ${med.cedula_esp_1}`,W-M,25,{align:"right"});
+  T(doc,medNom,W-M,9,{align:"right"});
+  T(doc,[med.especialidad_1,med.institucion_grado].filter(Boolean).join(" ").toUpperCase(),W-M,13,{align:"right"});
+  if(med.cedula_medico)T(doc,`Céd. Prof. ${med.cedula_medico}`,W-M,17,{align:"right"});
+  if(med.especialidad_2)T(doc,`Especialidad en ${med.especialidad_2}${med.institucion_esp_1?" "+med.institucion_esp_1:""}`.toUpperCase(),W-M,21,{align:"right"});
+  if(med.cedula_esp_1)T(doc,`Céd. Esp. ${med.cedula_esp_1}`,W-M,25,{align:"right"});
   doc.setDrawColor(13,71,161);doc.setLineWidth(0.6);doc.line(M,28,W-M,28);
 
   // ── DATOS PACIENTE ──
   let y=33;
   doc.setFontSize(8.5);doc.setTextColor(38,50,56);
-  doc.setFont("helvetica","bold");doc.text("PACIENTE:",M,y);
-  doc.setFont("helvetica","normal");doc.text(nomPac,M+22,y);
-  doc.setFont("helvetica","bold");doc.text("FECHA:",W-M-36,y);
-  doc.setFont("helvetica","normal");doc.text(hoy,W-M,y,{align:"right"});
+  doc.setFont("helvetica","bold");T(doc,"PACIENTE:",M,y);
+  doc.setFont("helvetica","normal");T(doc,nomPac,M+22,y);
+  doc.setFont("helvetica","bold");T(doc,"FECHA:",W-M-36,y);
+  doc.setFont("helvetica","normal");T(doc,hoy,W-M,y,{align:"right"});
   y+=4.5;
-  doc.setFont("helvetica","bold");doc.text("EDAD:",M,y);
-  doc.setFont("helvetica","normal");doc.text(calcEdad(pat.fecha_nacimiento)||"",M+14,y);
-  doc.setFont("helvetica","bold");doc.text("EXP #:",M+45,y);
-  doc.setFont("helvetica","normal");doc.text(pat.numero_expediente||"",M+59,y);
-  doc.setFont("helvetica","bold");doc.text("FISIOTERAPEUTA:",W-M-70,y);
-  doc.setFont("helvetica","normal");doc.text(gv("ft_fisio")||"",W-M-30,y);
+  doc.setFont("helvetica","bold");T(doc,"EDAD:",M,y);
+  doc.setFont("helvetica","normal");T(doc,calcEdad(pat.fecha_nacimiento)||"",M+14,y);
+  doc.setFont("helvetica","bold");T(doc,"EXP #:",M+45,y);
+  doc.setFont("helvetica","normal");T(doc,pat.numero_expediente||"",M+59,y);
+  doc.setFont("helvetica","bold");T(doc,"FISIOTERAPEUTA:",W-M-70,y);
+  doc.setFont("helvetica","normal");T(doc,gv("ft_fisio")||"",W-M-30,y);
   y+=2;
   doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);doc.line(M,y+2,W-M,y+2);
   y+=6;
@@ -3929,16 +3935,16 @@ window.generarPDFFisio=async function(){
   const seccion=(titulo)=>{
     doc.setFillColor(13,71,161);doc.rect(M,y-1,W-M*2,6,"F");
     doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(255,255,255);
-    doc.text(titulo,M+2,y+3);
+    T(doc,titulo,M+2,y+3);
     doc.setTextColor(38,50,56);y+=8;
   };
   const campo=(label,valor,w2=W-M*2)=>{
     if(!valor||!valor.trim())return;
     doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(84,110,122);
-    doc.text(label+":",M,y);
+    T(doc,label+":",M,y);
     doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
     const lines=doc.splitTextToSize(valor,w2-2);
-    lines.forEach((l,i)=>{if(y>268){doc.addPage();y=20;}doc.text(l,M+35,y+(i*4));});
+    lines.forEach((l,i)=>{if(y>268){doc.addPage();y=20;}T(doc,l,M+35,y+(i*4));});
     y+=lines.length*4+2;
   };
 
@@ -3961,11 +3967,11 @@ window.generarPDFFisio=async function(){
     const sel=items.filter(k=>document.getElementById(`ft_${prefix}_${k}`)?.checked).map(k=>LABELS[k]||k);
     if(sel.length>0){
       doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(84,110,122);
-      doc.text(gtitulo+":",M,y);
+      T(doc,gtitulo+":",M,y);
       doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
       const txt=sel.join(" · ");
       const lines=doc.splitTextToSize(txt,W-M*2-35);
-      lines.forEach((l,i)=>doc.text(l,M+35,y+(i*4)));
+      lines.forEach((l,i)=>T(doc,l,M+35,y+(i*4)));
       y+=lines.length*4+2;
     }
   });
@@ -3980,9 +3986,9 @@ window.generarPDFFisio=async function(){
   const cw=(W-M*2)/4;
   row3.forEach(([l,v],i)=>{
     doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(84,110,122);
-    doc.text(l,M+i*cw,y);
+    T(doc,l,M+i*cw,y);
     doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.setFontSize(8.5);
-    doc.text(v||"—",M+i*cw,y+4.5);
+    T(doc,v||"—",M+i*cw,y+4.5);
   });
   y+=11;
 
@@ -3997,7 +4003,7 @@ window.generarPDFFisio=async function(){
     else{doc.setDrawColor(150,150,150);doc.rect(xi,y,boxSize,boxSize,"S");}
     doc.setFontSize(6.5);doc.setFont("helvetica",done?"bold":"normal");
     doc.setTextColor(done?255:150,done?255:150,done?255:150);
-    doc.text(""+(i+1),xi+1.5,y+5.5);
+    T(doc,""+(i+1),xi+1.5,y+5.5);
   }
   y+=boxSize+4;
 
@@ -4016,14 +4022,14 @@ window.generarPDFFisio=async function(){
   doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
   doc.line(W/2-35,y,W/2+35,y);
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-  doc.text("FIRMA DEL MÉDICO",W/2,y+4,{align:"center"});y+=10;
+  T(doc,"FIRMA DEL MÉDICO",W/2,y+4,{align:"center"});y+=10;
 
   // ── FOOTER ──
   doc.setDrawColor(13,71,161);doc.setLineWidth(0.4);doc.line(M,y,W-M,y);y+=4;
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
-  doc.text(medNom,W/2,y,{align:"center"});y+=3.5;
-  doc.text("Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX",W/2,y,{align:"center"});y+=3.5;
-  doc.text("Tel: 55 5682 4345 | qpclinic.org",W/2,y,{align:"center"});
+  T(doc,medNom,W/2,y,{align:"center"});y+=3.5;
+  T(doc,"Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX",W/2,y,{align:"center"});y+=3.5;
+  T(doc,"Tel: 55 5682 4345 | qpclinic.org",W/2,y,{align:"center"});
 
   doc.save(`Prescripcion_Fisio_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
   showToast("✓ PDF de fisioterapia generado");
