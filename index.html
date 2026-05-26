@@ -3817,9 +3817,10 @@ window.guardarFisio=async function(pid,editId=""){
   const trat={};
   grupos.forEach(g=>{trat[g]={};(keys[g]||[]).forEach(k=>{const e=document.getElementById(`ft_${g}_${k}`);if(e)trat[g][k]=e.checked;});});
   const lat=document.querySelector("input[name='ft_lat']:checked")?.value||"N/A";
+  const d=(v)=>v&&v.trim()?v:null; // fecha o null
   const payload={
     paciente_id:pid,
-    fecha:gv("ft_fecha"),medico:gv("ft_med"),fisioterapeuta:gv("ft_fisio"),
+    fecha:d(gv("ft_fecha")),medico:gv("ft_med"),fisioterapeuta:gv("ft_fisio"),
     diagnostico:gv("ft_dx"),region:gv("ft_region"),lateralidad:lat,
     eva:parseInt(document.getElementById("ft_eva")?.value||0),
     tiempo_evolucion:gv("ft_evol"),sintomas:gv("ft_sint"),
@@ -3827,10 +3828,10 @@ window.guardarFisio=async function(pid,editId=""){
     tratamiento:trat,
     num_sesiones:parseInt(gv("ft_nses"))||null,
     frecuencia:gv("ft_freq"),
-    fecha_inicio:gv("ft_finicio"),fecha_alta:gv("ft_falta"),
+    fecha_inicio:d(gv("ft_finicio")),fecha_alta:d(gv("ft_falta")),
     contraindicaciones:gv("ft_contra"),
     sesiones_completadas:STATE.fisioSesiones||[],
-    fecha_reeval:gv("ft_reev"),
+    fecha_reeval:d(gv("ft_reev")),
     eva_alta:gv("ft_eva_alta")?parseInt(gv("ft_eva_alta")):null,
     evolucion:gv("ft_evol_nota"),
   };
