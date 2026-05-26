@@ -100,7 +100,12 @@ async function logBitacora(accion,detalle="",paciente_id=null){
     });
   }catch(e){/* silencioso — no interrumpir flujo */}
 }
-function draw(){RR().innerHTML="";RR().className="fade";({login:pgLogin,agenda:pgAgenda,buscar:pgBuscar,expediente:pgExp,nuevo:pgNuevo,consulta:pgConsulta,perfil:pgPerfil,medicos:pgMedicos,bitacora:pgBitacora}[STATE.page]||pgLogin)();}
+function draw(){
+  RR().innerHTML="";RR().className="fade";
+  const pages={login:pgLogin,agenda:pgAgenda,buscar:pgBuscar,expediente:pgExp,nuevo:pgNuevo,consulta:pgConsulta,perfil:pgPerfil,medicos:pgMedicos,bitacora:pgBitacora};
+  const fn=pages[STATE.page];
+  if(typeof fn==="function")fn();else pgLogin();
+}
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
 function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`;}
 function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
@@ -386,6 +391,16 @@ window.doLogin=async function(){
 }
 function showLoginError(msg){const e=document.getElementById("login-error");if(e){e.style.display="block";e.textContent=msg;}}
 // ── AGENDA ────────────────────────────────────────────────
+function pgPerfil(){
+  const u=STATE.userProfile||{};
+  RR().innerHTML=nav()+`<div style="max-width:600px;margin:40px auto;padding:20px">
+    <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Mi perfil médico</h2>
+    <p style="color:#546E7A">Nombre: ${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}</p>
+    <p style="color:#546E7A;margin-top:8px">Usuario: ${u.username||""}</p>
+    <p style="color:#546E7A;margin-top:8px">Especialidad: ${u.especialidad_1||""}</p>
+    <div style="margin-top:20px">${btn("← Volver","go('agenda')","s",0)}</div>
+  </div>`;
+}
 async function pgBitacora(){
   if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
   loading(true,"Cargando bitácora...");
@@ -3584,7 +3599,7 @@ window.cerrarEnfermeria=function(){
 async function renderFisio(b){
   const pid=STATE.pat?.id;if(!pid)return;
   if(!STATE.fisioTab)STATE.fisioTab="notas";
-  const {data:prescs}=await SB.from("fisioterapia_prescripciones").select("id,created_at,diagnostico,num_sesiones,fecha,fisioterapeuta").eq("paciente_id",pid).order("created_at",{ascending:false});
+  const {data:prescs}=await SB.from("fisioterapia_prescripciones").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const {data:notas}=await SB.from("fisioterapia_notas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const lista=prescs||[];
   const tabSt=(activo)=>`padding:10px 16px;border:none;cursor:pointer;font-size:13px;font-weight:${activo?700:500};color:${activo?P:MU};background:${activo?"#E3F2FD":"transparent"};border-bottom:2px solid ${activo?P:"transparent"};display:flex;align-items:center;gap:6px;white-space:nowrap`;
@@ -3850,7 +3865,7 @@ window.guardarFisio=async function(pid,editId=""){
   loading(false);
   if(res.error){showToast("Error: "+res.error.message,false);return;}
   STATE.fisioTab="p"+res.data.id;
-  STATE.fisioSesiones=[];
+  STATE.fisioSesiones=res.data.sesiones_completadas||[];
   showToast("✓ Prescripción guardada");
   setET("fisio");
 }
@@ -3877,6 +3892,27 @@ window.editarFisio=async function(id){
   renderFisio(document.getElementById("eb"));
 }
 window.generarPDFFisio=function(){showToast("PDF de fisioterapia — próximamente",false);}
+
+;(async function init(){
+  try{
+    const {data:{session}}=await SB.auth.getSession();
+    if(session){
+      STATE.user=session.user;
+      const {data:prof}=await SB.from("usuarios").select("*").eq("id",session.user.id).single();
+      STATE.userProfile=prof;STATE.medProfile=prof;
+      go("agenda");
+    } else {
+      go("login");
+    }
+  }catch(e){
+    console.warn("Session error:",e.message);
+    try{await SB.auth.signOut();}catch(e2){}
+    go("login");
+  }
+  SB.auth.onAuthStateChange((event,session)=>{
+    if(event==="SIGNED_OUT"){STATE.user=null;STATE.userProfile=null;go("login");}
+  });
+})();
 
 </script>
 </body>
