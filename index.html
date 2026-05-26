@@ -3871,6 +3871,8 @@ window.editarFisio=async function(id){
   renderFisio(document.getElementById("eb"));
 }
 window.generarPDFFisio=async function(){
+  try{
+  if(!window.jspdf){showToast("Cargando librería PDF, intenta en 3 segundos",false);return;}
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
   const pid=STATE.pat?.id;
@@ -3987,16 +3989,16 @@ window.generarPDFFisio=async function(){
   // ── SECCIÓN 4: Control de sesiones ──
   seccion("4. CONTROL DE SESIONES");
   const ses=STATE.fisioSesiones||[];
-  const boxSize=8;const cols=20;
-  Array.from({length:20},(_,i)=>{
-    const xi=M+(i%cols)*(boxSize+1);const yi=y;
+  const boxSize=8;
+  for(let i=0;i<20;i++){
+    const xi=M+(i*(boxSize+1));
     const done=ses.includes(i+1);
-    doc.setFillColor(done?13:245,done?71:245,done?161:245);
-    doc.rect(xi,yi,boxSize,boxSize,done?"F":"S");
-    doc.setFontSize(7);doc.setFont("helvetica",done?"bold":"normal");
+    if(done){doc.setFillColor(13,71,161);doc.rect(xi,y,boxSize,boxSize,"F");}
+    else{doc.setDrawColor(150,150,150);doc.rect(xi,y,boxSize,boxSize,"S");}
+    doc.setFontSize(6.5);doc.setFont("helvetica",done?"bold":"normal");
     doc.setTextColor(done?255:150,done?255:150,done?255:150);
-    doc.text(String(i+1),xi+boxSize/2,yi+5.5,{align:"center"});
-  });
+    doc.text(""+(i+1),xi+1.5,y+5.5);
+  }
   y+=boxSize+4;
 
   // ── FIRMA ──
@@ -4025,6 +4027,10 @@ window.generarPDFFisio=async function(){
 
   doc.save(`Prescripcion_Fisio_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
   showToast("✓ PDF de fisioterapia generado");
+  }catch(err){
+    console.error("Error PDF Fisio:",err);
+    showToast("Error al generar PDF: "+err.message,false);
+  }
 }
 // ── CONFIGURACIÓN MENU ───────────────────────────────────
 window.toggleCfgMenu=function(){
