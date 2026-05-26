@@ -3893,14 +3893,14 @@ window.generarPDFFisio=async function(){
   const ses=pr.sesiones_completadas||[];
   const row=(l,v)=>v?`<tr><td style="font-weight:600;color:#546E7A;padding:4px 8px;width:180px;border:1px solid #CFD8DC">${l}</td><td style="padding:4px 8px;border:1px solid #CFD8DC">${v}</td></tr>`:"";
   const sec=(t)=>`<tr><td colspan="2" style="background:#1565C0;color:#fff;font-weight:700;padding:6px 10px;font-size:13px">${t}</td></tr>`;
-  const html=`\u003c!DOCTYPE html\u003e\u003chtml lang="es"\u003e<head><meta charset="UTF-8"><title>Prescripción Fisioterapia</title>
+  const html=`\u003c!DOCTYPE html\u003e\u003chtml lang="es"\u003e\u003chead\u003e<meta charset="UTF-8"><title>Prescripción Fisioterapia</title>
   <style>body{font-family:Arial,sans-serif;font-size:13px;color:#263238;margin:0;padding:20px}
   @media print{@page{margin:12mm;size:letter}body{padding:0}.no-print{display:none}}
   table{width:100%;border-collapse:collapse;margin-bottom:12px}
   .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1565C0;padding-bottom:10px;margin-bottom:14px}
   .btn{background:#1565C0;color:#fff;border:none;padding:8px 18px;border-radius:7px;cursor:pointer;font-size:14px;margin-bottom:14px}
   .sesion{display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;border-radius:4px;margin:2px;font-size:11px;font-weight:700}
-  .done{background:#1565C0;color:#fff}.pend{background:#F0F4F8;color:#90A4AE;border:1px solid #CFD8DC}<\/style><\/head>\u003cbody\u003e
+  .done{background:#1565C0;color:#fff}.pend{background:#F0F4F8;color:#90A4AE;border:1px solid #CFD8DC}<\/style>\u003c/head\u003e\u003cbody\u003e
   <button class="btn no-print" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
   <div class="header"><div><img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:45px"></div>
   <div style="text-align:right;font-size:12px"><b style="font-size:14px">${medNom}</b><br>${med.especialidad_1||""}${med.institucion_grado?" — "+med.institucion_grado:""}<br>${med.cedula_medico?"Céd. Prof. "+med.cedula_medico:""}<br>${med.especialidad_2?"Esp. en "+med.especialidad_2+(med.institucion_esp_1?" "+med.institucion_esp_1:""):""}</div></div>
