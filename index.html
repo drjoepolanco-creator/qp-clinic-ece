@@ -102,9 +102,8 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const pages={login:pgLogin,agenda:pgAgenda,buscar:pgBuscar,expediente:pgExp,nuevo:pgNuevo,consulta:pgConsulta,perfil:pgPerfil,medicos:pgMedicos,bitacora:pgBitacora};
-  const fn=pages[STATE.page];
-  if(typeof fn==="function")fn();else pgLogin();
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora};
+  try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
 function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`;}
@@ -391,6 +390,14 @@ window.doLogin=async function(){
 }
 function showLoginError(msg){const e=document.getElementById("login-error");if(e){e.style.display="block";e.textContent=msg;}}
 // ── AGENDA ────────────────────────────────────────────────
+async function pgMedicos(){
+  if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
+  RR().innerHTML=nav()+`<div style="max-width:900px;margin:40px auto;padding:20px">
+    <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Gestión de médicos</h2>
+    <p style="color:#546E7A">Módulo de gestión de médicos.</p>
+    <div style="margin-top:20px">${btn("← Volver","go('agenda')","s",0)}</div>
+  </div>`;
+}
 function pgPerfil(){
   const u=STATE.userProfile||{};
   RR().innerHTML=nav()+`<div style="max-width:600px;margin:40px auto;padding:20px">
