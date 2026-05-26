@@ -3870,7 +3870,162 @@ window.editarFisio=async function(id){
   // La renderFisioVer ya muestra el form con los datos
   renderFisio(document.getElementById("eb"));
 }
-window.generarPDFFisio=function(){showToast("PDF de fisioterapia — próximamente en la siguiente versión",false);}
+window.generarPDFFisio=async function(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+  const pid=STATE.pat?.id;
+  const pat=STATE.pat||{};
+  const med=STATE.medProfile||STATE.userProfile||{};
+  const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim().toUpperCase();
+  const nomPac=`${pat.nombre||""} ${pat.apellido_paterno||""} ${pat.apellido_materno||""}`.trim().toUpperCase();
+  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const W=216,M=14;
+
+  // ── Función imagen proporcional ──
+  async function addImg(url,x,y,maxH,maxW){
+    try{
+      const res=await fetch(url);const blob=await res.blob();
+      const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+      const img=await new Promise((rs,rj)=>{const i=new Image();i.onload=()=>rs(i);i.onerror=rj;i.src=b64;});
+      const ratio=img.width/img.height;let h=maxH,w=h*ratio;
+      if(w>maxW){w=maxW;h=w/ratio;}
+      doc.addImage(b64,url.toLowerCase().includes("png")?"PNG":"JPEG",x,y,w,h);
+    }catch(e){}
+  }
+
+  // ── ENCABEZADO ──
+  await addImg("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",M,6,15,32);
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(13,71,161);
+  doc.text("PRESCRIPCIÓN DE FISIOTERAPIA",W/2,10,{align:"center"});
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+  doc.text(medNom,W-M,9,{align:"right"});
+  doc.text([med.especialidad_1,med.institucion_grado].filter(Boolean).join(" ").toUpperCase(),W-M,13,{align:"right"});
+  if(med.cedula_medico)doc.text(`Céd. Prof. ${med.cedula_medico}`,W-M,17,{align:"right"});
+  if(med.especialidad_2)doc.text(`Especialidad en ${med.especialidad_2}${med.institucion_esp_1?" "+med.institucion_esp_1:""}`.toUpperCase(),W-M,21,{align:"right"});
+  if(med.cedula_esp_1)doc.text(`Céd. Esp. ${med.cedula_esp_1}`,W-M,25,{align:"right"});
+  doc.setDrawColor(13,71,161);doc.setLineWidth(0.6);doc.line(M,28,W-M,28);
+
+  // ── DATOS PACIENTE ──
+  let y=33;
+  doc.setFontSize(8.5);doc.setTextColor(38,50,56);
+  doc.setFont("helvetica","bold");doc.text("PACIENTE:",M,y);
+  doc.setFont("helvetica","normal");doc.text(nomPac,M+22,y);
+  doc.setFont("helvetica","bold");doc.text("FECHA:",W-M-36,y);
+  doc.setFont("helvetica","normal");doc.text(hoy,W-M,y,{align:"right"});
+  y+=4.5;
+  doc.setFont("helvetica","bold");doc.text("EDAD:",M,y);
+  doc.setFont("helvetica","normal");doc.text(calcEdad(pat.fecha_nacimiento)||"",M+14,y);
+  doc.setFont("helvetica","bold");doc.text("EXP #:",M+45,y);
+  doc.setFont("helvetica","normal");doc.text(pat.numero_expediente||"",M+59,y);
+  doc.setFont("helvetica","bold");doc.text("FISIOTERAPEUTA:",W-M-70,y);
+  doc.setFont("helvetica","normal");doc.text(gv("ft_fisio")||"",W-M-30,y);
+  y+=2;
+  doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);doc.line(M,y+2,W-M,y+2);
+  y+=6;
+
+  // Helper para sección
+  const seccion=(titulo)=>{
+    doc.setFillColor(13,71,161);doc.rect(M,y-1,W-M*2,6,"F");
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(255,255,255);
+    doc.text(titulo,M+2,y+3);
+    doc.setTextColor(38,50,56);y+=8;
+  };
+  const campo=(label,valor,w2=W-M*2)=>{
+    if(!valor||!valor.trim())return;
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(84,110,122);
+    doc.text(label+":",M,y);
+    doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+    const lines=doc.splitTextToSize(valor,w2-2);
+    lines.forEach((l,i)=>{if(y>268){doc.addPage();y=20;}doc.text(l,M+35,y+(i*4));});
+    y+=lines.length*4+2;
+  };
+
+  // ── SECCIÓN 1: Diagnóstico ──
+  seccion("1. DIAGNÓSTICO Y DATOS CLÍNICOS");
+  campo("Diagnóstico",gv("ft_dx"));
+  campo("Región afectada",gv("ft_region"));
+  campo("Lateralidad",document.querySelector("input[name='ft_lat']:checked")?.value||"");
+  campo("Tiempo de evolución",gv("ft_evol"));
+  const eva=document.getElementById("ft_eva")?.value||"0";
+  campo("EVA (Dolor)",`${eva}/10`);
+  campo("Síntomas principales",gv("ft_sint"));
+  campo("Objetivo del tratamiento",gv("ft_obj"));
+
+  // ── SECCIÓN 2: Plan de tratamiento ──
+  seccion("2. PLAN DE TRATAMIENTO");
+  const grupos=[["Agentes físicos",["tens","ultrasonido","laser","radiofrecuencia","compresion","crioterapia","termoterapia"],"ag"],["Terapia manual",["masoterapia","movilizacion","manipulacion","miofascial","puncion","vendaje","drenaje"],"man"],["Ejercicio terapéutico",["estiramiento","fortalecimiento","propiocepcion","postural","cadena","aerobico","pliometria","readaptacion","pilates"],"ej"],["Terapia neurológica",["marcha","sensoriomotriz","avd","cognitiva"],"neu"]];
+  const LABELS={tens:"TENS",ultrasonido:"Ultrasonido",laser:"Láser",radiofrecuencia:"Radiofrecuencia",compresion:"Compresión neumática",crioterapia:"Crioterapia",termoterapia:"Termoterapia",masoterapia:"Masoterapia",movilizacion:"Movilización articular",manipulacion:"Manipulación",miofascial:"Técnicas miofasciales",puncion:"Punción seca",vendaje:"Vendaje neuromuscular",drenaje:"Drenaje linfático",estiramiento:"Estiramiento",fortalecimiento:"Fortalecimiento",propiocepcion:"Propiocepción",postural:"Reeducación postural",cadena:"Cadena cinética",aerobico:"Ejercicio aeróbico",pliometria:"Pliometría",readaptacion:"Readaptación deportiva",pilates:"Pilates terapéutico",marcha:"Reeducación de marcha",sensoriomotriz:"Estimulación sensoriomotriz",avd:"AVD independencia",cognitiva:"Rehabilitación cognitiva"};
+  grupos.forEach(([gtitulo,items,prefix])=>{
+    const sel=items.filter(k=>document.getElementById(`ft_${prefix}_${k}`)?.checked).map(k=>LABELS[k]||k);
+    if(sel.length>0){
+      doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(84,110,122);
+      doc.text(gtitulo+":",M,y);
+      doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+      const txt=sel.join(" · ");
+      const lines=doc.splitTextToSize(txt,W-M*2-35);
+      lines.forEach((l,i)=>doc.text(l,M+35,y+(i*4)));
+      y+=lines.length*4+2;
+    }
+  });
+  campo("Parámetros específicos",gv("ft_params"));
+  campo("Ejercicios en casa (HEP)",gv("ft_hep"));
+  campo("Precauciones / Contraindicaciones",gv("ft_contra"));
+
+  // ── SECCIÓN 3: Dosificación ──
+  seccion("3. DOSIFICACIÓN");
+  if(y>240){doc.addPage();y=20;}
+  const row3=[["Sesiones",gv("ft_nses")],["Frecuencia",gv("ft_freq")],["Inicio",gv("ft_finicio")],["Alta estimada",gv("ft_falta")]];
+  const cw=(W-M*2)/4;
+  row3.forEach(([l,v],i)=>{
+    doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(84,110,122);
+    doc.text(l,M+i*cw,y);
+    doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.setFontSize(8.5);
+    doc.text(v||"—",M+i*cw,y+4.5);
+  });
+  y+=11;
+
+  // ── SECCIÓN 4: Control de sesiones ──
+  seccion("4. CONTROL DE SESIONES");
+  const ses=STATE.fisioSesiones||[];
+  const boxSize=8;const cols=20;
+  Array.from({length:20},(_,i)=>{
+    const xi=M+(i%cols)*(boxSize+1);const yi=y;
+    const done=ses.includes(i+1);
+    doc.setFillColor(done?13:245,done?71:245,done?161:245);
+    doc.rect(xi,yi,boxSize,boxSize,done?"F":"S");
+    doc.setFontSize(7);doc.setFont("helvetica",done?"bold":"normal");
+    doc.setTextColor(done?255:150,done?255:150,done?255:150);
+    doc.text(String(i+1),xi+boxSize/2,yi+5.5,{align:"center"});
+  });
+  y+=boxSize+4;
+
+  // ── FIRMA ──
+  y+=4;
+  if(med.firma_digital){
+    try{
+      const res=await fetch(med.firma_digital);const blob=await res.blob();
+      const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+      const img=await new Promise((rs,rj)=>{const i=new Image();i.onload=()=>rs(i);i.onerror=rj;i.src=b64;});
+      const ratio=img.width/img.height;const fh=16;const fw=fh*ratio;
+      doc.addImage(b64,"JPEG",W/2-fw/2,y,fw,fh);
+      y+=fh+1;
+    }catch(e){}
+  }
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
+  doc.line(W/2-35,y,W/2+35,y);
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.text("FIRMA DEL MÉDICO",W/2,y+4,{align:"center"});y+=10;
+
+  // ── FOOTER ──
+  doc.setDrawColor(13,71,161);doc.setLineWidth(0.4);doc.line(M,y,W-M,y);y+=4;
+  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+  doc.text(medNom,W/2,y,{align:"center"});y+=3.5;
+  doc.text("Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX",W/2,y,{align:"center"});y+=3.5;
+  doc.text("Tel: 55 5682 4345 | qpclinic.org",W/2,y,{align:"center"});
+
+  doc.save(`Prescripcion_Fisio_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
+  showToast("✓ PDF de fisioterapia generado");
+}
 // ── CONFIGURACIÓN MENU ───────────────────────────────────
 window.toggleCfgMenu=function(){
   const m=document.getElementById("cfg-menu");
