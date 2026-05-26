@@ -2598,17 +2598,20 @@ window.agregarMotivo=function(motivo){
 // ── MODAL IA ──────────────────────────────────────────────
 let _recognition=null;let _grabando=false;let _transcripcion="";let _timerGrab=null;let _segundos=0;
 window.sugerirDxIA=async function(){
-  // Leer campos con fallback directo al DOM
-  const getVal=(id)=>{
-    const el=document.getElementById(id);
-    return el?el.value.trim():"";
+  // Leer del DOM o del objeto guardado como fallback
+  const fv=(id,key)=>{
+    const v=document.getElementById(id)?.value?.trim()||"";
+    return v||(pdfData[key]||"");
   };
-  const subj=getVal("cs_subj");
-  const expl=getVal("cs_expl");
-  const analActual=getVal("cs_anal");
-  const trat=getVal("cs_trat");
-  const plan=getVal("cs_plan");
-  const lab=getVal("cs_lab");
+}
+window.sugerirDxIA=async function(){
+  const gf=(id)=>{const e=document.getElementById(id);return e?e.value.trim():"";};
+  const subj=gf("cs_subj");
+  const expl=gf("cs_expl");
+  const analActual=gf("cs_anal");
+  const trat=gf("cs_trat");
+  const plan=gf("cs_plan");
+  const lab=gf("cs_lab");
 
   const hayContenido=subj||expl||analActual||trat||plan||lab;
   if(!hayContenido){showToast("Escribe al menos el motivo de consulta en Subjetivo antes de pedir diagnósticos",false);return;}
@@ -3871,6 +3874,14 @@ window.editarFisio=async function(id){
   renderFisio(document.getElementById("eb"));
 }
 window.generarPDFFisio=async function(){
+  // Si hay una prescripción activa en STATE, guardar sus datos primero
+  const tabId=STATE.fisioTab;
+  if(tabId&&tabId.startsWith("p")){
+    const pid2=tabId.replace("p","");
+    const {data:pr}=await SB.from("fisioterapia_prescripciones").select("*").eq("id",pid2).single();
+    if(pr)STATE._pdfFisio=pr;
+  }
+  const pdfData=STATE._pdfFisio||{};
   try{
   if(!window.jspdf){showToast("Cargando librería PDF, intenta en 3 segundos",false);return;}
   const {jsPDF}=window.jspdf;
