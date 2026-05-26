@@ -5,8 +5,8 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { transcripcion, paciente, antecedentes } = req.body;
-  if (!transcripcion) return res.status(400).json({ error: 'Transcripcion requerida' });
+  const { nota } = req.body;
+  if (!nota || !nota.trim()) return res.status(400).json({ error: 'Nota requerida' });
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -18,17 +18,18 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 2000,
+        max_tokens: 1000,
         messages: [{
           role: 'user',
-          content: `Eres un asistente medico clinico experto. Analiza el siguiente interrogatorio medico transcrito y genera una nota SOAP estructurada completa.
+          content: `Eres un médico experto en codificación CIE-10. Analiza la nota médica y propón los diagnósticos más probables.
 
-DATOS DEL PACIENTE: ${paciente || 'No especificado'}
-ANTECEDENTES: ${antecedentes || 'No especificados'}
-TRANSCRIPCION: "${transcripcion}"
+Responde ÚNICAMENTE con JSON válido sin texto adicional ni backticks:
+{"diagnosticos":[{"codigo":"M54.5","nombre":"Lumbago no especificado","certeza":"Principal"}]}
 
-Responde UNICAMENTE con JSON valido sin texto adicional ni backticks:
-{"subjetivo":"...","exploracion_sugerida":"...","diagnosticos":[{"cie10":"CODIGO","nombre":"Nombre CIE-10","descripcion":"Justificacion","probabilidad":"alta"}],"tratamiento":"...","laboratorios":"...","gabinete":"...","plan":"..."}`
+Incluye 1-5 diagnósticos. Certeza: Principal, Secundario, o Diferencial.
+
+NOTA MÉDICA:
+${nota}`
         }]
       })
     });
@@ -37,12 +38,13 @@ Responde UNICAMENTE con JSON valido sin texto adicional ni backticks:
     if (!response.ok) return res.status(500).json({ error: data.error?.message || 'Error API' });
 
     const text = data.content[0].text.trim();
-    const clean = text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
-    return res.status(200).json(parsed);
+    const match = text.replace(/```json|```/g, '').match(/\{[\s\S]*\}/);
+    if (!match) return res.status(200).json({ diagnosticos: [] });
+
+    const parsed = JSON.parse(match[0]);
+    return res.status(200).json({ diagnosticos: parsed.diagnosticos || [] });
 
   } catch (err) {
-    console.error('ia-medica error:', err);
     return res.status(500).json({ error: err.message });
   }
 }
