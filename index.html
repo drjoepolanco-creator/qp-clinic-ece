@@ -3584,7 +3584,7 @@ window.cerrarEnfermeria=function(){
 async function renderFisio(b){
   const pid=STATE.pat?.id;if(!pid)return;
   if(!STATE.fisioTab)STATE.fisioTab="notas";
-  const {data:prescs}=await SB.from("fisioterapia_prescripciones").select("id,created_at,diagnostico,num_sesiones,fecha,fisioterapeuta").eq("paciente_id",pid).order("created_at",{ascending:false});
+  const {data:prescs}=await SB.from("fisioterapia_prescripciones").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const {data:notas}=await SB.from("fisioterapia_notas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const lista=prescs||[];
   const tabSt=(activo)=>`padding:10px 16px;border:none;cursor:pointer;font-size:13px;font-weight:${activo?700:500};color:${activo?P:MU};background:${activo?"#E3F2FD":"transparent"};border-bottom:2px solid ${activo?P:"transparent"};display:flex;align-items:center;gap:6px;white-space:nowrap`;
@@ -3850,7 +3850,7 @@ window.guardarFisio=async function(pid,editId=""){
   loading(false);
   if(res.error){showToast("Error: "+res.error.message,false);return;}
   STATE.fisioTab="p"+res.data.id;
-  STATE.fisioSesiones=[];
+  STATE.fisioSesiones=res.data.sesiones_completadas||[];
   showToast("✓ Prescripción guardada");
   setET("fisio");
 }
