@@ -3879,7 +3879,7 @@ window.editarFisio=async function(id){
 window.generarPDFFisio=function(){showToast("PDF de fisioterapia — próximamente",false);}
 
 // ── INICIO DE LA APLICACIÓN ───────────────────────────────
-(async function init(){
+;(async function init(){
   try{
     const {data:{session}}=await SB.auth.getSession();
     if(session){
