@@ -476,29 +476,60 @@ window.abrirModalUsuario=async function(uid=""){
     if(title)title.textContent="➕ Nuevo usuario";
   }
   const ROLES=[["admin","Administrador"],["medico","Médico"],["fisioterapeuta","Fisioterapeuta"],["enfermeria","Enfermería"],["recepcion","Recepción"]];
+  const INSTITUCIONES=["UNAM","IPN — Escuela Superior de Medicina","UAM","UdeG","BUAP","UANL","UADY","UAG","UDLA","Universidad Anáhuac","Universidad La Salle","ITESM","Hospital General de México","IMSS","ISSSTE","CMN Siglo XXI","INER","INR","INCan","INNN","INNSZ","Otra institución"];
   body.innerHTML=`
+    <!-- Datos de acceso y rol -->
+    <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">Datos de acceso y rol</b></div>
     <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:12px;margin-bottom:14px">
       ${fld("Título",`<select id="mu_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
       ${fld("Nombre(s) *",inp("mu_nom",u.nombre||"","Nombre(s)"),1)}
       ${fld("Apellidos *",inp("mu_ap",u.apellidos||"","Apellido Paterno Materno"),1)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Rol *",`<select id="mu_rol" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${ROLES.map(([v,l])=>`<option value="${v}" ${(u.rol||"medico")===v?"selected":""}>${l}</option>`).join("")}</select>`,1)}
-      ${fld("Nombre de usuario *",inp("mu_user",u.username||"","Ej: dr.garcia (sin espacios ni @)"),1)}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-      ${fld("Especialidad principal",`<select id="mu_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
-      ${fld("Especialidad secundaria",`<select id="mu_esp2" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_2||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
-      ${fld("Cédula profesional",inp("mu_ced",u.cedula||"","No. de cédula"))}
-      ${fld("Cédula de especialidad",inp("mu_cedesp",u.cedula_especialidad||"","No. de cédula esp."))}
+      ${fld("Nombre de usuario *",inp("mu_user",u.username||"","Ej: dr.garcia"),1)}
       ${fld("Teléfono",inp("mu_tel",u.telefono||"","55XXXXXXXX","tel"))}
     </div>
-    <div style="display:grid;grid-template-columns:3fr 1fr;gap:12px;margin-bottom:14px">
+    <!-- Formación académica -->
+    <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">🎓 Formación académica (aparece en recetas)</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Licenciatura / Pregrado",inp("mu_lic",u.licenciatura||"","Ej: Médico Cirujano"))}
+      ${fld("Cédula profesional",inp("mu_cedmed",u.cedula_medico||u.cedula||"","No. de cédula prof."))}
+      ${fld("Institución",`<select id="mu_igrado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_grado||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Especialidad",`<select id="mu_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
+      ${fld("Cédula de especialidad",inp("mu_cedesp1",u.cedula_esp_1||u.cedula_especialidad||"","No. de cédula esp."))}
+      ${fld("Institución de especialidad",`<select id="mu_iesp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_esp_1||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Subespecialidad",inp("mu_subesp",u.subespecialidad||"","Ej: Traumatología del Deporte"))}
+      ${fld("Cédula de subespecialidad",inp("mu_cedsubesp",u.cedula_subesp||"","No. de cédula subesp."))}
+      ${fld("Institución de subespecialidad",`<select id="mu_iesp2" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_esp_2||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+    </div>
+    <div style="border:1px solid ${BR};border-radius:8px;padding:12px;margin-bottom:16px;background:#FFFDE7">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <b style="font-size:13px;color:#E65100">🏅 Alta Especialidad</b>
+        <span style="font-size:12px;color:${MU};background:#F5F5F5;padding:2px 8px;border-radius:20px">No se expide cédula — solo institución</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${fld("Alta Especialidad en…",inp("mu_altaesp",u.alta_especialidad||"","Ej: Medicina del Deporte de Alto Rendimiento"))}
+        ${fld("Institución",`<select id="mu_ialta" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_alta||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+      </div>
+    </div>
+    <!-- Agenda y firma -->
+    <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">📅 Agenda y firma médica</b></div>
+    <div style="display:grid;grid-template-columns:3fr 1fr;gap:12px;margin-bottom:12px">
       ${fld("URL Google Calendar (iframe embed)",inp("mu_cal",u.calendar_url||"","https://calendar.google.com/calendar/embed?src=..."))}
       ${fld("Color en agenda",`<div style="display:flex;gap:8px;align-items:center"><input id="mu_color" type="color" value="${u.calendar_color||"#1565C0"}" style="width:50px;height:38px;border:1.5px solid ${BR};border-radius:6px;cursor:pointer;padding:2px"></div>`)}
     </div>
+    <div style="margin-bottom:16px">
+      <label class="fld-label">Firma médica (imagen PNG/JPG — aparece en recetas)</label>
+      ${u.firma_digital?`<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><img src="${u.firma_digital}" style="height:48px;border:1px solid ${BR};border-radius:6px;padding:4px;background:#fff"><span style="font-size:12px;color:#2E7D32;font-weight:600">✓ Firma cargada</span></div>`:`<p style="font-size:12px;color:${MU};margin-bottom:6px">Sin firma cargada aún</p>`}
+      <input type="file" id="mu_firma_file" accept="image/*" style="font-size:13px;width:100%">
+      <p style="font-size:12px;color:${MU};margin-top:4px">Fondo transparente (PNG) recomendado. La firma aparece centrada en la receta.</p>
+    </div>
+    <!-- Contraseña -->
     <div style="background:${uid?"#FFF8E1":"#E8F5E9"};border-radius:8px;padding:14px;margin-bottom:16px;border:1px solid ${uid?"#FFE082":"#A5D6A7"}">
       <p style="font-size:14px;font-weight:700;color:${uid?"#E65100":"#2E7D32"};margin-bottom:8px">${uid?"🔑 Cambiar contraseña (opcional)":"🔑 Contraseña inicial"}</p>
       <p style="font-size:12px;color:#546E7A;margin-bottom:10px">${uid?"Deja en blanco para conservar la contraseña actual.":"Contraseña por defecto: <b>QpClinic2026!</b> — el usuario puede cambiarla desde su perfil."}</p>
@@ -527,16 +558,44 @@ window.guardarUsuario=async function(uid=""){
   if(pass&&pass.length<6){showToast("La contraseña debe tener al menos 6 caracteres",false);return;}
   loading(true,uid?"Guardando cambios...":"Creando usuario...");
   const email=usuario+"@qpclinic.mx";
+  // Subir firma si hay archivo seleccionado
+  let firma_url=null;
+  const firmaFile=document.getElementById("mu_firma_file")?.files[0];
+  if(firmaFile&&(uid||true)){
+    const targetId=uid||"new_"+Date.now();
+    const ext=firmaFile.name.split(".").pop().toLowerCase()||"png";
+    const path=`${targetId}/firma.${ext}`;
+    const {error:upErr}=await SB.storage.from("firmas-medicos").upload(path,firmaFile,{upsert:true,contentType:firmaFile.type});
+    if(!upErr){
+      const {data:urlData}=SB.storage.from("firmas-medicos").getPublicUrl(path);
+      firma_url=urlData?.publicUrl||null;
+    } else {
+      showToast("Advertencia: no se pudo subir la firma — "+upErr.message,false);
+    }
+  }
+  const cedMed=gv("mu_cedmed").trim();
+  const cedEsp1=gv("mu_cedesp1").trim();
   const profilePayload={
-    username:usuario,email,
-    titulo:gv("mu_titulo"),nombre:nom,apellidos:ap,rol:gv("mu_rol"),
-    especialidad_1:gv("mu_esp1")||null,especialidad_2:gv("mu_esp2")||null,
-    cedula:gv("mu_ced")||null,cedula_especialidad:gv("mu_cedesp")||null,
+    username:usuario,email,titulo:gv("mu_titulo"),nombre:nom,apellidos:ap,rol:gv("mu_rol"),
+    // Formación académica
+    licenciatura:gv("mu_lic")||null,
+    cedula_medico:cedMed||null,
+    institucion_grado:gv("mu_igrado")||null,
+    especialidad_1:gv("mu_esp1")||null,
+    cedula_esp_1:cedEsp1||null,
+    institucion_esp_1:gv("mu_iesp1")||null,
+    subespecialidad:gv("mu_subesp")||null,
+    cedula_subesp:gv("mu_cedsubesp")||null,
+    institucion_esp_2:gv("mu_iesp2")||null,
+    alta_especialidad:gv("mu_altaesp")||null,
+    institucion_alta:gv("mu_ialta")||null,
+    // Agenda y contacto
     telefono:gv("mu_tel")||null,
     calendar_url:gv("mu_cal")||null,
     calendar_color:document.getElementById("mu_color")?.value||"#1565C0",
     activo:true,
   };
+  if(firma_url)profilePayload.firma_digital=firma_url;
   if(!uid){
     const {data:authData,error:authErr}=await SB.auth.signUp({
       email,password:pass,
@@ -549,29 +608,23 @@ window.guardarUsuario=async function(uid=""){
     if(authId){
       profilePayload.id=authId;
       const {error:dbErr}=await SB.from("usuarios").upsert(profilePayload,{onConflict:"id"});
-      if(dbErr){loading(false);showToast("Cuenta Auth creada, pero error en perfil: "+dbErr.message,false);return;}
+      if(dbErr){loading(false);showToast("Cuenta creada, error en perfil: "+dbErr.message,false);return;}
     } else {
-      // Auth ya registrado → buscar el registro existente
       const {data:ex}=await SB.from("usuarios").select("id").eq("email",email).maybeSingle();
-      if(ex?.id){
-        const {error:upErr}=await SB.from("usuarios").update(profilePayload).eq("id",ex.id);
-        if(upErr){loading(false);showToast("Error: "+upErr.message,false);return;}
-      } else {
-        loading(false);showToast("No se pudo crear el usuario. Verifica que el nombre de usuario no exista ya.",false);return;
-      }
+      if(ex?.id){await SB.from("usuarios").update(profilePayload).eq("id",ex.id);}
+      else{loading(false);showToast("No se pudo crear el usuario. Verifica que el username no exista.",false);return;}
     }
-    showToast("✓ Usuario creado. Si Supabase requiere confirmación de email, desactívala en Authentication → Settings.");
+    showToast("✓ Usuario creado correctamente");
   } else {
     const {error:dbErr}=await SB.from("usuarios").update(profilePayload).eq("id",uid);
     if(dbErr){loading(false);showToast("Error: "+dbErr.message,false);return;}
-    // Cambio de contraseña: solo funciona para el usuario actual
     if(pass){
       if(STATE.user?.id===uid){
         const {error:passErr}=await SB.auth.updateUser({password:pass});
         if(passErr)showToast("Perfil guardado. Error de contraseña: "+passErr.message,false);
         else showToast("✓ Usuario y contraseña actualizados");
       } else {
-        showToast("✓ Perfil guardado. Para cambiar la contraseña de otro usuario, ese usuario debe hacerlo desde su propio perfil.");
+        showToast("✓ Perfil guardado. La contraseña solo puede cambiarla el propio usuario desde su perfil.");
       }
     } else {
       showToast("✓ Usuario actualizado correctamente");
@@ -591,46 +644,99 @@ window.toggleActivoUsuario=async function(uid,activo){
 }
 // ── PERFIL DEL USUARIO ACTUAL ─────────────────────────────
 async function pgPerfil(){
-  // Cargar datos frescos desde Supabase
   if(STATE.user?.id){
     const {data:fresh}=await SB.from("usuarios").select("*").eq("id",STATE.user.id).maybeSingle();
     if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
   }
   const u=STATE.userProfile||{};
+  const INSTITUCIONES=["UNAM","IPN — Escuela Superior de Medicina","UAM","UdeG","BUAP","UANL","UADY","UAG","UDLA","Universidad Anáhuac","Universidad La Salle","ITESM","Hospital General de México","IMSS","ISSSTE","CMN Siglo XXI","INER","INR","INCan","INNN","INNSZ","Otra institución"];
   RR().innerHTML=nav()+`
-  <div style="max-width:820px;margin:0 auto;padding:20px" class="fade">
+  <div style="max-width:860px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div>
         <h2 style="font-size:18px;font-weight:800;color:${TX}">👨‍⚕️ Mi Perfil Médico</h2>
-        <p style="font-size:13px;color:${MU}">Actualiza tus datos profesionales, Google Calendar y contraseña</p>
+        <p style="font-size:13px;color:${MU}">Actualiza tus datos profesionales, formación académica y contraseña</p>
       </div>
       ${btn("← Volver","go('agenda')","s",1)}
     </div>
 
-    <!-- Datos personales y profesionales -->
+    <!-- Datos personales -->
     <div class="form-section" style="margin-bottom:16px">
-      <div class="form-section-header"><b>👤 Datos personales y profesionales</b></div>
+      <div class="form-section-header"><b>👤 Datos personales</b></div>
       <div class="form-section-body">
         <div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:12px;margin-bottom:14px">
           ${fld("Título",`<select id="pf_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
           ${fld("Nombre(s) *",inp("pf_nom",u.nombre||"","Nombre(s)"),1)}
           ${fld("Apellidos *",inp("pf_ap",u.apellidos||"","Ap. Paterno Materno"),1)}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
           ${fld("Nombre de usuario",`<input value="${u.username||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;background:#F5F5F5;color:${MU}" readonly>`)}
           ${fld("Email del sistema",`<input value="${u.email||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;background:#F5F5F5;color:${MU}" readonly>`)}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-          ${fld("Especialidad principal",`<select id="pf_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
-          ${fld("Especialidad secundaria",`<select id="pf_esp2" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_2||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
-          ${fld("Cédula profesional",inp("pf_ced",u.cedula||"","No. de cédula"))}
-          ${fld("Cédula de especialidad",inp("pf_cedesp",u.cedula_especialidad||"","No. de cédula esp."))}
           ${fld("Teléfono",inp("pf_tel",u.telefono||"","55XXXXXXXX","tel"))}
         </div>
         <div style="display:flex;justify-content:flex-end">
           ${btn("💾 Guardar datos personales","guardarPerfil()","ok",1)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Formación académica -->
+    <div class="form-section" style="margin-bottom:16px">
+      <div class="form-section-header"><b>🎓 Formación académica (aparece en recetas)</b></div>
+      <div class="form-section-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Licenciatura / Pregrado",inp("pf_lic",u.licenciatura||"","Ej: Médico Cirujano"))}
+          ${fld("Cédula profesional",inp("pf_cedmed",u.cedula_medico||u.cedula||"","No. de cédula profesional"))}
+          ${fld("Institución",`<select id="pf_igrado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_grado||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Especialidad",`<select id="pf_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
+          ${fld("Cédula de especialidad",inp("pf_cedesp1",u.cedula_esp_1||u.cedula_especialidad||"","No. de cédula esp."))}
+          ${fld("Institución de especialidad",`<select id="pf_iesp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_esp_1||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Subespecialidad",inp("pf_subesp",u.subespecialidad||"","Ej: Traumatología del Deporte"))}
+          ${fld("Cédula de subespecialidad",inp("pf_cedsubesp",u.cedula_subesp||"","No. de cédula subesp."))}
+          ${fld("Institución de subespecialidad",`<select id="pf_iesp2" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_esp_2||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+        </div>
+        <div style="border:1px solid ${BR};border-radius:8px;padding:12px;margin-bottom:14px;background:#FFFDE7">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <b style="font-size:13px;color:#E65100">🏅 Alta Especialidad</b>
+            <span style="font-size:12px;color:${MU};background:#F5F5F5;padding:2px 8px;border-radius:20px">No se expide cédula — solo institución</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            ${fld("Alta Especialidad en…",inp("pf_altaesp",u.alta_especialidad||"","Ej: Medicina del Deporte de Alto Rendimiento"))}
+            ${fld("Institución",`<select id="pf_ialta" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_alta||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          ${btn("💾 Guardar formación académica","guardarFormacionAcademica()","ok",1)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Firma médica -->
+    <div class="form-section" style="margin-bottom:16px">
+      <div class="form-section-header"><b>✍️ Firma médica</b></div>
+      <div class="form-section-body">
+        <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px">
+            <p style="font-size:13px;color:${MU};margin-bottom:10px;line-height:1.7">La firma aparece en todas tus recetas, solicitudes de laboratorio y estudios de gabinete.<br><b>Recomendado:</b> fondo transparente (PNG). Tamaño máximo 2MB.</p>
+            <label class="fld-label">Subir nueva firma (PNG/JPG)</label>
+            <input type="file" id="pf_firma_file" accept="image/*" onchange="previewFirmaPerfil(this)" style="font-size:13px;width:100%;margin-bottom:8px">
+            <div id="pf_firma_preview" style="display:none;margin-top:8px;padding:12px;border:1px dashed ${BR};border-radius:8px;background:#F8F9FA;text-align:center">
+              <img id="pf_firma_img" style="max-height:80px;max-width:100%;object-fit:contain">
+            </div>
+            <div style="margin-top:12px">
+              ${btn("⬆️ Subir firma","subirFirmaPerfil()","ok",1)}
+            </div>
+          </div>
+          <div style="flex:1;min-width:200px;padding:16px;border:1px solid ${BR};border-radius:8px;background:#FAFAFA;text-align:center">
+            <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Vista previa en receta</p>
+            ${u.firma_digital
+              ?`<img src="${u.firma_digital}?t=${Date.now()}" style="max-height:70px;max-width:180px;object-fit:contain" onerror="this.style.display='none';document.getElementById('pf_no_firma').style.display='block'"><div id="pf_no_firma" style="display:none;font-size:12px;color:${MU}">No se pudo cargar</div><div style="margin-top:8px;border-top:1.5px solid #263238;width:120px;margin:10px auto 0"></div><p style="font-size:11px;color:${MU};margin-top:4px">FIRMA DEL MÉDICO</p>`
+              :`<div style="font-size:32px;margin-bottom:8px">✍️</div><p style="font-size:12px;color:${MU}">Sin firma cargada</p><div style="margin-top:12px;border-top:1.5px solid #263238;width:120px;margin:16px auto 0"></div><p style="font-size:11px;color:${MU};margin-top:4px">FIRMA DEL MÉDICO</p>`}
+          </div>
         </div>
       </div>
     </div>
@@ -642,18 +748,15 @@ async function pgPerfil(){
         <div style="background:#E8F5E9;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:#1B5E20;line-height:2">
           <b>Cómo obtener el enlace de integración:</b><br>
           1. <a href="https://calendar.google.com/calendar/r/settings" target="_blank" style="color:${P}">Google Calendar → Configuración</a><br>
-          2. Selecciona tu calendario en la barra lateral izquierda<br>
-          3. Baja hasta la sección <b>"Integrar calendario"</b><br>
-          4. Copia la <b>URL del iframe</b> (empieza con <code>https://calendar.google.com/calendar/embed?src=</code>)<br>
-          5. Pégala abajo y guarda
+          2. Selecciona tu calendario en la barra lateral<br>
+          3. Baja hasta <b>"Integrar calendario"</b> y copia la URL del iframe<br>
+          4. Pégala abajo y guarda
         </div>
-        <div style="margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:3fr 1fr;gap:12px;margin-bottom:14px">
           ${fld("URL del iframe de Google Calendar",inp("pf_cal",u.calendar_url||"","https://calendar.google.com/calendar/embed?src=..."))}
+          ${fld("Color en agenda del admin",`<div style="display:flex;gap:8px;align-items:center"><input id="pf_color" type="color" value="${u.calendar_color||"#1565C0"}" style="width:50px;height:38px;border:1.5px solid ${BR};border-radius:6px;cursor:pointer;padding:2px"></div>`)}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;align-items:end">
-          ${fld("Color en agenda del administrador",`<div style="display:flex;gap:10px;align-items:center"><input id="pf_color" type="color" value="${u.calendar_color||"#1565C0"}" style="width:50px;height:38px;border:1.5px solid ${BR};border-radius:6px;cursor:pointer;padding:2px"><span style="font-size:12px;color:${MU}">Color que ve el admin al revisar todas las agendas</span></div>`)}
-        </div>
-        ${u.calendar_url?`<div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:${P}">✅ Calendario vinculado correctamente. <a href="javascript:go('agenda')" style="color:${AC};font-weight:600;text-decoration:underline">Ver en agenda →</a></div>`:`<div style="background:#FFF8E1;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#E65100">⚠️ Sin calendario vinculado. La agenda mostrará un mensaje de configuración.</div>`}
+        ${u.calendar_url?`<div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:${P}">✅ Calendario vinculado. <a href="javascript:go('agenda')" style="color:${AC};font-weight:600">Ver en agenda →</a></div>`:`<div style="background:#FFF8E1;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#E65100">⚠️ Sin calendario vinculado.</div>`}
         <div style="display:flex;justify-content:flex-end">
           ${btn("💾 Guardar Google Calendar","guardarCalendarioPerfil()","ok",1)}
         </div>
@@ -675,22 +778,72 @@ async function pgPerfil(){
     </div>
   </div>`;
 }
+window.previewFirmaPerfil=function(input){
+  const file=input.files[0];if(!file)return;
+  const prev=document.getElementById("pf_firma_preview");
+  const img=document.getElementById("pf_firma_img");
+  if(!prev||!img)return;
+  const reader=new FileReader();
+  reader.onload=e=>{img.src=e.target.result;prev.style.display="block";};
+  reader.readAsDataURL(file);
+}
+window.subirFirmaPerfil=async function(){
+  const uid=STATE.user?.id;if(!uid)return;
+  const file=document.getElementById("pf_firma_file")?.files[0];
+  if(!file){showToast("Selecciona un archivo de firma primero",false);return;}
+  if(file.size>2*1024*1024){showToast("El archivo es muy grande (máx. 2MB)",false);return;}
+  loading(true,"Subiendo firma...");
+  const ext=file.name.split(".").pop().toLowerCase()||"png";
+  const path=`${uid}/firma.${ext}`;
+  const {error:upErr}=await SB.storage.from("firmas-medicos").upload(path,file,{upsert:true,contentType:file.type});
+  if(upErr){loading(false);showToast("Error al subir: "+upErr.message,false);return;}
+  const {data:urlData}=SB.storage.from("firmas-medicos").getPublicUrl(path);
+  const firma_url=urlData?.publicUrl||null;
+  await SB.from("usuarios").update({firma_digital:firma_url}).eq("id",uid);
+  loading(false);
+  const {data:fresh}=await SB.from("usuarios").select("*").eq("id",uid).maybeSingle();
+  if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
+  showToast("✓ Firma subida y guardada correctamente");
+  pgPerfil();
+}
 window.guardarPerfil=async function(){
   const uid=STATE.user?.id;if(!uid)return;
   const nom=gv("pf_nom").trim();const ap=gv("pf_ap").trim();
   if(!nom||!ap){showToast("Nombre y apellidos son obligatorios",false);return;}
-  loading(true,"Guardando perfil...");
+  loading(true,"Guardando datos personales...");
   const {error}=await SB.from("usuarios").update({
     titulo:gv("pf_titulo"),nombre:nom,apellidos:ap,
-    especialidad_1:gv("pf_esp1")||null,especialidad_2:gv("pf_esp2")||null,
-    cedula:gv("pf_ced")||null,cedula_especialidad:gv("pf_cedesp")||null,
     telefono:gv("pf_tel")||null,
   }).eq("id",uid);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
   const {data:fresh}=await SB.from("usuarios").select("*").eq("id",uid).maybeSingle();
   if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
-  showToast("✓ Datos personales guardados correctamente");
+  showToast("✓ Datos personales guardados");
+}
+window.guardarFormacionAcademica=async function(){
+  const uid=STATE.user?.id;if(!uid)return;
+  loading(true,"Guardando formación académica...");
+  const cedMed=gv("pf_cedmed").trim();
+  const cedEsp1=gv("pf_cedesp1").trim();
+  const {error}=await SB.from("usuarios").update({
+    licenciatura:gv("pf_lic")||null,
+    cedula_medico:cedMed||null,
+    institucion_grado:gv("pf_igrado")||null,
+    especialidad_1:gv("pf_esp1")||null,
+    cedula_esp_1:cedEsp1||null,
+    institucion_esp_1:gv("pf_iesp1")||null,
+    subespecialidad:gv("pf_subesp")||null,
+    cedula_subesp:gv("pf_cedsubesp")||null,
+    institucion_esp_2:gv("pf_iesp2")||null,
+    alta_especialidad:gv("pf_altaesp")||null,
+    institucion_alta:gv("pf_ialta")||null,
+  }).eq("id",uid);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  const {data:fresh}=await SB.from("usuarios").select("*").eq("id",uid).maybeSingle();
+  if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
+  showToast("✓ Formación académica guardada — aparecerá en tus recetas");
 }
 window.guardarCalendarioPerfil=async function(){
   const uid=STATE.user?.id;if(!uid)return;
@@ -703,7 +856,7 @@ window.guardarCalendarioPerfil=async function(){
   if(error){showToast("Error: "+error.message,false);return;}
   const {data:fresh}=await SB.from("usuarios").select("*").eq("id",uid).maybeSingle();
   if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
-  showToast("✓ Google Calendar guardado. Aparecerá en la agenda al recargar.");
+  showToast("✓ Google Calendar guardado");
 }
 window.cambiarContrasena=async function(){
   const p1=gv("pf_pass1");const p2=gv("pf_pass2");
@@ -1640,9 +1793,9 @@ window.guardarDomicilio=async function(){
   };
   const {error}=await SB.from("pacientes").update({
     domicilio:d,
-    telefono_principal:d.telefono,
-    celular:d.celular,
-    correo_electronico:d.correo,
+    telefono_principal:d.telefono||null,
+    celular:d.celular||null,
+    correo:d.correo||null,
   }).eq("id",pid);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
