@@ -390,23 +390,333 @@ window.doLogin=async function(){
 }
 function showLoginError(msg){const e=document.getElementById("login-error");if(e){e.style.display="block";e.textContent=msg;}}
 // ── AGENDA ────────────────────────────────────────────────
+// ── GESTIÓN DE MÉDICOS (solo admin) ──────────────────────
 async function pgMedicos(){
   if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
-  RR().innerHTML=nav()+`<div style="max-width:900px;margin:40px auto;padding:20px">
-    <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Gestión de médicos</h2>
-    <p style="color:#546E7A">Módulo de gestión de médicos.</p>
-    <div style="margin-top:20px">${btn("← Volver","go('agenda')","s",0)}</div>
+  loading(true,"Cargando usuarios...");
+  const {data:usuarios}=await SB.from("usuarios").select("*").order("apellidos");
+  loading(false);
+  const u=usuarios||[];
+  const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepción"};
+  const ROL_COLORS={"admin":"#6A1B9A","medico":"#1565C0","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A"};
+  RR().innerHTML=nav()+`
+  <div style="max-width:1000px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX}">👥 Gestión de Médicos y Usuarios</h2>
+        <p style="font-size:13px;color:${MU}">${u.length} usuario(s) registrado(s) en el sistema</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${btn("➕ Nuevo usuario","abrirModalUsuario()","p",1)}
+        ${btn("← Volver","go('agenda')","s",1)}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      ${[["Médicos",u.filter(x=>x.rol==="medico"&&x.activo!==false).length,"#1565C0","👨‍⚕️"],["Fisioterapeutas",u.filter(x=>x.rol==="fisioterapeuta"&&x.activo!==false).length,"#2E7D32","🦾"],["Enfermería",u.filter(x=>x.rol==="enfermeria"&&x.activo!==false).length,"#E65100","💉"],["Recepción / Admin",u.filter(x=>["admin","recepcion"].includes(x.rol)&&x.activo!==false).length,"#6A1B9A","🏥"]].map(([l,n,c,ic])=>`
+        <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;text-align:center">
+          <div style="font-size:26px;margin-bottom:6px">${ic}</div>
+          <div style="font-size:22px;font-weight:800;color:${c}">${n}</div>
+          <div style="font-size:13px;color:${MU}">${l}</div>
+        </div>`).join("")}
+    </div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="background:${PD};padding:10px 16px"><b style="color:#fff;font-size:14px">USUARIOS DEL SISTEMA</b></div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:${PL}">
+          ${["Nombre completo","Usuario","Rol","Especialidad","Estado","Acciones"].map(h=>`<th style="padding:9px 12px;text-align:left;font-size:12px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}
+        </tr></thead>
+        <tbody>
+          ${u.map((m,i)=>{
+            const activo=m.activo!==false;
+            const rc=ROL_COLORS[m.rol]||MU;
+            return`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"};opacity:${activo?1:.55}">
+              <td style="padding:10px 12px">
+                <div style="font-size:14px;font-weight:700;color:${TX}">${m.titulo||""} ${m.nombre||""} ${m.apellidos||""}</div>
+                <div style="font-size:12px;color:${MU}">${m.email||""}</div>
+              </td>
+              <td style="padding:10px 12px;font-size:14px;color:${AC};font-weight:600">${m.username||"—"}</td>
+              <td style="padding:10px 12px"><span style="background:${rc}18;color:${rc};border:1px solid ${rc}35;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700">${ROL_LABELS[m.rol]||m.rol||"—"}</span></td>
+              <td style="padding:10px 12px;font-size:13px;color:${MU}">${m.especialidad_1||"—"}${m.especialidad_2?" · "+m.especialidad_2:""}</td>
+              <td style="padding:10px 12px"><span style="background:${activo?"#E8F5E9":"#F5F5F5"};color:${activo?"#2E7D32":MU};border:1px solid ${activo?"#A5D6A7":BR};padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700">${activo?"✓ Activo":"✗ Inactivo"}</span></td>
+              <td style="padding:10px 12px">
+                <div style="display:flex;gap:5px">
+                  ${btn("✏️ Editar","abrirModalUsuario('"+m.id+"')","p",1)}
+                  ${btn(activo?"🚫 Desactivar":"✅ Activar","toggleActivoUsuario('"+m.id+"',"+activo+")","s",1)}
+                </div>
+              </td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div id="modal-usuario" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9990;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;box-shadow:0 16px 48px #00000040">
+      <div style="background:${PD};padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:1">
+        <b style="color:#fff;font-size:15px" id="modal-u-title">Nuevo usuario</b>
+        <button onclick="cerrarModalUsuario()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700">✕</button>
+      </div>
+      <div style="padding:20px" id="modal-u-body"></div>
+    </div>
   </div>`;
 }
-function pgPerfil(){
+window.abrirModalUsuario=async function(uid=""){
+  STATE._editingUserId=uid||null;
+  const m=document.getElementById("modal-usuario");
+  const title=document.getElementById("modal-u-title");
+  const body=document.getElementById("modal-u-body");
+  if(!m||!body)return;
+  let u={};
+  if(uid){
+    loading(true,"Cargando usuario...");
+    const {data}=await SB.from("usuarios").select("*").eq("id",uid).single();
+    loading(false);u=data||{};
+    if(title)title.textContent="✏️ Editar usuario";
+  } else {
+    if(title)title.textContent="➕ Nuevo usuario";
+  }
+  const ROLES=[["admin","Administrador"],["medico","Médico"],["fisioterapeuta","Fisioterapeuta"],["enfermeria","Enfermería"],["recepcion","Recepción"]];
+  body.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:12px;margin-bottom:14px">
+      ${fld("Título",`<select id="mu_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
+      ${fld("Nombre(s) *",inp("mu_nom",u.nombre||"","Nombre(s)"),1)}
+      ${fld("Apellidos *",inp("mu_ap",u.apellidos||"","Apellido Paterno Materno"),1)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      ${fld("Rol *",`<select id="mu_rol" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${ROLES.map(([v,l])=>`<option value="${v}" ${(u.rol||"medico")===v?"selected":""}>${l}</option>`).join("")}</select>`,1)}
+      ${fld("Nombre de usuario *",inp("mu_user",u.username||"","Ej: dr.garcia (sin espacios ni @)"),1)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      ${fld("Especialidad principal",`<select id="mu_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
+      ${fld("Especialidad secundaria",`<select id="mu_esp2" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_2||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+      ${fld("Cédula profesional",inp("mu_ced",u.cedula||"","No. de cédula"))}
+      ${fld("Cédula de especialidad",inp("mu_cedesp",u.cedula_especialidad||"","No. de cédula esp."))}
+      ${fld("Teléfono",inp("mu_tel",u.telefono||"","55XXXXXXXX","tel"))}
+    </div>
+    <div style="display:grid;grid-template-columns:3fr 1fr;gap:12px;margin-bottom:14px">
+      ${fld("URL Google Calendar (iframe embed)",inp("mu_cal",u.calendar_url||"","https://calendar.google.com/calendar/embed?src=..."))}
+      ${fld("Color en agenda",`<div style="display:flex;gap:8px;align-items:center"><input id="mu_color" type="color" value="${u.calendar_color||"#1565C0"}" style="width:50px;height:38px;border:1.5px solid ${BR};border-radius:6px;cursor:pointer;padding:2px"></div>`)}
+    </div>
+    <div style="background:${uid?"#FFF8E1":"#E8F5E9"};border-radius:8px;padding:14px;margin-bottom:16px;border:1px solid ${uid?"#FFE082":"#A5D6A7"}">
+      <p style="font-size:14px;font-weight:700;color:${uid?"#E65100":"#2E7D32"};margin-bottom:8px">${uid?"🔑 Cambiar contraseña (opcional)":"🔑 Contraseña inicial"}</p>
+      <p style="font-size:12px;color:#546E7A;margin-bottom:10px">${uid?"Deja en blanco para conservar la contraseña actual.":"Contraseña por defecto: <b>QpClinic2026!</b> — el usuario puede cambiarla desde su perfil."}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${fld(uid?"Nueva contraseña":"Contraseña *",`<input id="mu_pass" type="password" placeholder="${uid?"Dejar en blanco para no cambiar":"QpClinic2026!"}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Confirmar contraseña",`<input id="mu_pass2" type="password" placeholder="${uid?"Dejar en blanco para no cambiar":"QpClinic2026!"}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid ${BR};padding-top:14px">
+      ${btn("Cancelar","cerrarModalUsuario()","s",1)}
+      ${btn(uid?"💾 Guardar cambios":"✅ Crear usuario","guardarUsuario('"+uid+"')","ok",1)}
+    </div>`;
+  m.style.display="flex";
+}
+window.cerrarModalUsuario=function(){
+  const m=document.getElementById("modal-usuario");if(m)m.style.display="none";
+  STATE._editingUserId=null;
+}
+window.guardarUsuario=async function(uid=""){
+  const nom=gv("mu_nom").trim();const ap=gv("mu_ap").trim();
+  const usuario=gv("mu_user").trim().toLowerCase().replace(/\s+/g,".");
+  if(!nom||!ap||!usuario){showToast("Nombre, apellidos y usuario son obligatorios",false);return;}
+  const pass=gv("mu_pass");const pass2=gv("mu_pass2");
+  if(!uid&&!pass){showToast("Define una contraseña para el nuevo usuario",false);return;}
+  if(pass&&pass!==pass2){showToast("Las contraseñas no coinciden",false);return;}
+  if(pass&&pass.length<6){showToast("La contraseña debe tener al menos 6 caracteres",false);return;}
+  loading(true,uid?"Guardando cambios...":"Creando usuario...");
+  const email=usuario+"@qpclinic.mx";
+  const profilePayload={
+    username:usuario,email,
+    titulo:gv("mu_titulo"),nombre:nom,apellidos:ap,rol:gv("mu_rol"),
+    especialidad_1:gv("mu_esp1")||null,especialidad_2:gv("mu_esp2")||null,
+    cedula:gv("mu_ced")||null,cedula_especialidad:gv("mu_cedesp")||null,
+    telefono:gv("mu_tel")||null,
+    calendar_url:gv("mu_cal")||null,
+    calendar_color:document.getElementById("mu_color")?.value||"#1565C0",
+    activo:true,
+  };
+  if(!uid){
+    const {data:authData,error:authErr}=await SB.auth.signUp({
+      email,password:pass,
+      options:{data:{username:usuario,nombre:nom,apellidos:ap}}
+    });
+    if(authErr&&!authErr.message?.includes("already registered")){
+      loading(false);showToast("Error al crear cuenta: "+authErr.message,false);return;
+    }
+    const authId=authData?.user?.id;
+    if(authId){
+      profilePayload.id=authId;
+      const {error:dbErr}=await SB.from("usuarios").upsert(profilePayload,{onConflict:"id"});
+      if(dbErr){loading(false);showToast("Cuenta Auth creada, pero error en perfil: "+dbErr.message,false);return;}
+    } else {
+      // Auth ya registrado → buscar el registro existente
+      const {data:ex}=await SB.from("usuarios").select("id").eq("email",email).maybeSingle();
+      if(ex?.id){
+        const {error:upErr}=await SB.from("usuarios").update(profilePayload).eq("id",ex.id);
+        if(upErr){loading(false);showToast("Error: "+upErr.message,false);return;}
+      } else {
+        loading(false);showToast("No se pudo crear el usuario. Verifica que el nombre de usuario no exista ya.",false);return;
+      }
+    }
+    showToast("✓ Usuario creado. Si Supabase requiere confirmación de email, desactívala en Authentication → Settings.");
+  } else {
+    const {error:dbErr}=await SB.from("usuarios").update(profilePayload).eq("id",uid);
+    if(dbErr){loading(false);showToast("Error: "+dbErr.message,false);return;}
+    // Cambio de contraseña: solo funciona para el usuario actual
+    if(pass){
+      if(STATE.user?.id===uid){
+        const {error:passErr}=await SB.auth.updateUser({password:pass});
+        if(passErr)showToast("Perfil guardado. Error de contraseña: "+passErr.message,false);
+        else showToast("✓ Usuario y contraseña actualizados");
+      } else {
+        showToast("✓ Perfil guardado. Para cambiar la contraseña de otro usuario, ese usuario debe hacerlo desde su propio perfil.");
+      }
+    } else {
+      showToast("✓ Usuario actualizado correctamente");
+    }
+  }
+  loading(false);
+  cerrarModalUsuario();
+  pgMedicos();
+}
+window.toggleActivoUsuario=async function(uid,activo){
+  if(uid===STATE.user?.id){showToast("No puedes desactivar tu propia cuenta",false);return;}
+  loading(true,"Actualizando...");
+  await SB.from("usuarios").update({activo:!activo}).eq("id",uid);
+  loading(false);
+  showToast(!activo?"✓ Usuario activado":"✓ Usuario desactivado");
+  pgMedicos();
+}
+// ── PERFIL DEL USUARIO ACTUAL ─────────────────────────────
+async function pgPerfil(){
+  // Cargar datos frescos desde Supabase
+  if(STATE.user?.id){
+    const {data:fresh}=await SB.from("usuarios").select("*").eq("id",STATE.user.id).maybeSingle();
+    if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
+  }
   const u=STATE.userProfile||{};
-  RR().innerHTML=nav()+`<div style="max-width:600px;margin:40px auto;padding:20px">
-    <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Mi perfil médico</h2>
-    <p style="color:#546E7A">Nombre: ${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}</p>
-    <p style="color:#546E7A;margin-top:8px">Usuario: ${u.username||""}</p>
-    <p style="color:#546E7A;margin-top:8px">Especialidad: ${u.especialidad_1||""}</p>
-    <div style="margin-top:20px">${btn("← Volver","go('agenda')","s",0)}</div>
+  RR().innerHTML=nav()+`
+  <div style="max-width:820px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX}">👨‍⚕️ Mi Perfil Médico</h2>
+        <p style="font-size:13px;color:${MU}">Actualiza tus datos profesionales, Google Calendar y contraseña</p>
+      </div>
+      ${btn("← Volver","go('agenda')","s",1)}
+    </div>
+
+    <!-- Datos personales y profesionales -->
+    <div class="form-section" style="margin-bottom:16px">
+      <div class="form-section-header"><b>👤 Datos personales y profesionales</b></div>
+      <div class="form-section-body">
+        <div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:12px;margin-bottom:14px">
+          ${fld("Título",`<select id="pf_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
+          ${fld("Nombre(s) *",inp("pf_nom",u.nombre||"","Nombre(s)"),1)}
+          ${fld("Apellidos *",inp("pf_ap",u.apellidos||"","Ap. Paterno Materno"),1)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          ${fld("Nombre de usuario",`<input value="${u.username||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;background:#F5F5F5;color:${MU}" readonly>`)}
+          ${fld("Email del sistema",`<input value="${u.email||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;background:#F5F5F5;color:${MU}" readonly>`)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          ${fld("Especialidad principal",`<select id="pf_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
+          ${fld("Especialidad secundaria",`<select id="pf_esp2" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_2||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+          ${fld("Cédula profesional",inp("pf_ced",u.cedula||"","No. de cédula"))}
+          ${fld("Cédula de especialidad",inp("pf_cedesp",u.cedula_especialidad||"","No. de cédula esp."))}
+          ${fld("Teléfono",inp("pf_tel",u.telefono||"","55XXXXXXXX","tel"))}
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          ${btn("💾 Guardar datos personales","guardarPerfil()","ok",1)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Google Calendar -->
+    <div class="form-section" style="margin-bottom:16px">
+      <div class="form-section-header"><b>📅 Google Calendar</b></div>
+      <div class="form-section-body">
+        <div style="background:#E8F5E9;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:#1B5E20;line-height:2">
+          <b>Cómo obtener el enlace de integración:</b><br>
+          1. <a href="https://calendar.google.com/calendar/r/settings" target="_blank" style="color:${P}">Google Calendar → Configuración</a><br>
+          2. Selecciona tu calendario en la barra lateral izquierda<br>
+          3. Baja hasta la sección <b>"Integrar calendario"</b><br>
+          4. Copia la <b>URL del iframe</b> (empieza con <code>https://calendar.google.com/calendar/embed?src=</code>)<br>
+          5. Pégala abajo y guarda
+        </div>
+        <div style="margin-bottom:14px">
+          ${fld("URL del iframe de Google Calendar",inp("pf_cal",u.calendar_url||"","https://calendar.google.com/calendar/embed?src=..."))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;align-items:end">
+          ${fld("Color en agenda del administrador",`<div style="display:flex;gap:10px;align-items:center"><input id="pf_color" type="color" value="${u.calendar_color||"#1565C0"}" style="width:50px;height:38px;border:1.5px solid ${BR};border-radius:6px;cursor:pointer;padding:2px"><span style="font-size:12px;color:${MU}">Color que ve el admin al revisar todas las agendas</span></div>`)}
+        </div>
+        ${u.calendar_url?`<div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:${P}">✅ Calendario vinculado correctamente. <a href="javascript:go('agenda')" style="color:${AC};font-weight:600;text-decoration:underline">Ver en agenda →</a></div>`:`<div style="background:#FFF8E1;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#E65100">⚠️ Sin calendario vinculado. La agenda mostrará un mensaje de configuración.</div>`}
+        <div style="display:flex;justify-content:flex-end">
+          ${btn("💾 Guardar Google Calendar","guardarCalendarioPerfil()","ok",1)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Cambiar contraseña -->
+    <div class="form-section">
+      <div class="form-section-header"><b>🔑 Cambiar contraseña</b></div>
+      <div class="form-section-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          ${fld("Nueva contraseña",`<input id="pf_pass1" type="password" placeholder="Mínimo 6 caracteres" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+          ${fld("Confirmar nueva contraseña",`<input id="pf_pass2" type="password" placeholder="Repite la contraseña" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          ${btn("🔒 Actualizar contraseña","cambiarContrasena()","p",1)}
+        </div>
+      </div>
+    </div>
   </div>`;
+}
+window.guardarPerfil=async function(){
+  const uid=STATE.user?.id;if(!uid)return;
+  const nom=gv("pf_nom").trim();const ap=gv("pf_ap").trim();
+  if(!nom||!ap){showToast("Nombre y apellidos son obligatorios",false);return;}
+  loading(true,"Guardando perfil...");
+  const {error}=await SB.from("usuarios").update({
+    titulo:gv("pf_titulo"),nombre:nom,apellidos:ap,
+    especialidad_1:gv("pf_esp1")||null,especialidad_2:gv("pf_esp2")||null,
+    cedula:gv("pf_ced")||null,cedula_especialidad:gv("pf_cedesp")||null,
+    telefono:gv("pf_tel")||null,
+  }).eq("id",uid);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  const {data:fresh}=await SB.from("usuarios").select("*").eq("id",uid).maybeSingle();
+  if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
+  showToast("✓ Datos personales guardados correctamente");
+}
+window.guardarCalendarioPerfil=async function(){
+  const uid=STATE.user?.id;if(!uid)return;
+  loading(true,"Guardando Google Calendar...");
+  const {error}=await SB.from("usuarios").update({
+    calendar_url:gv("pf_cal")||null,
+    calendar_color:document.getElementById("pf_color")?.value||"#1565C0",
+  }).eq("id",uid);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  const {data:fresh}=await SB.from("usuarios").select("*").eq("id",uid).maybeSingle();
+  if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
+  showToast("✓ Google Calendar guardado. Aparecerá en la agenda al recargar.");
+}
+window.cambiarContrasena=async function(){
+  const p1=gv("pf_pass1");const p2=gv("pf_pass2");
+  if(!p1){showToast("Escribe la nueva contraseña",false);return;}
+  if(p1!==p2){showToast("Las contraseñas no coinciden",false);return;}
+  if(p1.length<6){showToast("La contraseña debe tener al menos 6 caracteres",false);return;}
+  loading(true,"Actualizando contraseña...");
+  const {error}=await SB.auth.updateUser({password:p1});
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  const p1el=document.getElementById("pf_pass1");const p2el=document.getElementById("pf_pass2");
+  if(p1el)p1el.value="";if(p2el)p2el.value="";
+  showToast("✓ Contraseña actualizada correctamente");
 }
 async function pgBitacora(){
   if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
