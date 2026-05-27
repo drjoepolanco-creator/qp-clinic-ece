@@ -52,7 +52,7 @@ Incluye 1-5 diagnósticos de mayor a menor probabilidad. El JSON debe ser válid
       },
       body: JSON.stringify({
         model: "claude-opus-4-6",
-        max_tokens: 2048,
+        max_tokens: 4096,
         messages: [{ role: "user", content: prompt }],
       }),
     });
