@@ -176,24 +176,26 @@ function showToast(msg,ok=true){
 function loading(show,msg="Guardando..."){STATE.loading=show;const l=document.getElementById("loading-overlay");if(l){l.style.display=show?"flex":"none";const m=document.getElementById("loading-msg");if(m)m.textContent=msg;}}
 function nav(){
   const u=STATE.userProfile;const p=STATE.pat;
-  return`<div style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:99">
+  return`<div style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
     <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
     ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${STATE.userProfile?.rol==="admin"?`
     <div style="position:relative" id="cfg-menu-wrap">
-      <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["perfil","medicos"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["perfil","medicos"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
-      <div id="cfg-menu" style="display:none;position:absolute;top:46px;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000025;min-width:220px;z-index:100;overflow:hidden">
-        <button onclick="go('perfil');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">👨‍⚕️ Mi perfil médico</button>
-        ${STATE.userProfile?.rol==="admin"?`<div style="border-top:1px solid #CFD8DC"></div>
-        <div style="padding:6px 16px;font-size:14px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5">Solo Administrador</div>
+      <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
+      <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
+        <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Solo Administrador</div>
         <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>
-        <button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>`:""}
+        <button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>
       </div>
-    </div>
-    <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
+    </div>`:""}
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
       ${p?`<button onclick="go('expediente')" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 9px;color:#fff;cursor:pointer;font-size:14px">📋 ${p.nombre} ${p.apellido_paterno}</button>`:""}
-      <span style="color:rgba(255,255,255,.8);font-size:14px">${u?u.nombre+" "+u.apellidos:"Dr. Polanco F."}</span>
+      <button onclick="go('perfil')" title="Mi perfil y configuración" style="background:${STATE.page==="perfil"?"rgba(255,255,255,.25)":"rgba(255,255,255,.1)"};border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 10px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:5px">
+        <span style="font-size:16px">👤</span>
+        <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u?u.titulo+" "+u.nombre+" "+u.apellidos:"Mi perfil"}</span>
+      </button>
       <button onclick="cerrarSesion()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:3px 9px;color:#fff;cursor:pointer;font-size:14px">Salir</button>
     </div>
   </div>
