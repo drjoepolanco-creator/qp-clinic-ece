@@ -1,6 +1,5 @@
 // /api/ia-medica.js — QP Clinic ECE
 // Vercel Serverless Function (CommonJS)
-// Variable de entorno requerida: ANTHROPIC_API_KEY
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -10,15 +9,12 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
   const { transcripcion, paciente, antecedentes } = req.body || {};
-  if (!transcripcion) return res.status(400).json({ error: "Se requiere la transcripción del interrogatorio" });
+  if (!transcripcion) return res.status(400).json({ error: "Se requiere la transcripción" });
 
-  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY no configurada en Vercel" });
+  const KEY = process.env.ANTHROPIC_API_KEY;
+  if (!KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY no configurada en Vercel" });
 
-  const systemPrompt = `Eres un médico clínico experto. Generas notas médicas SOAP completas en JSON.
-Responde SOLO con el contenido JSON, sin texto previo ni posterior.`;
-
-  const userMessage = `Genera una nota médica SOAP completa en formato JSON para el siguiente caso.
+  const prompt = `Eres un médico clínico experto. Genera una nota médica SOAP completa en formato JSON.
 
 DATOS DEL PACIENTE:
 ${paciente || "No especificado"}
@@ -26,83 +22,74 @@ ${paciente || "No especificado"}
 ANTECEDENTES:
 ${antecedentes || "No especificados"}
 
-INTERROGATORIO:
+INTERROGATORIO / TRANSCRIPCIÓN:
 ${transcripcion}
 
-Responde con este JSON exacto (completa todos los campos):
+Responde ÚNICAMENTE con este JSON, sin texto adicional, sin bloques de código, sin explicaciones:
 {
-  "subjetivo": "Narrativa del motivo de consulta, síntomas, cronología y características según el interrogatorio",
-  "exploracion_sugerida": "Lista detallada de exploración física a realizar: signos vitales, inspección, palpación, percusión, auscultación, maniobras y pruebas especiales relevantes al caso",
+  "subjetivo": "narrativa del motivo de consulta, síntomas, cronología y características",
+  "exploracion_sugerida": "exploración física detallada a realizar: inspección, palpación, percusión, auscultación, maniobras y pruebas especiales relevantes al caso",
   "diagnosticos": [
-    {"cie10": "código", "nombre": "nombre diagnóstico", "descripcion": "justificación clínica breve", "probabilidad": "alta|media|baja"}
+    {"cie10": "código exacto", "nombre": "nombre del diagnóstico", "descripcion": "justificación clínica breve", "probabilidad": "alta"}
   ],
-  "tratamiento": "Medicamentos numerados: nombre genérico, presentación, dosis, vía, frecuencia, duración. Medidas generales.",
-  "laboratorios": "Estudios de laboratorio relevantes, uno por línea",
-  "gabinete": "Estudios de imagen o gabinete relevantes, uno por línea",
-  "plan": "Seguimiento: próxima cita, indicaciones de alarma, restricciones, referencias",
-  "pronostico_funcion": "Rehabilitable|Bueno|Bueno a largo plazo|Favorable con tratamiento|Regular|Malo|Reservado|No rehabilitable",
-  "pronostico_vida": "Sin riesgo vital inmediato|Bueno|Favorable|Regular|Malo|Reservado|Grave"
-}`;
+  "tratamiento": "medicamentos numerados: nombre genérico, presentación, dosis, vía, frecuencia, duración. Medidas generales.",
+  "laboratorios": "estudios de laboratorio relevantes, uno por línea",
+  "gabinete": "estudios de imagen o gabinete, uno por línea",
+  "plan": "seguimiento: próxima cita, indicaciones de alarma, restricciones, referencias si aplica",
+  "pronostico_funcion": "una opción: Rehabilitable|Bueno|Bueno a largo plazo|Favorable con tratamiento|Regular|Malo|Reservado|No rehabilitable",
+  "pronostico_vida": "una opción: Sin riesgo vital inmediato|Bueno|Favorable|Regular|Malo|Reservado|Grave"
+}
+
+Incluye 1-5 diagnósticos de mayor a menor probabilidad. El JSON debe ser válido y completo.`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
+        "x-api-key": KEY,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
         model: "claude-opus-4-6",
         max_tokens: 2048,
-        system: systemPrompt,
-        messages: [
-          { role: "user", content: userMessage },
-          { role: "assistant", content: "{" }  // Prefill: fuerza respuesta JSON sin markdown
-        ],
+        messages: [{ role: "user", content: prompt }],
       }),
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      return res.status(500).json({ error: `Anthropic API ${response.status}: ${errText.substring(0, 300)}` });
+      const t = await response.text();
+      return res.status(500).json({ error: `Anthropic API ${response.status}: ${t.substring(0, 400)}` });
     }
 
     const data = await response.json();
-    // El prefill "{" ya fue enviado, Claude continúa desde ahí
-    const rawText = ("{" + (data?.content?.[0]?.text || "")).trim();
+    const raw = (data?.content?.[0]?.text || "").trim();
 
-    // Estrategias de parseo en cascada
+    // Parseo en cascada — maneja JSON limpio, con markdown, o con texto alrededor
     let parsed = null;
 
-    // 1. Parseo directo
-    try { parsed = JSON.parse(rawText); } catch {}
+    const intentar = (str) => {
+      try { parsed = JSON.parse(str); return true; } catch { return false; }
+    };
 
-    // 2. Quitar markdown si lo hay
-    if (!parsed) {
-      const stripped = rawText.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
-      try { parsed = JSON.parse(stripped); } catch {}
-    }
-
-    // 3. Extraer desde primer { hasta último }
-    if (!parsed) {
-      const start = rawText.indexOf("{");
-      const end = rawText.lastIndexOf("}");
-      if (start !== -1 && end > start) {
-        try { parsed = JSON.parse(rawText.substring(start, end + 1)); } catch {}
+    // 1. Directo
+    if (!intentar(raw)) {
+      // 2. Sin bloques markdown ```json ... ```
+      const sinMd = raw.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
+      if (!intentar(sinMd)) {
+        // 3. Extraer desde primer { hasta último }
+        const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
+        if (s !== -1 && e > s) intentar(raw.substring(s, e + 1));
       }
     }
 
     if (!parsed) {
-      return res.status(500).json({
-        error: "No se pudo parsear la respuesta de la IA",
-        raw: rawText.substring(0, 600)
-      });
+      return res.status(500).json({ error: "No se pudo parsear respuesta IA", raw: raw.substring(0, 500) });
     }
 
     return res.status(200).json(parsed);
 
   } catch (err) {
-    return res.status(500).json({ error: err.message || "Error interno del servidor" });
+    return res.status(500).json({ error: err.message || "Error interno" });
   }
 };
