@@ -3163,27 +3163,16 @@ window.agregarMotivo=function(motivo){
 // ── MODAL IA ──────────────────────────────────────────────
 let _recognition=null;let _grabando=false;let _transcripcion="";let _timerGrab=null;let _segundos=0;
 window.sugerirDxIA=async function(){
-  // Leer del DOM o del objeto guardado como fallback
-  const fv=(id,key)=>{
-    const v=document.getElementById(id)?.value?.trim()||"";
-    return v||(pdfData[key]||"");
-  };
-}
-window.sugerirDxIA=async function(){
   const gf=(id)=>{const e=document.getElementById(id);return e?e.value.trim():"";};
-  const subj=gf("cs_subj");
-  const expl=gf("cs_expl");
-  const analActual=gf("cs_anal");
-  const trat=gf("cs_trat");
-  const plan=gf("cs_plan");
-  const lab=gf("cs_lab");
-
-  const hayContenido=subj||expl||analActual||trat||plan||lab;
-  if(!hayContenido){showToast("Escribe al menos el motivo de consulta en Subjetivo antes de pedir diagnósticos",false);return;}
+  const subj=gf("cs_subj"),expl=gf("cs_expl"),analActual=gf("cs_anal"),
+        trat=gf("cs_trat"),plan=gf("cs_plan"),lab=gf("cs_lab"),gab=gf("cs_gab");
+  if(!subj&&!expl&&!analActual&&!trat&&!plan&&!lab&&!gab){
+    showToast("Escribe al menos el motivo de consulta o la exploración antes de sugerir diagnósticos",false);return;
+  }
   const dxDiv=document.getElementById("diagnosticos-ia");
   if(dxDiv){
     dxDiv.style.display="block";
-    dxDiv.innerHTML=`<div style="display:flex;align-items:center;gap:8px;color:#7B1FA2;font-size:13px"><span class="spin">⚙️</span> Analizando nota y generando diagnósticos CIE-10...</div>`;
+    dxDiv.innerHTML=`<div style="display:flex;align-items:center;gap:8px;color:#7B1FA2;font-size:13px"><span class="spin">⚙️</span> Analizando y generando diagnósticos CIE-10...</div>`;
   }
   const nota=[
     subj&&`MOTIVO DE CONSULTA:\n${subj}`,
@@ -3191,48 +3180,41 @@ window.sugerirDxIA=async function(){
     analActual&&`ANÁLISIS PREVIO:\n${analActual}`,
     trat&&`TRATAMIENTO:\n${trat}`,
     plan&&`PLAN:\n${plan}`,
-    lab&&`LABORATORIO SOLICITADO:\n${lab}`,
+    lab&&`LABORATORIO:\n${lab}`,
+    gab&&`GABINETE:\n${gab}`,
   ].filter(Boolean).join("\n\n");
-  const payload={tipo:"diagnosticos_cie10",nota,instruccion:`Eres un médico experto en codificación CIE-10. Analiza la nota médica y propón los diagnósticos más probables con su código CIE-10 exacto. Responde ÚNICAMENTE en formato JSON sin texto adicional: {"diagnosticos":[{"codigo":"M54.5","nombre":"Lumbago no especificado","certeza":"Principal"}]}. Incluye entre 1 y 5 diagnósticos. Certeza: Principal, Secundario, o Diferencial.`};
-  console.log("📤 Enviando a IA:", JSON.stringify(payload).substring(0,300));
+  const p=STATE.pat||{};
+  const paciente=`${p.nombre||""} ${p.apellido_paterno||""}, Edad: ${calcEdad(p.fecha_nacimiento)}, Sexo: ${p.sexo_biologico||"NS"}`;
   try{
-    const res=await fetch("/api/cie10",{
+    const res=await fetch("/api/ia-medica",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({nota})
+      body:JSON.stringify({tipo:"diagnosticos",nota,paciente})
     });
-    console.log("📥 Status HTTP:", res.status);
     const data=await res.json();
-    console.log("🔍 ia-medica respuesta:", JSON.stringify(data).substring(0,300));
-    let dx=[];
-    try{
-      // Formato directo Anthropic: data.content[0].text
-      const txt=data.content?.[0]?.text||data.diagnosticos||data.resultado||"";
-      if(Array.isArray(txt))dx=txt;
-      else{
-        const match=String(txt).match(/\{[\s\S]*\}/);
-        if(match)dx=JSON.parse(match[0]).diagnosticos||[];
-      }
-    }catch(e){console.error("Parse:",e);dx=[];}
+    if(data.error)throw new Error(data.error);
+    const dx=data.diagnosticos||[];
     if(!dxDiv)return;
     if(dx.length===0){
-      dxDiv.innerHTML=`<p style="font-size:13px;color:#7B1FA2;padding:4px">No se pudo parsear diagnósticos. Ver consola del navegador (F12 → Console) para ver la respuesta exacta.</p>`;
+      dxDiv.innerHTML=`<p style="font-size:13px;color:#7B1FA2;padding:4px">Sin diagnósticos sugeridos. Agrega más contenido a la nota.</p>`;
       return;
     }
+    const CERT_COLOR={"Principal":"#1B5E20","Secundario":"#E65100","Diferencial":"#1565C0"};
     dxDiv.innerHTML=`
-      <p style="font-size:12px;font-weight:700;color:#7B1FA2;margin-bottom:8px;text-transform:uppercase">Diagnósticos sugeridos — haz clic para agregar al análisis</p>
+      <p style="font-size:12px;font-weight:700;color:#7B1FA2;margin-bottom:8px;text-transform:uppercase">Diagnósticos sugeridos — haz clic para agregar</p>
       <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px">
-        ${dx.map(d=>`<button onclick="agregarDxAlAnalisis('${d.codigo} – ${d.nombre.replace(/'/g,"\\'")}',this)"
-          style="background:#fff;border:1.5px solid #CE93D8;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;text-align:left"
-          data-sel="">
-          <b style="color:#6A1B9A">${d.codigo}</b> <span style="color:#263238">– ${d.nombre}</span>
-          <span style="font-size:11px;background:#F3E5F5;color:#9C27B0;padding:1px 6px;border-radius:10px;margin-left:4px">${d.certeza}</span>
+        ${dx.map(d=>`<button onclick="agregarDxAlAnalisis('${(d.codigo||"").replace(/'/g,"\\'")} – ${(d.nombre||"").replace(/'/g,"\\'")}',this)"
+          style="background:#fff;border:1.5px solid #CE93D8;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;text-align:left;transition:all .15s">
+          <b style="color:#6A1B9A">${d.codigo||""}</b> <span style="color:#263238">– ${d.nombre||""}</span>
+          <span style="font-size:11px;background:${CERT_COLOR[d.certeza]||"#546E7A"}20;color:${CERT_COLOR[d.certeza]||"#546E7A"};padding:1px 6px;border-radius:10px;margin-left:4px;font-weight:600">${d.certeza||""}</span>
         </button>`).join("")}
       </div>
-      <button onclick="agregarTodosLosDx()" style="background:#7B1FA2;color:#fff;border:none;border-radius:7px;padding:5px 14px;cursor:pointer;font-size:13px;font-weight:600">✓ Agregar todos</button>
-      <button onclick="document.getElementById('diagnosticos-ia').style.display='none'" style="background:none;border:1px solid #CE93D8;color:#7B1FA2;border-radius:7px;padding:5px 14px;cursor:pointer;font-size:13px;margin-left:6px">✕ Cerrar</button>`;
+      <div style="display:flex;gap:6px">
+        <button onclick="agregarTodosLosDx()" style="background:#7B1FA2;color:#fff;border:none;border-radius:7px;padding:5px 14px;cursor:pointer;font-size:13px;font-weight:600">✓ Agregar todos</button>
+        <button onclick="document.getElementById('diagnosticos-ia').style.display='none'" style="background:none;border:1px solid #CE93D8;color:#7B1FA2;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:13px">✕ Cerrar</button>
+      </div>`;
   }catch(e){
-    if(dxDiv)dxDiv.innerHTML=`<p style="font-size:13px;color:${DA}">Error al conectar con la IA.</p>`;
+    if(dxDiv)dxDiv.innerHTML=`<p style="font-size:13px;color:${DA};padding:4px">Error: ${e.message}</p>`;
   }
 }
 window.agregarDxAlAnalisis=function(texto,btn){
