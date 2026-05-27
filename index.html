@@ -3323,7 +3323,10 @@ window.generarNotaIA=async function(){
       body:JSON.stringify({transcripcion:texto,paciente:pacData,antecedentes:antData})
     });
     const data=await res.json();
-    if(data.error)throw new Error(data.error);
+    if(data.error){
+      const rawInfo=data.raw?`\n\nRespuesta IA (primeros 300 chars):\n${data.raw.substring(0,300)}`:"";
+      throw new Error(data.error+rawInfo);
+    }
     // Llenar campos IA
     const set=(id,val)=>{const e=document.getElementById(id);if(e&&val)e.value=val;};
     const setSel=(id,val)=>{const e=document.getElementById(id);if(e&&val){const opts=Array.from(e.options).map(o=>o.value.toLowerCase());const match=opts.findIndex(o=>o.includes((val||"").toLowerCase().split(" ")[0]));if(match>0)e.selectedIndex=match;else e.value=val;}};
