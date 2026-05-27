@@ -2971,12 +2971,17 @@ function pgConsulta(){
             ${[["Temp. (°C)","cs_temp",vs.temp],["Peso (kg)","cs_peso",vs.peso],["F. Cardíaca (lat/min)","cs_fc",vs.fc],["Talla (m)","cs_talla",vs.talla],["F. Respiratoria (r/min)","cs_fr",vs.fr],["Sat. O₂ (%)","cs_sat",vs.sat],["Pres. Sistólica (mmHg)","cs_tas",vs.tas],["Pres. Diastólica (mmHg)","cs_tad",vs.tad],["Glucosa (mg/dL)","cs_glu",vs.glu],["IMC","cs_imc",vs.imc]].map(([l,id,val])=>`<div>${fld(l,`<input id="${id}" value="${val}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>`).join("")}
           </div>
         </div>
-        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
-          <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;display:flex;flex-direction:column">
+          <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
             <b style="font-size:14px;color:${TX}">🫀 Exploración física</b>
             <span style="font-size:14px;color:${MU};background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA puede sugerir en este campo</span>
           </div>
-          <div style="padding:12px">${ta("cs_expl",c.exploracion_fisica||"","La IA puede sugerir hallazgos a buscar. El médico completa con los encontrados...",6)}</div>
+          <div style="padding:12px;flex:1;display:flex;flex-direction:column">
+            <div style="position:relative;flex:1;display:flex;flex-direction:column">
+              <textarea id="cs_expl" placeholder="La IA puede sugerir hallazgos a buscar. El médico completa con los encontrados..." style="flex:1;min-height:180px;width:100%;padding:10px 40px 10px 13px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;line-height:1.5;font-size:14px">${c.exploracion_fisica||""}</textarea>
+              <button type="button" onclick="dictarCampo('cs_expl')" id="mic_cs_expl" title="Dictar con micrófono" style="position:absolute;top:8px;right:8px;background:none;border:1.5px solid ${BR};border-radius:7px;padding:3px 6px;cursor:pointer;font-size:14px;color:${MU};z-index:1">🎤</button>
+            </div>
+          </div>
         </div>
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
@@ -3015,6 +3020,19 @@ function pgConsulta(){
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">📋 Plan</b></div>
           <div style="padding:12px">${ta("cs_plan",c.plan||"","Seguimiento, indicaciones de alarma, actividad deportiva...",6)}</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2">
+          <div style="padding:9px 13px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E8EAF6,#fff)">
+            <b style="font-size:14px;color:#3949AB">🎯 Pronóstico</b>
+          </div>
+          <div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            ${fld("Pronóstico para la función",`<select id="cs_prog_func" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">
+              ${["","Rehabilitable","Bueno","Bueno a largo plazo","Favorable con tratamiento","Regular","Malo","Reservado","No rehabilitable"].map(o=>`<option ${(c.pronostico_funcion||"")==o?"selected":""}>${o}</option>`).join("")}
+            </select>`)}
+            ${fld("Pronóstico para la vida",`<select id="cs_prog_vida" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">
+              ${["","Sin riesgo vital inmediato","Bueno","Favorable","Regular","Malo","Reservado","Grave"].map(o=>`<option ${(c.pronostico_vida||"")==o?"selected":""}>${o}</option>`).join("")}
+            </select>`)}
+          </div>
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 0;max-width:1200px;margin:0 auto">
@@ -3105,6 +3123,20 @@ function pgConsulta(){
                 <button onclick="aplicarCampoIA('cs_plan','ia_plan')" style="background:${MU};color:#fff;border:none;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:14px">✓</button>
               </div>
               <textarea id="ia_plan" rows="3" style="width:100%;border:none;padding:8px 12px;font-size:14px;resize:none;outline:none;font-family:inherit;line-height:1.5"></textarea>
+            </div>
+            <div style="border:1.5px solid #C5CAE9;border-radius:10px;overflow:hidden;margin-bottom:14px">
+              <div style="background:#E8EAF6;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+                <b style="font-size:14px;color:#3949AB">🎯 Pronóstico sugerido</b>
+                <button onclick="aplicarPronosticoIA()" style="background:#3949AB;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:14px;font-weight:600">✓ Aplicar</button>
+              </div>
+              <div style="padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                ${fld("Para la función",`<select id="ia_prog_func" style="width:100%;padding:8px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">
+                  ${["","Rehabilitable","Bueno","Bueno a largo plazo","Favorable con tratamiento","Regular","Malo","Reservado","No rehabilitable"].map(o=>`<option>${o}</option>`).join("")}
+                </select>`)}
+                ${fld("Para la vida",`<select id="ia_prog_vida" style="width:100%;padding:8px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">
+                  ${["","Sin riesgo vital inmediato","Bueno","Favorable","Regular","Malo","Reservado","Grave"].map(o=>`<option>${o}</option>`).join("")}
+                </select>`)}
+              </div>
             </div>
             <button onclick="aplicarTodoIA()" style="width:100%;padding:12px;background:linear-gradient(135deg,#2E7D32,#1565C0);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
               ✅ Aplicar TODO a la consulta y cerrar
@@ -3294,12 +3326,15 @@ window.generarNotaIA=async function(){
     if(data.error)throw new Error(data.error);
     // Llenar campos IA
     const set=(id,val)=>{const e=document.getElementById(id);if(e&&val)e.value=val;};
+    const setSel=(id,val)=>{const e=document.getElementById(id);if(e&&val){const opts=Array.from(e.options).map(o=>o.value.toLowerCase());const match=opts.findIndex(o=>o.includes((val||"").toLowerCase().split(" ")[0]));if(match>0)e.selectedIndex=match;else e.value=val;}};
     set("ia_subj",data.subjetivo);
     set("ia_expl",data.exploracion_sugerida);
     set("ia_trat",data.tratamiento);
     set("ia_lab",data.laboratorios);
     set("ia_gab",data.gabinete);
     set("ia_plan",data.plan);
+    setSel("ia_prog_func",data.pronostico_funcion);
+    setSel("ia_prog_vida",data.pronostico_vida);
     // Diagnósticos
     const dl=document.getElementById("ia_diagnosticos_lista");
     if(dl&&data.diagnosticos){
@@ -3335,6 +3370,15 @@ window.aplicarDiagnosticosIA=function(){
   dest.value=diags;
   showToast("✓ Diagnósticos aplicados");
 }
+window.aplicarPronosticoIA=function(){
+  const setSel=(srcId,dstId)=>{
+    const s=document.getElementById(srcId);const d=document.getElementById(dstId);
+    if(s&&d&&s.value)d.value=s.value;
+  };
+  setSel("ia_prog_func","cs_prog_func");
+  setSel("ia_prog_vida","cs_prog_vida");
+  showToast("✓ Pronóstico aplicado");
+}
 window.aplicarTodoIA=function(){
   window.aplicarCampoIA("cs_subj","ia_subj");
   window.aplicarCampoIA("cs_expl","ia_expl");
@@ -3343,6 +3387,7 @@ window.aplicarTodoIA=function(){
   window.aplicarCampoIA("cs_gab","ia_gab");
   window.aplicarCampoIA("cs_plan","ia_plan");
   window.aplicarDiagnosticosIA();
+  window.aplicarPronosticoIA();
   cerrarModalIA();
   showToast("✓ Nota completa aplicada a la consulta");
 }
@@ -3377,6 +3422,8 @@ window.guardarConsulta=async function(){
     exploracion_fisica:gv("cs_expl"),analisis:gv("cs_anal"),
     tratamiento:gv("cs_trat"),laboratorio:gv("cs_lab"),
     gabinete:gv("cs_gab"),plan:gv("cs_plan"),
+    pronostico_funcion:gv("cs_prog_func")||null,
+    pronostico_vida:gv("cs_prog_vida")||null,
     bloqueada:false,
   };
   let res;
