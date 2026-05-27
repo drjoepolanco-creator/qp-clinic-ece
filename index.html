@@ -397,8 +397,8 @@ async function pgMedicos(){
   const {data:usuarios}=await SB.from("usuarios").select("*").order("apellidos");
   loading(false);
   const u=usuarios||[];
-  const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepción"};
-  const ROL_COLORS={"admin":"#6A1B9A","medico":"#1565C0","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A"};
+  const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición"};
+  const ROL_COLORS={"admin":"#6A1B9A","medico":"#1565C0","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B"};
   RR().innerHTML=nav()+`
   <div style="max-width:1000px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -411,8 +411,8 @@ async function pgMedicos(){
         ${btn("← Volver","go('agenda')","s",1)}
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-      ${[["Médicos",u.filter(x=>x.rol==="medico"&&x.activo!==false).length,"#1565C0","👨‍⚕️"],["Fisioterapeutas",u.filter(x=>x.rol==="fisioterapeuta"&&x.activo!==false).length,"#2E7D32","🦾"],["Enfermería",u.filter(x=>x.rol==="enfermeria"&&x.activo!==false).length,"#E65100","💉"],["Recepción / Admin",u.filter(x=>["admin","recepcion"].includes(x.rol)&&x.activo!==false).length,"#6A1B9A","🏥"]].map(([l,n,c,ic])=>`
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+      ${[["Médicos",u.filter(x=>x.rol==="medico"&&x.activo!==false).length,"#1565C0","👨‍⚕️"],["Fisioterapeutas",u.filter(x=>x.rol==="fisioterapeuta"&&x.activo!==false).length,"#2E7D32","🦾"],["Nutrición",u.filter(x=>x.rol==="nutricion"&&x.activo!==false).length,"#00796B","🥗"],["Enfermería",u.filter(x=>x.rol==="enfermeria"&&x.activo!==false).length,"#E65100","💉"],["Recep / Admin",u.filter(x=>["admin","recepcion"].includes(x.rol)&&x.activo!==false).length,"#6A1B9A","🏥"]].map(([l,n,c,ic])=>`
         <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;text-align:center">
           <div style="font-size:26px;margin-bottom:6px">${ic}</div>
           <div style="font-size:22px;font-weight:800;color:${c}">${n}</div>
@@ -439,8 +439,9 @@ async function pgMedicos(){
               <td style="padding:10px 12px;font-size:13px;color:${MU}">${m.especialidad_1||"—"}${m.especialidad_2?" · "+m.especialidad_2:""}</td>
               <td style="padding:10px 12px"><span style="background:${activo?"#E8F5E9":"#F5F5F5"};color:${activo?"#2E7D32":MU};border:1px solid ${activo?"#A5D6A7":BR};padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700">${activo?"✓ Activo":"✗ Inactivo"}</span></td>
               <td style="padding:10px 12px">
-                <div style="display:flex;gap:5px">
+                <div style="display:flex;gap:5px;flex-wrap:wrap">
                   ${btn("✏️ Editar","abrirModalUsuario('"+m.id+"')","p",1)}
+                  ${btn("🔑 Contraseña","resetPasswordUsuario('"+m.id+"')","s",1)}
                   ${btn(activo?"🚫 Desactivar":"✅ Activar","toggleActivoUsuario('"+m.id+"',"+activo+")","s",1)}
                 </div>
               </td>
@@ -475,13 +476,13 @@ window.abrirModalUsuario=async function(uid=""){
   } else {
     if(title)title.textContent="➕ Nuevo usuario";
   }
-  const ROLES=[["admin","Administrador"],["medico","Médico"],["fisioterapeuta","Fisioterapeuta"],["enfermeria","Enfermería"],["recepcion","Recepción"]];
+  const ROLES=[["admin","Administrador"],["medico","Médico"],["fisioterapeuta","Fisioterapeuta / L.T.F. / L.F.T."],["nutricion","Lic. en Nutrición"],["enfermeria","Enfermería"],["recepcion","Recepcionista"]];
   const INSTITUCIONES=["UNAM","IPN — Escuela Superior de Medicina","UAM","UdeG","BUAP","UANL","UADY","UAG","UDLA","Universidad Anáhuac","Universidad La Salle","ITESM","Hospital General de México","IMSS","ISSSTE","CMN Siglo XXI","INER","INR","INCan","INNN","INNSZ","Otra institución"];
   body.innerHTML=`
     <!-- Datos de acceso y rol -->
     <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">Datos de acceso y rol</b></div>
     <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:12px;margin-bottom:14px">
-      ${fld("Título",`<select id="mu_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
+      ${fld("Título",`<select id="mu_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","L.T.F.","L.F.T.","L.N.","Psic.","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
       ${fld("Nombre(s) *",inp("mu_nom",u.nombre||"","Nombre(s)"),1)}
       ${fld("Apellidos *",inp("mu_ap",u.apellidos||"","Apellido Paterno Materno"),1)}
     </div>
@@ -642,6 +643,52 @@ window.toggleActivoUsuario=async function(uid,activo){
   showToast(!activo?"✓ Usuario activado":"✓ Usuario desactivado");
   pgMedicos();
 }
+window.resetPasswordUsuario=async function(uid){
+  // Buscar datos del usuario
+  const {data:u}=await SB.from("usuarios").select("username,email,nombre,apellidos").eq("id",uid).maybeSingle();
+  if(!u)return;
+  // Generar contraseña temporal aleatoria
+  const chars="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$";
+  const tmp=Array.from({length:10},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+  // Modal de reset
+  const overlay=document.createElement("div");
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px";
+  overlay.innerHTML=`
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:460px;box-shadow:0 16px 40px #00000040;overflow:hidden">
+      <div style="background:#1565C0;padding:14px 20px;display:flex;align-items:center;justify-content:space-between">
+        <b style="color:#fff;font-size:15px">🔑 Restablecer contraseña</b>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700">✕</button>
+      </div>
+      <div style="padding:20px">
+        <p style="font-size:14px;color:#263238;margin-bottom:4px">Usuario: <b>${u.titulo||""} ${u.nombre} ${u.apellidos}</b></p>
+        <p style="font-size:13px;color:#546E7A;margin-bottom:16px">Login: <code>${u.username}</code> · ${u.email}</p>
+        <div style="background:#E8F5E9;border-radius:8px;padding:14px;margin-bottom:16px">
+          <p style="font-size:12px;color:#2E7D32;font-weight:700;margin-bottom:8px">✅ Opción 1 — Enviar correo de recuperación</p>
+          <p style="font-size:12px;color:#546E7A;margin-bottom:10px">Supabase envía al correo <b>${u.email}</b> un enlace para que el usuario cree su nueva contraseña.</p>
+          <button onclick="enviarCorreoReset('${u.email}',this)" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">📧 Enviar correo de recuperación</button>
+        </div>
+        <div style="background:#FFF8E1;border-radius:8px;padding:14px">
+          <p style="font-size:12px;color:#E65100;font-weight:700;margin-bottom:8px">⚡ Opción 2 — Contraseña temporal generada</p>
+          <p style="font-size:12px;color:#546E7A;margin-bottom:10px">Comparte esta contraseña con el usuario de forma segura (mensaje directo). El usuario deberá cambiarla desde su perfil.</p>
+          <div style="display:flex;gap:8px;align-items:center;background:#fff;border:2px solid #FFB300;border-radius:8px;padding:10px 14px">
+            <code id="tmp-pass-${uid}" style="font-size:18px;font-weight:700;color:#E65100;letter-spacing:2px;flex:1">${tmp}</code>
+            <button onclick="navigator.clipboard.writeText('${tmp}').then(()=>showToast('✓ Contraseña copiada'))" style="background:#FF8F00;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:700">Copiar</button>
+          </div>
+          <p style="font-size:11px;color:#9E9E9E;margin-top:8px">⚠️ Esta contraseña es solo para comunicar al usuario. Para aplicarla en Supabase, el admin debe ir a: <b>Supabase → Authentication → Users → buscar usuario → Edit → Change password</b></p>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+window.enviarCorreoReset=async function(email,btn){
+  if(btn){btn.disabled=true;btn.textContent="Enviando...";}
+  const {error}=await SB.auth.resetPasswordForEmail(email,{
+    redirectTo:window.location.origin+"/index.html"
+  });
+  if(error){showToast("Error: "+error.message,false);}
+  else{showToast("✓ Correo de recuperación enviado a "+email);}
+  if(btn){btn.disabled=false;btn.textContent="📧 Enviar correo de recuperación";}
+}
 // ── PERFIL DEL USUARIO ACTUAL ─────────────────────────────
 async function pgPerfil(){
   if(STATE.user?.id){
@@ -665,7 +712,7 @@ async function pgPerfil(){
       <div class="form-section-header"><b>👤 Datos personales</b></div>
       <div class="form-section-body">
         <div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:12px;margin-bottom:14px">
-          ${fld("Título",`<select id="pf_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
+          ${fld("Título",`<select id="pf_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","L.T.F.","L.F.T.","L.N.","Psic.","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
           ${fld("Nombre(s) *",inp("pf_nom",u.nombre||"","Nombre(s)"),1)}
           ${fld("Apellidos *",inp("pf_ap",u.apellidos||"","Ap. Paterno Materno"),1)}
         </div>
@@ -3402,14 +3449,15 @@ function renderRecipeModal(tipo="receta"){
       <div style="border:1px solid ${BR};border-radius:8px;padding:12px;background:#FAFAFA;margin-bottom:14px;font-size:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:1.5px solid #263238">
           <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:40px">
-          <div style="text-align:right;line-height:1.6">
+          <div style="text-align:right;line-height:1.7;font-size:13px">
             <b style="font-size:14px">${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}</b><br>
-            <span style="color:${MU}">${med.especialidad_1||""}</span><br>
+            ${med.licenciatura||med.institucion_grado?`<span style="color:${MU}">${[med.licenciatura,(med.institucion_grado||"").split(" — ")[0].trim()].filter(Boolean).join(" ")}</span><br>`:""}
             ${med.cedula_medico?`<span style="color:${MU}">Céd. Prof. ${med.cedula_medico}</span><br>`:""}
-            ${med.institucion_grado?`<span style="color:${MU}">${med.institucion_grado}</span><br>`:""}
-            ${med.especialidad_2?`<span style="color:${MU}">${med.especialidad_2}</span><br>`:""}
+            ${med.especialidad_1?`<span style="color:${MU}">Especialidad en ${med.especialidad_1}${med.institucion_esp_1?" "+(med.institucion_esp_1||"").split(" — ")[0].trim():""}</span><br>`:""}
             ${med.cedula_esp_1?`<span style="color:${MU}">Céd. Esp. ${med.cedula_esp_1}</span><br>`:""}
-            ${med.institucion_esp_1?`<span style="color:${MU}">${med.institucion_esp_1}</span>`:""}
+            ${med.subespecialidad?`<span style="color:${MU}">Subespecialidad en ${med.subespecialidad}${med.institucion_esp_2?" "+(med.institucion_esp_2||"").split(" — ")[0].trim():""}</span><br>`:""}
+            ${med.cedula_subesp?`<span style="color:${MU}">Céd. Subesp. ${med.cedula_subesp}</span><br>`:""}
+            ${med.alta_especialidad?`<span style="color:${MU}">Alta Esp. en ${med.alta_especialidad}${med.institucion_alta?" "+(med.institucion_alta||"").split(" — ")[0].trim():""}</span>`:""}
           </div>
         </div>
         <div><b>PACIENTE:</b> ${nomPac} &nbsp;&nbsp; <b>FECHA:</b> ${hoy}</div>
@@ -3422,7 +3470,7 @@ function renderRecipeModal(tipo="receta"){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         ${fld("Teléfono para WhatsApp",`<input id="recipe-tel" value="${p.celular||""}" placeholder="10 dígitos" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-        ${fld("Correo electrónico",`<input id="recipe-email" value="${p.correo_electronico||""}" placeholder="correo@ejemplo.com" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Correo electrónico",`<input id="recipe-email" value="${p.correo||""}" placeholder="correo@ejemplo.com" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       </div>
     </div>
   </div>`;
@@ -3451,22 +3499,23 @@ window.generarPDFReceta=async function(tipo="receta"){
     }catch(e){return{w:0,h:0};}
   }
   // ── CALCULAR LÍNEAS del médico ──
+  const shortInst=s=>s?s.split(" — ")[0].split(" · ")[0].trim():"";
   const credLines=[];
   credLines.push({txt:medNom,bold:true,sz:9});
-  if(med.especialidad_1||med.institucion_grado)
-    credLines.push({txt:[med.especialidad_1,med.institucion_grado].filter(Boolean).join(" ").toUpperCase(),bold:false,sz:8});
+  if(med.licenciatura||med.institucion_grado)
+    credLines.push({txt:[med.licenciatura,shortInst(med.institucion_grado)].filter(Boolean).join("   ").toUpperCase(),bold:false,sz:8});
   if(med.cedula_medico)
     credLines.push({txt:`Céd. Prof. ${med.cedula_medico}`,bold:false,sz:8});
-  if(med.especialidad_2||med.institucion_esp_1)
-    credLines.push({txt:`Especialidad en ${[med.especialidad_2,med.institucion_esp_1].filter(Boolean).join(" ")}`.toUpperCase(),bold:false,sz:8});
+  if(med.especialidad_1||med.institucion_esp_1)
+    credLines.push({txt:`Especialidad en ${[med.especialidad_1,shortInst(med.institucion_esp_1)].filter(Boolean).join("   ")}`.toUpperCase(),bold:false,sz:8});
   if(med.cedula_esp_1)
     credLines.push({txt:`Céd. Esp. ${med.cedula_esp_1}`,bold:false,sz:8});
   if(med.subespecialidad||med.institucion_esp_2)
-    credLines.push({txt:`Subespecialidad en ${[med.subespecialidad,med.institucion_esp_2].filter(Boolean).join(" ")}`.toUpperCase(),bold:false,sz:8});
+    credLines.push({txt:`Subespecialidad en ${[med.subespecialidad,shortInst(med.institucion_esp_2)].filter(Boolean).join("   ")}`.toUpperCase(),bold:false,sz:8});
   if(med.cedula_subesp)
     credLines.push({txt:`Céd. Subesp. ${med.cedula_subesp}`,bold:false,sz:8});
   if(med.alta_especialidad)
-    credLines.push({txt:`Alta Especialidad en ${med.alta_especialidad}${med.institucion_alta?" "+med.institucion_alta:""}`.toUpperCase(),bold:false,sz:8});
+    credLines.push({txt:`Alta Especialidad en ${med.alta_especialidad}${med.institucion_alta?"   "+shortInst(med.institucion_alta):""}`.toUpperCase(),bold:false,sz:8});
   const headerH=Math.max(18, credLines.length*4.5+4);
   const lineY=headerH+4;
   // ── LOGO izquierda ──
