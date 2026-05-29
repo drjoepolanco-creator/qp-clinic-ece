@@ -4021,7 +4021,9 @@ window.generarPDFReceta=async function(tipo="receta"){
 
 // ── PDF DE NOTA MÉDICA ─────────────────────────────────────
 window.descargarNotaPDF=async function(){
+  try{
   const {jsPDF}=window.jspdf;
+  if(!jsPDF){showToast("jsPDF no disponible — recarga la página",false);return;}
   const c=STATE.consultaActual||{};
   const p=STATE.pat||{};
   const med=STATE.medProfile||STATE.userProfile||{};
@@ -4101,7 +4103,7 @@ window.descargarNotaPDF=async function(){
     ["T°",c.temperatura],["FC",c.frecuencia_cardiaca],["FR",c.frecuencia_respiratoria],
     ["Sat",c.saturacion_o2],["TA",c.presion_sistolica&&c.presion_diastolica?c.presion_sistolica+"/"+c.presion_diastolica:null],
     ["Glu",c.glucosa],["Peso",c.peso],["Talla",c.talla],["IMC",c.imc],["EVA",eva||null]
-  ].filter(([,v])=>v);
+  ].filter(function(item){return item[1]!==null&&item[1]!==undefined&&item[1]!=="";});
   if(sv.length){
     doc.setFillColor(227,242,253);doc.rect(M,y,W-2*M,7,"F");
     doc.setFontSize(7.5);doc.setTextColor(21,101,192);doc.setFont("helvetica","bold");
@@ -4209,11 +4211,16 @@ window.descargarNotaPDF=async function(){
   const archivo=`Nota_${tipoNota.replace(/[^a-zA-Z0-9]/g,"_")}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`;
   doc.save(archivo);
   showToast("✓ PDF descargado");
+  }catch(err){
+    console.error("descargarNotaPDF:",err);
+    showToast("Error al generar PDF: "+err.message,false);
+  }
 }
 
 function hexToRgb(hex){
+  if(!hex||!hex.startsWith("#"))return[38,50,56];
   const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-  return[r,g,b];
+  return[isNaN(r)?38:r,isNaN(g)?50:g,isNaN(b)?56:b];
 }
 async function urlToBase64firma(url){
   return new Promise(res=>{
