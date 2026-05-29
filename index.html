@@ -4021,201 +4021,178 @@ window.generarPDFReceta=async function(tipo="receta"){
 
 // ── PDF DE NOTA MÉDICA ─────────────────────────────────────
 window.descargarNotaPDF=async function(){
-  try{
   const {jsPDF}=window.jspdf;
-  if(!jsPDF){showToast("jsPDF no disponible — recarga la página",false);return;}
-  const c=STATE.consultaActual||{};
+  if(!jsPDF){showToast("jsPDF no cargado — recarga la página",false);return;}
+  const c=STATE.consultaActual;
+  if(!c){showToast("Abre una consulta primero",false);return;}
   const p=STATE.pat||{};
   const med=STATE.medProfile||STATE.userProfile||{};
   const d=c.datos_clinicos||{};
-
-  // Leer campos del formulario si la nota está abierta
-  const gv2=(id)=>document.getElementById(id)?.value||"";
-  const subj=gv2("cs_subj")||c.subjetivo||"";
-  const expl=gv2("cs_expl")||c.exploracion_fisica||"";
-  const anal=gv2("cs_anal")||c.analisis||"";
-  const trat=gv2("cs_trat")||c.tratamiento||"";
-  const lab=gv2("cs_lab")||c.laboratorio||"";
-  const gab=gv2("cs_gab")||c.gabinete||"";
-  const plan=gv2("cs_plan")||c.plan||"";
-  const eva=gv2("cs_eva")||c.eva_dolor||"";
-  const pf=gv2("cs_prog_func")||c.pronostico_funcion||"";
-  const pv=gv2("cs_prog_vida")||c.pronostico_vida||"";
-  const tipoNota=gv2("cs_tipo_nota")||c.tipo_nota||"Nota de evolución";
-
-  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
-  const hora=c.hora_inicio||c.hora||new Date().toTimeString().substring(0,5);
-  const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim();
-  const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
-
+  // Helper: convierte cualquier valor a string seguro para jsPDF
+  const T=(v)=>{if(v===null||v===undefined)return"";const s=String(v);return s==="null"||s==="undefined"?"":s;};
+  // Leer campos del formulario (si la nota está abierta)
+  const gv2=(id)=>{const e=document.getElementById(id);return e?T(e.value):"";}
+  const subj=gv2("cs_subj")||T(c.subjetivo);
+  const expl=gv2("cs_expl")||T(c.exploracion_fisica);
+  const anal=gv2("cs_anal")||T(c.analisis);
+  const trat=gv2("cs_trat")||T(c.tratamiento);
+  const lab =gv2("cs_lab") ||T(c.laboratorio);
+  const gab =gv2("cs_gab") ||T(c.gabinete);
+  const plan=gv2("cs_plan")||T(c.plan);
+  const pf  =gv2("cs_prog_func")||T(c.pronostico_funcion);
+  const pv  =gv2("cs_prog_vida")||T(c.pronostico_vida);
+  const eva =gv2("cs_eva")||(c.eva_dolor!=null?T(c.eva_dolor):"");
+  const tipoNota=gv2("cs_tipo_nota")||T(c.tipo_nota)||"Nota de evolución";
+  const hoy =new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const hora=T(c.hora_inicio||c.hora||new Date().toTimeString().substring(0,5));
+  const nomPac=T(`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`).trim();
+  const medNom=T(`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`).trim();
+  try{
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
   const W=215.9,M=14;
   let y=0;
-
-  // ── ENCABEZADO INSTITUCIONAL ──
+  // ── HELPER PARA BLOQUES DE TEXTO ─────────────────────────
+  function bloque(titulo,contenido,colHex){
+    if(!contenido)return;
+    if(y>225){doc.addPage();y=14;}
+    const rgb=hexToRgb(colHex||"#263238");
+    doc.setFillColor(rgb[0],rgb[1],rgb[2]);doc.rect(M,y,W-2*M,6,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+    doc.text(T(titulo),M+2,y+4.2);
+    y+=7;
+    doc.setTextColor(38,50,56);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
+    const ls=doc.splitTextToSize(T(contenido),W-2*M-4);
+    ls.forEach(function(l){
+      if(y>245){doc.addPage();y=14;}
+      doc.text(T(l),M+2,y);y+=4.5;
+    });
+    y+=3;
+  }
+  // ── ENCABEZADO ──────────────────────────────────────────
   doc.setFillColor(21,101,192);doc.rect(0,0,W,32,"F");
   doc.setTextColor(255,255,255);
   doc.setFontSize(11);doc.setFont("helvetica","bold");
   doc.text("QP Clinic — Especialistas en Salud Integral",M,9);
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");
-  doc.text("Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX  |  Tel: 55 5682 4345  |  qpclinic.org",M,14);
+  doc.text("Insurgentes Sur 933, Nápoles, CDMX  |  Tel: 55 5682 4345  |  qpclinic.org",M,14);
+  const creds=[
+    [T(med.licenciatura),T(med.institucion_grado),med.cedula_medico?"Céd.Prof."+T(med.cedula_medico):""].filter(Boolean).join("  |  "),
+    [T(med.especialidad_1),T(med.institucion_esp_1),med.cedula_esp_1?"Céd.Esp."+T(med.cedula_esp_1):""].filter(Boolean).join("  |  "),
+    [T(med.subespecialidad),T(med.institucion_esp_2),med.cedula_subesp?"Céd.Subesp."+T(med.cedula_subesp):""].filter(Boolean).join("  |  "),
+    [T(med.alta_especialidad),T(med.institucion_alta)].filter(Boolean).join("  |  ")
+  ].filter(Boolean);
   let credY=19;
-  const cred1=[med.licenciatura,med.institucion_grado,med.cedula_medico?"Céd.Prof."+med.cedula_medico:null].filter(Boolean).join("  |  ");
-  const cred2=[med.especialidad_1,med.institucion_esp_1,med.cedula_esp_1?"Céd.Esp."+med.cedula_esp_1:null].filter(Boolean).join("  |  ");
-  const cred3=[med.subespecialidad,med.institucion_esp_2,med.cedula_subesp?"Céd.Subesp."+med.cedula_subesp:null].filter(Boolean).join("  |  ");
-  const cred4=[med.alta_especialidad,med.institucion_alta].filter(Boolean).join("  |  ");
-  [cred1,cred2,cred3,cred4].filter(Boolean).forEach(l=>{doc.text(l.substring(0,95),M,credY);credY+=4.5;});
-  doc.text(medNom,W-M,credY-4.5,{align:"right"});
-
-  // ── BANNER TIPO DE NOTA ──
+  creds.forEach(function(l){if(l){doc.text(l.substring(0,95),M,credY);credY+=4.5;}});
+  doc.text(medNom,W-M,creds.length?credY-4.5:19,{align:"right"});
+  // ── BANNER TIPO DE NOTA ─────────────────────────────────
   y=34;
-  const TIPO_COLORS={"Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#1B5E20","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de primera vez (Historia clínica)":"#1565C0"};
-  const bannerCol=TIPO_COLORS[tipoNota]||"#263238";
-  const [br,bg,bb]=bannerCol==="default"?[38,50,56]:hexToRgb(bannerCol);
-  doc.setFillColor(br,bg,bb);doc.rect(0,y,W,8,"F");
+  const TIPO_COLS={"Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#1B5E20","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de primera vez (Historia clínica)":"#1565C0"};
+  const bannerRgb=hexToRgb(TIPO_COLS[tipoNota]||"#263238");
+  doc.setFillColor(bannerRgb[0],bannerRgb[1],bannerRgb[2]);doc.rect(0,y,W,8,"F");
   doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont("helvetica","bold");
   doc.text(tipoNota.toUpperCase(),W/2,y+5.5,{align:"center"});
   y+=10;
-
-  // ── DATOS DEL PACIENTE ──
-  doc.setFillColor(240,244,248);doc.rect(0,y,W,14,"F");
+  // ── DATOS DEL PACIENTE ─────────────────────────────────
+  doc.setFillColor(240,244,248);doc.rect(0,y,W,15,"F");
   doc.setTextColor(38,50,56);doc.setFontSize(8.5);
   doc.setFont("helvetica","bold");doc.text("PACIENTE:",M,y+5);
   doc.setFont("helvetica","normal");doc.text(nomPac,M+22,y+5);
   doc.setFont("helvetica","bold");doc.text("FECHA:",M,y+10);
-  doc.setFont("helvetica","normal");doc.text(hoy+" — "+hora,M+16,y+10);
-  doc.setFont("helvetica","bold");doc.text("EDAD:",W/2,y+5);
-  doc.setFont("helvetica","normal");doc.text(calcEdad(p.fecha_nacimiento)||"",W/2+12,y+5);
-  doc.setFont("helvetica","bold");doc.text("SEXO:",W/2,y+10);
-  doc.setFont("helvetica","normal");doc.text(p.sexo_biologico||"",W/2+12,y+10);
-  doc.setFont("helvetica","bold");doc.text("EXPEDIENTE:",W-M-55,y+5);
-  doc.setFont("helvetica","normal");doc.text(p.numero_expediente||"",W-M-30,y+5);
-  if(c.alergias_nota||STATE.alergs?.length){
+  doc.setFont("helvetica","normal");doc.text(hoy+"  "+hora,M+16,y+10);
+  doc.setFont("helvetica","bold");doc.text("EDAD:",W/2-20,y+5);
+  doc.setFont("helvetica","normal");doc.text(T(calcEdad(p.fecha_nacimiento)),W/2-6,y+5);
+  doc.setFont("helvetica","bold");doc.text("SEXO:",W/2-20,y+10);
+  doc.setFont("helvetica","normal");doc.text(T(p.sexo_biologico),W/2-6,y+10);
+  doc.setFont("helvetica","bold");doc.text("EXPEDIENTE:",W-M-52,y+5);
+  doc.setFont("helvetica","normal");doc.text(T(p.numero_expediente),W-M-26,y+5);
+  if(c.alergias_nota){
     doc.setFont("helvetica","bold");doc.setTextColor(198,40,40);
-    doc.text("⚠ ALERGIAS:",W-M-55,y+10);
+    doc.text("ALERGIAS:",W-M-52,y+10);
     doc.setFont("helvetica","normal");
-    doc.text((c.alergias_nota||STATE.alergs?.join(", ")||"").substring(0,35),W-M-28,y+10);
+    doc.text(T(c.alergias_nota).substring(0,32),W-M-26,y+10);
   }
-  y+=16;
-
-  // ── Signos vitales y EVA ──
-  const sv=[
-    ["T°",c.temperatura],["FC",c.frecuencia_cardiaca],["FR",c.frecuencia_respiratoria],
-    ["Sat",c.saturacion_o2],["TA",c.presion_sistolica&&c.presion_diastolica?c.presion_sistolica+"/"+c.presion_diastolica:null],
-    ["Glu",c.glucosa],["Peso",c.peso],["Talla",c.talla],["IMC",c.imc],["EVA",eva||null]
-  ].filter(function(item){return item[1]!==null&&item[1]!==undefined&&item[1]!=="";});
+  y+=17;
+  // ── SIGNOS VITALES ─────────────────────────────────────
+  const sv=[["Temp.",c.temperatura],["FC",c.frecuencia_cardiaca],["FR",c.frecuencia_respiratoria],["Sat.O₂",c.saturacion_o2],["TA",c.presion_sistolica&&c.presion_diastolica?T(c.presion_sistolica)+"/"+T(c.presion_diastolica):null],["Glucosa",c.glucosa],["Peso",c.peso],["Talla",c.talla],["IMC",c.imc],["EVA",eva||null]].filter(function(x){return x[1]!==null&&x[1]!==undefined&&x[1]!=="";});
   if(sv.length){
-    doc.setFillColor(227,242,253);doc.rect(M,y,W-2*M,7,"F");
-    doc.setFontSize(7.5);doc.setTextColor(21,101,192);doc.setFont("helvetica","bold");
-    doc.text("SIGNOS VITALES:",M+2,y+4.5);
-    let sx=M+32;
-    sv.forEach(([k,v])=>{
-      doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);doc.text(k+":",sx,y+4.5);
-      doc.setFont("helvetica","normal");doc.text(String(v),sx+doc.getTextWidth(k+":")+1,y+4.5);
-      sx+=doc.getTextWidth(k+":"+v)+8;
-      if(sx>W-M){sx=M+32;y+=4;}
-    });
-    y+=9;
+    doc.setFillColor(227,242,253);doc.rect(M,y,W-2*M,8,"F");
+    doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(21,101,192);
+    doc.text("SIGNOS VITALES:",M+2,y+5);
+    doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+    const partes=sv.map(function(x){return T(x[0])+": "+T(x[1]);}).join("   ");
+    doc.text(partes.substring(0,120),M+34,y+5);
+    y+=10;
   }
-
-  // ── SECCIONES SOAP ──
-  const secciones=[
-    ["SUBJETIVO — Motivo de consulta e interrogatorio",subj,"#1565C0"],
-    ["EXPLORACIÓN FÍSICA",expl,"#2E7D32"],
-    ["ANÁLISIS Y DIAGNÓSTICO",anal,"#6A1B9A"],
-    ["TRATAMIENTO",trat,"#E65100"],
-    lab&&["LABORATORIO SOLICITADO",lab,"#546E7A"],
-    gab&&["GABINETE SOLICITADO",gab,"#546E7A"],
-    ["PLAN Y SEGUIMIENTO",plan,"#263238"],
-  ].filter(Boolean);
-
-  for(const [titulo,contenido,col] of secciones){
-    if(!contenido)continue;
-    if(y>230){doc.addPage();y=14;}
-    const [tr,tg,tb]=hexToRgb(col);
-    doc.setFillColor(tr,tg,tb);doc.rect(M,y,W-2*M,6,"F");
-    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
-    doc.text(titulo,M+2,y+4.2);
-    y+=7;
-    doc.setTextColor(38,50,56);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
-    const ls=doc.splitTextToSize(contenido,W-2*M-2);
-    for(const l of ls){
-      if(y>245){doc.addPage();y=14;}
-      doc.text(l,M+2,y);y+=4.5;
-    }
-    y+=3;
-  }
-
-  // ── Datos clínicos especiales (según tipo de nota) ──
-  const dKeys=Object.keys(d);
+  // ── SECCIONES SOAP ─────────────────────────────────────
+  bloque("SUBJETIVO — Motivo de consulta e interrogatorio",subj,"#1565C0");
+  bloque("EXPLORACIÓN FÍSICA",expl,"#2E7D32");
+  bloque("ANÁLISIS Y DIAGNÓSTICO",anal,"#6A1B9A");
+  bloque("TRATAMIENTO",trat,"#E65100");
+  if(lab)bloque("LABORATORIO SOLICITADO",lab,"#546E7A");
+  if(gab)bloque("GABINETE SOLICITADO",gab,"#546E7A");
+  bloque("PLAN Y SEGUIMIENTO",plan,"#263238");
+  // ── DATOS CLÍNICOS ESPECÍFICOS ─────────────────────────
+  const dKeys=Object.keys(d).filter(function(k){return d[k]!==null&&d[k]!==undefined&&T(d[k])!=="";});
   if(dKeys.length){
-    if(y>230){doc.addPage();y=14;}
-    doc.setFillColor(63,81,181);doc.rect(M,y,W-2*M,6,"F");
+    if(y>225){doc.addPage();y=14;}
+    const bRgb=hexToRgb(TIPO_COLS[tipoNota]||"#3949AB");
+    doc.setFillColor(bRgb[0],bRgb[1],bRgb[2]);doc.rect(M,y,W-2*M,6,"F");
     doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
-    doc.text("DATOS ESPECÍFICOS — "+tipoNota.toUpperCase(),M+2,y+4.2);
-    y+=7;
+    doc.text("DATOS ESPECÍFICOS",M+2,y+4.2);y+=8;
     doc.setTextColor(38,50,56);doc.setFontSize(8.5);
-    const LABELS={gcs_o:"GCS Ocular",gcs_v:"GCS Verbal",gcs_m:"GCS Motor",gcs_total:"GCS Total",triaje:"Triaje",avpu:"AVPU",destino_urg:"Destino",cond_egreso_urg:"Condición egreso",asa:"ASA",anestesia:"Anestesia",procedimiento_qx:"Procedimiento",dx_preop:"Dx preoperatorio",dx_posop:"Dx posoperatorio",hallazgos_qx:"Hallazgos",sangrado:"Sangrado (cc)",motivo_egreso:"Motivo egreso",condicion_egreso:"Condición",dx_finales:"Diagnósticos finales",instrucciones_alta:"Instrucciones alta",receptor:"Receptor",motivo_ref:"Motivo referencia"};
-    let col2=false;
-    dKeys.forEach(k=>{
+    const LABELS={gcs_o:"GCS Ocular",gcs_v:"GCS Verbal",gcs_m:"GCS Motor",gcs_total:"GCS Total",triaje:"Triaje",avpu:"AVPU",destino_urg:"Destino",asa:"ASA",anestesia:"Anestesia",procedimiento_qx:"Procedimiento",dx_preop:"Dx preoperatorio",dx_posop:"Dx posoperatorio",hallazgos_qx:"Hallazgos",sangrado:"Sangrado cc",motivo_egreso:"Motivo egreso",condicion_egreso:"Condición alta",dx_finales:"Diagnósticos finales",instrucciones_alta:"Instrucciones alta",receptor:"Centro receptor",motivo_ref:"Motivo referencia"};
+    dKeys.forEach(function(k){
       if(y>245){doc.addPage();y=14;}
-      const label=LABELS[k]||k.replace(/_/g," ");
-      const val=String(d[k]);
+      const label=T(LABELS[k]||k.replace(/_/g," "));
+      const val=T(d[k]);
+      if(!val)return;
       doc.setFont("helvetica","bold");doc.text(label+":",M+2,y);
       doc.setFont("helvetica","normal");
-      const vls=doc.splitTextToSize(val,W-2*M-doc.getTextWidth(label+": ")-4);
-      vls.forEach((l,i)=>{doc.text(l,M+doc.getTextWidth(label+": ")+4,y+(i*4.5));});
-      y+=vls.length*4.5+1;
+      const ls=doc.splitTextToSize(val,W-2*M-40);
+      ls.forEach(function(l,i){
+        if(y>245){doc.addPage();y=14;}
+        doc.text(T(l),M+42,y+(i*4.5));
+      });
+      y+=Math.max(ls.length,1)*4.5+1;
     });
     y+=3;
   }
-
-  // ── PRONÓSTICO ──
+  // ── PRONÓSTICO ─────────────────────────────────────────
   if(pf||pv){
-    if(y>235){doc.addPage();y=14;}
+    if(y>230){doc.addPage();y=14;}
     doc.setFillColor(57,73,171);doc.rect(M,y,W-2*M,6,"F");
     doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
-    doc.text("PRONÓSTICO",M+2,y+4.2);y+=7;
+    doc.text("PRONÓSTICO",M+2,y+4.2);y+=8;
     doc.setTextColor(38,50,56);doc.setFontSize(8.5);
-    if(pf){doc.setFont("helvetica","bold");doc.text("Para la función:",M+2,y);doc.setFont("helvetica","normal");doc.text(pf,M+36,y);y+=5;}
-    if(pv){doc.setFont("helvetica","bold");doc.text("Para la vida:",M+2,y);doc.setFont("helvetica","normal");doc.text(pv,M+28,y);y+=5;}
+    if(pf){doc.setFont("helvetica","bold");doc.text("Para la función:",M+2,y);doc.setFont("helvetica","normal");doc.text(T(pf),M+38,y);y+=5;}
+    if(pv){doc.setFont("helvetica","bold");doc.text("Para la vida:",M+2,y);doc.setFont("helvetica","normal");doc.text(T(pv),M+30,y);y+=5;}
     y+=3;
   }
-
-  // ── FIRMA DEL MÉDICO ──
+  // ── FIRMA ───────────────────────────────────────────────
   if(y>230){doc.addPage();y=14;}
-  y=Math.max(y,210);
+  y=Math.max(y,215);
   doc.setDrawColor(207,216,220);doc.setLineWidth(0.3);doc.line(M,y,W-M,y);
-  // Imagen de firma si existe
   if(med.firma_digital){
-    try{
-      const b64=await urlToBase64firma(med.firma_digital);
-      if(b64)doc.addImage(b64,"PNG",W/2-25,y+2,50,16);
-    }catch(e){}
+    try{const b64=await urlToBase64firma(med.firma_digital);if(b64)doc.addImage(b64,"PNG",W/2-25,y+2,50,16);}catch(e){}
   }
-  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
-  doc.line(W/2-30,y+20,W/2+30,y+20);
+  const firmaLineY=y+20;
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);doc.line(W/2-28,firmaLineY,W/2+28,firmaLineY);
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-  doc.text("FIRMA DEL MÉDICO",W/2,y+25,{align:"center"});
+  doc.text("FIRMA DEL MÉDICO",W/2,firmaLineY+5,{align:"center"});
   doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
-  doc.text(medNom,W/2,y+29,{align:"center"});
-  if(med.cedula_medico)doc.text("Céd. Prof. "+med.cedula_medico,W/2,y+33,{align:"center"});
-  // Footer
+  doc.text(medNom,W/2,firmaLineY+9,{align:"center"});
+  if(med.cedula_medico)doc.text("Céd. Prof. "+T(med.cedula_medico),W/2,firmaLineY+13,{align:"center"});
   doc.setFontSize(6.5);doc.setTextColor(144,164,174);
-  doc.text("Documento generado conforme a NOM-004-SSA3-2012 — Expediente Clínico Electrónico  |  QP Clinic — qpclinic.org",W/2,248,{align:"center"});
-  if(c.bloqueada&&c.firma_medico){
-    doc.setFontSize(7);doc.setTextColor(46,125,50);
-    doc.text("✓ Nota firmada digitalmente el "+c.fecha_firma+" por "+c.medico_nombre,W/2,252,{align:"center"});
-  }
-
-  const archivo=`Nota_${tipoNota.replace(/[^a-zA-Z0-9]/g,"_")}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`;
+  doc.text("NOM-004-SSA3-2012 — QP Clinic ECE  |  qpclinic.org",W/2,252,{align:"center"});
+  const archivo="Nota_"+tipoNota.replace(/[^a-zA-Z0-9]/g,"_")+"_"+nomPac.replace(/ /g,"_")+"_"+hoy.replace(/\//g,"-")+".pdf";
   doc.save(archivo);
   showToast("✓ PDF descargado");
   }catch(err){
     console.error("descargarNotaPDF:",err);
-    showToast("Error al generar PDF: "+err.message,false);
+    showToast("Error al generar PDF: "+T(err.message),false);
   }
 }
+
 
 function hexToRgb(hex){
   if(!hex||!hex.startsWith("#"))return[38,50,56];
