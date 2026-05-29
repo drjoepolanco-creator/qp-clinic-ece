@@ -3076,6 +3076,7 @@ window.abrirModalFirmaGlobal=function(){
       </div>
       <p style="font-size:14px;font-weight:700;color:#546E7A;margin-bottom:10px;text-transform:uppercase">Documentos para firma — ${nomPac}</p>
       <div style="background:#F8F9FA;border-radius:8px;padding:10px;margin-bottom:14px">
+        <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:4px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px">Documentos generales</p>
         ${[
           ["general","Consentimiento Informado General"],
           ["privacidad","Aviso de Privacidad"],
@@ -3086,6 +3087,18 @@ window.abrirModalFirmaGlobal=function(){
           ["infiltraciones","Consentimiento para Infiltraciones"],
           ["esfuerzo","Consentimiento Prueba de Esfuerzo"],
           ["glp1","Consentimiento GLP-1 (Ozempic® / Mounjaro®)"],
+        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#1565C0;width:14px;height:14px"> ${l}</label>`).join("")}
+        <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Rehabilitación y procedimientos</p>
+        ${[
+          ["fisioterapia","Consentimiento — Medicina Física y Rehabilitación"],
+          ["puncion_seca","Consentimiento — Punción Seca"],
+          ["electropuntura","Consentimiento — Electropuntura"],
+          ["proloterapia","Consentimiento — Infiltración Perineural / Proloterapia"],
+        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#1565C0;width:14px;height:14px"> ${l}</label>`).join("")}
+        <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Ginecología</p>
+        ${[
+          ["biopsia_mama","Consentimiento — Biopsia de Mama"],
+          ["checkup_gine","Consentimiento — Checkup Ginecológico completo"],
         ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#1565C0;width:14px;height:14px"> ${l}</label>`).join("")}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
