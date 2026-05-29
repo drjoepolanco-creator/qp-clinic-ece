@@ -1032,6 +1032,249 @@ function renderCalendarioView(u,medicos,isAdmin){
 }
 window.actualizarTipoNota=function(tipo){
   if(STATE.consultaActual)STATE.consultaActual.tipo_nota=tipo;
+  const sec=document.getElementById("seccion-especial");
+  if(sec)sec.innerHTML=renderSeccionEspecial(tipo,STATE.consultaActual?.datos_clinicos||{});
+  // Re-init GCS if urgencias
+  if(tipo==="Nota de urgencias")actualizarGCS();
+}
+window.actualizarEVA=function(val){
+  const v=parseInt(val);
+  const col=v>=7?"#C62828":v>=4?"#E65100":"#2E7D32";
+  const bg=v>=7?"#FFEBEE":v>=4?"#FFF3E0":"#E8F5E9";
+  const lbl=v>=8?"Dolor muy severo (8-10)":v>=6?"Dolor severo (6-7)":v>=4?"Dolor moderado (4-5)":v>=2?"Dolor leve (2-3)":v>0?"Dolor mínimo (1)":"Sin dolor (0)";
+  const n=document.getElementById("cs_eva_num");const l=document.getElementById("cs_eva_lbl");const s=document.getElementById("cs_eva");
+  if(n){n.textContent=v+"/10";n.style.color=col;}
+  if(l){l.textContent=lbl;l.style.color=col;l.style.background=bg;}
+  if(s)s.style.accentColor=col;
+}
+window.actualizarGCS=function(){
+  const o=parseInt(document.getElementById("gcs_o")?.value||1);
+  const v=parseInt(document.getElementById("gcs_v")?.value||1);
+  const m=parseInt(document.getElementById("gcs_m")?.value||1);
+  const t=o+v+m;
+  const interp=t<=8?"⚠️ LESIÓN GRAVE — Coma (≤8)":t<=12?"⚠️ Lesión moderada (9-12)":t<=14?"Lesión leve (13-14)":"✅ Normal (15)";
+  const col=t<=8?"#C62828":t<=12?"#E65100":t<=14?"#F57C00":"#2E7D32";
+  const disp=document.getElementById("gcs_total");
+  if(disp){disp.textContent=`GCS: ${t}/15 — ${interp}`;disp.style.color=col;disp.style.background=t<=8?"#FFEBEE":t<=12?"#FFF3E0":t<=14?"#FFF8E1":"#E8F5E9";}
+}
+function leerDatosClinicos(){
+  const gv2=(id)=>document.getElementById(id)?.value||"";
+  const CAMPOS=["dc_tiempo_evol","dc_estado_general","dc_imc_clas","dc_ta_clas","dc_cap_func","dc_dx_inicial",
+    "gcs_o","gcs_v","gcs_m","dc_triaje","dc_avpu","dc_mecanismo","dc_tiempo_urg","dc_destino_urg","dc_cond_egreso_urg",
+    "dc_dx_preop","dc_procedimiento_qx","dc_anestesia","dc_abordaje","dc_ayuno","dc_asa","dc_riesgo_qx","dc_consentimiento_qx","dc_obs_preop",
+    "dc_dx_preop_pos","dc_dx_posop","dc_op_planeada","dc_op_realizada","dc_hallazgos_qx","dc_tecnica_qx","dc_sangrado","dc_duracion_qx","dc_anestesia_real","dc_incidentes_qx","dc_estado_posop","dc_destino_posop","dc_plan_posop",
+    "dc_dias_tx","dc_motivo_egreso","dc_condicion_egreso","dc_dx_finales","dc_resumen_tx","dc_instrucciones_alta","dc_cita_seguimiento","dc_pronostico_egreso",
+    "dc_receptor","dc_especialidad_ref","dc_motivo_ref","dc_resumen_ref","dc_cond_traslado","dc_medio_traslado","dc_estudios_ref"];
+  const obj={};
+  CAMPOS.forEach(id=>{const v=gv2(id);if(v)obj[id.replace("dc_","").replace("gcs_","gcs_")]=v;});
+  // GCS total
+  const go=parseInt(gv2("gcs_o")||4),gv3=parseInt(gv2("gcs_v")||5),gm=parseInt(gv2("gcs_m")||6);
+  if(gv2("gcs_o"))obj.gcs_total=go+gv3+gm;
+  return Object.keys(obj).length?obj:null;
+}
+function renderSeccionEspecial(tipo,d){
+  d=d||{};
+  const SI=`width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px`;
+  const SEL=(id,opts,val="")=>`<select id="${id}" style="${SI};background:#fff;cursor:pointer">${opts.map(([v,l])=>`<option value="${v||l}" ${(val===v||val===l)?"selected":""}>${l}</option>`).join("")}</select>`;
+  const TA=(id,val,ph,rows=3)=>`<textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-family:inherit;font-size:14px;resize:vertical">${val||""}</textarea>`;
+  const INP=(id,val,ph,tp="text")=>`<input id="${id}" type="${tp}" value="${val||""}" placeholder="${ph}" style="${SI}">`;
+  const H=(txt,c="#263238")=>`<div style="background:${c}15;border-left:3px solid ${c};padding:8px 12px;margin-bottom:12px;border-radius:0 8px 8px 0"><b style="font-size:13px;color:${c};text-transform:uppercase">${txt}</b></div>`;
+
+  if(tipo==="Nota de evolución"){
+    // Nota estándar — solo muestra recordatorio NOM-004
+    return`<div style="background:#E3F2FD;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">ℹ️</span>
+      <p style="font-size:13px;color:#1565C0">NOM-004-SSA3-2012 — Nota de evolución: debe contener evolución del padecimiento, signos vitales, exploración física dirigida, resultados de estudios, diagnóstico y plan actualizado.</p>
+    </div>`;
+  }
+
+  if(tipo==="Nota de primera vez (Historia clínica)"){
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E3F2FD,#fff)">
+        <b style="font-size:14px;color:#1565C0">📋 Historia clínica — Nota de primera vez (NOM-004)</b>
+      </div>
+      <div style="padding:14px">
+        ${H("Antecedentes (integrados en el expediente)","#1565C0")}
+        <div style="background:#E8F5E9;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#1B5E20">
+          ✅ Los antecedentes heredofamiliares, patológicos, no patológicos, alérgicos, ginecológicos y medicamentos están registrados en las pestañas del expediente del paciente. Esta nota los integra por referencia conforme al Art. 7 Fracc. IV de la NOM-004.
+        </div>
+        ${H("Motivo de consulta y padecimiento actual","#1565C0")}
+        <p style="font-size:12px;color:${MU};margin-bottom:6px">Completa el campo <b>Subjetivo</b> con el inicio, evolución, características y cronología del padecimiento actual.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          ${fld("Tiempo de evolución",INP("dc_tiempo_evol",d.tiempo_evol,"Ej: 3 semanas, 6 meses"))}
+          ${fld("Estado general al inicio del tratamiento",SEL("dc_estado_general",[["","Seleccionar..."],["Bueno","Bueno"],["Regular","Regular"],["Malo","Malo"],["Crítico","Crítico"]],d.estado_general))}
+        </div>
+        ${H("Exploración física completa (initial)","#1565C0")}
+        <p style="font-size:12px;color:${MU};margin-bottom:8px">Completa el campo <b>Exploración física</b> arriba con: aspecto general, tegumentos, cabeza y cuello, tórax, abdomen, extremidades, neurológico y área específica de consulta.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+          ${fld("Clasificación por IMC",SEL("dc_imc_clas",[["","Seleccionar..."],["Bajo peso","Bajo peso (<18.5)"],["Normal","Normal (18.5–24.9)"],["Sobrepeso","Sobrepeso (25–29.9)"],["Obesidad I","Obesidad Grado I (30–34.9)"],["Obesidad II","Obesidad Grado II (35–39.9)"],["Obesidad III","Obesidad Grado III (≥40)"]],d.imc_clas))}
+          ${fld("Clasificación TA (ESC/ESH 2023)",SEL("dc_ta_clas",[["","Seleccionar..."],["Óptima","Óptima (<120/80)"],["Normal","Normal (120-129/80-84)"],["Normal alta","Normal alta (130-139/85-89)"],["HAS G1","HAS Grado 1 (140-159/90-99)"],["HAS G2","HAS Grado 2 (160-179/100-109)"],["HAS G3","HAS Grado 3 (≥180/≥110)"],["HAS sistólica aislada","HAS sistólica aislada"]],d.ta_clas))}
+          ${fld("Capacidad funcional",SEL("dc_cap_func",[["","Seleccionar..."],["I","NYHA I — Sin limitación"],["II","NYHA II — Limitación leve"],["III","NYHA III — Limitación marcada"],["IV","NYHA IV — Reposo"],["Sin datos","Sin datos cardiopulmonares relevantes"]],d.cap_func))}
+        </div>
+        ${fld("Diagnóstico nosológico al inicio (CIE-10)",TA("dc_dx_inicial",d.dx_inicial,"Diagnóstico principal al iniciar el tratamiento con código CIE-10...",2))}
+      </div>
+    </div>`;
+  }
+
+  if(tipo==="Nota de urgencias"){
+    const go=parseInt(d.gcs_o||4),gv2=parseInt(d.gcs_v||5),gm=parseInt(d.gcs_m||6),gt=go+gv2+gm;
+    const gtcol=gt<=8?"#C62828":gt<=12?"#E65100":gt<=14?"#F57C00":"#2E7D32";
+    const gtbg=gt<=8?"#FFEBEE":gt<=12?"#FFF3E0":gt<=14?"#FFF8E1":"#E8F5E9";
+    const gtlbl=gt<=8?"LESIÓN GRAVE — Coma":gt<=12?"Lesión moderada":gt<=14?"Lesión leve":"Normal";
+    const TRIAJE_COLS={"1-Rojo":"#C62828","2-Naranja":"#E65100","3-Amarillo":"#F9A825","4-Verde":"#2E7D32","5-Azul":"#1565C0"};
+    const triajeActual=d.triaje||"";
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#FFEBEE,#fff)">
+        <b style="font-size:14px;color:#C62828">🚨 Nota de Urgencias — campos específicos (NOM-004)</b>
+      </div>
+      <div style="padding:14px">
+        ${H("Escala de Coma de Glasgow (GCS)","#C62828")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
+          ${fld("Apertura ocular (O)",`<select id="gcs_o" onchange="actualizarGCS()" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">${[["1","1 — Sin respuesta"],["2","2 — Al dolor"],["3","3 — A la voz"],["4","4 — Espontánea"]].map(([v,l])=>`<option value="${v}" ${String(go)===v?"selected":""}>${l}</option>`).join("")}</select>`)}
+          ${fld("Respuesta verbal (V)",`<select id="gcs_v" onchange="actualizarGCS()" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">${[["1","1 — Sin respuesta"],["2","2 — Sonidos"],["3","3 — Palabras inapropiadas"],["4","4 — Confusa"],["5","5 — Orientada"]].map(([v,l])=>`<option value="${v}" ${String(gv2)===v?"selected":""}>${l}</option>`).join("")}</select>`)}
+          ${fld("Respuesta motora (M)",`<select id="gcs_m" onchange="actualizarGCS()" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">${[["1","1 — Sin respuesta"],["2","2 — Extensión anormal"],["3","3 — Flexión anormal"],["4","4 — Retira al dolor"],["5","5 — Localiza el dolor"],["6","6 — Obedece órdenes"]].map(([v,l])=>`<option value="${v}" ${String(gm)===v?"selected":""}>${l}</option>`).join("")}</select>`)}
+        </div>
+        <div id="gcs_total" onclick="actualizarGCS()" style="cursor:pointer;text-align:center;font-size:14px;font-weight:700;padding:8px 16px;border-radius:8px;margin-bottom:14px;background:${gtbg};color:${gtcol}">
+          GCS: ${gt}/15 — ${gtlbl} (haz clic para recalcular)
+        </div>
+        ${H("Triaje y evaluación","#C62828")}
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px">
+          ${Object.entries(TRIAJE_COLS).map(([k,col])=>`<button type="button" onclick="document.getElementById('dc_triaje').value='${k}';document.querySelectorAll('.triaje-btn').forEach(b=>b.style.opacity='.4');this.style.opacity='1';" class="triaje-btn" style="background:${col};color:#fff;border:none;border-radius:8px;padding:8px 4px;cursor:pointer;font-size:13px;font-weight:700;opacity:${triajeActual===k?'1':'.4'}">${k}</button>`).join("")}
+        </div>
+        <input type="hidden" id="dc_triaje" value="${d.triaje||""}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("AVPU",SEL("dc_avpu",[["A","A — Alerta"],["V","V — Responde a voz"],["P","P — Responde al dolor"],["U","U — Sin respuesta (Unresponsive)"]],d.avpu||"A"))}
+          ${fld("Mecanismo de lesión / presentación",SEL("dc_mecanismo",[["","Sin trauma / Espontáneo"],["Caída","Caída propia altura"],["Caída altura","Caída de altura"],["Accidente vial","Accidente vial"],["Golpe directo","Golpe directo"],["Torsión","Mecanismo torsional"],["Sobreuso","Sobreuso / repetición"],["Otro trauma","Otro mecanismo traumático"]],d.mecanismo))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Tiempo de evolución del cuadro agudo",INP("dc_tiempo_urg",d.tiempo_urg,"Ej: 2 horas, 30 minutos"))}
+          ${fld("Destino del paciente",SEL("dc_destino_urg",[["","Pendiente de decisión"],["Alta domiciliaria","Alta domiciliaria con indicaciones"],["Observación","Observación en urgencias"],["Hospitalización","Hospitalización"],["Referencia urgente","Referencia urgente a otro nivel"],["Referencia programada","Referencia programada"],["Traslado","Traslado en ambulancia"]],d.destino_urg))}
+        </div>
+        ${fld("Condición al egreso de urgencias",TA("dc_cond_egreso_urg",d.cond_egreso_urg,"Estado del paciente al momento de salir de urgencias...",2))}
+      </div>
+    </div>`;
+  }
+
+  if(tipo==="Nota preoperatoria"){
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#F3E5F5,#fff)">
+        <b style="font-size:14px;color:#6A1B9A">🔪 Nota Preoperatoria (NOM-004 Art. 10)</b>
+      </div>
+      <div style="padding:14px">
+        ${H("Datos del acto quirúrgico planeado","#6A1B9A")}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Diagnóstico preoperatorio",INP("dc_dx_preop",d.dx_preop,"Diagnóstico con código CIE-10"))}
+          ${fld("Procedimiento / cirugía planeada",INP("dc_procedimiento_qx",d.procedimiento_qx,"Ej: Artroscopia de rodilla derecha"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Tipo de anestesia propuesta",SEL("dc_anestesia",[["","Sin definir"],["Local","Local"],["Regional","Regional (bloqueo)"],["Sedación","Sedación consciente"],["General","General endotraqueal"],["General + regional","General + bloqueo regional"],["Espinal","Espinal / raquídea"],["Epidural","Epidural"]],d.anestesia))}
+          ${fld("Vía de abordaje",SEL("dc_abordaje",[["","Sin definir"],["Abierta","Abierta"],["Laparoscópica","Laparoscópica / endoscópica"],["Artroscópica","Artroscópica"],["Percutánea","Percutánea"],["Robótica","Robótica"]],d.abordaje))}
+          ${fld("Ayuno (horas)",INP("dc_ayuno",d.ayuno,"6","number"))}
+        </div>
+        ${H("Clasificación de riesgo ASA","#6A1B9A")}
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+          ${[["I","Paciente sano","#2E7D32"],["II","Enfermedad sistémica leve","#F57C00"],["III","Enfermedad sistémica grave","#E65100"],["IV","Riesgo vital constante","#C62828"],["V","No sobrevivirá sin cirugía","#7B1FA2"],["VI","Donador (muerte cerebral)","#546E7A"]].map(([asa,desc,col])=>`<button type="button" onclick="document.querySelectorAll('.asa-btn').forEach(b=>b.style.opacity='.5');this.style.opacity='1';document.getElementById('dc_asa').value='ASA ${asa}';" class="asa-btn" style="background:${col};color:#fff;border:none;border-radius:8px;padding:8px;cursor:pointer;font-size:13px;font-weight:700;opacity:${(d.asa||"").includes(asa)?'1':'.5'}">ASA ${asa}<br><span style="font-size:11px;font-weight:400">${desc}</span></button>`).join("")}
+        </div>
+        <input type="hidden" id="dc_asa" value="${d.asa||""}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Riesgo anestésico-quirúrgico",SEL("dc_riesgo_qx",[["Bajo","Bajo (mortalidad <1%)"],["Intermedio","Intermedio (mortalidad 1-5%)"],["Alto","Alto (mortalidad >5%)"]],d.riesgo_qx||"Bajo"))}
+          ${fld("Consentimiento informado",SEL("dc_consentimiento_qx",[["Firmado","✅ Firmado por el paciente"],["Familiar","✅ Firmado por familiar/tutor"],["Pendiente","⚠️ Pendiente"],["No aplica","No aplica (urgencia vital)"]],d.consentimiento_qx||"Pendiente"))}
+        </div>
+        ${fld("Observaciones preoperatorias",TA("dc_obs_preop",d.obs_preop,"Observaciones especiales, alergias a considerar, medicamentos suspendidos, condición del paciente...",3))}
+      </div>
+    </div>`;
+  }
+
+  if(tipo==="Nota posoperatoria"){
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E8F5E9,#fff)">
+        <b style="font-size:14px;color:#1B5E20">🏥 Nota Posoperatoria (NOM-004 Art. 11)</b>
+      </div>
+      <div style="padding:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Diagnóstico preoperatorio",INP("dc_dx_preop_pos",d.dx_preop_pos,"Diagnóstico antes de la cirugía"))}
+          ${fld("Diagnóstico posoperatorio",INP("dc_dx_posop",d.dx_posop,"Diagnóstico confirmado tras la cirugía"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Operación planeada",INP("dc_op_planeada",d.op_planeada,"Procedimiento planificado"))}
+          ${fld("Operación realizada",INP("dc_op_realizada",d.op_realizada,"Procedimiento efectivamente realizado"))}
+        </div>
+        ${fld("Hallazgos transoperatorios",TA("dc_hallazgos_qx",d.hallazgos_qx,"Hallazgos encontrados durante la cirugía...",3))}
+        ${fld("Técnica quirúrgica",TA("dc_tecnica_qx",d.tecnica_qx,"Descripción de la técnica utilizada...",3))}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Sangrado estimado (cc)",INP("dc_sangrado",d.sangrado,"","number"))}
+          ${fld("Duración del procedimiento (min)",INP("dc_duracion_qx",d.duracion_qx,"","number"))}
+          ${fld("Anestesia utilizada",INP("dc_anestesia_real",d.anestesia_real,"Tipo y fármacos"))}
+        </div>
+        ${fld("Incidentes y accidentes transoperatorios",TA("dc_incidentes_qx",d.incidentes_qx,"Ninguno / descripción de complicaciones...",2))}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Estado al terminar la cirugía",SEL("dc_estado_posop",[["Estable","Estable, sin complicaciones"],["Vigilancia","Estable bajo vigilancia estrecha"],["UTI","Traslado a UTI/UCI"],["Complicado","Con complicaciones"]],d.estado_posop||"Estable"))}
+          ${fld("Destino posoperatorio inmediato",SEL("dc_destino_posop",[["UCPA","UCPA / sala de recuperación"],["Piso","Hospitalización — piso"],["UTI","UTI / UCI"],["Alta","Alta misma sesión"]],d.destino_posop||"UCPA"))}
+        </div>
+        ${fld("Plan postoperatorio",TA("dc_plan_posop",d.plan_posop,"Indicaciones posoperatorias: medicamentos, curaciones, movilización, dieta, próxima cita...",3))}
+      </div>
+    </div>`;
+  }
+
+  if(tipo==="Nota de egreso"){
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E8EAF6,#fff)">
+        <b style="font-size:14px;color:#3949AB">🏠 Nota de Egreso / Alta Médica (NOM-004 Art. 12)</b>
+      </div>
+      <div style="padding:14px">
+        ${H("Resumen del episodio","#3949AB")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Días de tratamiento",INP("dc_dias_tx",d.dias_tx,"","number"))}
+          ${fld("Motivo de egreso",SEL("dc_motivo_egreso",[["Mejoría","Mejoría — cuadro resuelto"],["Curación","Curación completa"],["Sin cambios","Sin cambios — manejo ambulatorio"],["Alta voluntaria","Alta voluntaria a petición del paciente"],["Alta voluntaria responsiva","Alta voluntaria con responsiva firmada"],["Referencia","Alta por referencia a otro nivel"],["Defunción","Defunción"]],d.motivo_egreso||"Mejoría"))}
+          ${fld("Condición al egreso",SEL("dc_condicion_egreso",[["Buena","Buena"],["Satisfactoria","Satisfactoria"],["Regular","Regular"],["Grave","Grave"],["Crítica","Crítica"]],d.condicion_egreso||"Buena"))}
+        </div>
+        ${fld("Diagnósticos finales (CIE-10)",TA("dc_dx_finales",d.dx_finales,"Diagnóstico principal y secundarios con código CIE-10...",3))}
+        ${fld("Resumen del tratamiento recibido",TA("dc_resumen_tx",d.resumen_tx,"Resumen de los procedimientos, medicamentos y tratamientos recibidos durante el episodio...",3))}
+        ${H("Instrucciones al alta","#3949AB")}
+        ${fld("Indicaciones al paciente",TA("dc_instrucciones_alta",d.instrucciones_alta,"Medicamentos, dosis y duración al alta. Restricciones físicas. Cuidados de heridas o procedimientos. Signos de alarma por los que debe regresar...",4))}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          ${fld("Cita de seguimiento",INP("dc_cita_seguimiento",d.cita_seguimiento,"Fecha y servicio"))}
+          ${fld("Pronóstico al egreso",SEL("dc_pronostico_egreso",[["Bueno","Bueno"],["Reservado","Reservado"],["Malo","Malo"],["Recuperación completa","Recuperación completa esperada"],["Cronicidad","Con cronicidad"]],d.pronostico_egreso||"Bueno"))}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if(tipo==="Nota de referencia / traslado"){
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E0F2F1,#fff)">
+        <b style="font-size:14px;color:#00695C">🚑 Nota de Referencia / Traslado (NOM-004 Art. 13)</b>
+      </div>
+      <div style="padding:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Unidad o médico receptor",INP("dc_receptor",d.receptor,"Nombre del hospital, clínica o médico"))}
+          ${fld("Especialidad o servicio al que refiere",INP("dc_especialidad_ref",d.especialidad_ref,"Ej: Cardiología, Cirugía ortopédica"))}
+        </div>
+        ${fld("Motivo de la referencia",TA("dc_motivo_ref",d.motivo_ref,"Justificación clínica de la referencia — por qué se envía y qué se espera del centro receptor...",3))}
+        ${fld("Resumen clínico del caso",TA("dc_resumen_ref",d.resumen_ref,"Diagnóstico, evolución, tratamiento recibido, estudios relevantes...",4))}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Condición al momento del traslado",SEL("dc_cond_traslado",[["Estable","Estable"],["Inestable","Inestable"],["Crítico","Crítico"],["En observación","En observación"]],d.cond_traslado||"Estable"))}
+          ${fld("Medio de traslado",SEL("dc_medio_traslado",[["Propio","Por medios propios"],["Ambulancia básica","Ambulancia básica"],["Ambulancia avanzada","Ambulancia avanzada (SVA)"],["Aéreo","Traslado aéreo"],["Otro","Otro"]],d.medio_traslado||"Propio"))}
+        </div>
+        ${fld("Estudios que se envían",TA("dc_estudios_ref",d.estudios_ref,"Laboratorios, imágenes, documentos que acompañan al paciente...",2))}
+      </div>
+    </div>`;
+  }
+
+  if(tipo==="Nota de interconsulta"){
+    return`<div style="background:#E0F2F1;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px">
+      <span style="font-size:20px">ℹ️</span>
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#00695C;margin-bottom:4px">Nota de interconsulta — usa la pestaña dedicada</p>
+        <p style="font-size:13px;color:#004D40">Ve a la pestaña <b>Interconsultas</b> en el expediente del paciente para registrar la solicitud formal y recibir la respuesta conforme a la NOM-004 Art. 9.</p>
+      </div>
+    </div>`;
+  }
+
+  // Default: recordatorio NOM
+  return`<div style="background:#F5F5F5;border-radius:10px;padding:10px 16px;font-size:13px;color:${MU}">
+    📌 Completa los campos SOAP para este tipo de nota.
+  </div>`;
 }
 window.seleccionarCalendario=function(id){
   STATE.calSeleccionado=STATE.calSeleccionado===id?null:id;
@@ -3084,6 +3327,9 @@ function pgConsulta(){
           <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
             ${[["Temp. (°C)","cs_temp",vs.temp],["Peso (kg)","cs_peso",vs.peso],["F. Cardíaca (lat/min)","cs_fc",vs.fc],["Talla (m)","cs_talla",vs.talla],["F. Respiratoria (r/min)","cs_fr",vs.fr],["Sat. O₂ (%)","cs_sat",vs.sat],["Pres. Sistólica (mmHg)","cs_tas",vs.tas],["Pres. Diastólica (mmHg)","cs_tad",vs.tad],["Glucosa (mg/dL)","cs_glu",vs.glu],["IMC","cs_imc",vs.imc]].map(([l,id,val])=>`<div>${fld(l,`<input id="${id}" value="${val}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>`).join("")}
           </div>
+          <div style="border-top:1px solid ${BR};padding:12px">
+            ${(()=>{const ev=c.eva_dolor??0;const col=ev>=7?"#C62828":ev>=4?"#E65100":"#2E7D32";const bg=ev>=7?"#FFEBEE":ev>=4?"#FFF3E0":"#E8F5E9";const lbl=ev>=8?"Dolor muy severo (8-10)":ev>=6?"Dolor severo (6-7)":ev>=4?"Dolor moderado (4-5)":ev>=2?"Dolor leve (2-3)":ev>0?"Dolor mínimo (1)":"Sin dolor (0)";return fld(`🩹 EVA — Escala Visual Analógica del dolor`,`<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><input type="range" id="cs_eva" min="0" max="10" step="1" value="${ev}" oninput="actualizarEVA(this.value)" style="flex:1;height:6px;accent-color:${col}"><div id="cs_eva_num" style="min-width:52px;text-align:center;font-size:20px;font-weight:800;color:${col}">${ev}/10</div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:${MU};padding:0 2px"><span>0 Sin dolor</span><span>5 Moderado</span><span>10 Insoportable</span></div><div id="cs_eva_lbl" style="font-size:12px;font-weight:700;text-align:center;margin-top:6px;padding:3px 10px;border-radius:20px;background:${bg};color:${col}">${lbl}</div>`)})()}
+          </div>
         </div>
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;display:flex;flex-direction:column">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
@@ -3147,6 +3393,9 @@ function pgConsulta(){
               ${["","Sin riesgo vital inmediato","Bueno","Favorable","Regular","Malo","Reservado","Grave"].map(o=>`<option ${(c.pronostico_vida||"")==o?"selected":""}>${o}</option>`).join("")}
             </select>`)}
           </div>
+        </div>
+        <div id="seccion-especial" style="grid-column:span 2">
+          ${renderSeccionEspecial(c.tipo_nota||"Nota de evolución",c.datos_clinicos||{})}
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 0;max-width:1200px;margin:0 auto">
@@ -3523,6 +3772,8 @@ window.guardarConsulta=async function(){
     gabinete:gv("cs_gab"),plan:gv("cs_plan"),
     pronostico_funcion:gv("cs_prog_func")||null,
     pronostico_vida:gv("cs_prog_vida")||null,
+    eva_dolor:parseInt(document.getElementById("cs_eva")?.value)||null,
+    datos_clinicos:leerDatosClinicos(),
     bloqueada:false,
   };
   let res;
