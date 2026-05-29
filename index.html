@@ -2945,7 +2945,7 @@ function renderAnexos(b){
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">DOCUMENTOS ANEXOS AL EXPEDIENTE, LABORATORIOS Y ANOTACIONES</b></div>
       <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid ${BR};padding:0 10px">
-        ${[["docs","Documentos anexos"],["gabinete","Gabinete y Labs (PDF)"],["analitos","Laboratorios por analitos"],["anotaciones","Anotaciones"],["formularios","Formularios del paciente"]].map(([k,l])=>`<button onclick="setAnexoTab('${k}')" style="padding:8px 12px;border:none;background:transparent;cursor:pointer;font-weight:${STATE.anexoTab===k?700:500};font-size:14px;color:${STATE.anexoTab===k?P:MU};border-bottom:${STATE.anexoTab===k?"3px solid "+P:"3px solid transparent"};white-space:nowrap">${l}</button>`).join("")}
+        ${[["docs","Documentos anexos"],["gabinete","Gabinete y Labs (PDF)"],["analitos","Laboratorios por analitos"],["anotaciones","Anotaciones"],["formularios","Formularios del paciente"]].map(([k,l])=>`<button onclick="setAnexoTab('${k}')" data-tab="${k}" class="anexo-tab-btn" style="padding:8px 12px;border:none;background:transparent;cursor:pointer;font-weight:${STATE.anexoTab===k?700:500};font-size:14px;color:${STATE.anexoTab===k?P:MU};border-bottom:${STATE.anexoTab===k?"3px solid "+P:"3px solid transparent"};white-space:nowrap">${l}</button>`).join("")}
       </div>
       <div id="anexo-body" style="padding:16px"></div>
     </div>
@@ -2953,7 +2953,17 @@ function renderAnexos(b){
   if(!STATE.anexoTab)STATE.anexoTab="docs";
   renderAnexoBody();
 }
-window.setAnexoTab=function(t){STATE.anexoTab=t;renderAnexoBody();}
+window.setAnexoTab=function(t){
+  STATE.anexoTab=t;
+  // Actualizar estilos de pestañas sin re-renderizar todo el componente
+  document.querySelectorAll(".anexo-tab-btn").forEach(function(b){
+    const active=b.dataset.tab===t;
+    b.style.fontWeight=active?700:500;
+    b.style.color=active?P:MU;
+    b.style.borderBottom=active?"3px solid "+P:"3px solid transparent";
+  });
+  renderAnexoBody();
+}
 function renderAnexoBody(){
   const ab=document.getElementById("anexo-body");if(!ab)return;
   if(STATE.anexoTab==="docs")renderDocsAnexos(ab);
@@ -3286,8 +3296,9 @@ async function renderGabinete(ab){
           <td style="padding:10px 12px;font-size:14px;color:${MU}">${d.nombre_firmante||"—"}</td>
           <td style="padding:10px 12px;font-size:13px;color:${MU};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.descripcion||""}">${d.descripcion||"—"}</td>
           <td style="padding:10px 12px;white-space:nowrap">
-            ${d.url_archivo?`<button onclick="window.open('${d.url_archivo}','_blank')" style="background:${P};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">👁 Ver</button>`:""}
-            ${d.url_archivo?`<a href="${d.url_archivo}" download style="background:#37474F;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;text-decoration:none">⬇️</a>`:""}
+            ${d.storage_path?`<button onclick="verPDF('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:
+            d.url_archivo?`<button onclick="window.open('${d.url_archivo}','_blank')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:""}
+            ${d.storage_path?`<button onclick="descargarDoc('${d.id}')" style="background:#37474F;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">⬇️</button>`:""}
           </td>
         </tr>`).join("")}
       </tbody>
@@ -3375,8 +3386,9 @@ async function renderFormularios(ab){
           <td style="padding:10px 12px"><span style="background:#F3E5F5;color:#7B1FA2;padding:2px 8px;border-radius:20px;font-size:13px">${d.tipo_documento}</span></td>
           <td style="padding:10px 12px;font-size:13px;color:${MU}">${d.descripcion||"—"}</td>
           <td style="padding:10px 12px;white-space:nowrap">
-            ${d.url_archivo?`<button onclick="window.open('${d.url_archivo}','_blank')" style="background:${P};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">👁 Ver</button>`:""}
-            ${d.url_archivo?`<a href="${d.url_archivo}" download style="background:#37474F;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:13px;text-decoration:none">⬇️</a>`:""}
+            ${d.storage_path?`<button onclick="verPDF('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:
+            d.url_archivo?`<button onclick="window.open('${d.url_archivo}','_blank')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:""}
+            ${d.storage_path?`<button onclick="descargarDoc('${d.id}')" style="background:#37474F;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">⬇️</button>`:""}
           </td>
         </tr>`).join("")}
       </tbody>
