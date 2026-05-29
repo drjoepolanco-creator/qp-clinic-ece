@@ -38,7 +38,7 @@ const SB=createClient(
 );
 
 // Estado
-let S={step:"codigo",pac:null,docs:[],docIndex:0,firmas:{},pendientes:[],paciente:null,medico:null};
+let S={step:"codigo",pac:null,docs:[],docIndex:0,firmas:{},pendientes:[],paciente:null,medico:null,firmaPaciente:null,firmaTestigo:null,nombreTestigo:"",firmaDoctor:null};
 const params=new URLSearchParams(window.location.search);
 const PAC_ID=params.get("pac");
 const DOCS_STR=params.get("docs")||"";
@@ -169,10 +169,31 @@ window.verificarCodigo=async function(){
 
   S.medico=med;
 
+  // Pre-cargar firma del médico como base64 para el PDF
+  if(med?.firma_digital){
+    S.firmaDoctor=await urlToBase64(med.firma_digital);
+  }
+
   S.docIndex=0;
   mostrarDocumento();
 }
 function mostrarError(id,msg){const e=document.getElementById(id);if(e){e.style.display="block";e.textContent=msg;}}
+
+// Convierte una URL de imagen a base64 para incrustar en jsPDF
+function urlToBase64(url){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.crossOrigin="anonymous";
+    img.onload=()=>{
+      const c=document.createElement("canvas");
+      c.width=img.width;c.height=img.height;
+      c.getContext("2d").drawImage(img,0,0);
+      resolve(c.toDataURL("image/png"));
+    };
+    img.onerror=()=>resolve(null);
+    img.src=url+"?t="+Date.now();
+  });
+}
 
 // ── PASO 2: LEER DOCUMENTO ────────────────────────────────
 function mostrarDocumento(){
@@ -265,10 +286,64 @@ window.guardarFirmaUnica=async function(){
   const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
   const signed=data.some((v,i)=>i%4!==3&&v>0);
   if(!signed){toast("Por favor firme en el recuadro antes de continuar",false);return;}
+  S.firmaPaciente=canvas.toDataURL("image/png");
+  mostrarFirmaTestigo();
+}
 
-  const sigImg=canvas.toDataURL("image/png");
+// ── PASO 3b: FIRMA DEL TESTIGO (opcional) ────────────────
+function mostrarFirmaTestigo(){
+  const pac=S.paciente||{};
+  const nomPac=`${pac.nombre||""} ${pac.apellido_paterno||""}`.trim();
+  R().innerHTML=`
+  <div style="min-height:100vh;background:#F0F4F8">
+    <div style="background:#6A1B9A;padding:14px 16px;display:flex;align-items:center;gap:10px">
+      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:32px;background:#fff;border-radius:4px;padding:2px">
+      <div>
+        <p style="color:rgba(255,255,255,.8);font-size:10px">Paso adicional</p>
+        <p style="color:#fff;font-size:13px;font-weight:700">Firma del testigo (opcional)</p>
+      </div>
+    </div>
+    <div class="card fade" style="margin:12px">
+      <div style="background:#F3E5F5;border-radius:8px;padding:12px;margin-bottom:14px">
+        <p style="font-size:13px;font-weight:700;color:#6A1B9A;margin-bottom:4px">¿Quién es el testigo?</p>
+        <p style="font-size:12px;color:#546E7A;line-height:1.6">El testigo certifica que <b>${nomPac}</b> firmó los documentos de manera libre y voluntaria. Puede ser cualquier persona mayor de edad presente.</p>
+      </div>
+      <p style="font-size:13px;font-weight:700;color:#263238;margin-bottom:8px">Nombre completo del testigo</p>
+      <input id="nombre-testigo" type="text" placeholder="Nombre y apellidos del testigo" style="width:100%;padding:12px 14px;border:2px solid #CFD8DC;border-radius:10px;font-size:15px;outline:none;margin-bottom:14px">
+      <p style="font-size:13px;font-weight:700;color:#263238;margin-bottom:8px">Firma del testigo</p>
+      <canvas id="canvas-testigo" height="160" style="border:2px solid #CFD8DC;border-radius:10px;touch-action:none;background:#fff;width:100%;cursor:crosshair"></canvas>
+      <button class="btn-danger" onclick="limpiarFirmaTestigo()" style="margin-top:8px">🗑️ Borrar firma del testigo</button>
+      <button class="btn-success" onclick="confirmarFirmaTestigo()" style="margin-top:10px">✅ Confirmar firma del testigo y finalizar</button>
+      <button class="btn-outline" onclick="omitirTestigo()" style="margin-top:8px">Continuar sin testigo →</button>
+    </div>
+  </div>`;
+  initCanvasId("canvas-testigo","#6A1B9A");
+}
 
-  // Mostrar progreso
+window.limpiarFirmaTestigo=function(){
+  const c=document.getElementById("canvas-testigo");
+  if(c)c.getContext("2d").clearRect(0,0,c.width,c.height);
+}
+
+window.confirmarFirmaTestigo=function(){
+  const nombre=(document.getElementById("nombre-testigo")?.value||"").trim();
+  if(!nombre){toast("Escribe el nombre del testigo",false);return;}
+  const c=document.getElementById("canvas-testigo");
+  if(!c){procesarTodosLosPDFs();return;}
+  const data=c.getContext("2d").getImageData(0,0,c.width,c.height).data;
+  const signed=data.some((v,i)=>i%4!==3&&v>0);
+  if(!signed){toast("El testigo debe firmar en el recuadro",false);return;}
+  S.firmaTestigo=c.toDataURL("image/png");
+  S.nombreTestigo=nombre;
+  procesarTodosLosPDFs();
+}
+
+window.omitirTestigo=function(){
+  S.firmaTestigo=null;S.nombreTestigo="";
+  procesarTodosLosPDFs();
+}
+
+async function procesarTodosLosPDFs(){
   R().innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#F0F4F8">
     <div style="font-size:40px" class="spin">⚙️</div>
     <p style="font-size:15px;font-weight:700;color:#1565C0">Generando documentos firmados...</p>
@@ -277,28 +352,26 @@ window.guardarFirmaUnica=async function(){
       <p id="prog-count" style="font-size:12px;color:#1565C0;font-weight:600">0 de ${S.docs.length} documentos</p>
     </div>
   </div>`;
-
-  // Generar PDF para cada documento con la misma firma
   for(let i=0;i<S.docs.length;i++){
     const msg=document.getElementById("prog-msg");
     const cnt=document.getElementById("prog-count");
     if(msg)msg.textContent=`Generando: ${DOCS_NOMBRES[S.docs[i]]||S.docs[i]}`;
     if(cnt)cnt.textContent=`${i+1} de ${S.docs.length} documentos`;
-    await generarYGuardarPDF(S.docs[i], sigImg, i===S.docs.length-1);
-    await new Promise(r=>setTimeout(r,300)); // pequeña pausa entre PDFs
+    await generarYGuardarPDF(S.docs[i],S.firmaPaciente,i===S.docs.length-1);
+    await new Promise(r=>setTimeout(r,300));
   }
 }
 
 function mostrarFirma(){mostrarFirmaUnica();}
 
-function initCanvas(){
-  const canvas=document.getElementById("canvas-firma");
+function initCanvas(){initCanvasId("canvas-firma","#1565C0");}
+function initCanvasId(id,color){
+  const canvas=document.getElementById(id);
   if(!canvas)return;
   canvas.width=canvas.offsetWidth;
   const ctx=canvas.getContext("2d");
-  ctx.strokeStyle="#1565C0";ctx.lineWidth=2.5;ctx.lineCap="round";ctx.lineJoin="round";
+  ctx.strokeStyle=color||"#1565C0";ctx.lineWidth=2.5;ctx.lineCap="round";ctx.lineJoin="round";
   let drawing=false,lastX=0,lastY=0;
-
   function getPos(e){
     const r=canvas.getBoundingClientRect();
     if(e.touches){return{x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};}
@@ -385,28 +458,47 @@ async function generarYGuardarPDF(docKey, sigImg, isLast=true){
       y+=4.8;
     }
 
-    // FIRMAS
-    const fy=Math.min(Math.max(y+10,220),255);
-    if(fy>255)doc.addPage();
-    const fyf=fy>255?20:fy;
+    // FIRMAS — 3 columnas: Paciente | Médico | Testigo
+    const fy=Math.min(Math.max(y+8,215),248);
+    const fyf=fy;
     doc.setDrawColor(207,216,220);doc.setLineWidth(0.3);doc.line(14,fyf,196,fyf);
-    doc.addImage(sigImg,"PNG",14,fyf+4,55,22);
+
+    // Columna 1: Firma del paciente
+    if(sigImg)doc.addImage(sigImg,"PNG",14,fyf+2,52,20);
     doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
-    doc.line(14,fyf+28,74,fyf+28);
-    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-    doc.text("Firma del paciente",14,fyf+33);
+    doc.line(14,fyf+24,70,fyf+24);
+    doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+    doc.text("FIRMA DEL PACIENTE",14,fyf+29);
     doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
-    doc.text(nomPac,14,fyf+38);
-    doc.text("Firmado: "+new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}),14,fyf+42);
-    doc.setDrawColor(38,50,56);doc.line(120,fyf+28,196,fyf+28);
+    doc.text(nomPac,14,fyf+33);
+    doc.text("Firmado: "+new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}),14,fyf+37);
+
+    // Columna 2: Firma del médico
+    const mx=78;
+    if(S.firmaDoctor){
+      try{doc.addImage(S.firmaDoctor,"PNG",mx,fyf+2,52,20);}catch(e){}
+    }
+    doc.setDrawColor(38,50,56);doc.line(mx,fyf+24,mx+56,fyf+24);
     doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-    doc.text("Firma del médico",120,fyf+33);
+    doc.text("FIRMA DEL MÉDICO",mx,fyf+29);
     doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
-    doc.text(medNom,120,fyf+38);
-    if(med.cedula_medico)doc.text("Céd. "+med.cedula_medico,120,fyf+42);
-    doc.setDrawColor(38,50,56);doc.line(14,fyf+54,90,fyf+54);
-    doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-    doc.text("Firma del testigo",14,fyf+59);
+    doc.text(medNom,mx,fyf+33);
+    if(med.cedula_medico)doc.text("Céd. "+med.cedula_medico,mx,fyf+37);
+
+    // Columna 3: Firma del testigo
+    const tx=142;
+    if(S.firmaTestigo){
+      try{doc.addImage(S.firmaTestigo,"PNG",tx,fyf+2,52,20);}catch(e){}
+      doc.setDrawColor(38,50,56);doc.line(tx,fyf+24,tx+56,fyf+24);
+      doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+      doc.text("FIRMA DEL TESTIGO",tx,fyf+29);
+      doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
+      if(S.nombreTestigo)doc.text(S.nombreTestigo,tx,fyf+33);
+    } else {
+      doc.setDrawColor(38,50,56);doc.line(tx,fyf+24,tx+56,fyf+24);
+      doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+      doc.text("FIRMA DEL TESTIGO",tx,fyf+29);
+    }
 
     // FOOTER
     doc.setFontSize(7);doc.setTextColor(144,164,174);
