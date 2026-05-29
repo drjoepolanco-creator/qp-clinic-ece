@@ -136,8 +136,37 @@ window.verificarCodigo=async function(){
   const {data:pac}=await SB.from("pacientes").select("*").eq("id",PAC_ID).single();
   S.paciente=pac;
 
-  // Cargar perfil del médico (primer usuario activo)
-  const {data:med}=await SB.from("usuarios").select("*").eq("activo",true).limit(1).single();
+  // Cargar perfil del médico — usar ID del parámetro &med= de la URL (enviado por el sistema)
+  const MED_ID=params.get("med");
+  let med=null;
+
+  if(MED_ID){
+    // Caso normal: se sabe exactamente qué médico envió los documentos
+    const {data:m}=await SB.from("usuarios").select("*").eq("id",MED_ID).maybeSingle();
+    med=m;
+  }
+
+  if(!med){
+    // Fallback 1: buscar al médico de la última consulta del paciente
+    const {data:cons}=await SB.from("consultas")
+      .select("medico_id")
+      .eq("paciente_id",PAC_ID)
+      .not("medico_id","is",null)
+      .order("created_at",{ascending:false})
+      .limit(1)
+      .maybeSingle();
+    if(cons?.medico_id){
+      const {data:m2}=await SB.from("usuarios").select("*").eq("id",cons.medico_id).maybeSingle();
+      med=m2;
+    }
+  }
+
+  if(!med){
+    // Fallback 2: primer usuario con rol médico activo
+    const {data:m3}=await SB.from("usuarios").select("*").eq("activo",true).eq("rol","medico").limit(1).maybeSingle();
+    med=m3;
+  }
+
   S.medico=med;
 
   S.docIndex=0;

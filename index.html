@@ -2538,9 +2538,20 @@ async function cargarInterconsultas(){
 }
 window.verInterconsulta=async function(id){
   loading(true,"Cargando interconsulta...");
-  const {data:ic}=await SB.from("interconsultas").select("*").eq("id",id).single();
+  const [{data:ic},{data:medSol}] = await Promise.all([
+    SB.from("interconsultas").select("*").eq("id",id).single(),
+    SB.from("interconsultas").select("medico_solicitante_id").eq("id",id).single()
+      .then(async r=>{
+        if(!r.data?.medico_solicitante_id) return {data:null};
+        return SB.from("usuarios").select("titulo,nombre,apellidos,especialidad_1").eq("id",r.data.medico_solicitante_id).maybeSingle();
+      })
+  ]);
   loading(false);
   if(!ic)return;
+  const medSolNom = medSol
+    ? `${medSol.titulo||""} ${medSol.nombre||""} ${medSol.apellidos||""}`.trim()
+    : "No registrado";
+  const medSolEsp = medSol?.especialidad_1||"QP Clinic";
   const esRespondida=ic.estatus==="Respondida";
   const medActual=STATE.userProfile;
   const medNom=`${medActual?.titulo||""} ${medActual?.nombre||""} ${medActual?.apellidos||""}`.trim();
@@ -2558,8 +2569,9 @@ window.verInterconsulta=async function(id){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
           <div style="background:${PL};border-radius:8px;padding:12px">
             <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Médico solicitante</p>
-            <p style="font-size:14px;font-weight:700;color:${TX}">${ic.medico_solicitante_id?ic.medico_solicitante_id.substring(0,8)+"...":"No registrado"}</p>
-            <p style="font-size:13px;color:${MU}">${ic.fecha_solicitud||"—"} ${ic.hora_solicitud||""}</p>
+            <p style="font-size:14px;font-weight:700;color:${TX}">${medSolNom}</p>
+            <p style="font-size:13px;color:${MU}">${medSolEsp}</p>
+            <p style="font-size:13px;color:${MU}">${ic.fecha_solicitud||""} ${ic.hora_solicitud||""}</p>
           </div>
           <div style="background:${PL};border-radius:8px;padding:12px">
             <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Médico interconsultante</p>
