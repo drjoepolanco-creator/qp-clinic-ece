@@ -2534,7 +2534,105 @@ async function cargarInterconsultas(){
   const {data}=await SB.from("interconsultas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const il=document.getElementById("inter-lista");if(!il)return;
   if(!data||data.length===0){il.innerHTML=`<div style="background:${PL};border-radius:8px;padding:20px;text-align:center;color:${MU};font-size:14px">No hay interconsultas registradas</div>`;return;}
-  il.innerHTML=`<table style="width:100%;border-collapse:collapse"><thead><tr style="background:${PL}">${["Fecha","Especialidad","Médico interconsultante","Diagnóstico","Prioridad","Estatus",""].map(h=>`<th style="padding:10px 12px;font-size:14px;font-weight:700;color:${TX};text-transform:uppercase;text-align:left">${h}</th>`).join("")}</tr></thead><tbody>${data.map((ic,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:9px 10px;font-size:14px">${ic.fecha_solicitud||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.especialidad||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.medico_interconsultante?ic.medico_interconsultante.substring(0,40):"—"}</td><td style="padding:9px 10px;font-size:14px;max-width:150px">${ic.diagnostico?ic.diagnostico.substring(0,50):"—"}</td><td style="padding:9px 10px"><span style="background:#FFF8E1;color:#E65100;padding:2px 7px;border-radius:20px;font-size:14px;font-weight:600">${ic.prioridad||"—"}</span></td><td style="padding:9px 10px"><span style="background:${ic.estatus==="Respondida"?"#C8E6C9":"#FFF3E0"};color:${ic.estatus==="Respondida"?"#1B5E20":"#E65100"};padding:2px 8px;border-radius:20px;font-size:14px;font-weight:700">${ic.estatus||"Pendiente"}</span></td><td style="padding:9px 10px">${btn("Ver","","p",1)}</td></tr>`).join("")}</tbody></table>`;
+  il.innerHTML=`<table style="width:100%;border-collapse:collapse"><thead><tr style="background:${PL}">${["Fecha","Especialidad","Médico interconsultante","Diagnóstico","Prioridad","Estatus",""].map(h=>`<th style="padding:10px 12px;font-size:14px;font-weight:700;color:${TX};text-transform:uppercase;text-align:left">${h}</th>`).join("")}</tr></thead><tbody>${data.map((ic,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:9px 10px;font-size:14px">${ic.fecha_solicitud||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.especialidad||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.medico_interconsultante?ic.medico_interconsultante.substring(0,40):"—"}</td><td style="padding:9px 10px;font-size:14px;max-width:150px">${ic.diagnostico?ic.diagnostico.substring(0,50):"—"}</td><td style="padding:9px 10px"><span style="background:#FFF8E1;color:#E65100;padding:2px 7px;border-radius:20px;font-size:14px;font-weight:600">${ic.prioridad||"—"}</span></td><td style="padding:9px 10px"><span style="background:${ic.estatus==="Respondida"?"#C8E6C9":"#FFF3E0"};color:${ic.estatus==="Respondida"?"#1B5E20":"#E65100"};padding:2px 8px;border-radius:20px;font-size:14px;font-weight:700">${ic.estatus||"Pendiente"}</span></td><td style="padding:9px 10px">${btn("📄 Ver / Responder","verInterconsulta('"+ic.id+"')","p",1)}</td></tr>`).join("")}</tbody></table>`;
+}
+window.verInterconsulta=async function(id){
+  loading(true,"Cargando interconsulta...");
+  const {data:ic}=await SB.from("interconsultas").select("*").eq("id",id).single();
+  loading(false);
+  if(!ic)return;
+  const esRespondida=ic.estatus==="Respondida";
+  const medActual=STATE.userProfile;
+  const medNom=`${medActual?.titulo||""} ${medActual?.nombre||""} ${medActual?.apellidos||""}`.trim();
+  const overlay=document.createElement("div");
+  overlay.id="modal-inter-ver";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto";
+  overlay.innerHTML=`
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:780px;box-shadow:0 16px 40px #00000040;margin:auto">
+      <div style="background:${PD};padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;position:sticky;top:0">
+        <b style="color:#fff;font-size:15px">📋 Interconsulta — ${ic.especialidad||"Sin especialidad"}</b>
+        <button onclick="document.getElementById('modal-inter-ver').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-weight:700">✕</button>
+      </div>
+      <div style="padding:20px">
+        <!-- Encabezado -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+          <div style="background:${PL};border-radius:8px;padding:12px">
+            <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Médico solicitante</p>
+            <p style="font-size:14px;font-weight:700;color:${TX}">${ic.medico_solicitante_id?ic.medico_solicitante_id.substring(0,8)+"...":"No registrado"}</p>
+            <p style="font-size:13px;color:${MU}">${ic.fecha_solicitud||"—"} ${ic.hora_solicitud||""}</p>
+          </div>
+          <div style="background:${PL};border-radius:8px;padding:12px">
+            <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Médico interconsultante</p>
+            <p style="font-size:14px;font-weight:700;color:${TX}">${ic.medico_interconsultante||"—"}</p>
+            <span style="background:${esRespondida?"#C8E6C9":"#FFF3E0"};color:${esRespondida?"#1B5E20":"#E65100"};padding:2px 8px;border-radius:20px;font-size:13px;font-weight:700">${ic.estatus||"Pendiente"}</span>
+          </div>
+        </div>
+        <!-- Datos de la solicitud -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <div>
+            <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Diagnóstico</p>
+            <div style="background:#F8F9FA;border-radius:7px;padding:10px;font-size:14px;color:${TX};white-space:pre-wrap;min-height:60px">${ic.diagnostico||"—"}</div>
+          </div>
+          <div>
+            <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Tratamiento actual</p>
+            <div style="background:#F8F9FA;border-radius:7px;padding:10px;font-size:14px;color:${TX};white-space:pre-wrap;min-height:60px">${ic.tratamiento||"—"}</div>
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Motivos de la interconsulta</p>
+          <div style="background:#FFF8E1;border-radius:7px;padding:10px;font-size:14px;color:${TX};white-space:pre-wrap;border:1px solid #FFE082">${ic.motivos||"—"}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+          <div><p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Especialidad</p><p style="font-size:14px;color:${TX}">${ic.especialidad||"—"}</p></div>
+          <div><p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:4px">Prioridad</p><span style="background:#FFF8E1;color:#E65100;padding:3px 10px;border-radius:20px;font-size:14px;font-weight:600">${ic.prioridad||"—"}</span></div>
+        </div>
+        <!-- Respuesta (si ya existe o para registrar) -->
+        ${esRespondida?`
+        <div style="background:#E8F5E9;border-radius:10px;padding:14px;border:1px solid #A5D6A7">
+          <p style="font-size:13px;font-weight:700;color:#1B5E20;margin-bottom:10px">✅ RESPUESTA DE INTERCONSULTA — ${ic.fecha_respuesta||""} — ${ic.medico_responde||""}</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div><p style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:4px">Hallazgos</p><div style="background:#fff;border-radius:7px;padding:8px;font-size:14px;white-space:pre-wrap">${ic.hallazgos||"—"}</div></div>
+            <div><p style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:4px">Diagnóstico interconsultante</p><div style="background:#fff;border-radius:7px;padding:8px;font-size:14px;white-space:pre-wrap">${ic.diagnostico_interconsultante||"—"}</div></div>
+          </div>
+          <div style="margin-top:10px"><p style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:4px">Recomendaciones</p><div style="background:#fff;border-radius:7px;padding:8px;font-size:14px;white-space:pre-wrap">${ic.recomendaciones||"—"}</div></div>
+        </div>`:`
+        <div style="background:#E3F2FD;border-radius:10px;padding:14px;border:1px solid #90CAF9">
+          <p style="font-size:13px;font-weight:700;color:#1565C0;margin-bottom:12px">📝 Registrar respuesta de interconsulta</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            ${fld("Hallazgos clínicos",`<textarea id="ic_hallazgos" rows="3" placeholder="Hallazgos del médico interconsultante..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-family:inherit;font-size:14px;resize:vertical"></textarea>`)}
+            ${fld("Diagnóstico interconsultante",`<textarea id="ic_diag_resp" rows="3" placeholder="Diagnóstico con CIE-10..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-family:inherit;font-size:14px;resize:vertical"></textarea>`)}
+          </div>
+          <div style="margin-bottom:12px">
+            ${fld("Recomendaciones y plan",`<textarea id="ic_recom" rows="3" placeholder="Tratamiento sugerido, indicaciones, seguimiento..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-family:inherit;font-size:14px;resize:vertical"></textarea>`)}
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            <button onclick="document.getElementById('modal-inter-ver').remove()" style="background:#F5F5F5;border:1px solid ${BR};border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px">Cerrar sin responder</button>
+            <button onclick="guardarRespuestaInterconsulta('${ic.id}','${medNom.replace(/'/g,"\\'")}')" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">✅ Guardar respuesta</button>
+          </div>
+        </div>`}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+window.guardarRespuestaInterconsulta=async function(id,medNom){
+  const hall=document.getElementById("ic_hallazgos")?.value||"";
+  const diag=document.getElementById("ic_diag_resp")?.value||"";
+  const recom=document.getElementById("ic_recom")?.value||"";
+  if(!hall&&!diag&&!recom){showToast("Escribe al menos los hallazgos o recomendaciones",false);return;}
+  loading(true,"Guardando respuesta...");
+  const {error}=await SB.from("interconsultas").update({
+    hallazgos:hall,
+    diagnostico_interconsultante:diag,
+    recomendaciones:recom,
+    fecha_respuesta:new Date().toLocaleDateString("es-MX"),
+    medico_responde:medNom,
+    estatus:"Respondida",
+  }).eq("id",id);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("✓ Respuesta guardada");
+  document.getElementById("modal-inter-ver")?.remove();
+  cargarInterconsultas();
 }
 window.seleccionarMedInter=function(val){
   const ext=document.getElementById("ic_med_externo");
@@ -2775,7 +2873,8 @@ window.enviarFirmaWAGlobal=async function(){
   const celLimpio=cel.replace(/\D/g,"");
   const celFinal=celLimpio.length===10?"52"+celLimpio:celLimpio;
   const nomPac=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno}`:"Paciente";
-  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}`;
+  const medId=STATE.user?.id||"";
+  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}&med=${medId}`;
   const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\nSu información es tratada con absoluta confidencialidad.\n_QP Clinic — Especialistas en Salud Integral_`;
   window.open(`https://wa.me/${celFinal}?text=${encodeURIComponent(msg)}`,"_blank");
   showToast("✓ Abre WhatsApp en +52 5644237028 y envía el mensaje");
@@ -2848,7 +2947,8 @@ window.enviarFirmaWA=async function(){
     firmado:false,
   })));
   const celLimpio=cel.replace(/\D/g,"");
-  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}`;
+  const medId=STATE.user?.id||"";
+  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}&med=${medId}`;
   const nomPac=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno}`:"Paciente";
   const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\n_Su información es tratada con absoluta confidencialidad._\n_QP Clinic — Especialistas en Salud Integral_`;
   // Abrir WhatsApp desde el número de la clínica
@@ -4007,8 +4107,10 @@ async function renderTriage(b){
   const pid=STATE.pat?.id;if(!pid)return;
   const {data}=await SB.from("signos_vitales").select("*").eq("paciente_id",pid).order("fecha",{ascending:false}).limit(20);
   const hist=data||[];
-  const hoy=hist.filter(s=>s.fecha&&s.fecha.startsWith(new Date().toISOString().split("T")[0]));
-  const ultimo=hist[0]||{};
+  const hoyStr=new Date().toISOString().split("T")[0];
+  const registrosHoy=hist.filter(s=>s.fecha&&s.fecha.startsWith(hoyStr));
+  const ultimoHoy=registrosHoy[0]||null; // Solo pre-llena si hay registro de HOY
+  const v=ultimoHoy||{}; // Si no hay de hoy, empieza vacío
   b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
       <div style="background:${PD};padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
@@ -4016,23 +4118,24 @@ async function renderTriage(b){
         <span style="font-size:14px;color:rgba(255,255,255,.7)">${new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
       </div>
       <div style="padding:14px">
+        ${ultimoHoy?`<div style="background:#E8F5E9;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#2E7D32;display:flex;align-items:center;gap:8px">✅ Mostrando el registro de hoy (${new Date(ultimoHoy.fecha).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})}). Puedes editarlo y guardar un nuevo registro.</div>`:`<div style="background:#FFF3E0;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#E65100;display:flex;align-items:center;gap:8px">📝 Sin registro de signos vitales de hoy. Llena los campos y guarda.</div>`}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
-          ${fld("Temperatura (°C)",`<input id="sv_temp" type="number" step="0.1" value="${ultimo.temperatura||""}" placeholder="36.5" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("F. Cardíaca (lat/min)",`<input id="sv_fc" type="number" value="${ultimo.frecuencia_cardiaca||""}" placeholder="72" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("F. Respiratoria (r/min)",`<input id="sv_fr" type="number" value="${ultimo.frecuencia_respiratoria||""}" placeholder="16" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Sat. O₂ (%)",`<input id="sv_sat" type="number" step="0.1" value="${ultimo.saturacion_o2||""}" placeholder="98" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Glucosa (mg/dL)",`<input id="sv_glu" type="number" value="${ultimo.glucosa||""}" placeholder="100" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Temperatura (°C)",`<input id="sv_temp" type="number" step="0.1" value="${v.temperatura||""}" placeholder="36.5" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("F. Cardíaca (lat/min)",`<input id="sv_fc" type="number" value="${v.frecuencia_cardiaca||""}" placeholder="72" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("F. Respiratoria (r/min)",`<input id="sv_fr" type="number" value="${v.frecuencia_respiratoria||""}" placeholder="16" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Sat. O₂ (%)",`<input id="sv_sat" type="number" step="0.1" value="${v.saturacion_o2||""}" placeholder="98" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Glucosa (mg/dL)",`<input id="sv_glu" type="number" value="${v.glucosa||""}" placeholder="100" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
-          ${fld("Presión sistólica",`<input id="sv_tas" type="number" value="${ultimo.presion_sistolica||""}" placeholder="120" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Presión diastólica",`<input id="sv_tad" type="number" value="${ultimo.presion_diastolica||""}" placeholder="80" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Peso (kg)",`<input id="sv_peso" type="number" step="0.1" value="${ultimo.peso||""}" placeholder="70.0" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Talla (m)",`<input id="sv_talla" type="number" step="0.01" value="${ultimo.talla||""}" placeholder="1.70" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("IMC",`<input id="sv_imc" value="${ultimo.imc||""}" placeholder="Auto" readonly style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;background:#F8F9FA;font-size:14px;font-weight:700">`)}
-          ${fld("Perímetro abdominal (cm)",`<input id="sv_pab" type="number" step="0.1" value="${ultimo.perimetro_abdominal||""}" placeholder="90" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Presión sistólica",`<input id="sv_tas" type="number" value="${v.presion_sistolica||""}" placeholder="120" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Presión diastólica",`<input id="sv_tad" type="number" value="${v.presion_diastolica||""}" placeholder="80" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Peso (kg)",`<input id="sv_peso" type="number" step="0.1" value="${v.peso||""}" placeholder="70.0" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Talla (m)",`<input id="sv_talla" type="number" step="0.01" value="${v.talla||""}" placeholder="1.70" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("IMC",`<input id="sv_imc" value="${v.imc||""}" placeholder="Auto" readonly style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;background:#F8F9FA;font-size:14px;font-weight:700">`)}
+          ${fld("Perímetro abdominal (cm)",`<input id="sv_pab" type="number" step="0.1" value="${v.perimetro_abdominal||""}" placeholder="90" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
         </div>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
-          ${fld("Observaciones de enfermería",`<input id="sv_obs" value="" placeholder="Observaciones relevantes..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          ${fld("Observaciones de enfermería",`<input id="sv_obs" value="${v.observaciones||""}" placeholder="Observaciones relevantes..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
           ${fld("Registrado por",`<input id="sv_enf" value="${STATE.userProfile?`${STATE.userProfile.titulo||""} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""}" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -4042,12 +4145,12 @@ async function renderTriage(b){
       </div>
     </div>
     ${hist.length>0?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="background:#F8F9FA;padding:8px 14px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">Historial de registros (${hist.length})</b></div>
+      <div style="background:#F8F9FA;padding:8px 14px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">Historial de registros (${hist.length}) — en <span style="color:${P}">azul</span> los de hoy</b></div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:14px">
           <thead><tr style="background:${PL}">${["Fecha","Registró","T°","FC","FR","Sat.O₂","TA","Peso","Talla","IMC","Glu","P.Abd","Obs"].map(h=>`<th style="padding:9px 11px;text-align:left;font-weight:700;color:${TX};white-space:nowrap">${h}</th>`).join("")}</tr></thead>
-          <tbody>${hist.map((s,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}${hoy.includes(s)?" border-left: 3px solid "+P:""}">
-            <td style="padding:9px 11px;white-space:nowrap;${hoy.includes(s)?"font-weight:700;color:"+P:""}">${s.fecha?new Date(s.fecha).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}</td>
+          <tbody>${hist.map((s,i)=>{const esHoy=s.fecha?.startsWith(hoyStr);return`<tr style="border-top:1px solid ${BR};background:${esHoy?PL:i%2?"#FAFAFA":"#fff"};border-left:${esHoy?"3px solid "+P:"3px solid transparent"}">
+            <td style="padding:9px 11px;white-space:nowrap;${esHoy?"font-weight:700;color:"+P:""}">${s.fecha?new Date(s.fecha).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}</td>
             <td style="padding:9px 11px;white-space:nowrap">${s.usuario_nombre||"—"}</td>
             <td style="padding:9px 11px">${s.temperatura??""}</td>
             <td style="padding:9px 11px">${s.frecuencia_cardiaca??""}</td>
@@ -4060,7 +4163,7 @@ async function renderTriage(b){
             <td style="padding:9px 11px">${s.glucosa??""}</td>
             <td style="padding:9px 11px">${s.perimetro_abdominal??""}</td>
             <td style="padding:9px 11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.observaciones||""}</td>
-          </tr>`).join("")}</tbody>
+          </tr>`}).join("")}</tbody>
         </table>
       </div>
     </div>`:""}
@@ -4096,6 +4199,11 @@ window.guardarSV=async function(pid){
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
   showToast("✓ Signos vitales guardados");
+  // Si hay una consulta abierta, pasar los valores automáticamente
+  if(document.getElementById("cs_temp")){
+    cargarSVEnConsulta();
+    showToast("✓ Signos vitales guardados y cargados en la consulta activa");
+  }
   setET("triage");
 }
 window.cargarSVEnConsulta=function(){
