@@ -1334,6 +1334,17 @@ window.buscarPacs=function(){
   cargarPacientes(q);
 }
 window.abrirExpediente=async function(id){
+  // Limpiar TODOS los datos del paciente previo antes de cargar el nuevo
+  STATE.pat=null;
+  STATE.patData={};STATE.patOtrasNotes="";
+  STATE.famData={};STATE.famNotas="";
+  STATE.alergs=[];STATE.alOtrosText="";
+  STATE.discapacidades=[];
+  STATE.ginData={};
+  STATE.antNoPatText="";STATE.otrosText="";
+  STATE.medText="";STATE.medOtrosText="";
+  STATE.signosHoy=null;STATE.consultaActual=null;
+  STATE.expTab="ficha";STATE.ficTab="gen";STATE.antTab="fam";STATE.anexoTab="docs";
   loading(true,"Cargando expediente...");
   const {data,error}=await SB.from("pacientes").select("*").eq("id",id).single();
   loading(false);
@@ -2577,6 +2588,39 @@ async function cargarInterrogatorio(SIS){
       <textarea id="inter_${s.key}" rows="3" placeholder="Haga clic en los síntomas de arriba o escriba directamente..." style="width:100%;border:none;padding:9px 12px;font-size:14px;resize:vertical;outline:none;font-family:inherit;line-height:1.6;color:#263238">${data?data[s.key]||"":""}</textarea>
     </div>
   `).join("");
+  // Mostrar concentrado si ya hay datos guardados
+  if(data){
+    const campos=["digestivo","cardiovascular","respiratorio","urinario","genital","hematologico","endocrino","osteomuscular","nervioso"];
+    const etiquetas={digestivo:"Ap. Digestivo",cardiovascular:"Ap. Cardiovascular",respiratorio:"Ap. Respiratorio",urinario:"Ap. Urinario",genital:"Ap. Genital",hematologico:"Ap. Hematológico",endocrino:"Sist. Endocrino",osteomuscular:"Sist. Osteomuscular",nervioso:"Sist. Nervioso"};
+    const resumen=campos.map(c=>{
+      const val=data[c]||"";if(!val)return null;
+      const esNormal=val.trim().toUpperCase()==="NORMAL";
+      const esNegado=val.trim().toLowerCase().includes("interrogado y negado");
+      return{etiqueta:etiquetas[c],val,esNormal,esNegado};
+    }).filter(Boolean);
+    if(resumen.length>0){
+      const previo=document.getElementById("inter-resumen");
+      if(previo)previo.remove();
+      const div=document.createElement("div");
+      div.id="inter-resumen";
+      div.style.cssText="max-width:1100px;margin:0 auto 0;padding:0 14px";
+      const fechaGuardado=data.updated_at?new Date(data.updated_at).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+      div.innerHTML=`<div style="background:#fff;border:1.5px solid #B3E5FC;border-radius:10px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 4px #00000010">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <p style="font-size:14px;font-weight:700;color:${P}">📋 Resumen del Interrogatorio por Aparatos y Sistemas</p>
+          ${fechaGuardado?`<span style="font-size:14px;color:${MU};background:#F0F4F8;padding:3px 9px;border-radius:20px">Último guardado: ${fechaGuardado}</span>`:""}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          ${resumen.map(r=>`<div style="background:${r.esNormal?"#E8F5E9":r.esNegado?"#ECEFF1":"#FFF8E1"};border-radius:7px;padding:10px 12px">
+            <p style="font-size:14px;font-weight:700;color:${r.esNormal?"#2E7D32":r.esNegado?"#546E7A":"#E65100"};margin-bottom:3px">${r.esNormal?"✓":r.esNegado?"—":"⚠️"} ${r.etiqueta}</p>
+            <p style="font-size:14px;color:#263238;line-height:1.5">${r.esNormal?"Normal":r.esNegado?"Interrogado y negado":r.val.substring(0,120)+(r.val.length>120?"...":"")}</p>
+          </div>`).join("")}
+        </div>
+      </div>`;
+      const grid=document.getElementById("inter-grid");
+      if(grid&&grid.parentNode)grid.parentNode.insertBefore(div,grid);
+    }
+  }
 }
 window.addSintoma=function(key,txt){
   const ta=document.getElementById("inter_"+key);if(!ta)return;
