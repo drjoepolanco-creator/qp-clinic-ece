@@ -1285,6 +1285,27 @@ function renderSeccionEspecial(tipo,d){
     📌 Completa los campos SOAP para este tipo de nota.
   </div>`;
 }
+window.toggleCfgMenu=function(){
+  const m=document.getElementById("cfg-menu");
+  if(!m)return;
+  const visible=m.style.display==="block";
+  m.style.display=visible?"none":"block";
+  if(!visible){
+    // Posicionar bajo el botón
+    const wrap=document.getElementById("cfg-menu-wrap");
+    if(wrap){const r=wrap.getBoundingClientRect();m.style.left=r.left+"px";}
+    // Cerrar al hacer clic fuera
+    setTimeout(()=>{
+      document.addEventListener("click",function cerrar(e){
+        if(!document.getElementById("cfg-menu-wrap")?.contains(e.target)){
+          const menu=document.getElementById("cfg-menu");
+          if(menu)menu.style.display="none";
+          document.removeEventListener("click",cerrar);
+        }
+      });
+    },10);
+  }
+}
 window.seleccionarCalendario=function(id){
   STATE.calSeleccionado=STATE.calSeleccionado===id?null:id;
   pgAgenda();
