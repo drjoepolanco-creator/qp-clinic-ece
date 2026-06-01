@@ -77,7 +77,69 @@ const CLASIFICACION=["No clasificado","Empleado empresa","Dependiente de emplead
 const VINCULO=["Familiar","Padre","Madre","Tutor legal","Cónyuge","Hermano(a)","Hijo(a)","Abuelo(a)","Cuidador","Otro"];
 const ENTIDADES=["Sin indicar","Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de México","Coahuila","Colima","Durango","Estado de México","Guanajuato","Guerrero","Hidalgo","Jalisco","Michoacán","Morelos","Nayarit","Nuevo León","Oaxaca","Puebla","Querétaro","Quintana Roo","San Luis Potosí","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatán","Zacatecas","Extranjero"];
 const PAISES=["MÉXICO","ESTADOS UNIDOS DE AMÉRICA","ARGENTINA","BRASIL","CANADÁ","CHILE","COLOMBIA","COSTA RICA","CUBA","ECUADOR","EL SALVADOR","ESPAÑA","FRANCIA","GUATEMALA","HONDURAS","ITALIA","JAPÓN","NICARAGUA","PANAMÁ","PARAGUAY","PERÚ","REINO UNIDO","REPÚBLICA DOMINICANA","URUGUAY","VENEZUELA","OTRO"];
-const ESPECIALIDADES=["Medicina del Deporte","Ortopedia y Traumatología","Medicina Interna","Cardiología","Neumología","Gastroenterología","Endocrinología","Neurología","Psiquiatría","Dermatología","Oftalmología","Otorrinolaringología","Urología","Ginecología y Obstetricia","Pediatría","Geriatría","Reumatología","Nefrología","Nutrición Clínica","Fisioterapia y Rehabilitación","Medicina Física y Rehabilitación","Algología / Dolor","Cirugía General","Otra especialidad"];
+const ESPECIALIDADES=[
+  // ── Medicina General y Familiar ────────────────────────
+  "Medicina General","Medicina Familiar","Medicina Interna","Médico Cirujano",
+  // ── Especialidades médicas ─────────────────────────────
+  "Alergología e Inmunología Clínica","Algología / Medicina del Dolor",
+  "Anestesiología","Audiología y Otoneurología",
+  "Cardiología","Cirugía Cardiotorácica","Cirugía Cardiovascular",
+  "Cirugía General","Cirugía Laparoscópica","Cirugía Oncológica",
+  "Cirugía Pediátrica","Cirugía Plástica y Reconstructiva",
+  "Cirugía de Tórax","Cirugía Vascular y Angiología",
+  "Coloproctología","Dermatología",
+  "Endocrinología","Endocrinología Pediátrica",
+  "Epidemiología","Estomatología","Fisiatría / Medicina Física y Rehabilitación",
+  "Fisioterapia y Rehabilitación",
+  "Gastroenterología","Gastroenterología Pediátrica","Geriatría",
+  "Ginecología y Obstetricia","Ginecología Oncológica",
+  "Hematología","Hematología Pediátrica","Oncohematología",
+  "Hepatología","Infectología","Infectología Pediátrica",
+  "Mastología","Medicina de Urgencias","Medicina del Deporte",
+  "Medicina de Trabajo y Salud Ocupacional","Medicina del Viajero",
+  "Medicina Nuclear","Medicina Paliativa y Cuidados al Final de la Vida",
+  "Medicina Preventiva y Salud Pública","Neonatología",
+  "Nefrología","Nefrología Pediátrica",
+  "Neumología","Neumología Pediátrica",
+  "Neurocirugía","Neurología","Neurología Pediátrica",
+  "Neuropsiquiatría","Neurorradiología Intervencionista",
+  "Nutrición Clínica / Nutriología",
+  "Oftalmología","Oftalmología Pediátrica","Oncología Médica",
+  "Oncología Radioterápica / Radioterapia",
+  "Ortopedia y Traumatología","Ortopedia Pediátrica",
+  "Otorrinolaringología","Otorrinolaringología Pediátrica",
+  "Patología","Perinatología / Medicina Materno-Fetal",
+  "Pediatría","Psiquiatría","Psiquiatría Infantil y de la Adolescencia",
+  "Psicología Clínica",
+  "Radiología e Imagen","Radiología Intervencionista",
+  "Radioterapia","Reumatología","Reumatología Pediátrica",
+  "Salud Mental","Toxicología Clínica","Trasplantes",
+  "Urología","Urología Pediátrica",
+  // ── Subespecialidades y áreas de alta especialidad ─────
+  "Arritmología","Cardiología Intervencionista","Ecocardiografía",
+  "Electrofisiología Cardíaca","Hemodinámica e Intervencionismo",
+  "Insuficiencia Cardíaca","Rehabilitación Cardíaca",
+  "Endoscopia Gastrointestinal","Hepatología Trasplante",
+  "Cirugía de Columna","Artroscopia y Cirugía Deportiva",
+  "Pie y Tobillo","Cadera y Rodilla","Hombro y Codo",
+  "Neurología Vascular / Stroke","Epilepsia","Cefalea","Esclerosis Múltiple",
+  "Neuromuscular","Neuro-oncología","Parkinson y Movimiento",
+  "Terapia Intensiva / Medicina Crítica","Medicina de Urgencias Pediátricas",
+  "Oncología Pediátrica","Hemato-Oncología Pediátrica",
+  "Ginecología Reconstructiva y Uroginecología",
+  "Reproducción Asistida / Medicina Reproductiva",
+  "Endocrinología Reproductiva","Colposcopia y Patología Cervical",
+  "Audiología","Foniatría","Logopedia / Terapia de Lenguaje",
+  "Terapia Ocupacional","Psicomotricidad","Neuropsicología",
+  "Odontología","Cirugía Maxilofacial","Ortodoncia",
+  "Acupuntura y Medicina Tradicional China",
+  "Homeopatía","Medicina Integrativa",
+  "Medicina Estética","Dermatología Cosmética",
+  "Trichología","Flebología","Linfología",
+  "Immunología Clínica","Reumatología de Tejidos Blandos",
+  "Proloterapia y Medicina Regenerativa",
+  "Otra especialidad"
+];
 const CIF_CAT=["Seleccione una categoría","— FUNCIONES CORPORALES —","Funciones mentales","Funciones sensoriales y dolor","Funciones de la voz y el habla","Funciones del sistema cardiovascular, hematológico, inmunológico y respiratorio","Funciones del sistema digestivo, metabólico y endocrino","Funciones genitourinarias y reproductoras","Funciones neuromusculoesqueléticas y relacionadas con el movimiento","Funciones de la piel y estructuras relacionadas","— ACTIVIDADES Y PARTICIPACIÓN —","Aprendizaje y aplicación del conocimiento","Tareas y demandas generales","Comunicación","Movilidad","Autocuidado","Vida doméstica","Interacciones y relaciones interpersonales","Áreas principales de la vida","Vida comunitaria, social y cívica","— FACTORES AMBIENTALES —","Productos y tecnología","Entorno natural y cambios derivados de la actividad humana","Apoyo y relaciones","Actitudes","Servicios, sistemas y políticas"];
 const PLANTILLAS_PAT=[{lbl:"Hipertensión",txt:"Hipertensión Arterial Sistémica diagnosticada en ___, en tratamiento con ___, controlada/no controlada."},{lbl:"Diabetes",txt:"Diabetes Mellitus tipo 2 diagnosticada en ___, en tratamiento con ___, HbA1c de ___."},{lbl:"Cx previa",txt:"Antecedente quirúrgico: ___ (fecha ___). Evolución postoperatoria sin complicaciones."},{lbl:"Fractura",txt:"Fractura de ___ en el año ___, manejo ___, consolidación adecuada sin secuelas."},{lbl:"Alérgico",txt:"Reacción alérgica a ___ manifestada como ___. Manejado con ___."},{lbl:"Sin ant.",txt:"Niega antecedentes patológicos de importancia."}];
 // ── HELPERS UI ────────────────────────────────────────────
