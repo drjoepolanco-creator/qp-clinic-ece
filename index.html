@@ -3749,7 +3749,7 @@ async function renderIndicaciones(b){
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:14px">
           <thead><tr style="background:${PL}">
-            ${["Fecha","Médico","Medicamento","Dosis","Vía","Frecuencia","Duración","Estado","Administración","Acciones"].map(h=>`<th style="padding:9px 11px;text-align:left;font-weight:700;color:${TX};white-space:nowrap">${h}</th>`).join("")}
+            ${["Fecha","Médico","Medicamento","Dosis","Vía","Frecuencia","Duración","Estado","Administración / Lote / Cad.","Acciones"].map(h=>`<th style="padding:9px 11px;text-align:left;font-weight:700;color:${TX};white-space:nowrap">${h}</th>`).join("")}
           </tr></thead>
           <tbody>
             ${items.length===0?`<tr><td colspan="10" style="padding:24px;text-align:center;color:${MU}">Sin indicaciones registradas. Usa "Nueva indicación" para agregar.</td></tr>`:
@@ -3765,8 +3765,9 @@ async function renderIndicaciones(b){
                 <td style="padding:9px 11px;color:${MU}">${ind.duracion||"—"}</td>
                 <td style="padding:9px 11px"><span style="background:${estBg};color:${estCol};padding:2px 9px;border-radius:20px;font-size:13px;font-weight:700">${estLbl}</span></td>
                 <td style="padding:9px 11px;font-size:13px;color:${MU}">
-                  ${ind.administrado_por?`<div>${ind.administrado_por}</div><div>${ind.fecha_administracion?new Date(ind.fecha_administracion).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</div>`:"—"}
-                  ${ind.lote?`<small>Lote: ${ind.lote}</small>`:""}
+                  ${ind.administrado_por?`<div style="font-weight:600">${ind.administrado_por}</div><div>${ind.fecha_administracion?new Date(ind.fecha_administracion).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</div>`:"—"}
+                  ${ind.lote?`<div style="color:${P}">Lote: ${ind.lote}</div>`:""}
+                  ${ind.caducidad?`<div style="color:${ind.caducidad<new Date().toISOString().split('T')[0]?"#C62828":MU}">Cad: ${ind.caducidad}</div>`:""}
                 </td>
                 <td style="padding:9px 11px;white-space:nowrap">
                   ${ind.estado==="Pendiente"?`<button onclick="marcarAdministrado('${ind.id}')" style="background:#2E7D32;color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:13px;margin-right:4px">✓ Administrar</button>`:""}
@@ -3810,17 +3811,41 @@ window.guardarIndicacion=async function(){
 }
 window.marcarAdministrado=async function(id){
   const u=STATE.userProfile||{};
-  const lote=prompt("Número de lote (opcional):");
-  loading(true,"Registrando administración...");
+  // Modal para capturar datos de administración
+  const overlay=document.createElement("div");
+  overlay.id="modal-admin-med";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:flex;align-items:center;justify-content:center";
+  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:440px;box-shadow:0 16px 40px #00000040">
+    <h3 style="font-size:15px;font-weight:700;color:#263238;margin-bottom:16px">✓ Registrar administración de medicamento</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      ${fld("Número de lote",`<input id="adm-lote" placeholder="Ej: ABC123456" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      ${fld("Fecha de caducidad",`<input id="adm-cad" type="date" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    </div>
+    ${fld("Administrado por",`<input id="adm-quien" value="${`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim()}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button onclick="document.getElementById('modal-admin-med').remove()" style="background:#F5F5F5;border:1px solid ${BR};border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px">Cancelar</button>
+      <button onclick="confirmarAdministracion('${id}')" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">✓ Confirmar administración</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+window.confirmarAdministracion=async function(id){
+  const lote=(document.getElementById("adm-lote")?.value||"").trim();
+  const cad=(document.getElementById("adm-cad")?.value||"").trim();
+  const quien=(document.getElementById("adm-quien")?.value||"").trim();
+  document.getElementById("modal-admin-med")?.remove();
+  loading(true,"Registrando...");
   const {error}=await SB.from("indicaciones_medicas").update({
     estado:"Administrado",
-    administrado_por:`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim(),
+    administrado_por:quien||null,
     fecha_administracion:new Date().toISOString(),
-    lote:lote||null
+    lote:lote||null,
+    caducidad:cad||null
   }).eq("id",id);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
-  showToast("✓ Medicamento marcado como administrado");
+  showToast("✓ Medicamento administrado registrado con lote y caducidad");
+  logBitacora("MEDICAMENTO ADMINISTRADO","Lote: "+(lote||"no indicado"),STATE.pat?.id);
   renderIndicaciones(document.getElementById("eb"));
 }
 window.cancelarIndicacion=async function(id){
@@ -4020,6 +4045,7 @@ function pgConsulta(){
       <button onclick="firmarNota()" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">✍️ Firmar y cerrar nota</button>`}
       <button onclick="descargarNotaPDF()" style="background:#37474F;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📄 PDF nota</button>
       ${c.id?`<button onclick="verHistorialNota('${c.id}')" style="background:#7B1FA2;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🕐 Historial</button>`:""}
+      ${(c.tipo_nota||"").includes("referencia")||gv("cs_tipo_nota").includes("referencia")?`<button onclick="imprimirHojaReferencia()" style="background:#00695C;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🏥 Hoja de Referencia</button>`:""}
       ${btn("✕ Cerrar","cerrarConsulta()","d",1)}
       <button onclick="showRecipe('receta')" style="background:#1B5E20;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">💊 Receta</button>
       <button onclick="showRecipe('lab')" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🔬 Sol. Lab</button>
@@ -4748,7 +4774,129 @@ window.generarPDFReceta=async function(tipo="receta"){
   showToast("✓ PDF generado");
 }
 
-// ── PDF DE NOTA MÉDICA ─────────────────────────────────────
+// ── HOJA DE REFERENCIA/CONTRARREFERENCIA (NOM-004 Art. 13) ────
+window.imprimirHojaReferencia=async function(){
+  const {jsPDF}=window.jspdf;if(!jsPDF)return;
+  const c=STATE.consultaActual||{};const p=STATE.pat||{};
+  const med=STATE.medProfile||STATE.userProfile||{};
+  const d=c.datos_clinicos||{};
+  const T=(v)=>{if(v===null||v===undefined)return"";const s=String(v);return s==="null"||s==="undefined"?"":s;};
+  const S=(v)=>T(v).replace(/[\u0100-\uFFFF]/g,"?");
+  const nomPac=S([p.nombre,p.apellido_paterno,p.apellido_materno].filter(Boolean).join(" "));
+  const medNom=S([med.titulo||"Dr.",med.nombre,med.apellidos].filter(Boolean).join(" "));
+  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const hora=new Date().toTimeString().substring(0,5);
+  let logoB64=null;
+  try{const LOGO="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg";
+  logoB64=await urlToBase64firma(LOGO);}catch(e){}
+  try{
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+  const W=215.9,M=14,CUERPO=W-2*M;
+  const AZUL=[21,101,192],GRIS=[38,50,56];
+  // ENCABEZADO
+  doc.setFillColor(21,101,192);doc.rect(0,0,W,38,"F");
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.text("QP Clinic - Especialistas en Salud Integral",M,9);
+  doc.setFontSize(7.5);doc.setFont("helvetica","normal");
+  doc.text("Insurgentes Sur 933, Piso 12, Napoles, CDMX  |  55 5682 4345  |  qpclinic.org",M,14);
+  doc.setFontSize(7.5);
+  const credStr=S([med.licenciatura,med.especialidad_1,med.cedula_medico?"Ced."+S(med.cedula_medico):""].filter(Boolean).join(" - "));
+  if(credStr)doc.text(credStr,M,19);
+  doc.setFontSize(9);doc.setFont("helvetica","bold");
+  doc.text(medNom,M,25);
+  if(logoB64){try{doc.addImage(logoB64,"JPEG",W-50,1,46,36);}catch(e){}}
+  // TÍTULO
+  doc.setFillColor(13,71,161);doc.rect(0,38,W,9,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.text("HOJA DE REFERENCIA / CONTRARREFERENCIA — NOM-004-SSA3-2012 ART. 13",W/2,44,{align:"center"});
+  // FOLIO Y FECHA
+  let y=50;
+  doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+  doc.setFillColor(240,246,252);doc.rect(0,y,W,14,"F");
+  doc.setFont("helvetica","bold");doc.text("Folio:",M,y+5);doc.setFont("helvetica","normal");
+  doc.text("REF-"+Date.now().toString().slice(-8),M+10,y+5);
+  doc.setFont("helvetica","bold");doc.text("Fecha:",M+55,y+5);doc.setFont("helvetica","normal");doc.text(hoy,M+67,y+5);
+  doc.setFont("helvetica","bold");doc.text("Hora:",M+100,y+5);doc.setFont("helvetica","normal");doc.text(hora,M+110,y+5);
+  doc.setFont("helvetica","bold");doc.text("Tipo:",M,y+11);doc.setFont("helvetica","normal");
+  doc.text(d.receptor?"Referencia hacia: "+S(d.receptor).substring(0,50):"Referencia",M+10,y+11);
+  y+=16;
+  // Helper caja
+  const caja=(label,valor,x,cy,w,h=12)=>{
+    doc.setDrawColor(207,216,220);doc.setLineWidth(0.3);doc.rect(x,cy,w,h);
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(100,130,150);
+    doc.text(label,x+2,cy+4);
+    doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
+    const ls=doc.splitTextToSize(S(valor||""),w-4);
+    doc.text(ls[0]||"",x+2,cy+9);
+    return cy+h;
+  };
+  const bloq=(titulo,contenido,cy2)=>{
+    doc.setFillColor(21,101,192);doc.rect(M,cy2,CUERPO,6,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+    doc.text(titulo,M+2,cy2+4.2);cy2+=7;
+    doc.setTextColor(38,50,56);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
+    const ls2=doc.splitTextToSize(S(contenido||""),CUERPO-4);
+    ls2.forEach(l=>{if(cy2>255){doc.addPage();cy2=14;}doc.text(S(l),M+2,cy2);cy2+=4.5;});
+    return cy2+3;
+  };
+  // DATOS DEL PACIENTE
+  doc.setFillColor(21,101,192);doc.rect(M,y,CUERPO,6,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("I. DATOS DEL PACIENTE",M+2,y+4.2);y+=7;
+  caja("Nombre completo",nomPac,M,y,100,11);
+  caja("Expediente no.",T(p.numero_expediente),M+101,y,CUERPO-101,11);
+  y+=12;
+  caja("Fecha de nacimiento",T(p.fecha_nacimiento),M,y,40,11);
+  caja("Edad",S(calcEdad(p.fecha_nacimiento)),M+41,y,25,11);
+  caja("Sexo",T(p.sexo_biologico),M+67,y,30,11);
+  caja("CURP",T(p.curp)||"",M+98,y,CUERPO-98,11);
+  y+=12;
+  caja("Domicilio",T(p.calle)||"",M,y,120,11);
+  caja("Teléfono",T(p.celular)||"",M+121,y,CUERPO-121,11);
+  y+=13;
+  if(d.cond_traslado){
+    caja("Condición al traslado",S(d.cond_traslado),M,y,80,11);
+    caja("Medio de traslado",S(d.medio_traslado||""),M+81,y,CUERPO-81,11);y+=13;
+  }
+  y+=3;
+  // MÉDICO REFERENTE
+  doc.setFillColor(21,101,192);doc.rect(M,y,CUERPO,6,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("II. MÉDICO REFERENTE",M+2,y+4.2);y+=7;
+  caja("Nombre",medNom,M,y,100,11);
+  caja("Cédula profesional",T(med.cedula_medico)||"",M+101,y,CUERPO-101,11);y+=12;
+  caja("Especialidad",S(med.especialidad_1||""),M,y,100,11);
+  caja("Institución",T(med.institucion_esp_1)||"QP Clinic",M+101,y,CUERPO-101,11);y+=13;
+  // UNIDAD RECEPTORA
+  doc.setFillColor(21,101,192);doc.rect(M,y,CUERPO,6,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("III. UNIDAD O MÉDICO RECEPTOR",M+2,y+4.2);y+=7;
+  caja("Nombre de la unidad o médico receptor",S(d.receptor||""),M,y,CUERPO,11);y+=12;
+  caja("Especialidad o servicio",S(d.especialidad_ref||""),M,y,CUERPO,11);y+=13;
+  // SECCIONES CLÍNICAS
+  y=bloq("IV. DIAGNÓSTICO ACTUAL (CIE-10)",S(c.analisis||""),y);
+  y=bloq("V. MOTIVO DE LA REFERENCIA",S(d.motivo_ref||c.plan||""),y);
+  y=bloq("VI. RESUMEN CLÍNICO Y TRATAMIENTO PREVIO",S(d.resumen_ref||c.tratamiento||""),y);
+  if(d.estudios_ref)y=bloq("VII. ESTUDIOS QUE SE ENVÍAN",S(d.estudios_ref),y);
+  // FIRMA
+  if(y>225)doc.addPage();y=Math.max(y,230);
+  doc.setDrawColor(207,216,220);doc.setLineWidth(0.3);doc.line(M,y,W-M,y);y+=3;
+  let firmaB64=null;if(med.firma_digital){try{firmaB64=await urlToBase64firma(med.firma_digital);}catch(e){}}
+  if(firmaB64){try{doc.addImage(firmaB64,"PNG",W/2-22,y,44,14);y+=16;}catch(e){}}
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);doc.line(W/2-28,y,W/2+28,y);y++;
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.text("FIRMA DEL MEDICO REFERENTE",W/2,y+4,{align:"center"});
+  doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
+  doc.text(medNom,W/2,y+8,{align:"center"});
+  if(med.cedula_medico)doc.text("Ced. Prof. "+S(med.cedula_medico),W/2,y+12,{align:"center"});
+  // Footer
+  doc.setFontSize(6.5);doc.setTextColor(144,164,174);
+  doc.text("NOM-004-SSA3-2012 Art. 13 — QP Clinic ECE | qpclinic.org | "+hoy,W/2,272,{align:"center"});
+  doc.save("Hoja_Referencia_"+nomPac.replace(/ /g,"_")+"_"+hoy.replace(/\//g,"-")+".pdf");
+  showToast("✓ Hoja de Referencia descargada");
+  }catch(err){showToast("Error: "+T(err.message),false);}
+}
 window.descargarNotaPDF=async function(){
   const {jsPDF}=window.jspdf;
   if(!jsPDF){showToast("jsPDF no cargado",false);return;}
