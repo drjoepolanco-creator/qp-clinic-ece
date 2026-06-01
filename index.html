@@ -1467,8 +1467,18 @@ window.abrirExpediente=async function(id){
 }
 // ── NUEVO PACIENTE ────────────────────────────────────────
 function pgNuevo(){
-  STATE.pat=null;      // limpiar paciente previo del nav y del estado
-  STATE.nuevoData={};  // limpiar datos capturados previamente
+  STATE.pat=null;
+  STATE.nuevoData={};
+  // Limpiar TODOS los datos clínicos del paciente previo
+  STATE.patData={};STATE.patOtrasNotes="";
+  STATE.famData={};STATE.famNotas="";
+  STATE.alergs=[];STATE.alOtrosText="";
+  STATE.discapacidades=[];
+  STATE.ginData={};
+  STATE.antNoPatText="";STATE.otrosText="";
+  STATE.medText="";STATE.medOtrosText="";
+  STATE.signosHoy=null;STATE.consultaActual=null;
+  STATE.antTab="fam";STATE.anexoTab="docs";
   STATE.nuevoTab=STATE.nuevoTab||"gen";
   RR().innerHTML=nav()+`
   <div style="max-width:980px;margin:0 auto;padding:16px" class="fade">
