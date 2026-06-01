@@ -5115,17 +5115,63 @@ window.descargarNotaPDF=async function(){
     doc.setFillColor(AZUL[0],AZUL[1],AZUL[2]);doc.rect(M,y,CUERPO,6.5,"F");
     doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
     doc.text("DATOS ESPECIFICOS - "+S(tipoNota).toUpperCase(),M+3,y+4.5);y+=8;
-    const LBLS={gcs_o:"GCS Ocular",gcs_v:"GCS Verbal",gcs_m:"GCS Motor",gcs_total:"GCS Total",triaje:"Triaje",avpu:"AVPU",destino_urg:"Destino",asa:"Riesgo ASA",anestesia:"Anestesia",procedimiento_qx:"Procedimiento",dx_preop:"Dx preoperatorio",dx_posop:"Dx posoperatorio",hallazgos_qx:"Hallazgos",sangrado:"Sangrado cc",motivo_egreso:"Motivo egreso",condicion_egreso:"Condicion alta",dx_finales:"Dx finales",instrucciones_alta:"Instrucciones alta",receptor:"Centro receptor",motivo_ref:"Motivo referencia"};
+    const LBLS={
+      // GCS / Urgencias
+      gcs_o:"GCS Apertura ocular",gcs_v:"GCS Verbal",gcs_m:"GCS Motor",gcs_total:"GCS Total",
+      triaje:"Triaje Manchester",avpu:"AVPU",mecanismo:"Mecanismo",
+      tiempo_urg:"Tiempo evolucion",destino_urg:"Destino del paciente",cond_egreso_urg:"Condicion al egreso",
+      // Preoperatoria
+      dx_preop:"Diagnostico preoperatorio",procedimiento_qx:"Procedimiento planeado",
+      anestesia:"Anestesia propuesta",abordaje:"Via de abordaje",ayuno:"Ayuno (hrs)",
+      asa:"Riesgo ASA",riesgo_qx:"Riesgo quirurgico",consentimiento_qx:"Consentimiento",obs_preop:"Observaciones",
+      // Posoperatoria
+      dx_preop_pos:"Dx preoperatorio",dx_posop:"Dx posoperatorio",
+      op_planeada:"Operacion planeada",op_realizada:"Operacion realizada",
+      hallazgos_qx:"Hallazgos transoperatorios",tecnica_qx:"Tecnica quirurgica",
+      sangrado:"Sangrado estimado (cc)",duracion_qx:"Duracion (min)",
+      anestesia_real:"Anestesia utilizada",incidentes_qx:"Incidentes / accidentes",
+      estado_posop:"Estado al terminar",destino_posop:"Destino postoperatorio",plan_posop:"Plan postoperatorio",
+      // Egreso
+      dias_tx:"Dias de tratamiento",motivo_egreso:"Motivo de egreso",
+      condicion_egreso:"Condicion al alta",dx_finales:"Diagnosticos finales",
+      resumen_tx:"Tratamiento recibido",instrucciones_alta:"Instrucciones al alta",
+      cita_seguimiento:"Cita de seguimiento",pronostico_egreso:"Pronostico al egreso",
+      // Referencia / Traslado
+      receptor:"Centro o medico receptor",especialidad_ref:"Especialidad receptora",
+      motivo_ref:"Motivo de la referencia",resumen_ref:"Resumen clinico del caso",
+      cond_traslado:"Condicion al traslado",medio_traslado:"Medio de traslado",
+      estudios_ref:"Estudios que se envian",
+      // Primera vez
+      tiempo_evol:"Tiempo de evolucion",estado_general:"Estado general",
+      imc_clas:"Clasificacion IMC",ta_clas:"Clasificacion TA",
+      cap_func:"Capacidad funcional",dx_inicial:"Diagnostico inicial"
+    };
     doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);doc.setFontSize(8.5);
+    // Separar campos cortos (mismo renglón) de campos largos (2 renglones)
+    const CAMPOS_LARGOS=new Set(["motivo_ref","resumen_ref","estudios_ref","hallazgos_qx","tecnica_qx",
+      "incidentes_qx","plan_posop","dx_finales","resumen_tx","instrucciones_alta","obs_preop"]);
     dKeys.forEach(function(k){
       if(y>253){nuevaPagina();}
-      const lbl=S(LBLS[k]||k.replace(/_/g," "));
-      const val=S(d[k]);if(!val)return;
-      doc.setFont("helvetica","bold");doc.text(lbl+":",M+2,y);
-      doc.setFont("helvetica","normal");
-      const ls2=doc.splitTextToSize(val,CUERPO-46);
-      ls2.forEach(function(l,i){if(y>253){nuevaPagina();}doc.text(S(l),M+44,y+(i*4.5));});
-      y+=Math.max(ls2.length,1)*4.5+1.5;
+      const lbl=S(LBLS[k]||k.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()));
+      const val=S(d[k]);if(!val||val==="undefined"||val==="null")return;
+      const esLargo=CAMPOS_LARGOS.has(k)||val.length>60;
+      if(esLargo){
+        // Etiqueta en azul en su propio renglón, valor debajo con sangría
+        doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(21,101,192);
+        doc.text(lbl.toUpperCase()+":",M+2,y);y+=4.5;
+        doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+        const ls2=doc.splitTextToSize(val,CUERPO-6);
+        ls2.forEach(function(l){if(y>253){nuevaPagina();}doc.text(S(l),M+4,y);y+=4.5;});
+        y+=2;
+      } else {
+        // Label + valor en el mismo renglón
+        doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(84,110,122);
+        doc.text(lbl+":",M+2,y);
+        const lblW=doc.getTextWidth(lbl+": ")+3;
+        doc.setFont("helvetica","normal");doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+        doc.text(S(val).substring(0,90),M+2+lblW,y);
+        y+=5;
+      }
     });
     y+=3;
   }
@@ -5143,8 +5189,10 @@ window.descargarNotaPDF=async function(){
   }
 
   // ── FIRMA ─────────────────────────────────────────────
-  if(y>230){nuevaPagina();}
-  y+=6;
+  // Calcular espacio necesario para la firma
+  const espacioFirma=firmaB64?46:30;
+  if(y+espacioFirma>262){nuevaPagina();}
+  else y+=4; // pequeño espacio antes de la firma si hay espacio en la página
   doc.setDrawColor(207,216,220);doc.setLineWidth(0.3);doc.line(M,y,W-M,y);
   y+=3;
   if(firmaB64){
