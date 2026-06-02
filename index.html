@@ -76,7 +76,13 @@ const INDIGENA=["Seleccione un valor","No","Sí","Se ignora"];
 const CLASIFICACION=["No clasificado","Empleado empresa","Dependiente de empleado","Otro"];
 const VINCULO=["Familiar","Padre","Madre","Tutor legal","Cónyuge","Hermano(a)","Hijo(a)","Abuelo(a)","Cuidador","Otro"];
 const ENTIDADES=["Sin indicar","Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de México","Coahuila","Colima","Durango","Estado de México","Guanajuato","Guerrero","Hidalgo","Jalisco","Michoacán","Morelos","Nayarit","Nuevo León","Oaxaca","Puebla","Querétaro","Quintana Roo","San Luis Potosí","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatán","Zacatecas","Extranjero"];
-const PAISES=["MÉXICO","ESTADOS UNIDOS DE AMÉRICA","ARGENTINA","BRASIL","CANADÁ","CHILE","COLOMBIA","COSTA RICA","CUBA","ECUADOR","EL SALVADOR","ESPAÑA","FRANCIA","GUATEMALA","HONDURAS","ITALIA","JAPÓN","NICARAGUA","PANAMÁ","PARAGUAY","PERÚ","REINO UNIDO","REPÚBLICA DOMINICANA","URUGUAY","VENEZUELA","OTRO"];
+const PAISES=["MÉXICO","AFGANISTÁN","ALBANIA","ALEMANIA","ANDORRA","ANGOLA","ANTIGUA Y BARBUDA","ARABIA SAUDITA","ARGELIA","ARGENTINA","ARMENIA","AUSTRALIA","AUSTRIA","AZERBAIYÁN","BAHAMAS","BARÉIN","BANGLADÉS","BARBADOS","BÉLGICA","BELICE","BENÍN","BIELORRUSIA","BIRMANIA (MYANMAR)","BOLIVIA","BOSNIA Y HERZEGOVINA","BOTSUANA","BRASIL","BRUNÉI","BULGARIA","BURKINA FASO","BURUNDI","BUTÁN","CABO VERDE","CAMBOYA","CAMERÚN","CANADÁ","CATAR","CHAD","CHILE","CHINA","CHIPRE","COLOMBIA","COMORAS","CONGO","COREA DEL NORTE","COREA DEL SUR","COSTA DE MARFIL","COSTA RICA","CROACIA","CUBA","DINAMARCA","DJIBOUTI","DOMINICA","ECUADOR","EGIPTO","EL SALVADOR","EMIRATOS ÁRABES UNIDOS","ERITREA","ESLOVAQUIA","ESLOVENIA","ESPAÑA","ESTADOS UNIDOS DE AMÉRICA","ESTONIA","ETIOPÍA","FILIPINAS","FINLANDIA","FIYI","FRANCIA","GABÓN","GAMBIA","GEORGIA","GHANA","GRANADA","GRECIA","GUATEMALA","GUINEA","GUINEA ECUATORIAL","GUINEA-BISÁU","GUYANA","HAITÍ","HONDURAS","HUNGRÍA","INDIA","INDONESIA","IRAK","IRÁN","IRLANDA","ISLANDIA","ISRAEL","ITALIA","JAMAICA","JAPÓN","JORDANIA","KAZAJISTÁN","KENIA","KIRGUISTÁN","KIRIBATI","KUWAIT","LAOS","LESOTO","LETONIA","LÍBANO","LIBERIA","LIBIA","LIECHTENSTEIN","LITUANIA","LUXEMBURGO","MADAGASCAR","MALASIA","MALAUI","MALDIVAS","MALÍ","MALTA","MARRUECOS","MAURICIO","MAURITANIA","MICRONESIA","MOLDAVIA","MÓNACO","MONGOLIA","MONTENEGRO","MOZAMBIQUE","NAMIBIA","NAURU","NEPAL","NICARAGUA","NÍGER","NIGERIA","NORUEGA","NUEVA ZELANDA","OMÁN","PAÍSES BAJOS","PAKISTÁN","PALAOS","PANAMÁ","PAPÚA NUEVA GUINEA","PARAGUAY","PERÚ","POLONIA","PORTUGAL","REINO UNIDO","REPÚBLICA CENTROAFRICANA","REPÚBLICA CHECA","REPÚBLICA DEMOCRÁTICA DEL CONGO","REPÚBLICA DOMINICANA","RUANDA","RUMANÍA","RUSIA","SAMOA","SAN CRISTÓBAL Y NIEVES","SAN MARINO","SAN VICENTE Y LAS GRANADINAS","SANTA LUCÍA","SANTO TOMÉ Y PRÍNCIPE","SENEGAL","SERBIA","SEYCHELLES","SIERRA LEONA","SINGAPUR","SIRIA","SOMALIA","SRI LANKA","SUDÁFRICA","SUDÁN","SUDÁN DEL SUR","SUECIA","SUIZA","SURINAM","TAILANDIA","TANZANIA","TAYIKISTÁN","TIMOR ORIENTAL","TOGO","TONGA","TRINIDAD Y TOBAGO","TÚNEZ","TURKMENISTÁN","TURQUÍA","TUVALU","UCRANIA","UGANDA","URUGUAY","UZBEKISTÁN","VANUATU","VENEZUELA","VIETNAM","YEMEN","YIBUTI","ZAMBIA","ZIMBABUE","OTRO"];
+// Helper: input con datalist para instituciones (permite escribir libremente o seleccionar)
+const INSTITUCIONES_LIST=["UNAM","IPN — Escuela Superior de Medicina","UAM","UdeG","BUAP","UANL","UADY","UAG","UDLA","Universidad Anáhuac","Universidad La Salle","ITESM (Tec de Monterrey)","Universidad Tecnológica de México (UNITEC)","Universidad Autónoma de Chihuahua (UACH)","Instituto de Estudios Superiores de Chiapas (IESCH)","Hospital General de México","IMSS","ISSSTE","CMN Siglo XXI","CMN 20 de Noviembre","CMN La Raza","INER","INR","INCan","INNN","INNSZ","Instituto Nacional de Cardiología Ignacio Chávez","Hospital Juárez de México","Hospital Infantil de México Federico Gómez","UACH","UAQ — Universidad Autónoma de Querétaro","UAEM","UABC","UV — Universidad Veracruzana","UJAT","UNACH","UAZ","USON","UAA","UASLP","UABJO","UACAM","UAGRO","UPCH","Universidad del Valle de México (UVM)","UNITEC","Universidad Iberoamericana","Universidad Panamericana","Centro Médico Nacional Occidente","Hospital Civil de Guadalajara","Hospital Ángeles","Hospital ABC","Hospital Español","Hospital Médica Sur","Hospital San Ángel Inn","Hospital Star Médica","Médica Integral GNP","Otras instituciones públicas","Otra institución privada"];
+function instInput(id,val,ph="Escribe o selecciona la institución"){
+  const lid="dl-inst-"+id;
+  return`<div style="position:relative"><input type="text" id="${id}" value="${val||""}" placeholder="${ph}" list="${lid}" autocomplete="off" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"><datalist id="${lid}">${INSTITUCIONES_LIST.map(i=>`<option value="${i}">`).join("")}</datalist></div>`;
+}
 const ESPECIALIDADES=[
   // ── Medicina General y Familiar ────────────────────────
   "Medicina General","Medicina Familiar","Medicina Interna","Médico Cirujano",
@@ -541,12 +547,12 @@ window.abrirModalUsuario=async function(uid=""){
     if(title)title.textContent="➕ Nuevo usuario";
   }
   const ROLES=[["admin","Administrador"],["medico","Médico"],["fisioterapeuta","Fisioterapeuta / L.T.F. / L.F.T."],["nutricion","Lic. en Nutrición"],["enfermeria","Enfermería"],["recepcion","Recepcionista"]];
-  const INSTITUCIONES=["UNAM","IPN — Escuela Superior de Medicina","UAM","UdeG","BUAP","UANL","UADY","UAG","UDLA","Universidad Anáhuac","Universidad La Salle","ITESM","Hospital General de México","IMSS","ISSSTE","CMN Siglo XXI","INER","INR","INCan","INNN","INNSZ","Otra institución"];
+  
   body.innerHTML=`
     <!-- Datos de acceso y rol -->
     <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">Datos de acceso y rol</b></div>
     <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:12px;margin-bottom:14px">
-      ${fld("Título",`<select id="mu_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","L.T.F.","L.F.T.","L.N.","Psic.","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
+      ${fld("Título",`<select id="mu_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","L.T.F.","L.F.T.","L.N.","Psic.","Neuropsic.","Fis.","Enf.","Enf.ª","M.C.","Mtro.","Mtra.","M. en C.","Dr. en C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
       ${fld("Nombre(s) *",inp("mu_nom",u.nombre||"","Nombre(s)"),1)}
       ${fld("Apellidos *",inp("mu_ap",u.apellidos||"","Apellido Paterno Materno"),1)}
     </div>
@@ -560,17 +566,17 @@ window.abrirModalUsuario=async function(uid=""){
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       ${fld("Licenciatura / Pregrado",inp("mu_lic",u.licenciatura||"","Ej: Médico Cirujano"))}
       ${fld("Cédula profesional",inp("mu_cedmed",u.cedula_medico||u.cedula||"","No. de cédula prof."))}
-      ${fld("Institución",`<select id="mu_igrado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_grado||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+      ${fld("Institución",`${instInput("mu_igrado",u.institucion_grado||"")}`)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       ${fld("Especialidad",`<select id="mu_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
       ${fld("Cédula de especialidad",inp("mu_cedesp1",u.cedula_esp_1||u.cedula_especialidad||"","No. de cédula esp."))}
-      ${fld("Institución de especialidad",`<select id="mu_iesp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_esp_1||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+      ${fld("Institución de especialidad",`${instInput("mu_iesp1",u.institucion_esp_1||"")}`)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       ${fld("Subespecialidad",inp("mu_subesp",u.subespecialidad||"","Ej: Traumatología del Deporte"))}
       ${fld("Cédula de subespecialidad",inp("mu_cedsubesp",u.cedula_subesp||"","No. de cédula subesp."))}
-      ${fld("Institución de subespecialidad",`<select id="mu_iesp2" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_esp_2||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+      ${fld("Institución de subespecialidad",`${instInput("mu_iesp2",u.institucion_esp_2||"")}`)}
     </div>
     <div style="border:1px solid ${BR};border-radius:8px;padding:12px;margin-bottom:16px;background:#FFFDE7">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -579,7 +585,7 @@ window.abrirModalUsuario=async function(uid=""){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         ${fld("Alta Especialidad en…",inp("mu_altaesp",u.alta_especialidad||"","Ej: Medicina del Deporte de Alto Rendimiento"))}
-        ${fld("Institución",`<select id="mu_ialta" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_alta||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+        ${fld("Institución",`${instInput("mu_ialta",u.institucion_alta||"")}`)}
       </div>
     </div>
     <!-- Agenda y firma -->
@@ -769,7 +775,7 @@ async function pgPerfil(){
     if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
   }
   const u=STATE.userProfile||{};
-  const INSTITUCIONES=["UNAM","IPN — Escuela Superior de Medicina","UAM","UdeG","BUAP","UANL","UADY","UAG","UDLA","Universidad Anáhuac","Universidad La Salle","ITESM","Hospital General de México","IMSS","ISSSTE","CMN Siglo XXI","INER","INR","INCan","INNN","INNSZ","Otra institución"];
+  
   RR().innerHTML=nav()+`
   <div style="max-width:860px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -785,7 +791,7 @@ async function pgPerfil(){
       <div class="form-section-header"><b>👤 Datos personales</b></div>
       <div class="form-section-body">
         <div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:12px;margin-bottom:14px">
-          ${fld("Título",`<select id="pf_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","L.T.F.","L.F.T.","L.N.","Psic.","Fis.","Enf.","Enf.ª","M.C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
+          ${fld("Título",`<select id="pf_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","L.T.F.","L.F.T.","L.N.","Psic.","Neuropsic.","Fis.","Enf.","Enf.ª","M.C.","Mtro.","Mtra.","M. en C.","Dr. en C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
           ${fld("Nombre(s) *",inp("pf_nom",u.nombre||"","Nombre(s)"),1)}
           ${fld("Apellidos *",inp("pf_ap",u.apellidos||"","Ap. Paterno Materno"),1)}
         </div>
@@ -807,17 +813,17 @@ async function pgPerfil(){
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
           ${fld("Licenciatura / Pregrado",inp("pf_lic",u.licenciatura||"","Ej: Médico Cirujano"))}
           ${fld("Cédula profesional",inp("pf_cedmed",u.cedula_medico||u.cedula||"","No. de cédula profesional"))}
-          ${fld("Institución",`<select id="pf_igrado" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_grado||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+          ${fld("Institución",`${instInput("pf_igrado",u.institucion_grado||"")}`)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
           ${fld("Especialidad",`<select id="pf_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
           ${fld("Cédula de especialidad",inp("pf_cedesp1",u.cedula_esp_1||u.cedula_especialidad||"","No. de cédula esp."))}
-          ${fld("Institución de especialidad",`<select id="pf_iesp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_esp_1||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+          ${fld("Institución de especialidad",`${instInput("pf_iesp1",u.institucion_esp_1||"")}`)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
           ${fld("Subespecialidad",inp("pf_subesp",u.subespecialidad||"","Ej: Traumatología del Deporte"))}
           ${fld("Cédula de subespecialidad",inp("pf_cedsubesp",u.cedula_subesp||"","No. de cédula subesp."))}
-          ${fld("Institución de subespecialidad",`<select id="pf_iesp2" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_esp_2||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+          ${fld("Institución de subespecialidad",`${instInput("pf_iesp2",u.institucion_esp_2||"")}`)}
         </div>
         <div style="border:1px solid ${BR};border-radius:8px;padding:12px;margin-bottom:14px;background:#FFFDE7">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -826,7 +832,7 @@ async function pgPerfil(){
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             ${fld("Alta Especialidad en…",inp("pf_altaesp",u.alta_especialidad||"","Ej: Medicina del Deporte de Alto Rendimiento"))}
-            ${fld("Institución",`<select id="pf_ialta" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${INSTITUCIONES.map(i=>`<option ${(u.institucion_alta||"")===i?"selected":""}>${i}</option>`).join("")}</select>`)}
+            ${fld("Institución",`${instInput("pf_ialta",u.institucion_alta||"")}`)}
           </div>
         </div>
         <div style="display:flex;justify-content:flex-end">
@@ -2283,16 +2289,46 @@ function renderAnt(b){
         ${[["fam","Ant. Familiares"],["pat","Ant. Patológicos"],["nop","Ant. No Patológicos"],["oc","Ant. Oculares"],["gin","Gineco-obstétricos"],["neo","Neonatales"],["al","Alergias"],["med","Medicamentos"],["dis","Discapacidades"],["ot","Otros"]].map(([k,l])=>`<button onclick="setAT('${k}')" style="padding:8px 11px;border:none;background:transparent;cursor:pointer;font-weight:${STATE.antTab===k?700:500};font-size:14px;color:${STATE.antTab===k?P:MU};border-bottom:${STATE.antTab===k?"3px solid "+P:"3px solid transparent"};white-space:nowrap">${l}</button>`).join("")}
       </div>
       <div style="padding:16px">
-        <div style="display:flex;gap:6px;margin-bottom:14px">
+        <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center">
           ${btn("💾 Guardar","guardarAnt()","ok",1)}
           ${btn("🖨️ Imprimir","","s",1)}
+          <span id="autosave-ind" style="font-size:13px;color:#2E7D32;font-weight:600;opacity:0;transition:opacity .5s;margin-left:6px">💾 Guardado</span>
         </div>
         <div id="ab"></div>
       </div>
     </div>
   </div>`;renderAB();
 }
-window.setAT=function(t){STATE.antTab=t;const b=document.getElementById("eb");if(b)renderAnt(b);}
+window.setAT=async function(t){
+  // Auto-guardar la pestaña actual antes de cambiar (NOM-004 — no perder datos)
+  saveABTextareas();
+  const pid=STATE.pat?.id;
+  if(pid){
+    const tab=STATE.antTab||"fam";
+    try{
+      if(tab==="fam"){
+        const fn=document.getElementById("fam_notas");
+        if(fn)STATE.famNotas=fn.value;
+        await SB.from("antecedentes_familiares").upsert({paciente_id:pid,datos:STATE.famData,notas:STATE.famNotas},{onConflict:"paciente_id"});
+      } else if(tab==="pat"||tab==="oc"){
+        await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
+      } else if(tab==="nop"){
+        await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:STATE.antNoPatText||""},{onConflict:"paciente_id"});
+      } else if(tab==="med"){
+        await SB.from("medicamentos_usados").upsert({paciente_id:pid,texto:STATE.medText||"",otros:STATE.medOtrosText||""},{onConflict:"paciente_id"});
+      } else if(tab==="al"){
+        await SB.from("alergias").upsert({paciente_id:pid,lista:STATE.alergs,otros:STATE.alOtrosText||""},{onConflict:"paciente_id"});
+      } else if(tab==="ot"){
+        await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:STATE.antNoPatText||"",otros:STATE.otrosText||""},{onConflict:"paciente_id"});
+      }
+      // Indicador visual discreto de autoguardado
+      const ind=document.getElementById("autosave-ind");
+      if(ind){ind.textContent="💾 Guardado";ind.style.opacity="1";setTimeout(()=>{ind.style.opacity="0";},2000);}
+    }catch(e){console.warn("Autoguardado:",e.message);}
+  }
+  STATE.antTab=t;
+  const b=document.getElementById("eb");if(b)renderAnt(b);
+}
 window.guardarAnt=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
   loading(true,"Guardando antecedentes...");
@@ -2410,7 +2446,8 @@ window.removeDiscap=async function(idx){
 function renderAB(){
   const ab=document.getElementById("ab");if(!ab)return;
   const enfs=["Diabetes Mellitus","Hipertensión Arterial","Dislipidemias","Neoplasias","Malformaciones hereditarias","Alergias","Enf. psiquiátricas","Enf. neurológicas","Enf. cardiovasculares","Enf. broncopulmonares","Enf. tiroideas","Enf. renales","Enf. osteoarticulares","Enf. infectocontagiosas"];
-  const rels=["Padre","Madre","Ab.Pat","Ab.Mat","Hermanos"];
+  const relKeys=["Padre","Madre","Ab.Pat","Ab.Mat","Hermanos"];
+  const relLabels=["Padre","Madre","Abuelo Paterno","Abuela Materna","Hermanos"];
   const patG=["Alérgicos","Hospitalizaciones","Quirúrgicos","Traumáticos","Transfusionales"];
   const patA=["Alcoholismo (ver detalles)","Tabaquismo (ver detalles)","Otras sustancias psicoactivas"];
   const patEx=["Exantema súbito","Roséola escarlatina","Rubéola","Sarampión","Varicela","Otra patología exantemática"];
@@ -2419,7 +2456,7 @@ function renderAB(){
   const alergsComun=["ALERGIAS NEGADAS","ÁCAROS","ALIMENTOS","CHOCOLATE","FRUTOS SECOS","HONGOS","HUMEDAD","LATEX","MARISCOS","MASCOTAS","MOHO","NÍQUEL","PICADURA DE INSECTOS","POLEN","POLVO","SOL"];
   if(STATE.antTab==="fam"){
     const notaFam=STATE.famNotas||STATE.antData?.familiares?.notas||"";
-    ab.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:500px;width:100%"><thead><tr style="background:${PL}"><th style="padding:8px 12px;text-align:left;font-size:14px;width:220px;color:${TX}">Enfermedad</th>${rels.map(r=>`<th style="padding:10px 12px;font-size:14px;text-align:center;color:${TX}">${r}</th>`).join("")}</tr></thead><tbody>${enfs.map((e,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:8px 12px;font-size:14px">${e}</td>${rels.map(r=>`<td style="text-align:center;padding:8px"><input type="checkbox" ${STATE.famData[e+"_"+r]?"checked":""} onchange="toggleFam('${e}','${r}')" style="accent-color:${P};cursor:pointer;width:15px;height:15px"></td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    ab.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:500px;width:100%"><thead><tr style="background:${PL}"><th style="padding:8px 12px;text-align:left;font-size:14px;width:220px;color:${TX}">Enfermedad</th>${relLabels.map(r=>`<th style="padding:10px 12px;font-size:14px;text-align:center;color:${TX}">${r}</th>`).join("")}</tr></thead><tbody>${enfs.map((e,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:8px 12px;font-size:14px">${e}</td>${relKeys.map(r=>`<td style="text-align:center;padding:8px"><input type="checkbox" ${STATE.famData[e+"_"+r]?"checked":""} onchange="toggleFam('${e}','${r}')" style="accent-color:${P};cursor:pointer;width:15px;height:15px"></td>`).join("")}</tr>`).join("")}</tbody></table></div>
     <div style="margin-top:14px">
       ${fld("Observaciones y notas adicionales",`<textarea id="fam_notas" rows="4" placeholder="Especifique detalles relevantes de los antecedentes heredofamiliares, edades de diagnóstico, causas de fallecimiento, etc." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-size:14px;line-height:1.6">${notaFam}</textarea>`)}
     </div>`;
