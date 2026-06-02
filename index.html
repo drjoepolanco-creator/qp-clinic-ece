@@ -1752,12 +1752,17 @@ window.guardarNuevoPac=async function(){
   STATE.pat=data;
   STATE.expTab="ficha";
   STATE.ficTab="gen";
-  STATE.famData={};
-  STATE.patData={};
-  STATE.patOtrasNotes="";
+  // Limpiar TODOS los datos clínicos — nuevo paciente empieza en blanco
+  STATE.famData={};STATE.famNotas="";
+  STATE.patData={};STATE.patOtrasNotes="";
   STATE.alergs=["ALERGIAS NEGADAS"];
+  STATE.alOtrosText="";
   STATE.discapacidades=[];
-  STATE.consultaActual=null;
+  STATE.ginData={};
+  STATE.antNoPatText="";STATE.otrosText="";
+  STATE.medText="";STATE.medOtrosText="";
+  STATE.signosHoy=null;STATE.consultaActual=null;
+  STATE.antTab="fam";
   showToast("✓ Paciente registrado — Exp. "+data.numero_expediente);
   go("expediente");
 }
