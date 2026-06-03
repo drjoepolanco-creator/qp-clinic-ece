@@ -5018,25 +5018,30 @@ window.descargarNotaPDF=async function(){
   }
   function nuevaPagina(){doc.addPage();addFooter();y=14;}
 
-  // ── Bloque SOAP unificado ────────────────────────────────
-  // Regla: después del header azul, siempre hay una línea vacía antes del texto
+  // ── Bloque SOAP unificado con texto justificado ──────────
   function bloque(titulo,contenido){
     if(!contenido||!S(contenido).trim())return;
     if(y>233){nuevaPagina();}
-    // Barra azul con título
     doc.setFillColor(AZUL[0],AZUL[1],AZUL[2]);
     doc.rect(M,y,CUERPO,6.5,"F");
     doc.setTextColor(BLANCO[0],BLANCO[1],BLANCO[2]);
     doc.setFontSize(FS_HEADER);doc.setFont("helvetica","bold");
     doc.text(S(titulo),M+3,y+4.5);
-    y+=8; // espacio: 6.5 barra + 1.5 gap = línea vacía antes del texto
-    // Cuerpo de texto — fuente y color unificados
+    y+=8;
     doc.setTextColor(NEGRO[0],NEGRO[1],NEGRO[2]);
     doc.setFontSize(FS_BODY);doc.setFont("helvetica","normal");
-    const ls=doc.splitTextToSize(S(contenido),CUERPO-6);
+    const maxTW=CUERPO-6;
+    const ls=doc.splitTextToSize(S(contenido),maxTW);
     ls.forEach(function(l){
       if(y>253){nuevaPagina();}
-      doc.text(S(l),M+3,y);y+=4.8;
+      // Justificar líneas que llenan más del 78% del ancho (no la última de cada párrafo)
+      const lw=doc.getTextWidth(S(l));
+      if(lw>maxTW*0.78){
+        doc.text(S(l),M+3,y,{align:"justify",maxWidth:maxTW});
+      } else {
+        doc.text(S(l),M+3,y);
+      }
+      y+=4.8;
     });
     y+=3.5;
   }
