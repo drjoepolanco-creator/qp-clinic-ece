@@ -5019,7 +5019,15 @@ window.descargarNotaPDF=async function(){
     doc.text("Insurgentes Sur 933, Col. Napoles, Alcaldia Benito Juarez, CDMX, C.P. 03810  |  Tel: 55 5682 4345 / 56 4423 7028  |  Cel: 55 8767 3104  |  dr.polanco@qpclinic.org  |  qpclinic.org",W/2,fp+1,{align:"center"});
     doc.text("NOM-004-SSA3-2012 - Expediente Clinico Electronico QP Clinic",W/2,fp+5,{align:"center"});
   }
-  function nuevaPagina(){doc.addPage();addFooter();y=14;}
+  function nuevaPagina(){
+    doc.addPage();
+    addFooter();
+    // CRÍTICO: resetear estado después del footer (addFooter deja fuente 7pt y color gris)
+    doc.setFontSize(FS_BODY);
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(NEGRO[0],NEGRO[1],NEGRO[2]);
+    y=14;
+  }
 
   // ── Bloque SOAP unificado — JSON spec: section_title=10, body=9, justify ──
   function bloque(titulo,contenido){
