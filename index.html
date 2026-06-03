@@ -5057,12 +5057,12 @@ window.descargarNotaPDF=async function(){
   doc.setFillColor(AZUL[0],AZUL[1],AZUL[2]);doc.rect(0,0,W,HDR_H,"F");
   // Panel izquierdo
   doc.setTextColor(BLANCO[0],BLANCO[1],BLANCO[2]);
-  doc.setFontSize(FS_HEADER_CLINIC+1.5);doc.setFont("helvetica","bold");
+  doc.setFontSize(FS_SEC);doc.setFont("helvetica","bold");
   doc.text("QP Clinic  Especialistas en Salud Integral",M,9);
   doc.setFontSize(FS_FOOTER);doc.setFont("helvetica","normal");
   doc.text("Insurgentes Sur 933, Col. Napoles, CDMX  |  55 5682 4345  |  qpclinic.org",M,14);
   doc.setDrawColor(BLANCO[0],BLANCO[1],BLANCO[2]);doc.setLineWidth(0.25);doc.line(M,16,W-50,16);
-  doc.setFontSize(FS_HEADER_CLINIC+1);doc.setFont("helvetica","bold");
+  doc.setFontSize(FS_SEC);doc.setFont("helvetica","bold");
   doc.text(medNom,M,22);
   const creds=[
     [S(med.licenciatura),S(med.institucion_grado),med.cedula_medico?"Ced.Prof."+S(med.cedula_medico):""].filter(Boolean).join(" - "),
@@ -5079,7 +5079,7 @@ window.descargarNotaPDF=async function(){
   // ── BANNER TIPO DE NOTA ──────────────────────────────
   doc.setFillColor(13,71,161);doc.rect(0,y,W,7.5,"F");
   doc.setTextColor(BLANCO[0],BLANCO[1],BLANCO[2]);
-  doc.setFontSize(FS_HEADER_CLINIC);doc.setFont("helvetica","bold");
+  doc.setFontSize(FS_SEC);doc.setFont("helvetica","bold");
   doc.text(tipoNota.toUpperCase(),W/2,y+5.2,{align:"center"});
   y+=9.5;
 
