@@ -4995,14 +4995,17 @@ window.descargarNotaPDF=async function(){
   if(med.firma_digital){try{firmaB64=await urlToBase64firma(med.firma_digital);}catch(e){}}
 
   try{
-  // ── Constantes de estilo unificado ──────────────────────
+  // ── Constantes de estilo — basadas en template qp_clinic_nota_evolucion_v1 ──
   const AZUL=[21,101,192];
-  const NEGRO=[30,30,30];      // cuerpo de texto — negro uniforme
-  const GRIS_MED=[84,110,122]; // etiquetas secundarias
+  const NEGRO=[0,0,0];           // #000000 — negro puro para TODO el texto de cuerpo
+  const GRIS_MED=[80,100,115];   // etiquetas secundarias / labels
   const BLANCO=[255,255,255];
-  const FS_BODY=8.5;           // fuente cuerpo — uniforme en todo el doc
-  const FS_LABEL=7.5;          // etiquetas de sección
-  const FS_HEADER=8;           // títulos de bloque
+  const FS_BODY=9;               // body: 9 (JSON spec)
+  const FS_SEC=10;               // section_title: 10 (JSON spec)
+  const FS_TITULO=12;            // NOTA DE EVOLUCIÓN banner: entre 9 y 13
+  const FS_SEC_CLINIC=9;      // header clínica/médico: 9 (JSON spec)
+  const FS_FOOTER=7;             // footer: 7 (JSON spec)
+  const LH=4.8;                  // line height: 9pt × 1.25 ≈ 4.8mm
 
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
   const W=215.9,M=14,CUERPO=W-2*M,PH=279;
@@ -5012,36 +5015,37 @@ window.descargarNotaPDF=async function(){
   function addFooter(){
     const fp=PH-10;
     doc.setDrawColor(180,200,220);doc.setLineWidth(0.25);doc.line(M,fp-2,W-M,fp-2);
-    doc.setFontSize(6);doc.setFont("helvetica","normal");doc.setTextColor(150,170,180);
+    doc.setFontSize(FS_FOOTER);doc.setFont("helvetica","normal");doc.setTextColor(150,170,180);
     doc.text("Insurgentes Sur 933, Col. Napoles, Alcaldia Benito Juarez, CDMX, C.P. 03810  |  Tel: 55 5682 4345 / 56 4423 7028  |  Cel: 55 8767 3104  |  dr.polanco@qpclinic.org  |  qpclinic.org",W/2,fp+1,{align:"center"});
     doc.text("NOM-004-SSA3-2012 - Expediente Clinico Electronico QP Clinic",W/2,fp+5,{align:"center"});
   }
   function nuevaPagina(){doc.addPage();addFooter();y=14;}
 
-  // ── Bloque SOAP unificado con texto justificado ──────────
+  // ── Bloque SOAP unificado — JSON spec: section_title=10, body=9, justify ──
   function bloque(titulo,contenido){
     if(!contenido||!S(contenido).trim())return;
-    if(y>233){nuevaPagina();}
+    if(y>232){nuevaPagina();}
+    // Barra de sección: FS_SEC=10, bold, azul QP Clinic
     doc.setFillColor(AZUL[0],AZUL[1],AZUL[2]);
-    doc.rect(M,y,CUERPO,6.5,"F");
+    doc.rect(M,y,CUERPO,7,"F");
     doc.setTextColor(BLANCO[0],BLANCO[1],BLANCO[2]);
-    doc.setFontSize(FS_HEADER);doc.setFont("helvetica","bold");
-    doc.text(S(titulo),M+3,y+4.5);
-    y+=8;
+    doc.setFontSize(FS_SEC);doc.setFont("helvetica","bold");
+    doc.text(S(titulo),M+3,y+5);
+    y+=9; // 7mm barra + 2mm gap antes del texto
+    // Cuerpo: FS_BODY=9, negro puro, justificado
     doc.setTextColor(NEGRO[0],NEGRO[1],NEGRO[2]);
     doc.setFontSize(FS_BODY);doc.setFont("helvetica","normal");
     const maxTW=CUERPO-6;
     const ls=doc.splitTextToSize(S(contenido),maxTW);
     ls.forEach(function(l){
       if(y>253){nuevaPagina();}
-      // Justificar líneas que llenan más del 78% del ancho (no la última de cada párrafo)
       const lw=doc.getTextWidth(S(l));
       if(lw>maxTW*0.78){
         doc.text(S(l),M+3,y,{align:"justify",maxWidth:maxTW});
       } else {
         doc.text(S(l),M+3,y);
       }
-      y+=4.8;
+      y+=LH;
     });
     y+=3.5;
   }
@@ -5053,19 +5057,19 @@ window.descargarNotaPDF=async function(){
   doc.setFillColor(AZUL[0],AZUL[1],AZUL[2]);doc.rect(0,0,W,HDR_H,"F");
   // Panel izquierdo
   doc.setTextColor(BLANCO[0],BLANCO[1],BLANCO[2]);
-  doc.setFontSize(10.5);doc.setFont("helvetica","bold");
+  doc.setFontSize(FS_HEADER_CLINIC+1.5);doc.setFont("helvetica","bold");
   doc.text("QP Clinic  Especialistas en Salud Integral",M,9);
-  doc.setFontSize(7.5);doc.setFont("helvetica","normal");
+  doc.setFontSize(FS_FOOTER);doc.setFont("helvetica","normal");
   doc.text("Insurgentes Sur 933, Col. Napoles, CDMX  |  55 5682 4345  |  qpclinic.org",M,14);
   doc.setDrawColor(BLANCO[0],BLANCO[1],BLANCO[2]);doc.setLineWidth(0.25);doc.line(M,16,W-50,16);
-  doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.setFontSize(FS_HEADER_CLINIC+1);doc.setFont("helvetica","bold");
   doc.text(medNom,M,22);
   const creds=[
     [S(med.licenciatura),S(med.institucion_grado),med.cedula_medico?"Ced.Prof."+S(med.cedula_medico):""].filter(Boolean).join(" - "),
     [S(med.especialidad_1),S(med.institucion_esp_1),med.cedula_esp_1?"Ced.Esp."+S(med.cedula_esp_1):""].filter(Boolean).join(" - "),
     [S(med.subespecialidad),med.cedula_subesp?"Ced.Subesp."+S(med.cedula_subesp):""].filter(Boolean).join(" - ")
   ].filter(Boolean);
-  doc.setFontSize(7.5);doc.setFont("helvetica","normal");
+  doc.setFontSize(FS_FOOTER);doc.setFont("helvetica","normal");
   let cy=28;creds.forEach(function(l){if(cy<HDR_H-2&&l){doc.text(l.substring(0,88),M,cy);cy+=4.5;}});
   // Panel derecho — logo
   doc.setFillColor(13,71,161);doc.rect(W-48,0,48,HDR_H,"F");
@@ -5075,7 +5079,7 @@ window.descargarNotaPDF=async function(){
   // ── BANNER TIPO DE NOTA ──────────────────────────────
   doc.setFillColor(13,71,161);doc.rect(0,y,W,7.5,"F");
   doc.setTextColor(BLANCO[0],BLANCO[1],BLANCO[2]);
-  doc.setFontSize(9);doc.setFont("helvetica","bold");
+  doc.setFontSize(FS_HEADER_CLINIC);doc.setFont("helvetica","bold");
   doc.text(tipoNota.toUpperCase(),W/2,y+5.2,{align:"center"});
   y+=9.5;
 
@@ -5116,7 +5120,7 @@ window.descargarNotaPDF=async function(){
   ].filter(function(x){return x[1]!==null&&x[1]!==undefined&&T(x[1])!=="";});
   if(svItems.length){
     doc.setFillColor(227,242,253);doc.rect(M,y,CUERPO,7.5,"F");
-    doc.setFontSize(FS_LABEL);doc.setFont("helvetica","bold");doc.setTextColor(AZUL[0],AZUL[1],AZUL[2]);
+    doc.setFontSize(FS_FOOTER);doc.setFont("helvetica","bold");doc.setTextColor(AZUL[0],AZUL[1],AZUL[2]);
     doc.text("SIGNOS VITALES:",M+2,y+5);
     doc.setFont("helvetica","normal");doc.setTextColor(NEGRO[0],NEGRO[1],NEGRO[2]);
     const svStr=svItems.map(function(x){return T(x[0])+":"+T(x[1])+T(x[2]);}).join("   ");
@@ -5139,7 +5143,7 @@ window.descargarNotaPDF=async function(){
     if(y>230){nuevaPagina();}
     doc.setFillColor(AZUL[0],AZUL[1],AZUL[2]);doc.rect(M,y,CUERPO,6.5,"F");
     doc.setTextColor(BLANCO[0],BLANCO[1],BLANCO[2]);
-    doc.setFontSize(FS_HEADER);doc.setFont("helvetica","bold");
+    doc.setFontSize(FS_SEC);doc.setFont("helvetica","bold");
     doc.text("DATOS ESPECIFICOS - "+S(tipoNota).toUpperCase(),M+3,y+4.5);y+=8;
     const LBLS={gcs_o:"GCS Ocular",gcs_v:"GCS Verbal",gcs_m:"GCS Motor",gcs_total:"GCS Total",triaje:"Triaje Manchester",avpu:"AVPU",mecanismo:"Mecanismo",tiempo_urg:"Tiempo evolucion",destino_urg:"Destino del paciente",cond_egreso_urg:"Condicion al egreso",dx_preop:"Diagnostico preoperatorio",procedimiento_qx:"Procedimiento planeado",anestesia:"Anestesia propuesta",abordaje:"Via de abordaje",ayuno:"Ayuno hrs",asa:"Riesgo ASA",riesgo_qx:"Riesgo quirurgico",consentimiento_qx:"Consentimiento",obs_preop:"Observaciones",dx_preop_pos:"Dx preoperatorio",dx_posop:"Dx posoperatorio",op_planeada:"Operacion planeada",op_realizada:"Operacion realizada",hallazgos_qx:"Hallazgos transoperatorios",tecnica_qx:"Tecnica quirurgica",sangrado:"Sangrado cc",duracion_qx:"Duracion min",anestesia_real:"Anestesia utilizada",incidentes_qx:"Incidentes",estado_posop:"Estado al terminar",destino_posop:"Destino postoperatorio",plan_posop:"Plan postoperatorio",dias_tx:"Dias tratamiento",motivo_egreso:"Motivo egreso",condicion_egreso:"Condicion alta",dx_finales:"Diagnosticos finales",resumen_tx:"Tratamiento recibido",instrucciones_alta:"Instrucciones alta",cita_seguimiento:"Cita seguimiento",pronostico_egreso:"Pronostico al egreso",receptor:"Centro receptor",especialidad_ref:"Especialidad receptora",motivo_ref:"Motivo referencia",resumen_ref:"Resumen clinico",cond_traslado:"Condicion traslado",medio_traslado:"Medio traslado",estudios_ref:"Estudios enviados",tiempo_evol:"Tiempo evolucion",estado_general:"Estado general",imc_clas:"Clasificacion IMC",ta_clas:"Clasificacion TA",cap_func:"Capacidad funcional",dx_inicial:"Diagnostico inicial"};
     const CAMPOS_LARGOS=new Set(["motivo_ref","resumen_ref","estudios_ref","hallazgos_qx","tecnica_qx","incidentes_qx","plan_posop","dx_finales","resumen_tx","instrucciones_alta","obs_preop"]);
@@ -5150,7 +5154,7 @@ window.descargarNotaPDF=async function(){
       const val=S(d[k]);if(!val||val==="undefined"||val==="null")return;
       const esLargo=CAMPOS_LARGOS.has(k)||val.length>60;
       if(esLargo){
-        doc.setFontSize(FS_LABEL);doc.setFont("helvetica","bold");doc.setTextColor(AZUL[0],AZUL[1],AZUL[2]);
+        doc.setFontSize(FS_FOOTER);doc.setFont("helvetica","bold");doc.setTextColor(AZUL[0],AZUL[1],AZUL[2]);
         doc.text(lbl.toUpperCase()+":",M+3,y);y+=4.5;
         doc.setFontSize(FS_BODY);doc.setFont("helvetica","normal");doc.setTextColor(NEGRO[0],NEGRO[1],NEGRO[2]);
         const ls2=doc.splitTextToSize(val,CUERPO-8);
@@ -5173,7 +5177,7 @@ window.descargarNotaPDF=async function(){
     if(y>233){nuevaPagina();}
     doc.setFillColor(AZUL[0],AZUL[1],AZUL[2]);doc.rect(M,y,CUERPO,6.5,"F");
     doc.setTextColor(BLANCO[0],BLANCO[1],BLANCO[2]);
-    doc.setFontSize(FS_HEADER);doc.setFont("helvetica","bold");
+    doc.setFontSize(FS_SEC);doc.setFont("helvetica","bold");
     doc.text("PRONOSTICO",M+3,y+4.5);y+=8;
     doc.setTextColor(NEGRO[0],NEGRO[1],NEGRO[2]);doc.setFontSize(FS_BODY);
     if(pf){doc.setFont("helvetica","bold");doc.text("Para la funcion:",M+3,y);doc.setFont("helvetica","normal");doc.text(S(pf),M+38,y);y+=5.5;}
@@ -5190,7 +5194,7 @@ window.descargarNotaPDF=async function(){
   if(firmaB64){try{doc.addImage(firmaB64,"PNG",W/2-25,y,50,16);y+=18;}catch(e){}}
   doc.setDrawColor(NEGRO[0],NEGRO[1],NEGRO[2]);doc.setLineWidth(0.35);
   doc.line(W/2-28,y,W/2+28,y);y+=1;
-  doc.setFontSize(FS_HEADER);doc.setFont("helvetica","bold");doc.setTextColor(NEGRO[0],NEGRO[1],NEGRO[2]);
+  doc.setFontSize(FS_SEC);doc.setFont("helvetica","bold");doc.setTextColor(NEGRO[0],NEGRO[1],NEGRO[2]);
   doc.text("FIRMA DEL MEDICO",W/2,y+4,{align:"center"});
   doc.setFont("helvetica","normal");doc.setTextColor(GRIS_MED[0],GRIS_MED[1],GRIS_MED[2]);
   doc.text(medNom,W/2,y+9,{align:"center"});
@@ -5198,7 +5202,7 @@ window.descargarNotaPDF=async function(){
   if(c.bloqueada&&c.fecha_firma&&c.medico_nombre){
     y+=16;
     const fechaFirma=S(c.fecha_firma).replace("T"," ").replace(/\.\d+\+\d+:\d+$/,"").replace(/\.\d+$/,"");
-    doc.setFontSize(7);doc.setTextColor(46,125,50);
+    doc.setFontSize(FS_FOOTER);doc.setTextColor(46,125,50);
     doc.text("Nota firmada digitalmente el "+fechaFirma+" por "+S(c.medico_nombre),W/2,y,{align:"center"});
   }
 
