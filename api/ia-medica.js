@@ -1,6 +1,5 @@
 // /api/ia-medica.js — QP Clinic ECE
 // Vercel Serverless Function (CommonJS)
-// Maneja dos modos: nota SOAP completa y sugerencia de diagnósticos CIE-10
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -9,14 +8,78 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
-  const { tipo, transcripcion, nota, paciente, antecedentes } = req.body || {};
   const KEY = process.env.ANTHROPIC_API_KEY;
   if (!KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY no configurada en Vercel" });
+
+  const { tipo, transcripcion, nota, paciente, antecedentes, imageBase64, mediaType } = req.body || {};
+
+  // ── MODO 3: Extracción automática InBody desde PDF/imagen ───────────────────
+  if (tipo === "inbody") {
+    if (!imageBase64) return res.status(400).json({ error: "Se requiere imageBase64" });
+    const contentBlock = mediaType === "application/pdf"
+      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: imageBase64 } }
+      : { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 } };
+    const prompt = `Eres un experto en análisis de reportes InBody de composición corporal.
+Extrae TODOS los valores numéricos de este reporte InBody y devuelve ÚNICAMENTE un objeto JSON con estos campos exactos (null si no está presente):
+
+{
+  "fecha": "YYYY-MM-DD o null",
+  "hora": "HH:MM o null",
+  "modelo": "nombre del modelo InBody",
+  "puntuacion": número entero /100,
+  "peso": kg,
+  "altura": cm,
+  "masa_grasa": kg,
+  "masa_musculo": kg (MME - Masa Músculo Esquelético),
+  "agua_corporal": litros (Agua Corporal Total),
+  "proteina": kg,
+  "minerales": kg,
+  "imc": kg/m2,
+  "pgc": porcentaje grasa corporal (%),
+  "aec_act": ratio decimal (AEC/ACT),
+  "grasa_visceral": nivel entero,
+  "peso_ideal": kg,
+  "control_peso": kg (negativo si debe bajar),
+  "control_grasa": kg (negativo si debe bajar),
+  "control_musculo": kg,
+  "seg_brazo_der": kg masa magra brazo derecho,
+  "seg_brazo_izq": kg masa magra brazo izquierdo,
+  "seg_tronco": kg masa magra tronco,
+  "seg_pierna_der": kg masa magra pierna derecha,
+  "seg_pierna_izq": kg masa magra pierna izquierda,
+  "grasa_brazo_der": kg grasa brazo derecho,
+  "grasa_brazo_izq": kg grasa brazo izquierdo,
+  "grasa_tronco": kg grasa tronco,
+  "grasa_pierna_der": kg grasa pierna derecha,
+  "grasa_pierna_izq": kg grasa pierna izquierda,
+  "tmb": kcal tasa metabólica basal,
+  "rcl": ratio cintura-cadera decimal,
+  "masa_celular": kg masa celular corporal
+}
+
+IMPORTANTE: Devuelve SOLO el JSON puro, sin texto adicional, sin backticks, sin comentarios.`;
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "pdfs-2024-09-25" },
+        body: JSON.stringify({
+          model: "claude-opus-4-6",
+          max_tokens: 1500,
+          messages: [{ role: "user", content: [contentBlock, { type: "text", text: prompt }] }],
+        }),
+      });
+      if (!r.ok) { const t = await r.text(); return res.status(500).json({ error: `API ${r.status}: ${t.substring(0,300)}` }); }
+      const d = await r.json();
+      const raw = (d?.content?.[0]?.text || "").trim();
+      const parsed = parseJSON(raw);
+      if (!parsed) return res.status(500).json({ error: "No se pudo parsear respuesta", raw: raw.substring(0,300) });
+      return res.status(200).json({ inbody: parsed });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
 
   // ── MODO 1: Solo diagnósticos CIE-10 ────────────────────────────────────────
   if (tipo === "diagnosticos") {
     if (!nota) return res.status(400).json({ error: "Se requiere el contenido de la nota" });
-
     const prompt = `Eres un médico experto en codificación diagnóstica CIE-10.
 Analiza el siguiente contenido clínico y proporciona los diagnósticos más probables.
 
@@ -33,29 +96,23 @@ Reglas:
 - Código CIE-10 exacto y específico
 - certeza: Principal (el más probable), Secundario, o Diferencial
 - Incluye tanto diagnósticos etiológicos como sintomáticos si aplica`;
-
     try {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({
-          model: "claude-opus-4-6",
-          max_tokens: 1024,
-          messages: [{ role: "user", content: prompt }],
-        }),
+        body: JSON.stringify({ model: "claude-opus-4-6", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
       });
       if (!r.ok) { const t = await r.text(); return res.status(500).json({ error: `API ${r.status}: ${t.substring(0,200)}` }); }
       const d = await r.json();
       const raw = (d?.content?.[0]?.text || "").trim();
       const parsed = parseJSON(raw);
-      if (!parsed) return res.status(500).json({ error: "No se pudo parsear respuesta", raw: raw.substring(0, 400) });
+      if (!parsed) return res.status(500).json({ error: "No se pudo parsear respuesta", raw: raw.substring(0,400) });
       return res.status(200).json(parsed);
     } catch (e) { return res.status(500).json({ error: e.message }); }
   }
 
   // ── MODO 2: Nota SOAP completa ───────────────────────────────────────────────
   if (!transcripcion) return res.status(400).json({ error: "Se requiere la transcripción del interrogatorio" });
-
   const prompt = `Eres un médico clínico experto. Genera una nota médica SOAP completa en formato JSON.
 
 DATOS DEL PACIENTE:
@@ -83,27 +140,21 @@ Responde ÚNICAMENTE con este JSON, sin texto adicional, sin bloques de código:
 }
 
 Incluye 1-5 diagnósticos de mayor a menor probabilidad. Si es medicina del deporte incluye pruebas funcionales específicas.`;
-
   try {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: "claude-opus-4-6",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: prompt }],
-      }),
+      body: JSON.stringify({ model: "claude-opus-4-6", max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),
     });
     if (!r.ok) { const t = await r.text(); return res.status(500).json({ error: `API ${r.status}: ${t.substring(0,300)}` }); }
     const d = await r.json();
     const raw = (d?.content?.[0]?.text || "").trim();
     const parsed = parseJSON(raw);
-    if (!parsed) return res.status(500).json({ error: "No se pudo parsear respuesta IA", raw: raw.substring(0, 500) });
+    if (!parsed) return res.status(500).json({ error: "No se pudo parsear respuesta IA", raw: raw.substring(0,500) });
     return res.status(200).json(parsed);
   } catch (e) { return res.status(500).json({ error: e.message }); }
 };
 
-// Parseo robusto: JSON limpio, con markdown, o con texto alrededor
 function parseJSON(raw) {
   let p = null;
   const try_ = (s) => { try { p = JSON.parse(s); return true; } catch { return false; } };
