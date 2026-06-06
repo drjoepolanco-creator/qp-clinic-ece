@@ -4246,11 +4246,17 @@ async function renderInBody(b){
         ${[["TMB (kcal)","ib-tmb","1741"],["Relación Cintura-Cadera","ib-rcl","0.99"],["Masa Celular (kg)","ib-mcel","41.1"],["Notas","ib-notas",""]].map(([l,id,ph])=>`
         <div>${fld(l,`<input id="${id}" type="${id==='ib-notas'?'text':'number'}" step="0.01" placeholder="${ph}" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>`).join("")}
       </div>
-      <!-- PDF -->
-      <div class="upload-area" onclick="document.getElementById('ib-pdf').click()" style="margin-bottom:12px">
+      <!-- PDF + extracción IA -->
+      <div class="upload-area" onclick="document.getElementById('ib-pdf').click()" style="margin-bottom:8px">
         <p style="font-size:14px;font-weight:600;color:${P}">📎 Adjuntar PDF o imagen del reporte InBody (opcional)</p>
         <input id="ib-pdf" type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="this.nextElementSibling.style.display='block';this.nextElementSibling.textContent='📎 '+this.files[0].name">
         <p id="ib-pdf-name" style="display:none;color:${SU};font-size:14px;margin-top:4px"></p>
+      </div>
+      <div style="margin-bottom:14px">
+        <button onclick="extraerInBodyIA()" style="background:linear-gradient(135deg,#7B1FA2,#1565C0);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px">
+          🤖 Extraer datos automáticamente con IA (del PDF/imagen)
+        </button>
+        <p style="font-size:12px;color:${MU};margin-top:4px">Selecciona el archivo arriba y luego haz clic para que la IA lea y llene todos los campos</p>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px">
         ${btn("Cancelar","ocultarFormInBody()","s",1)}
@@ -4268,7 +4274,7 @@ async function renderInBody(b){
           ${ultimo.puntuacion?`<span style="background:rgba(255,255,255,.2);color:#fff;padding:2px 10px;border-radius:20px;font-size:13px;margin-left:10px;font-weight:700">Score: ${ultimo.puntuacion}/100</span>`:""}
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          ${ultimo.url_pdf?`<button onclick="window.open('${ultimo.url_pdf}','_blank')" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px">📄 Ver PDF</button>`:""}
+          ${ultimo.url_pdf?`<button onclick="verInBodyPDF('${ultimo.storage_path||""}')" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px">📄 Ver PDF</button>`:""}
           ${btn("📋 Incluir en nota","incluirInBodyEnNota('"+ultimo.id+"')","ok",1)}
         </div>
       </div>
@@ -4340,7 +4346,7 @@ async function renderInBody(b){
               <td style="padding:8px 12px">${N(r.pgc,"%",1)}${diff("pgc")}</td>
               <td style="padding:8px 12px">${r.grasa_visceral||"—"}</td>
               <td style="padding:8px 12px">${N(r.tmb," kcal",0)}</td>
-              <td style="padding:8px 12px">${r.url_pdf?`<button onclick="window.open('${r.url_pdf}','_blank')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px">📄</button>`:"—"}</td>
+              <td style="padding:8px 12px">${r.url_pdf?`<button onclick="verInBodyPDF('${r.storage_path||""}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px">📄</button>`:"—"}</td>
               <td style="padding:8px 12px"><button onclick="eliminarInBody('${r.id}')" style="background:#FFEBEE;color:${DA};border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px">✕</button></td>
             </tr>`;
           }).join("")}</tbody>
@@ -4350,7 +4356,53 @@ async function renderInBody(b){
     `}
   </div>`;
 }
-window.mostrarFormInBody=function(){document.getElementById("form-inbody").style.display="block";window.scrollTo(0,0);}
+window.verInBodyPDF=async function(storagePath){
+  if(!storagePath){showToast("Sin archivo adjunto",false);return;}
+  loading(true,"Abriendo PDF...");
+  const {data:urlData}=await SB.storage.from("expedientes").createSignedUrl(storagePath,3600);
+  loading(false);
+  if(urlData?.signedUrl)window.open(urlData.signedUrl,"_blank");
+  else showToast("Error al generar enlace del archivo",false);
+}
+window.extraerInBodyIA=async function(){
+  const file=document.getElementById("ib-pdf")?.files[0];
+  if(!file){showToast("Primero selecciona el PDF o imagen del InBody",false);return;}
+  if(file.size>10*1024*1024){showToast("Archivo muy grande (máx. 10 MB para extracción con IA)",false);return;}
+  loading(true,"🤖 Leyendo InBody con IA... (10-20 seg)");
+  try{
+    const b64=await new Promise((res,rej)=>{
+      const rd=new FileReader();
+      rd.onload=()=>res(rd.result.split(",")[1]);
+      rd.onerror=rej;rd.readAsDataURL(file);
+    });
+    const resp=await fetch("/api/ia-medica",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({tipo:"inbody",imageBase64:b64,mediaType:file.type})
+    });
+    const json=await resp.json();
+    if(!resp.ok||!json.inbody){loading(false);showToast("Error al extraer: "+(json.error||"respuesta inválida"),false);return;}
+    const d=json.inbody;
+    // Rellenar todos los campos
+    const set=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null&&val!=="")el.value=val;};
+    set("ib-fecha",d.fecha||new Date().toISOString().split("T")[0]);
+    set("ib-hora",d.hora||new Date().toTimeString().substring(0,5));
+    if(d.modelo){const s=document.getElementById("ib-modelo");if(s){const o=Array.from(s.options).find(x=>x.value.includes("570")||x.value===d.modelo);if(o)s.value=o.value;else{const n=new Option(d.modelo,d.modelo);s.add(n);s.value=d.modelo;}}}
+    set("ib-punt",d.puntuacion);set("ib-peso",d.peso);set("ib-altura",d.altura);
+    set("ib-grasa",d.masa_grasa);set("ib-musculo",d.masa_musculo);set("ib-agua",d.agua_corporal);
+    set("ib-prot",d.proteina);set("ib-min",d.minerales);
+    set("ib-imc",d.imc);set("ib-pgc",d.pgc);set("ib-aec",d.aec_act);set("ib-gv",d.grasa_visceral);
+    set("ib-pideal",d.peso_ideal);set("ib-cpeso",d.control_peso);
+    set("ib-cgrasa",d.control_grasa);set("ib-cmusculo",d.control_musculo);
+    set("ib-sbd",d.seg_brazo_der);set("ib-sbi",d.seg_brazo_izq);set("ib-st",d.seg_tronco);
+    set("ib-spd",d.seg_pierna_der);set("ib-spi",d.seg_pierna_izq);
+    set("ib-gbd",d.grasa_brazo_der);set("ib-gbi",d.grasa_brazo_izq);set("ib-gt",d.grasa_tronco);
+    set("ib-gpd",d.grasa_pierna_der);set("ib-gpi",d.grasa_pierna_izq);
+    set("ib-tmb",d.tmb);set("ib-rcl",d.rcl);set("ib-mcel",d.masa_celular);
+    loading(false);
+    showToast("✅ Datos extraídos del InBody con IA. Revisa y guarda.");
+  }catch(e){loading(false);showToast("Error: "+e.message,false);}
+}
 window.ocultarFormInBody=function(){document.getElementById("form-inbody").style.display="none";}
 window.guardarInBody=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
@@ -6296,20 +6348,41 @@ window.eliminarPago=async function(id){
 }
 async function renderTriage(b){
   const pid=STATE.pat?.id;if(!pid)return;
+  if(!STATE.svTab)STATE.svTab="sv";
+  b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:10px">
+      <div style="display:flex;border-bottom:2px solid ${BR};padding:0 12px">
+        <button onclick="STATE.svTab='sv';renderTriage(document.getElementById('eb'))" style="padding:9px 14px;border:none;background:transparent;cursor:pointer;font-weight:${STATE.svTab==='sv'?700:500};font-size:14px;color:${STATE.svTab==='sv'?P:MU};border-bottom:${STATE.svTab==='sv'?'3px solid '+P:'3px solid transparent'}">💓 Signos vitales</button>
+        <button onclick="STATE.svTab='cc';renderTriage(document.getElementById('eb'))" style="padding:9px 14px;border:none;background:transparent;cursor:pointer;font-weight:${STATE.svTab==='cc'?700:500};font-size:14px;color:${STATE.svTab==='cc'?P:MU};border-bottom:${STATE.svTab==='cc'?'3px solid '+P:'3px solid transparent'}">📊 Composición corporal (InBody)</button>
+      </div>
+    </div>
+    <div id="sv-body"></div>
+  </div>`;
+  if(STATE.svTab==="sv") await renderSVTab(b,pid);
+  else await renderCCTab(b,pid);
+}
+async function renderSVTab(b,pid){
   const {data}=await SB.from("signos_vitales").select("*").eq("paciente_id",pid).order("fecha",{ascending:false}).limit(20);
   const hist=data||[];
   const hoyStr=new Date().toISOString().split("T")[0];
-  const registrosHoy=hist.filter(s=>s.fecha&&s.fecha.startsWith(hoyStr));
-  const ultimoHoy=registrosHoy[0]||null; // Solo pre-llena si hay registro de HOY
-  const v=ultimoHoy||{}; // Si no hay de hoy, empieza vacío
-  b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
+  const ultimoHoy=hist.filter(s=>s.fecha&&s.fecha.startsWith(hoyStr))[0]||null;
+  const v=ultimoHoy||{};
+  let ibPeso="",ibTalla="",ibImc="";
+  const {data:ibData}=await SB.from("inbody_resultados").select("peso,altura,imc,fecha").eq("paciente_id",pid).order("fecha",{ascending:false}).limit(1);
+  const ibUltimo=ibData?.[0];
+  if(ibUltimo&&!v.peso&&ibUltimo.peso)ibPeso=ibUltimo.peso;
+  if(ibUltimo&&!v.talla&&ibUltimo.altura)ibTalla=(parseFloat(ibUltimo.altura)/100).toFixed(2);
+  if(ibUltimo&&!v.imc&&ibUltimo.imc)ibImc=ibUltimo.imc;
+  const svBody=document.getElementById("sv-body");if(!svBody)return;
+  svBody.innerHTML=`
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
       <div style="background:${PD};padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
-        <b style="color:#fff;font-size:14px">💓 Registrar signos vitales y somatometría</b>
+        <b style="color:#fff;font-size:14px">💓 Registrar signos vitales</b>
         <span style="font-size:14px;color:rgba(255,255,255,.7)">${new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
       </div>
       <div style="padding:14px">
-        ${ultimoHoy?`<div style="background:#E8F5E9;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#2E7D32;display:flex;align-items:center;gap:8px">✅ Mostrando el registro de hoy (${new Date(ultimoHoy.fecha).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})}). Puedes editarlo y guardar un nuevo registro.</div>`:`<div style="background:#FFF3E0;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#E65100;display:flex;align-items:center;gap:8px">📝 Sin registro de signos vitales de hoy. Llena los campos y guarda.</div>`}
+        ${ultimoHoy?`<div style="background:#E8F5E9;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#2E7D32">✅ Mostrando registro de hoy.</div>`:`<div style="background:#FFF3E0;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#E65100">📝 Sin registro de hoy.</div>`}
+        ${ibUltimo&&(ibPeso||ibTalla)?`<div style="background:#E3F2FD;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#1565C0">📊 Peso/Talla pre-llenados desde InBody del ${ibUltimo.fecha}</div>`:""}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
           ${fld("Temperatura (°C)",`<input id="sv_temp" type="number" step="0.1" value="${v.temperatura||""}" placeholder="36.5" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
           ${fld("F. Cardíaca (lat/min)",`<input id="sv_fc" type="number" value="${v.frecuencia_cardiaca||""}" placeholder="72" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
@@ -6320,51 +6393,95 @@ async function renderTriage(b){
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
           ${fld("Presión sistólica",`<input id="sv_tas" type="number" value="${v.presion_sistolica||""}" placeholder="120" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
           ${fld("Presión diastólica",`<input id="sv_tad" type="number" value="${v.presion_diastolica||""}" placeholder="80" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Peso (kg)",`<input id="sv_peso" type="number" step="0.1" value="${v.peso||""}" placeholder="70.0" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Talla (m)",`<input id="sv_talla" type="number" step="0.01" value="${v.talla||""}" placeholder="1.70" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("IMC",`<input id="sv_imc" value="${v.imc||""}" placeholder="Auto" readonly style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;background:#F8F9FA;font-size:14px;font-weight:700">`)}
+          ${fld("Peso (kg)",`<input id="sv_peso" type="number" step="0.1" value="${v.peso||ibPeso}" placeholder="70.0" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Talla (m)",`<input id="sv_talla" type="number" step="0.01" value="${v.talla||ibTalla}" placeholder="1.70" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("IMC",`<input id="sv_imc" value="${v.imc||ibImc}" placeholder="Auto" readonly style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;background:#F8F9FA;font-size:14px;font-weight:700">`)}
           ${fld("Perímetro abdominal (cm)",`<input id="sv_pab" type="number" step="0.1" value="${v.perimetro_abdominal||""}" placeholder="90" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
         </div>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
-          ${fld("Observaciones de enfermería",`<input id="sv_obs" value="${v.observaciones||""}" placeholder="Observaciones relevantes..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          ${fld("Observaciones",`<input id="sv_obs" value="${v.observaciones||""}" placeholder="Observaciones relevantes..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
           ${fld("Registrado por",`<input id="sv_enf" value="${STATE.userProfile?`${STATE.userProfile.titulo||""} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""}" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button onclick="cargarSVEnConsulta()" style="background:#7B1FA2;color:#fff;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:14px;font-weight:600">📋 Cargar en consulta activa</button>
-          ${btn("💾 Guardar signos vitales","guardarSV('"+pid+"')","ok",1)}
+          ${btn("💾 Guardar","guardarSV('"+pid+"')","ok",1)}
         </div>
       </div>
     </div>
     ${hist.length>0?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="background:#F8F9FA;padding:8px 14px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">Historial de registros (${hist.length}) — en <span style="color:${P}">azul</span> los de hoy</b></div>
+      <div style="background:#F8F9FA;padding:8px 14px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">Historial (${hist.length})</b></div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:14px">
-          <thead><tr style="background:${PL}">${["Fecha","Registró","T°","FC","FR","Sat.O₂","TA","Peso","Talla","IMC","Glu","P.Abd","Obs"].map(h=>`<th style="padding:9px 11px;text-align:left;font-weight:700;color:${TX};white-space:nowrap">${h}</th>`).join("")}</tr></thead>
+          <thead><tr style="background:${PL}">${["Fecha","Registró","T°","FC","FR","Sat","TA","Peso","Talla","IMC","Glu","Obs"].map(h=>`<th style="padding:9px 11px;text-align:left;font-weight:700;color:${TX};white-space:nowrap">${h}</th>`).join("")}</tr></thead>
           <tbody>${hist.map((s,i)=>{const esHoy=s.fecha?.startsWith(hoyStr);return`<tr style="border-top:1px solid ${BR};background:${esHoy?PL:i%2?"#FAFAFA":"#fff"};border-left:${esHoy?"3px solid "+P:"3px solid transparent"}">
             <td style="padding:9px 11px;white-space:nowrap;${esHoy?"font-weight:700;color:"+P:""}">${s.fecha?new Date(s.fecha).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}</td>
             <td style="padding:9px 11px;white-space:nowrap">${s.usuario_nombre||"—"}</td>
-            <td style="padding:9px 11px">${s.temperatura??""}</td>
-            <td style="padding:9px 11px">${s.frecuencia_cardiaca??""}</td>
-            <td style="padding:9px 11px">${s.frecuencia_respiratoria??""}</td>
-            <td style="padding:9px 11px">${s.saturacion_o2??""}</td>
+            <td style="padding:9px 11px">${s.temperatura??""}</td><td style="padding:9px 11px">${s.frecuencia_cardiaca??""}</td>
+            <td style="padding:9px 11px">${s.frecuencia_respiratoria??""}</td><td style="padding:9px 11px">${s.saturacion_o2??""}</td>
             <td style="padding:9px 11px;white-space:nowrap">${s.presion_sistolica&&s.presion_diastolica?s.presion_sistolica+"/"+s.presion_diastolica:"—"}</td>
-            <td style="padding:9px 11px">${s.peso??""}</td>
-            <td style="padding:9px 11px">${s.talla??""}</td>
-            <td style="padding:9px 11px;font-weight:600">${s.imc??""}</td>
-            <td style="padding:9px 11px">${s.glucosa??""}</td>
-            <td style="padding:9px 11px">${s.perimetro_abdominal??""}</td>
-            <td style="padding:9px 11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.observaciones||""}</td>
-          </tr>`}).join("")}</tbody>
+            <td style="padding:9px 11px">${s.peso??""}</td><td style="padding:9px 11px">${s.talla??""}</td>
+            <td style="padding:9px 11px;font-weight:700">${s.imc??""}</td><td style="padding:9px 11px">${s.glucosa??""}</td>
+            <td style="padding:9px 11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.observaciones||""}</td>
+          </tr>`;}).join("")}</tbody>
         </table>
       </div>
-    </div>`:""}
-  </div>`;
+    </div>`:""}`;
 }
-window.calcIMC=function(){
-  const p=parseFloat(document.getElementById("sv_peso")?.value||0);
-  const t=parseFloat(document.getElementById("sv_talla")?.value||0);
-  const imc=document.getElementById("sv_imc");
-  if(p>0&&t>0&&imc)imc.value=(p/(t*t)).toFixed(1);
+async function renderCCTab(b,pid){
+  const svBody=document.getElementById("sv-body");if(!svBody)return;
+  const {data}=await SB.from("inbody_resultados").select("*").eq("paciente_id",pid).order("fecha",{ascending:false}).limit(10);
+  const resultados=data||[];
+  const N=(v,u="",d=1)=>v!=null?parseFloat(v).toFixed(d)+u:"—";
+  if(resultados.length===0){
+    svBody.innerHTML=`<div style="text-align:center;padding:32px;color:${MU};background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012">
+      <p style="font-size:15px;margin-bottom:12px">Sin evaluaciones InBody registradas</p>
+      <button onclick="STATE.expTab='inbody';renderTab(STATE.expTab,document.getElementById('eb'))" style="background:${P};color:#fff;border:none;border-radius:7px;padding:8px 18px;cursor:pointer;font-size:14px">➕ Registrar InBody</button>
+    </div>`;return;
+  }
+  const ultimo=resultados[0];
+  svBody.innerHTML=`
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
+      <div style="background:linear-gradient(135deg,#1565C0,#0D47A1);padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+        <b style="color:#fff;font-size:14px">📊 Composición Corporal — ${ultimo.fecha}${ultimo.puntuacion?" | Score: "+ultimo.puntuacion+"/100":""}</b>
+        <button onclick="STATE.expTab='inbody';renderTab(STATE.expTab,document.getElementById('eb'))" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px">Ver detalle →</button>
+      </div>
+      <div style="padding:16px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+          ${[["⚖️","Peso",N(ultimo.peso," kg"),"#E3F2FD","#1565C0"],
+             ["💪","Músculo ESQ",N(ultimo.masa_musculo," kg"),"#E8F5E9","#2E7D32"],
+             ["🧈","Masa Grasa",N(ultimo.masa_grasa," kg")+" ("+N(ultimo.pgc,"%")+"%)","#FFF3E0","#E65100"],
+             ["📐","IMC",N(ultimo.imc," kg/m²"),"#F3E5F5","#6A1B9A"]].map(([i,l,v,bg,c])=>`
+          <div style="background:${bg};border-radius:9px;padding:12px;text-align:center">
+            <div style="font-size:22px;margin-bottom:4px">${i}</div>
+            <p style="font-size:12px;color:${MU};font-weight:600">${l}</p>
+            <p style="font-size:17px;font-weight:800;color:${c}">${v}</p>
+          </div>`).join("")}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+          ${[["Agua Corp.",N(ultimo.agua_corporal," L")],["TMB",N(ultimo.tmb," kcal",0)],["Grasa Visceral",N(ultimo.grasa_visceral,"",0)],["AEC/ACT",N(ultimo.aec_act,"",3)]].map(([l,v])=>`
+          <div style="background:#F0F4F8;border-radius:7px;padding:8px;text-align:center">
+            <p style="font-size:12px;color:${MU};font-weight:600">${l}</p>
+            <p style="font-size:14px;font-weight:800;color:${TX}">${v}</p>
+          </div>`).join("")}
+        </div>
+        ${resultados.length>1?`
+        <p style="font-size:13px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Evolución</p>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:${PL}">${["Fecha","Peso","Grasa kg","%Grasa","Músculo","IMC"].map(h=>`<th style="padding:7px 10px;font-weight:700;color:${TX};text-align:left">${h}</th>`).join("")}</tr></thead>
+          <tbody>${resultados.map((r,i)=>{
+            const prev=resultados[i+1];
+            const fl=(k,inv)=>{if(!prev||prev[k]==null||r[k]==null)return"";const d=parseFloat(r[k])-parseFloat(prev[k]);if(Math.abs(d)<0.05)return"";const ok=inv?d<0:d>0;return`<span style="color:${ok?"#2E7D32":"#C62828"};font-size:11px">${d>0?"▲":"▼"}${Math.abs(d).toFixed(1)}</span>`;};
+            return`<tr style="border-top:1px solid ${BR};background:${i===0?"#E3F2FD":i%2?"#FAFAFA":"#fff"}">
+              <td style="padding:7px 10px;font-weight:${i===0?700:400}">${r.fecha}</td>
+              <td style="padding:7px 10px">${N(r.peso," kg")} ${fl("peso")}</td>
+              <td style="padding:7px 10px">${N(r.masa_grasa," kg")} ${fl("masa_grasa",true)}</td>
+              <td style="padding:7px 10px">${N(r.pgc,"%")} ${fl("pgc",true)}</td>
+              <td style="padding:7px 10px">${N(r.masa_musculo," kg")} ${fl("masa_musculo")}</td>
+              <td style="padding:7px 10px">${N(r.imc,"")}</td>
+            </tr>`;}).join("")}</tbody>
+        </table></div>`:""}
+      </div>
+    </div>`;
 }
 window.guardarSV=async function(pid){
   loading(true,"Guardando signos vitales...");
