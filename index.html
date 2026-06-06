@@ -170,7 +170,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -256,6 +256,9 @@ function nav(){
         <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Solo Administrador</div>
         <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>
         <button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>
+        <button onclick="go('tramites');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏛️ Trámites y Cumplimiento</button>
+        <button onclick="go('reportes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📊 Reportes de Dirección</button>
+        <button onclick="go('cortecaja');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">💰 Corte de caja</button>
       </div>
     </div>`:""}
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
@@ -997,6 +1000,140 @@ window.cambiarContrasena=async function(){
   if(p1el)p1el.value="";if(p2el)p2el.value="";
   showToast("✓ Contraseña actualizada correctamente");
 }
+// ── TRÁMITES Y CUMPLIMIENTO INSTITUCIONAL ────────────────
+async function pgTramites(){
+  RR().innerHTML=nav()+`
+  <div style="max-width:1100px;margin:0 auto;padding:20px 14px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;font-weight:800;color:${TX};margin-bottom:4px">🏛️ Trámites y Cumplimiento Institucional</h2>
+        <p style="font-size:14px;color:${MU}">COFEPRIS • INAI • SSA — NOM-004 / NOM-024-SSA3-2012</p>
+      </div>
+    </div>
+
+    <!-- COFEPRIS -->
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:18px">
+      <div style="background:#0D47A1;padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+        <b style="color:#fff;font-size:15px">🏥 COFEPRIS — Secretaría de Salud</b>
+        <span style="background:rgba(255,255,255,.2);color:#fff;padding:3px 12px;border-radius:20px;font-size:13px">Trámite obligatorio</span>
+      </div>
+      <div style="padding:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <p style="font-size:13px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Aviso de Funcionamiento</p>
+            ${tramiteItem("Clave COFEPRIS-01-006-A","Establecimientos de atención médica","https://www.gob.mx/cofepris","⏳ Pendiente","#E65100")}
+          </div>
+          <div>
+            <p style="font-size:13px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Responsable Sanitario</p>
+            ${tramiteItem("Dr. José Alan Polanco Fierro","Ced. 6382840 / 10861477","#","⏳ Pendiente","#E65100")}
+          </div>
+        </div>
+        <div style="background:#FFF3E0;border-radius:8px;padding:10px 14px;font-size:13px;color:#BF360C">
+          <b>⚠ Datos faltantes para completar:</b> RFC de QP Clinic S.C. • CURP del Dr. Polanco • Acta constitutiva notariada • e.firma SAT vigente
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <a href="https://www.gob.mx/cofepris" target="_blank" style="background:#0D47A1;color:#fff;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;text-decoration:none">🌐 Portal COFEPRIS</a>
+          <a href="https://www.gob.mx/tramites/ficha/aviso-de-funcionamiento-de-establecimientos-que-realicen-actividades-de-prestacion-de-servicios-de-atencion-medica/COFEPRIS292" target="_blank" style="background:#37474F;color:#fff;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;text-decoration:none">📋 Ficha del trámite</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- INAI -->
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:18px">
+      <div style="background:#4A148C;padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+        <b style="color:#fff;font-size:15px">🔒 INAI — Datos Personales (LFPDPPP)</b>
+        <span style="background:rgba(255,255,255,.2);color:#fff;padding:3px 12px;border-radius:20px;font-size:13px">Obligatorio — sector privado</span>
+      </div>
+      <div style="padding:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <p style="font-size:13px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Aviso de Privacidad</p>
+            ${tramiteItem("Documento Word generado","Publicar en qpclinic.org/privacidad","#","⚠ Falta publicar","#E65100")}
+          </div>
+          <div>
+            <p style="font-size:13px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Registro Sistema de Datos</p>
+            ${tramiteItem("Sistema: Expediente Clínico ECE","Portal POT — plataformadetransparencia.org.mx","https://www.plataformadetransparencia.org.mx","⏳ Pendiente","#E65100")}
+          </div>
+        </div>
+        <div style="background:#F3E5F5;border-radius:8px;padding:10px 14px;font-size:13px;color:#4A148C">
+          <b>ℹ Datos en EE.UU.:</b> Los datos se almacenan en Supabase (datacenter US-East-1). Esto requiere declararse como <b>transferencia internacional</b> en el registro INAI y tener un DPA (Data Processing Agreement) con Supabase.
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <a href="https://www.plataformadetransparencia.org.mx" target="_blank" style="background:#4A148C;color:#fff;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;text-decoration:none">🌐 Portal INAI</a>
+          <a href="https://www.inai.org.mx" target="_blank" style="background:#37474F;color:#fff;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;text-decoration:none">📋 Sitio INAI</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOM CUMPLIMIENTO -->
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:18px">
+      <div style="background:#1B5E20;padding:10px 16px">
+        <b style="color:#fff;font-size:15px">✅ Cumplimiento NOM-004 / NOM-024-SSA3-2012</b>
+      </div>
+      <div style="padding:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          ${nomItem("✅","Bitácora inmutable","RLS solo INSERT — NOM-024 Art. 8","#E8F5E9","#2E7D32")}
+          ${nomItem("✅","Cierre por inactividad","14 min alerta / 15 min logout","#E8F5E9","#2E7D32")}
+          ${nomItem("✅","Contraseña robusta","8+ chars, may/min/núm/símbolo","#E8F5E9","#2E7D32")}
+          ${nomItem("✅","Historial de versiones","consultas_historial inmutable","#E8F5E9","#2E7D32")}
+          ${nomItem("✅","Firma digital","Médico + paciente con trazabilidad","#E8F5E9","#2E7D32")}
+          ${nomItem("✅","Consentimientos informados","11 tipos disponibles","#E8F5E9","#2E7D32")}
+          ${nomItem("✅","Respaldo automático","WAL + snapshots diarios Supabase","#E8F5E9","#2E7D32")}
+          ${nomItem("✅","Hoja de indicaciones","indicaciones_medicas — NOM-004","#E8F5E9","#2E7D32")}
+          ${nomItem("✅","Notas de enfermería","Por turno — NOM-004 Art. 7","#E8F5E9","#2E7D32")}
+          ${nomItem("⏳","2FA (doble factor)","Pendiente Fase 2 — NOM-024 Art. 6","#FFF8E1","#E65100")}
+          ${nomItem("✅","Cifrado TLS 1.3","HTTPS Vercel — en tránsito","#E8F5E9","#2E7D32")}
+          ${nomItem("✅","Cifrado AES-256","Supabase — en reposo","#E8F5E9","#2E7D32")}
+        </div>
+      </div>
+    </div>
+
+    <!-- DOCUMENTOS GENERADOS -->
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="background:#37474F;padding:10px 16px">
+        <b style="color:#fff;font-size:15px">📁 Documentos Institucionales Generados</b>
+      </div>
+      <div style="padding:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          ${docItem("📘","Manual de Procedimientos SIEC","Versión 1.0 — Junio 2026","Para presentar a COFEPRIS/SSA en verificación")}
+          ${docItem("🔒","Política de Privacidad INAI","LFPDPPP completo — Versión 1.0","Publicar en qpclinic.org/privacidad")}
+          ${docItem("🔧","Plan de Contingencia","9 escenarios — Versión 1.0","Guardar físicamente en la clínica")}
+          ${docItem("📋","Guía de Trámites COFEPRIS/INAI","Paso a paso con formularios","Seguir para completar registros")}
+          ${docItem("🏥","Relación de Servicios Sanitarios","19 especialidades registradas","Adjuntar al aviso de funcionamiento")}
+          ${docItem("✍","Carta Designación Responsable","Dr. Polanco — Firmada","Requisito para aviso COFEPRIS")}
+        </div>
+        <div style="margin-top:14px;background:#E8F5E9;border-radius:8px;padding:10px 14px;font-size:13px;color:#1B5E20">
+          <b>💡 Todos estos documentos fueron generados y están disponibles para descarga en la sesión de trabajo con QP Clinic ECE.</b> Solicítalos cuando los necesites.
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  function tramiteItem(titulo,subtitulo,url,estado,color){
+    return`<div style="background:#F8F9FA;border-radius:8px;padding:10px 12px">
+      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:2px">${titulo}</p>
+      <p style="font-size:13px;color:${MU};margin-bottom:6px">${subtitulo}</p>
+      <span style="background:${color}22;color:${color};padding:2px 9px;border-radius:20px;font-size:13px;font-weight:700">${estado}</span>
+    </div>`;
+  }
+  function nomItem(icon,titulo,desc,bg,col){
+    return`<div style="background:${bg};border-radius:8px;padding:9px 12px">
+      <p style="font-size:14px;font-weight:700;color:${col};margin-bottom:2px">${icon} ${titulo}</p>
+      <p style="font-size:12px;color:${MU}">${desc}</p>
+    </div>`;
+  }
+  function docItem(icon,titulo,version,uso){
+    return`<div style="background:#F8F9FA;border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start">
+      <span style="font-size:24px">${icon}</span>
+      <div>
+        <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:2px">${titulo}</p>
+        <p style="font-size:13px;color:${P};font-weight:600;margin-bottom:2px">${version}</p>
+        <p style="font-size:13px;color:${MU}">${uso}</p>
+      </div>
+    </div>`;
+  }
+}
+
 async function pgBitacora(){
   if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
   loading(true,"Cargando bitácora...");
@@ -5515,77 +5652,351 @@ window.eliminarImagen=async function(id,path){
   setET("imagenes");
 }
 // ── PAGOS ─────────────────────────────────────────────────
+// ── REPORTES DE DIRECCIÓN ─────────────────────────────────
+async function pgReportes(){
+  RR().innerHTML=nav()+`<div style="max-width:1200px;margin:0 auto;padding:20px 14px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;font-weight:800;color:${TX}">📊 Reportes de Dirección</h2>
+        <p style="font-size:14px;color:${MU}">Indicadores clave — QP Clinic</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${btn("💰 Corte de caja","go('cortecaja')","ok",1)}
+        ${btn("🔄 Actualizar","pgReportes()","s",1)}
+      </div>
+    </div>
+    <div id="rep-loading" style="text-align:center;padding:40px;color:${MU}"><span class="spin" style="font-size:20px">⚙️</span> Cargando métricas...</div>
+    <div id="rep-content" style="display:none"></div>
+  </div>`;
+  // Cargar todo en paralelo
+  const hoy=new Date();
+  const primerMes=new Date(hoy.getFullYear(),hoy.getMonth(),1).toISOString().split("T")[0];
+  const primerSemana=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()-hoy.getDay()).toISOString().split("T")[0];
+  const hace6Meses=new Date(hoy.getFullYear(),hoy.getMonth()-5,1).toISOString().split("T")[0];
+  try{
+    const [
+      {count:totalPac},{count:pacMes},{count:totalCons},{count:consMes},
+      {data:pagosAll},{data:pagosMes},{data:medicosData},{data:consData},{data:pacData}
+    ]=await Promise.all([
+      SB.from("pacientes").select("*",{count:"exact",head:true}),
+      SB.from("pacientes").select("*",{count:"exact",head:true}).gte("created_at",primerMes),
+      SB.from("consultas").select("*",{count:"exact",head:true}),
+      SB.from("consultas").select("*",{count:"exact",head:true}).gte("created_at",primerMes),
+      SB.from("pagos").select("monto,fecha,estado,medico_nombre,forma_pago,concepto").order("fecha",{ascending:false}).limit(500),
+      SB.from("pagos").select("monto,estado,forma_pago,concepto,medico_nombre").gte("fecha",primerMes),
+      SB.from("usuarios").select("id,nombre,apellidos,especialidad_1,activo").eq("activo",true),
+      SB.from("consultas").select("medico_id,medico_nombre,created_at,tipo_nota").gte("created_at",hace6Meses),
+      SB.from("pacientes").select("created_at").gte("created_at",hace6Meses)
+    ]);
+    const pagos=pagosAll||[];const pagosMesArr=pagosMes||[];
+    const ingMes=pagosMesArr.filter(p=>p.estado!=="Cancelado").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+    const ingTotal=pagos.filter(p=>p.estado!=="Cancelado").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+    const pendMes=pagosMesArr.filter(p=>p.estado==="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+    // Agrupar por mes (últimos 6)
+    const meses=[];
+    for(let i=5;i>=0;i--){
+      const d=new Date(hoy.getFullYear(),hoy.getMonth()-i,1);
+      const key=d.toISOString().substring(0,7);
+      const label=d.toLocaleDateString("es-MX",{month:"short",year:"2-digit"}).toUpperCase();
+      const ing=pagos.filter(p=>p.fecha&&p.fecha.startsWith(key)&&p.estado!=="Cancelado").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+      const cons=(consData||[]).filter(c=>c.created_at&&c.created_at.startsWith(key)).length;
+      const nPac=(pacData||[]).filter(p=>p.created_at&&p.created_at.startsWith(key)).length;
+      meses.push({key,label,ing,cons,nPac});
+    }
+    const maxIng=Math.max(...meses.map(m=>m.ing),1);
+    const maxCons=Math.max(...meses.map(m=>m.cons),1);
+    // Por médico
+    const medMap={};
+    (consData||[]).forEach(c=>{
+      const nm=c.medico_nombre||"Sin nombre";
+      if(!medMap[nm])medMap[nm]={cons:0,ing:0};
+      medMap[nm].cons++;
+    });
+    pagos.filter(p=>p.estado!=="Cancelado").forEach(p=>{
+      const nm=p.medico_nombre||"Sin nombre";
+      if(!medMap[nm])medMap[nm]={cons:0,ing:0};
+      medMap[nm].ing+=(parseFloat(p.monto)||0);
+    });
+    const medArr=Object.entries(medMap).sort((a,b)=>b[1].ing-a[1].ing);
+    const maxMedIng=Math.max(...medArr.map(m=>m[1].ing),1);
+    // Forma de pago
+    const formaMap={};
+    pagosMesArr.filter(p=>p.estado!=="Cancelado").forEach(p=>{
+      const f=p.forma_pago||"Otro";
+      formaMap[f]=(formaMap[f]||0)+(parseFloat(p.monto)||0);
+    });
+    const formaArr=Object.entries(formaMap).sort((a,b)=>b[1]-a[1]);
+    const maxForma=Math.max(...formaArr.map(f=>f[1]),1);
+    // Render
+    const kpi=(icon,label,val,sub,bg,col)=>`<div style="background:${bg};border-radius:12px;padding:16px 18px;border-left:4px solid ${col}">
+      <div style="font-size:24px;margin-bottom:6px">${icon}</div>
+      <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:4px">${label}</p>
+      <p style="font-size:26px;font-weight:800;color:${col};margin-bottom:2px">${val}</p>
+      ${sub?`<p style="font-size:13px;color:${MU}">${sub}</p>`:""}
+    </div>`;
+    const bar=(val,max,color,label,label2)=>`<div style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:72px;font-size:13px;color:${MU};text-align:right;flex-shrink:0;font-weight:600">${label}</div>
+        <div style="flex:1;background:#F0F4F8;border-radius:5px;height:24px;overflow:hidden;position:relative">
+          <div style="width:${Math.max(Math.round((val/max)*100),2)}%;height:100%;background:${color};border-radius:5px;transition:width .3s"></div>
+          <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:${val>max*0.3?"#fff":TX}">${label2||val}</span>
+        </div>
+      </div>
+    </div>`;
+    document.getElementById("rep-loading").style.display="none";
+    const el=document.getElementById("rep-content");el.style.display="block";
+    el.innerHTML=`
+      <!-- KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        ${kpi("👥","Pacientes totales",(totalPac||0).toLocaleString(),"+"+(pacMes||0)+" este mes","#E3F2FD","#1565C0")}
+        ${kpi("🩺","Consultas este mes",(consMes||0).toLocaleString(),(totalCons||0).toLocaleString()+" total","#E8F5E9","#2E7D32")}
+        ${kpi("💰","Ingresos este mes","$"+ingMes.toLocaleString("es-MX",{minimumFractionDigits:0}),pendMes>0?"$"+pendMes.toLocaleString("es-MX",{minimumFractionDigits:0})+" pendiente":"Sin pendientes","#FFF8E1","#E65100")}
+        ${kpi("💵","Ingresos totales","$"+ingTotal.toLocaleString("es-MX",{minimumFractionDigits:0}),"Histórico registrado","#F3E5F5","#6A1B9A")}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <!-- Ingresos por mes -->
+        <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
+          <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">💰 Ingresos por mes</p>
+          ${meses.map(m=>bar(m.ing,maxIng,"#1565C0",m.label,"$"+m.ing.toLocaleString("es-MX",{maximumFractionDigits:0}))).join("")}
+        </div>
+        <!-- Consultas por mes -->
+        <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
+          <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">🩺 Consultas por mes</p>
+          ${meses.map(m=>bar(m.cons,maxCons,"#2E7D32",m.label,m.cons+" cons.")).join("")}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+        <!-- Por médico -->
+        <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
+          <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">👨‍⚕️ Actividad por médico (últimos 6 meses)</p>
+          ${medArr.length===0?`<p style="color:${MU};font-size:14px">Sin datos</p>`:
+          `<table style="width:100%;border-collapse:collapse;font-size:14px">
+            <thead><tr style="background:${PL}">${["Médico","Consultas","Ingresos"].map(h=>`<th style="padding:8px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+            <tbody>${medArr.map(([nm,d],i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+              <td style="padding:8px 12px;font-weight:600">${nm}</td>
+              <td style="padding:8px 12px;text-align:center"><span style="background:${PL};color:${P};padding:2px 10px;border-radius:20px;font-weight:700">${d.cons}</span></td>
+              <td style="padding:8px 12px;font-weight:700;color:#1B5E20">$${d.ing.toLocaleString("es-MX",{minimumFractionDigits:0})}</td>
+            </tr>`).join("")}</tbody>
+          </table>`}
+        </div>
+        <!-- Forma de pago -->
+        <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
+          <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">💳 Forma de pago (este mes)</p>
+          ${formaArr.length===0?`<p style="color:${MU};font-size:14px;text-align:center;padding:20px">Sin pagos este mes</p>`:
+          formaArr.map(([f,v])=>bar(v,maxForma,"#6A1B9A",f.substring(0,10),"$"+v.toLocaleString("es-MX",{maximumFractionDigits:0}))).join("")}
+        </div>
+      </div>
+      <!-- Nuevos pacientes -->
+      <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
+        <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">👥 Nuevos pacientes por mes</p>
+        <div style="display:flex;align-items:flex-end;gap:8px;height:90px;padding-bottom:4px">
+          ${meses.map(m=>{
+            const maxNP=Math.max(...meses.map(x=>x.nPac),1);
+            const h=Math.max(Math.round((m.nPac/maxNP)*80),4);
+            return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="font-size:13px;font-weight:700;color:${P}">${m.nPac}</span>
+              <div style="width:100%;height:${h}px;background:${P};border-radius:4px 4px 0 0"></div>
+              <span style="font-size:11px;color:${MU}">${m.label}</span>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>`;
+  }catch(e){
+    document.getElementById("rep-loading").innerHTML=`<p style="color:${DA}">Error al cargar reportes: ${e.message}</p>`;
+  }
+}
+
+// ── CORTE DE CAJA ─────────────────────────────────────────
+async function pgCorteCaja(){
+  RR().innerHTML=nav()+`<div style="max-width:1000px;margin:0 auto;padding:20px 14px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;font-weight:800;color:${TX}">💰 Corte de Caja</h2>
+        <p style="font-size:14px;color:${MU}">Resumen de pagos por periodo</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="cc-desde" type="date" value="${new Date().toISOString().split("T")[0]}" style="padding:8px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">
+        <span style="color:${MU}">a</span>
+        <input id="cc-hasta" type="date" value="${new Date().toISOString().split("T")[0]}" style="padding:8px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">
+        ${btn("🔍 Buscar","cargarCorte()","ok",1)}
+        ${btn("← Reportes","go('reportes')","s",1)}
+      </div>
+    </div>
+    <div id="corte-body"><p style="text-align:center;color:${MU};padding:24px">Selecciona el rango de fechas y haz clic en Buscar</p></div>
+  </div>`;
+}
+window.cargarCorte=async function(){
+  const desde=gv("cc-desde");const hasta=gv("cc-hasta");
+  if(!desde||!hasta){showToast("Selecciona fechas",false);return;}
+  const cb=document.getElementById("corte-body");
+  cb.innerHTML=`<div style="text-align:center;padding:20px;color:${MU}">⚙️ Cargando...</div>`;
+  const {data}=await SB.from("pagos").select("*")
+    .gte("fecha",desde).lte("fecha",hasta)
+    .order("fecha",{ascending:false}).order("created_at",{ascending:false});
+  const pagos=data||[];
+  if(pagos.length===0){cb.innerHTML=`<div style="text-align:center;padding:28px;color:${MU}">Sin registros en ese periodo</div>`;return;}
+  const ESTADOS=[["Pagado","#E8F5E9","#2E7D32"],["Pendiente","#FFF8E1","#E65100"],["Cancelado","#FFEBEE","#C62828"]];
+  const totalPag=pagos.filter(p=>p.estado==="Pagado"||!p.estado).reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const totalPend=pagos.filter(p=>p.estado==="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const totalBruto=totalPag+totalPend;
+  // Por forma de pago
+  const formas={};
+  pagos.filter(p=>p.estado!=="Cancelado").forEach(p=>{const f=p.forma_pago||"Otro";formas[f]=(formas[f]||0)+(parseFloat(p.monto)||0);});
+  cb.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      ${[["💵","Total cobrado","$"+totalPag.toLocaleString("es-MX",{minimumFractionDigits:2}),"#E8F5E9","#1B5E20"],
+         ["⏳","Total pendiente","$"+totalPend.toLocaleString("es-MX",{minimumFractionDigits:2}),"#FFF8E1","#E65100"],
+         ["📋","Total movimientos",pagos.length.toString()+" registros","#E3F2FD","#1565C0"]].map(([i,l,v,bg,c])=>`
+      <div style="background:${bg};border-radius:10px;padding:14px 16px;border-left:4px solid ${c}">
+        <p style="font-size:22px;margin-bottom:4px">${i}</p>
+        <p style="font-size:13px;color:${MU};font-weight:600">${l}</p>
+        <p style="font-size:22px;font-weight:800;color:${c}">${v}</p>
+      </div>`).join("")}
+    </div>
+    <!-- Por forma de pago -->
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
+      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Desglose por forma de pago</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${Object.entries(formas).map(([f,v])=>`<div style="background:${PL};border-radius:8px;padding:8px 14px">
+          <p style="font-size:13px;font-weight:600;color:${P}">${f}</p>
+          <p style="font-size:16px;font-weight:800;color:${TX}">$${v.toLocaleString("es-MX",{minimumFractionDigits:2})}</p>
+        </div>`).join("")}
+      </div>
+    </div>
+    <!-- Tabla -->
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:10px 14px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
+        <p style="font-size:14px;font-weight:700;color:${TX}">Detalle de movimientos (${desde} — ${hasta})</p>
+        <button onclick="imprimirCorte()" style="background:${PD};color:#fff;border:none;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:14px">🖨️ Imprimir</button>
+      </div>
+      <div style="overflow-x:auto" id="corte-tabla">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr style="background:${PL}">${["Fecha","Paciente / Concepto","Médico","Monto","Forma de pago","Estado","Acciones"].map(h=>`<th style="padding:9px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+          <tbody>${pagos.map((p,i)=>{
+            const [,bg,col]=ESTADOS.find(e=>e[0]===(p.estado||"Pagado"))||ESTADOS[0];
+            return`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+              <td style="padding:9px 12px;white-space:nowrap">${p.fecha||"—"}</td>
+              <td style="padding:9px 12px"><div style="font-weight:600">${p.concepto||"—"}</div><small style="color:${MU}">${p.notas||""}</small></td>
+              <td style="padding:9px 12px;color:${MU};font-size:13px">${p.medico_nombre||"—"}</td>
+              <td style="padding:9px 12px;font-weight:700;color:#1B5E20">$${parseFloat(p.monto||0).toLocaleString("es-MX",{minimumFractionDigits:2})}</td>
+              <td style="padding:9px 12px">${p.forma_pago||"—"}</td>
+              <td style="padding:9px 12px"><span style="background:${bg};color:${col};padding:2px 9px;border-radius:20px;font-size:13px;font-weight:700">${p.estado||"Pagado"}</span></td>
+              <td style="padding:9px 12px;white-space:nowrap">
+                ${(p.estado==="Pendiente")?`<button onclick="cambiarEstadoPago('${p.id}','Pagado')" style="background:#2E7D32;color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px;margin-right:4px">✓ Cobrar</button>`:""}
+                <button onclick="eliminarPago('${p.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px">✕</button>
+              </td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+window.cambiarEstadoPago=async function(id,estado){
+  loading(true);
+  await SB.from("pagos").update({estado}).eq("id",id);
+  loading(false);showToast("✓ Estado actualizado");cargarCorte();
+}
+window.imprimirCorte=function(){window.print();}
+
 async function pgPagos(){
   const pid=STATE.pat?.id;if(!pid){showToast("Abre primero un expediente",false);return;}
   const pat=STATE.pat;
   const nomPac=`${pat.nombre||""} ${pat.apellido_paterno||""}`.trim();
-  const {data}=await SB.from("pagos").select("*").eq("paciente_id",pid).order("fecha",{ascending:false});
+  const {data}=await SB.from("pagos").select("*").eq("paciente_id",pid).order("fecha",{ascending:false}).order("created_at",{ascending:false});
   const pagos=data||[];
-  const total=pagos.reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const totalPagado=pagos.filter(p=>p.estado!=="Cancelado"&&p.estado!=="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const totalPendiente=pagos.filter(p=>p.estado==="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const u=STATE.userProfile||{};
+  const CONCEPTOS=["Consulta médica","Consulta de seguimiento","Primera vez","Sesión de fisioterapia","Rehabilitación","Estudio de laboratorio","Estudio de gabinete","Ultrasonido","Paquete de consultas","Plan nutricional","Programa deportivo","Procedimiento médico","Infiltración / Proloterapia","Certificado médico","Telemedicina","Otro"];
+  const FORMAS=["Efectivo","Tarjeta de débito","Tarjeta de crédito","Transferencia / SPEI","PayPal","CoDi","Cheque","Cortesía / Sin costo"];
+  const ESTADOS=[["Pagado","#E8F5E9","#2E7D32"],["Pendiente","#FFF8E1","#E65100"],["Cancelado","#FFEBEE","#C62828"]];
   RR().innerHTML=nav()+`
-  <div style="max-width:900px;margin:0 auto;padding:20px" class="fade">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+  <div style="max-width:1000px;margin:0 auto;padding:20px 14px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div>
-        <h2 style="font-size:16px;font-weight:800;color:${TX}">💳 Pagos — ${nomPac}</h2>
-        <p style="color:${MU};font-size:14px">Historial de pagos del paciente</p>
+        <h2 style="font-size:18px;font-weight:800;color:${TX}">💳 Pagos — ${nomPac}</h2>
+        <p style="font-size:14px;color:${MU}">Exp. #${pat.numero_expediente||"—"}</p>
       </div>
-      ${btn("← Volver","go('expediente')","s",1)}
+      ${btn("← Expediente","go('expediente')","s",1)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-      ${[["Total pagado","$"+total.toLocaleString("es-MX",{minimumFractionDigits:2}),"#1B5E20","#E8F5E9"],["Consultas pagadas",pagos.filter(p=>p.concepto?.toLowerCase().includes("consulta")).length.toString(),"#1565C0","#E3F2FD"],["Último pago",pagos[0]?pagos[0].fecha||"—":"Sin pagos","#E65100","#FFF8E1"]].map(([l,v,c,bg])=>`<div style="background:${bg};border-radius:10px;padding:14px 16px">
-        <p style="font-size:14px;color:${MU};margin-bottom:4px">${l}</p>
-        <p style="font-size:18px;font-weight:800;color:${c}">${v}</p>
+      ${[["💵","Total pagado","$"+totalPagado.toLocaleString("es-MX",{minimumFractionDigits:2}),"#E8F5E9","#1B5E20"],
+         ["⏳","Saldo pendiente","$"+totalPendiente.toLocaleString("es-MX",{minimumFractionDigits:2}),"#FFF8E1","#E65100"],
+         ["📋","Total visitas",pagos.length+" registros","#E3F2FD","#1565C0"]].map(([i,l,v,bg,c])=>`
+      <div style="background:${bg};border-radius:10px;padding:14px 16px;border-left:4px solid ${c}">
+        <p style="font-size:20px;margin-bottom:2px">${i}</p>
+        <p style="font-size:13px;color:${MU};font-weight:600">${l}</p>
+        <p style="font-size:20px;font-weight:800;color:${c}">${v}</p>
       </div>`).join("")}
     </div>
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;margin-bottom:16px">
-      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Registrar nuevo pago</p>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-bottom:14px">
-        ${fld("Concepto *",`<select id="pago_con" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Consulta médica","Consulta de seguimiento","Sesión de fisioterapia","Estudio de laboratorio","Estudio de gabinete","Paquete de consultas","Plan nutricional","Programa deportivo","Procedimiento","Certificado médico","Otro"].map(v=>`<option>${v}</option>`).join("")}</select>`)}
-        ${fld("Monto (MXN) *",`<input id="pago_monto" type="number" step="0.01" placeholder="0.00" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-        ${fld("Forma de pago",`<select id="pago_forma" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Efectivo","Tarjeta de débito","Tarjeta de crédito","Transferencia","SPEI","PayPal","CoDi","Cheque"].map(v=>`<option>${v}</option>`).join("")}</select>`)}
-        ${fld("Fecha",`<input id="pago_fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px;margin-bottom:16px">
+      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">➕ Registrar pago / cargo</p>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+        ${fld("Concepto *",`<select id="pago_con" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${CONCEPTOS.map(v=>`<option>${v}</option>`).join("")}</select>`)}
+        ${fld("Monto *",`<input id="pago_monto" type="number" step="0.01" min="0" placeholder="0.00" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Forma de pago",`<select id="pago_forma" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${FORMAS.map(v=>`<option>${v}</option>`).join("")}</select>`)}
+        ${fld("Estado",`<select id="pago_estado" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="Pagado">✅ Pagado</option><option value="Pendiente">⏳ Pendiente</option></select>`)}
       </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px">
-        ${fld("Notas / observaciones",inp("pago_notas","","Ej: Pago de 3 sesiones, descuento aplicado..."))}
-        ${fld("Registrado por",inp("pago_por",STATE.userProfile?`${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""))}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+        ${fld("Fecha",`<input id="pago_fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Médico",`<input id="pago_medico" value="${`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim()}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Notas",inp("pago_notas","","Descuento, paquete, observación..."))}
       </div>
       <div class="sticky-save">${btn("💾 Registrar pago","registrarPago('"+pid+"')","ok",1)}</div>
     </div>
-    ${pagos.length>0?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:${PL}">${["Fecha","Concepto","Monto","Forma de pago","Notas","Registró",""].map(h=>`<th style="padding:9px 12px;text-align:left;font-size:14px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
-        <tbody>${pagos.map((p,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-          <td style="padding:9px 12px;font-size:14px;white-space:nowrap">${p.fecha||"—"}</td>
-          <td style="padding:9px 12px;font-size:14px;font-weight:600">${p.concepto||"—"}</td>
-          <td style="padding:9px 12px;font-size:14px;font-weight:700;color:#1B5E20">$${parseFloat(p.monto||0).toLocaleString("es-MX",{minimumFractionDigits:2})}</td>
-          <td style="padding:9px 12px;font-size:14px">${p.forma_pago||"—"}</td>
-          <td style="padding:9px 12px;font-size:14px;color:${MU};max-width:160px">${p.notas||"—"}</td>
-          <td style="padding:9px 12px;font-size:14px;color:${MU}">${p.registrado_por||"—"}</td>
-          <td style="padding:9px 12px">${btn("✕","eliminarPago('"+p.id+"')","d",1)}</td>
-        </tr>`).join("")}</tbody>
-      </table>
-    </div>`:""  }
+    ${pagos.length===0?`<div style="text-align:center;padding:28px;color:${MU};background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012">Sin pagos registrados para este paciente</div>`:`
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:10px 14px;border-bottom:1px solid ${BR}">
+        <p style="font-size:14px;font-weight:700;color:${TX}">Historial de pagos</p>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr style="background:${PL}">${["Fecha","Concepto","Monto","Forma","Médico","Estado","Notas",""].map(h=>`<th style="padding:9px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+          <tbody>${pagos.map((p,i)=>{
+            const [,bg,col]=ESTADOS.find(e=>e[0]===(p.estado||"Pagado"))||ESTADOS[0];
+            return`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+              <td style="padding:9px 12px;white-space:nowrap">${p.fecha||"—"}</td>
+              <td style="padding:9px 12px;font-weight:600">${p.concepto||"—"}</td>
+              <td style="padding:9px 12px;font-weight:700;color:#1B5E20">$${parseFloat(p.monto||0).toLocaleString("es-MX",{minimumFractionDigits:2})}</td>
+              <td style="padding:9px 12px;font-size:13px">${p.forma_pago||"—"}</td>
+              <td style="padding:9px 12px;font-size:13px;color:${MU}">${p.medico_nombre||"—"}</td>
+              <td style="padding:9px 12px"><span style="background:${bg};color:${col};padding:2px 9px;border-radius:20px;font-size:13px;font-weight:700">${p.estado||"Pagado"}</span></td>
+              <td style="padding:9px 12px;font-size:13px;color:${MU}">${p.notas||"—"}</td>
+              <td style="padding:9px 12px;white-space:nowrap">
+                ${(p.estado==="Pendiente")?`<button onclick="cobrarPago('${p.id}')" style="background:#2E7D32;color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px;margin-right:4px">✓ Cobrar</button>`:""}
+                <button onclick="eliminarPago('${p.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px">✕</button>
+              </td>
+            </tr>`;}).join("")}</tbody>
+        </table>
+      </div>
+    </div>`}
   </div>`;
 }
+window.cobrarPago=async function(id){loading(true);await SB.from("pagos").update({estado:"Pagado"}).eq("id",id);loading(false);showToast("✓ Cobrado");pgPagos();}
 window.registrarPago=async function(pid){
-  const monto=gv("pago_monto");if(!monto){showToast("Ingresa el monto",false);return;}
-  loading(true,"Registrando pago...");
-  await SB.from("pagos").insert({
-    paciente_id:pid,
-    concepto:gv("pago_con"),monto:parseFloat(monto),
+  const monto=parseFloat(gv("pago_monto")||"0");
+  if(!monto||monto<=0){showToast("Ingresa un monto válido",false);return;}
+  loading(true,"Registrando...");
+  const u=STATE.userProfile||{};
+  const {error}=await SB.from("pagos").insert({
+    paciente_id:pid,concepto:gv("pago_con"),monto,
     forma_pago:gv("pago_forma"),fecha:gv("pago_fecha"),
-    notas:gv("pago_notas"),registrado_por:gv("pago_por"),
+    estado:gv("pago_estado")||"Pagado",notas:gv("pago_notas")||null,
+    medico_id:STATE.user?.id||null,medico_nombre:gv("pago_medico")||null,
+    registrado_por:`${u.nombre||""} ${u.apellidos||""}`.trim(),
   });
-  loading(false);showToast("✓ Pago registrado");
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("✓ Pago registrado");
+  logBitacora("PAGO","$"+monto+" — "+gv("pago_con"),pid);
   pgPagos();
 }
 window.eliminarPago=async function(id){
-  if(!confirm("¿Eliminar este registro de pago?"))return;
-  await SB.from("pagos").delete().eq("id",id);
-  showToast("✓ Pago eliminado");
-  pgPagos();
+  if(!confirm("¿Eliminar este registro?"))return;
+  loading(true);await SB.from("pagos").delete().eq("id",id);loading(false);
+  showToast("✓ Eliminado");
+  if(STATE.page==="cortecaja")cargarCorte();else pgPagos();
 }
-// ── TRIAGE / SIGNOS VITALES ───────────────────────────────
 async function renderTriage(b){
   const pid=STATE.pat?.id;if(!pid)return;
   const {data}=await SB.from("signos_vitales").select("*").eq("paciente_id",pid).order("fecha",{ascending:false}).limit(20);
