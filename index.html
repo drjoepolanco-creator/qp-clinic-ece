@@ -3047,6 +3047,17 @@ window.abrirConsulta=async function(cid){
     if(sv&&sv[0])STATE.consultaActual._svHoy=sv[0];
   }
   go("consulta");
+  // Auto-incluir InBody pendiente si lo hay
+  if(STATE.inBodyPendiente?.texto){
+    setTimeout(()=>{
+      const campo=document.getElementById("cs_expl");
+      if(campo){
+        campo.value=(campo.value?campo.value+"\n\n":"")+STATE.inBodyPendiente.texto;
+        showToast("📊 InBody del "+STATE.inBodyPendiente.fecha+" incluido automáticamente");
+        STATE.inBodyPendiente=null;
+      }
+    },600);
+  }
 }
 // ── INTERCONSULTAS ────────────────────────────────────────
 async function renderInterconsultas(b){
@@ -4403,7 +4414,98 @@ window.extraerInBodyIA=async function(){
     showToast("✅ Datos extraídos del InBody con IA. Revisa y guarda.");
   }catch(e){loading(false);showToast("Error: "+e.message,false);}
 }
-window.ocultarFormInBody=function(){document.getElementById("form-inbody").style.display="none";}
+window.ocultarFormInBody=function(){
+  const f=document.getElementById("form-inbody");
+  if(f)f.style.display="none";
+}
+// Fix: scroll al form dentro del contenedor del expediente, no a window
+window.mostrarFormInBody=function(){
+  const f=document.getElementById("form-inbody");
+  if(!f){showToast("Recarga la página InBody",false);return;}
+  f.style.display="block";
+  setTimeout(()=>f.scrollIntoView({behavior:"smooth",block:"start"}),60);
+}
+window.incluirInBodyEnNota=async function(id){
+  const {data}=await SB.from("inbody_resultados").select("*").eq("id",id).maybeSingle();
+  if(!data){showToast("No se encontró la evaluación",false);return;}
+  const N=(v,u="",dec=1)=>v!=null&&v!==""?parseFloat(v).toFixed(dec)+u:"—";
+  const lineas=[
+    `ANÁLISIS DE COMPOSICIÓN CORPORAL — InBody (${data.modelo||"InBody"}) | Fecha: ${data.fecha}${data.puntuacion?" | Score: "+data.puntuacion+"/100":""}`,
+    ``,
+    `COMPOSICIÓN CORPORAL:`,
+    `  Peso: ${N(data.peso," kg")} | Talla: ${N(data.altura," cm",0)} | IMC: ${N(data.imc," kg/m²")}`,
+    `  Masa Músculo Esquelético (MME): ${N(data.masa_musculo," kg")} | Masa Grasa: ${N(data.masa_grasa," kg")} (${N(data.pgc,"%")} de grasa corporal)`,
+    `  Agua Corporal Total: ${N(data.agua_corporal," L")} | AEC/ACT: ${N(data.aec_act,"",3)} | Proteína: ${N(data.proteina," kg")} | Minerales: ${N(data.minerales," kg",3)}`,
+    ``,
+    `ANÁLISIS DE OBESIDAD:`,
+    `  IMC: ${N(data.imc," kg/m²")} | % Grasa Corporal: ${N(data.pgc,"%")} | Grasa Visceral: ${data.grasa_visceral||"—"} | TMB: ${N(data.tmb," kcal",0)}`,
+    data.rcl?`  Relación Cintura-Cadera: ${N(data.rcl,"",2)}`:"",
+    ``,
+    `CONTROL DE PESO:`,
+    `  Peso ideal: ${N(data.peso_ideal," kg")} | Control peso: ${N(data.control_peso," kg")} | Control grasa: ${N(data.control_grasa," kg")} | Control músculo: ${N(data.control_musculo," kg")}`,
+    (data.seg_brazo_der||data.seg_tronco)?[
+      ``,`MASA MAGRA SEGMENTAL:`,
+      `  Brazo D.: ${N(data.seg_brazo_der," kg")} | Brazo I.: ${N(data.seg_brazo_izq," kg")} | Tronco: ${N(data.seg_tronco," kg")} | Pierna D.: ${N(data.seg_pierna_der," kg")} | Pierna I.: ${N(data.seg_pierna_izq," kg")}`,
+    ].join("\n"):"",
+    (data.grasa_tronco)?[
+      ``,`GRASA SEGMENTAL:`,
+      `  Brazo D.: ${N(data.grasa_brazo_der," kg")} | Brazo I.: ${N(data.grasa_brazo_izq," kg")} | Tronco: ${N(data.grasa_tronco," kg")} | Pierna D.: ${N(data.grasa_pierna_der," kg")} | Pierna I.: ${N(data.grasa_pierna_izq," kg")}`,
+    ].join("\n"):"",
+    data.notas?`\nNOTAS: ${data.notas}`:"",
+  ].filter(Boolean).join("\n");
+
+  // ¿Hay una consulta abierta en el DOM?
+  const campo=document.getElementById("cs_expl")||document.getElementById("cs_subj");
+  if(campo){
+    // Insertar directamente en la nota abierta
+    const actual=campo.value;
+    campo.value=(actual?actual+"\n\n":"")+lineas;
+    campo.focus();
+    campo.scrollIntoView({behavior:"smooth",block:"center"});
+    showToast("✓ Datos InBody incluidos en la nota");
+    return;
+  }
+
+  // No hay consulta abierta — guardar en STATE y mostrar opciones
+  STATE.inBodyPendiente={id,texto:lineas,fecha:data.fecha};
+  // Modal con opciones
+  const overlay=document.createElement("div");
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:flex;align-items:center;justify-content:center";
+  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:440px;box-shadow:0 16px 40px #00000040">
+    <h3 style="font-size:15px;font-weight:700;color:#263238;margin-bottom:8px">📊 Incluir InBody en nota médica</h3>
+    <p style="font-size:14px;color:#546E7A;margin-bottom:18px">No hay consulta abierta. ¿Qué deseas hacer?</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button onclick="this.closest('[style*=fixed]').remove();irAConsultasConInBody()" style="background:#1565C0;color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left">
+        📋 Ir a Consultas para abrirla o crear una nueva<br><small style="font-weight:400;opacity:.8">El InBody se incluirá automáticamente al abrir la consulta</small>
+      </button>
+      <button onclick="copiarInBodyClipboard()" style="background:#37474F;color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left">
+        📋 Copiar datos al portapapeles<br><small style="font-weight:400;opacity:.8">Pégalos en cualquier campo de la nota</small>
+      </button>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:#F5F5F5;border:1px solid #E0E0E0;border-radius:9px;padding:10px;font-size:14px;cursor:pointer">Cancelar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+window.irAConsultasConInBody=function(){
+  // Ir a la pestaña de consultas — el InBody queda en STATE.inBodyPendiente
+  STATE.expTab="cons";
+  const b=document.getElementById("eb");
+  if(b)renderTab("cons",b);
+  showToast("📊 InBody listo — abre una consulta para incluirlo",false);
+}
+window.copiarInBodyClipboard=async function(){
+  if(!STATE.inBodyPendiente?.texto)return;
+  try{
+    await navigator.clipboard.writeText(STATE.inBodyPendiente.texto);
+    showToast("✓ Datos InBody copiados al portapapeles");
+  }catch(e){
+    // Fallback para navegadores que no soportan clipboard API
+    const ta=document.createElement("textarea");
+    ta.value=STATE.inBodyPendiente.texto;
+    document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);
+    showToast("✓ Copiado al portapapeles");
+  }
+}
 window.guardarInBody=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
   const fecha=gv("ib-fecha");
@@ -4451,53 +4553,6 @@ window.eliminarInBody=async function(id){
   loading(true);await SB.from("inbody_resultados").delete().eq("id",id);
   loading(false);showToast("✓ Evaluación eliminada");
   renderInBody(document.getElementById("eb"));
-}
-window.incluirInBodyEnNota=async function(id){
-  // Buscar el resultado
-  const {data}=await SB.from("inbody_resultados").select("*").eq("id",id).maybeSingle();
-  if(!data){showToast("No se encontró la evaluación",false);return;}
-  const N=(v,u="",dec=1)=>v!=null&&v!==""?parseFloat(v).toFixed(dec)+u:"—";
-  const lineas=[
-    `ANÁLISIS DE COMPOSICIÓN CORPORAL — InBody (${data.modelo||"InBody"}) | Fecha: ${data.fecha}${data.puntuacion?" | Score: "+data.puntuacion+"/100":""}`,
-    ``,
-    `COMPOSICIÓN CORPORAL:`,
-    `  Peso: ${N(data.peso," kg")} | Talla: ${N(data.altura," cm",0)} | IMC: ${N(data.imc," kg/m²")}`,
-    `  Masa Músculo Esquelético (MME): ${N(data.masa_musculo," kg")} | Masa Grasa: ${N(data.masa_grasa," kg")} (${N(data.pgc,"%")} de grasa corporal)`,
-    `  Agua Corporal Total: ${N(data.agua_corporal," L")} | AEC/ACT: ${N(data.aec_act,"",3)} | Proteína: ${N(data.proteina," kg")} | Minerales: ${N(data.minerales," kg",3)}`,
-    ``,
-    `ANÁLISIS DE OBESIDAD:`,
-    `  IMC: ${N(data.imc," kg/m²")} | % Grasa Corporal: ${N(data.pgc,"%")} | Grasa Visceral: ${data.grasa_visceral||"—"} | TMB: ${N(data.tmb," kcal",0)}`,
-    data.rcl?`  Relación Cintura-Cadera: ${N(data.rcl,"",2)}`:"",
-    ``,
-    `CONTROL DE PESO:`,
-    `  Peso ideal: ${N(data.peso_ideal," kg")} | Control peso: ${N(data.control_peso," kg")} | Control grasa: ${N(data.control_grasa," kg")} | Control músculo: ${N(data.control_musculo," kg")}`,
-    (data.seg_brazo_der||data.seg_tronco)?[
-      ``,
-      `MASA MAGRA SEGMENTAL:`,
-      `  Brazo D.: ${N(data.seg_brazo_der," kg")} | Brazo I.: ${N(data.seg_brazo_izq," kg")} | Tronco: ${N(data.seg_tronco," kg")} | Pierna D.: ${N(data.seg_pierna_der," kg")} | Pierna I.: ${N(data.seg_pierna_izq," kg")}`,
-    ].join("\n"):"",
-    (data.grasa_tronco)?[
-      ``,
-      `GRASA SEGMENTAL:`,
-      `  Brazo D.: ${N(data.grasa_brazo_der," kg")} | Brazo I.: ${N(data.grasa_brazo_izq," kg")} | Tronco: ${N(data.grasa_tronco," kg")} | Pierna D.: ${N(data.grasa_pierna_der," kg")} | Pierna I.: ${N(data.grasa_pierna_izq," kg")}`,
-    ].join("\n"):"",
-    data.notas?`\nNOTAS: ${data.notas}`:"",
-  ].filter(Boolean).join("\n");
-  // Agregar al campo de exploración física o subjetivo
-  const campo=document.getElementById("cs_expl")||document.getElementById("cs_subj");
-  if(!campo){
-    // Si no hay nota abierta, navegar a nueva consulta
-    showToast("Abre o crea una consulta médica para incluir el InBody en la nota",false);
-    return;
-  }
-  const actual=campo.value;
-  campo.value=(actual?actual+"\n\n":"")+lineas;
-  campo.focus();
-  // Scroll al campo
-  campo.scrollIntoView({behavior:"smooth",block:"center"});
-  showToast("✓ Datos InBody incluidos en la nota");
-  // Si estamos en la pestaña de InBody, regresar a la consulta
-  if(STATE.expTab==="inbody")go("consulta");
 }
 async function renderAnotaciones(ab){
   const {data}=await SB.from("anotaciones").select("*").eq("paciente_id",pid).order("fecha",{ascending:false});
