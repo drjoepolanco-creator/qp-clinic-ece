@@ -2018,8 +2018,7 @@ function renderFicha(b){
   const p=STATE.pat;
   b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:16px" class="fade">
     <div style="display:flex;gap:6px;margin-bottom:12px">
-      ${btn("💾 Guardar datos","guardarFicha()","ok",1)}
-      ${btn("🖨️ Imprimir","showToast('Función disponible con backend')","s",1)}
+      ${STATE.ficTab==="gen"?btn("💾 Guardar datos generales","guardarFicha()","ok",1):""}
       ${btn("🔏 Firmar docs","abrirModalFirmaGlobal()","s",1)}
     </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
@@ -2383,11 +2382,16 @@ window.guardarSeguro=async function(){
   showToast("✓ Seguro médico guardado");
 }
 window.guardarFicha=async function(){
+  if(STATE.ficTab!=="gen"){showToast("Usa el botón de guardar de esta sección",false);return;}
   const p=STATE.pat;
+  if(!p?.id){showToast("Sin paciente activo",false);return;}
+  const nom=gv("fe_nom").trim();
+  const ap=gv("fe_ap").trim();
+  if(!nom||!ap){showToast("Nombre y apellido paterno son obligatorios",false);return;}
   loading(true,"Actualizando datos...");
   const payload={
-    nombre:gv("fe_nom").trim().toUpperCase(),
-    apellido_paterno:gv("fe_ap").trim().toUpperCase(),
+    nombre:nom.toUpperCase(),
+    apellido_paterno:ap.toUpperCase(),
     apellido_materno:gv("fe_am").trim().toUpperCase()||null,
     curp:gv("fe_curp").trim().toUpperCase()||null,
     folio_clinica:gv("fe_folio")||null,
