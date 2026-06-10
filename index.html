@@ -102,6 +102,7 @@ const ESPECIALIDADES=[
   "Hematología","Hematología Pediátrica","Oncohematología",
   "Hepatología","Infectología","Infectología Pediátrica",
   "Mastología","Medicina de Urgencias","Medicina del Deporte",
+  "Medicina de Rehabilitación","Medicina Física y Rehabilitación",
   "Medicina de Trabajo y Salud Ocupacional","Medicina del Viajero",
   "Medicina Nuclear","Medicina Paliativa y Cuidados al Final de la Vida",
   "Medicina Preventiva y Salud Pública","Neonatología",
@@ -148,7 +149,14 @@ const ESPECIALIDADES=[
 ];
 const CIF_CAT=["Seleccione una categoría","— FUNCIONES CORPORALES —","Funciones mentales","Funciones sensoriales y dolor","Funciones de la voz y el habla","Funciones del sistema cardiovascular, hematológico, inmunológico y respiratorio","Funciones del sistema digestivo, metabólico y endocrino","Funciones genitourinarias y reproductoras","Funciones neuromusculoesqueléticas y relacionadas con el movimiento","Funciones de la piel y estructuras relacionadas","— ACTIVIDADES Y PARTICIPACIÓN —","Aprendizaje y aplicación del conocimiento","Tareas y demandas generales","Comunicación","Movilidad","Autocuidado","Vida doméstica","Interacciones y relaciones interpersonales","Áreas principales de la vida","Vida comunitaria, social y cívica","— FACTORES AMBIENTALES —","Productos y tecnología","Entorno natural y cambios derivados de la actividad humana","Apoyo y relaciones","Actitudes","Servicios, sistemas y políticas"];
 const PLANTILLAS_PAT=[{lbl:"Hipertensión",txt:"Hipertensión Arterial Sistémica diagnosticada en ___, en tratamiento con ___, controlada/no controlada."},{lbl:"Diabetes",txt:"Diabetes Mellitus tipo 2 diagnosticada en ___, en tratamiento con ___, HbA1c de ___."},{lbl:"Cx previa",txt:"Antecedente quirúrgico: ___ (fecha ___). Evolución postoperatoria sin complicaciones."},{lbl:"Fractura",txt:"Fractura de ___ en el año ___, manejo ___, consolidación adecuada sin secuelas."},{lbl:"Alérgico",txt:"Reacción alérgica a ___ manifestada como ___. Manejado con ___."},{lbl:"Sin ant.",txt:"Niega antecedentes patológicos de importancia."}];
-// ── HELPERS UI ────────────────────────────────────────────
+// Helper: input de especialidad con datalist (libre + autocompletado)
+function espInput(id,val,ph="Especialidad o escribe la tuya"){
+  return`<div style="position:relative">
+    <input type="text" id="${id}" value="${val||""}" placeholder="${ph}" list="dl-esp-${id}" autocomplete="off"
+      style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+    <datalist id="dl-esp-${id}">${ESPECIALIDADES.map(e=>`<option value="${e}">`).join("")}</datalist>
+  </div>`;
+}
 const RR=()=>document.getElementById("R");
 function go(pg,ex={}){Object.assign(STATE,{page:pg,...ex});draw();}
 // ── BITÁCORA DE ACCESO (NOM-024) ─────────────────────────
@@ -572,7 +580,7 @@ window.abrirModalUsuario=async function(uid=""){
       ${fld("Institución",`${instInput("mu_igrado",u.institucion_grado||"")}`)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-      ${fld("Especialidad",`<select id="mu_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
+      ${fld("Especialidad",espInput("mu_esp1",u.especialidad_1||""))}
       ${fld("Cédula de especialidad",inp("mu_cedesp1",u.cedula_esp_1||u.cedula_especialidad||"","No. de cédula esp."))}
       ${fld("Institución de especialidad",`${instInput("mu_iesp1",u.institucion_esp_1||"")}`)}
     </div>
@@ -819,7 +827,7 @@ async function pgPerfil(){
           ${fld("Institución",`${instInput("pf_igrado",u.institucion_grado||"")}`)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-          ${fld("Especialidad",`<select id="pf_esp1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option value="">Sin indicar</option>${ESPECIALIDADES.map(e=>`<option ${(u.especialidad_1||"")===e?"selected":""}>${e}</option>`).join("")}</select>`)}
+          ${fld("Especialidad",espInput("pf_esp1",u.especialidad_1||""))}
           ${fld("Cédula de especialidad",inp("pf_cedesp1",u.cedula_esp_1||u.cedula_especialidad||"","No. de cédula esp."))}
           ${fld("Institución de especialidad",`${instInput("pf_iesp1",u.institucion_esp_1||"")}`)}
         </div>
