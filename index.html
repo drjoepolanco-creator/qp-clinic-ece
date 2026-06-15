@@ -478,8 +478,8 @@ async function pgMedicos(){
   const {data:usuarios}=await SB.from("usuarios").select("*").order("apellidos");
   loading(false);
   const u=usuarios||[];
-  const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición"};
-  const ROL_COLORS={"admin":"#6A1B9A","medico":"#1565C0","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B"};
+  const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición","psicologo":"Psicólogo(a)","pasante":"Pasante"};
+  const ROL_COLORS={"admin":"#6A1B9A","medico":"#1565C0","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B","psicologo":"#5D4037","pasante":"#455A64"};
   RR().innerHTML=nav()+`
   <div style="max-width:1200px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -560,13 +560,13 @@ window.abrirModalUsuario=async function(uid=""){
   } else {
     if(title)title.textContent="➕ Nuevo usuario";
   }
-  const ROLES=[["admin","Administrador"],["medico","Médico"],["fisioterapeuta","Fisioterapeuta / L.T.F. / L.F.T."],["nutricion","Lic. en Nutrición"],["enfermeria","Enfermería"],["recepcion","Recepcionista"]];
+  const ROLES=[["admin","Administrador"],["medico","Médico"],["fisioterapeuta","Fisioterapeuta / L.T.F. / L.F.T."],["nutricion","Lic. en Nutrición"],["psicologo","Psicólogo(a)"],["enfermeria","Enfermería"],["pasante","Pasante"],["recepcion","Recepcionista"]];
   
   body.innerHTML=`
     <!-- Datos de acceso y rol -->
     <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">Datos de acceso y rol</b></div>
     <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:12px;margin-bottom:14px">
-      ${fld("Título",`<select id="mu_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","L.T.F.","L.F.T.","L.N.","Psic.","Neuropsic.","Fis.","Enf.","Enf.ª","M.C.","Mtro.","Mtra.","M. en C.","Dr. en C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
+      ${fld("Título",`<select id="mu_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","L.T.F.","L.F.T.","L.N.","P.N.","Psic.","Neuropsic.","Fis.","Enf.","Enf.ª","M.C.","Mtro.","Mtra.","M. en C.","Dr. en C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
       ${fld("Nombre(s) *",inp("mu_nom",u.nombre||"","Nombre(s)"),1)}
       ${fld("Apellidos *",inp("mu_ap",u.apellidos||"","Apellido Paterno Materno"),1)}
     </div>
@@ -1105,7 +1105,6 @@ async function pgTramites(){
             <span><b>RFC:</b> QCL230518J66</span>
             <span><b>Socios:</b> Dr. José Alan Polanco F. (50%)</span>
             <span><b>Socios:</b> Iván Jesús Quevedo Landeros (50%)</span>
-            <span><b>Capital social:</b> $20,000 MXN</span>
             <span><b>Objeto:</b> Prestación de servicios médicos en todos sus niveles</span>
           </div>
         </div>
