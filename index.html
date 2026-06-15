@@ -6087,159 +6087,557 @@ window.eliminarImagen=async function(id,path){
   loading(false);showToast("✓ Imagen eliminada");
   setET("imagenes");
 }
-// ── PAGOS ─────────────────────────────────────────────────
 // ── REPORTES DE DIRECCIÓN ─────────────────────────────────
+// Catálogo CIE-10 ligero para extracción de diagnósticos desde texto libre
+const CIE10_REGEX=/\b([A-TV-Z][0-9][0-9AB](?:\.[0-9X]{1,2})?)\b/g;
+
+function repRangoFechas(periodo,desde,hasta){
+  const hoy=new Date();
+  let d,h;
+  if(periodo==="hoy"){
+    d=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate());
+    h=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()+1);
+  } else if(periodo==="semana"){
+    const diaSemana=hoy.getDay();
+    d=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()-diaSemana);
+    h=new Date(d.getFullYear(),d.getMonth(),d.getDate()+7);
+  } else if(periodo==="mes"){
+    d=new Date(hoy.getFullYear(),hoy.getMonth(),1);
+    h=new Date(hoy.getFullYear(),hoy.getMonth()+1,1);
+  } else if(periodo==="anio"){
+    d=new Date(hoy.getFullYear(),0,1);
+    h=new Date(hoy.getFullYear()+1,0,1);
+  } else { // personalizado
+    d=desde?new Date(desde+"T00:00:00"):new Date(hoy.getFullYear(),hoy.getMonth(),1);
+    h=hasta?new Date(hasta+"T23:59:59"):hoy;
+  }
+  return{desde:d.toISOString(),hasta:h.toISOString(),desdeStr:d.toISOString().split("T")[0],hastaStr:h.toISOString().split("T")[0]};
+}
+
+function repEtiquetaPeriodo(periodo,desde,hasta){
+  const map={hoy:"Hoy",semana:"Esta semana",mes:"Este mes",anio:"Este año"};
+  if(map[periodo])return map[periodo];
+  return `${(desde||"").split("-").reverse().join("/")} – ${(hasta||"").split("-").reverse().join("/")}`;
+}
+
+// Genera las "buckets" temporales para graficar series dentro del rango
+function repBuckets(periodo,rango){
+  const buckets=[];
+  if(periodo==="hoy"){
+    // por hora (horario laboral típico 7-21)
+    for(let hh=7;hh<=21;hh++){
+      buckets.push({key:String(hh).padStart(2,"0"),label:hh+":00",test:(iso)=>{const dt=new Date(iso);return dt.getHours()===hh;}});
+    }
+  } else if(periodo==="semana"){
+    const dias=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+    const inicio=new Date(rango.desde);
+    for(let i=0;i<7;i++){
+      const d=new Date(inicio.getFullYear(),inicio.getMonth(),inicio.getDate()+i);
+      const key=d.toISOString().split("T")[0];
+      buckets.push({key,label:dias[d.getDay()],test:(iso)=>(iso||"").startsWith(key)});
+    }
+  } else if(periodo==="anio"){
+    const inicio=new Date(rango.desde);
+    for(let i=0;i<12;i++){
+      const d=new Date(inicio.getFullYear(),i,1);
+      const key=d.toISOString().substring(0,7);
+      const label=d.toLocaleDateString("es-MX",{month:"short"}).toUpperCase();
+      buckets.push({key,label,test:(iso)=>(iso||"").startsWith(key)});
+    }
+  } else {
+    // mes o personalizado: por día
+    const inicio=new Date(rango.desde);
+    const fin=new Date(rango.hasta);
+    const dias=Math.max(1,Math.round((fin-inicio)/86400000));
+    const maxDias=Math.min(dias,62);
+    for(let i=0;i<maxDias;i++){
+      const d=new Date(inicio.getFullYear(),inicio.getMonth(),inicio.getDate()+i);
+      if(d>fin)break;
+      const key=d.toISOString().split("T")[0];
+      const label=d.getDate()+"";
+      buckets.push({key,label,test:(iso)=>(iso||"").startsWith(key)});
+    }
+  }
+  return buckets;
+}
+
 async function pgReportes(){
-  RR().innerHTML=nav()+`<div style="max-width:1200px;margin:0 auto;padding:20px 14px" class="fade">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+  if(!STATE.repPeriodo)STATE.repPeriodo="mes";
+  if(!STATE.repTab)STATE.repTab="resumen";
+  if(!STATE.repDesde)STATE.repDesde=new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().split("T")[0];
+  if(!STATE.repHasta)STATE.repHasta=new Date().toISOString().split("T")[0];
+
+  const periodos=[["hoy","Hoy"],["semana","Semana"],["mes","Mes"],["anio","Año"],["custom","Personalizado"]];
+  const tabs=[["resumen","📈 Resumen"],["epi","🦠 Epidemiológico"],["fin","💰 Financiero"],["admin","🗂️ Administrativo"]];
+
+  RR().innerHTML=nav()+`<div style="max-width:1280px;margin:0 auto;padding:20px 14px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <div>
         <h2 style="font-size:20px;font-weight:800;color:${TX}">📊 Reportes de Dirección</h2>
-        <p style="font-size:14px;color:${MU}">Indicadores clave — QP Clinic</p>
+        <p style="font-size:14px;color:${MU}">Indicadores clínicos, financieros y administrativos — QP Clinic</p>
       </div>
       <div style="display:flex;gap:8px">
         ${btn("💰 Corte de caja","go('cortecaja')","ok",1)}
         ${btn("🔄 Actualizar","pgReportes()","s",1)}
       </div>
     </div>
+    <!-- Selector de periodo -->
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:700;color:${MU};text-transform:uppercase;letter-spacing:.3px">Periodo:</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${periodos.map(([k,l])=>`<button onclick="setRepPeriodo('${k}')" style="padding:6px 14px;border-radius:20px;border:1.5px solid ${(STATE.repPeriodo===k)?P:BR};background:${(STATE.repPeriodo===k)?P:"#fff"};color:${(STATE.repPeriodo===k)?"#fff":TX};font-weight:700;font-size:13px;cursor:pointer">${l}</button>`).join("")}
+      </div>
+      ${STATE.repPeriodo==="custom"?`<div style="display:flex;gap:6px;align-items:center;margin-left:8px">
+        <input id="rep-desde" type="date" value="${STATE.repDesde}" onchange="STATE.repDesde=this.value" style="padding:6px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">
+        <span style="color:${MU};font-size:13px">a</span>
+        <input id="rep-hasta" type="date" value="${STATE.repHasta}" onchange="STATE.repHasta=this.value" style="padding:6px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:13px">
+        ${btn("Aplicar","pgReportes()","p",1)}
+      </div>`:""}
+      <span style="margin-left:auto;font-size:13px;color:${MU};font-weight:600">${repEtiquetaPeriodo(STATE.repPeriodo,STATE.repDesde,STATE.repHasta)}</span>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;border-bottom:2px solid ${BR}">
+      ${tabs.map(([k,l])=>`<button onclick="setRepTab('${k}')" style="padding:10px 18px;border:none;background:none;cursor:pointer;font-weight:700;font-size:14px;color:${(STATE.repTab===k)?P:MU};border-bottom:3px solid ${(STATE.repTab===k)?P:"transparent"};margin-bottom:-2px">${l}</button>`).join("")}
+    </div>
     <div id="rep-loading" style="text-align:center;padding:40px;color:${MU}"><span class="spin" style="font-size:20px">⚙️</span> Cargando métricas...</div>
     <div id="rep-content" style="display:none"></div>
   </div>`;
-  // Cargar todo en paralelo
-  const hoy=new Date();
-  const primerMes=new Date(hoy.getFullYear(),hoy.getMonth(),1).toISOString().split("T")[0];
-  const primerSemana=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()-hoy.getDay()).toISOString().split("T")[0];
-  const hace6Meses=new Date(hoy.getFullYear(),hoy.getMonth()-5,1).toISOString().split("T")[0];
+
+  await cargarReportes();
+}
+
+window.setRepPeriodo=function(p){
+  STATE.repPeriodo=p;
+  if(p!=="custom"){const r=repRangoFechas(p);STATE.repDesde=r.desdeStr;STATE.repHasta=r.hastaStr;}
+  pgReportes();
+}
+window.setRepTab=function(t){STATE.repTab=t;pgReportes();}
+
+async function cargarReportes(){
+  const rango=repRangoFechas(STATE.repPeriodo,STATE.repDesde,STATE.repHasta);
   try{
     const [
-      {count:totalPac},{count:pacMes},{count:totalCons},{count:consMes},
-      {data:pagosAll},{data:pagosMes},{data:medicosData},{data:consData},{data:pacData}
+      {data:pacPeriodo},{count:pacTotalCount},
+      {data:consPeriodo},{count:consTotalCount},
+      {data:pagosPeriodo},{data:pagosTodos},
+      {data:usuariosData},{data:interData},{data:bitData}
     ]=await Promise.all([
-      SB.from("pacientes").select("*",{count:"exact",head:true}),
-      SB.from("pacientes").select("*",{count:"exact",head:true}).gte("created_at",primerMes),
-      SB.from("consultas").select("*",{count:"exact",head:true}),
-      SB.from("consultas").select("*",{count:"exact",head:true}).gte("created_at",primerMes),
-      SB.from("pagos").select("monto,fecha,estado,medico_nombre,forma_pago,concepto").order("fecha",{ascending:false}).limit(500),
-      SB.from("pagos").select("monto,estado,forma_pago,concepto,medico_nombre").gte("fecha",primerMes),
-      SB.from("usuarios").select("id,nombre,apellidos,especialidad_1,activo").eq("activo",true),
-      SB.from("consultas").select("medico_id,medico_nombre,created_at,tipo_nota").gte("created_at",hace6Meses),
-      SB.from("pacientes").select("created_at").gte("created_at",hace6Meses)
+      SB.from("pacientes").select("id,created_at,fecha_nacimiento,sexo_biologico,genero,estado_civil,ocupacion,domicilio,activo").gte("created_at",rango.desde).lt("created_at",rango.hasta),
+      SB.from("pacientes").select("id",{count:"exact",head:true}),
+      SB.from("consultas").select("id,paciente_id,medico_id,medico_nombre,medico_especialidad,tipo_nota,created_at,fecha,analisis,bloqueada,eva_dolor").gte("created_at",rango.desde).lt("created_at",rango.hasta),
+      SB.from("consultas").select("id",{count:"exact",head:true}),
+      SB.from("pagos").select("monto,fecha,estado,medico_nombre,forma_pago,concepto,created_at").gte("fecha",rango.desdeStr).lte("fecha",rango.hastaStr),
+      SB.from("pagos").select("monto,fecha,estado").order("fecha",{ascending:false}).limit(2000),
+      SB.from("usuarios").select("id,nombre,apellidos,especialidad_1,activo,rol").eq("activo",true),
+      SB.from("interconsultas").select("id,especialidad,prioridad,estatus,created_at,medico_interconsultante").gte("created_at",rango.desde).lt("created_at",rango.hasta),
+      SB.from("bitacora_accesos").select("usuario_nombre,usuario_rol,accion,timestamp").gte("timestamp",rango.desde).lt("timestamp",rango.hasta).limit(3000)
     ]);
-    const pagos=pagosAll||[];const pagosMesArr=pagosMes||[];
-    const ingMes=pagosMesArr.filter(p=>p.estado!=="Cancelado").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
-    const ingTotal=pagos.filter(p=>p.estado!=="Cancelado").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
-    const pendMes=pagosMesArr.filter(p=>p.estado==="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
-    // Agrupar por mes (últimos 6)
-    const meses=[];
-    for(let i=5;i>=0;i--){
-      const d=new Date(hoy.getFullYear(),hoy.getMonth()-i,1);
-      const key=d.toISOString().substring(0,7);
-      const label=d.toLocaleDateString("es-MX",{month:"short",year:"2-digit"}).toUpperCase();
-      const ing=pagos.filter(p=>p.fecha&&p.fecha.startsWith(key)&&p.estado!=="Cancelado").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
-      const cons=(consData||[]).filter(c=>c.created_at&&c.created_at.startsWith(key)).length;
-      const nPac=(pacData||[]).filter(p=>p.created_at&&p.created_at.startsWith(key)).length;
-      meses.push({key,label,ing,cons,nPac});
-    }
-    const maxIng=Math.max(...meses.map(m=>m.ing),1);
-    const maxCons=Math.max(...meses.map(m=>m.cons),1);
-    // Por médico
-    const medMap={};
-    (consData||[]).forEach(c=>{
-      const nm=c.medico_nombre||"Sin nombre";
-      if(!medMap[nm])medMap[nm]={cons:0,ing:0};
-      medMap[nm].cons++;
-    });
-    pagos.filter(p=>p.estado!=="Cancelado").forEach(p=>{
-      const nm=p.medico_nombre||"Sin nombre";
-      if(!medMap[nm])medMap[nm]={cons:0,ing:0};
-      medMap[nm].ing+=(parseFloat(p.monto)||0);
-    });
-    const medArr=Object.entries(medMap).sort((a,b)=>b[1].ing-a[1].ing);
-    const maxMedIng=Math.max(...medArr.map(m=>m[1].ing),1);
-    // Forma de pago
-    const formaMap={};
-    pagosMesArr.filter(p=>p.estado!=="Cancelado").forEach(p=>{
-      const f=p.forma_pago||"Otro";
-      formaMap[f]=(formaMap[f]||0)+(parseFloat(p.monto)||0);
-    });
-    const formaArr=Object.entries(formaMap).sort((a,b)=>b[1]-a[1]);
-    const maxForma=Math.max(...formaArr.map(f=>f[1]),1);
-    // Render
-    const kpi=(icon,label,val,sub,bg,col)=>`<div style="background:${bg};border-radius:12px;padding:16px 18px;border-left:4px solid ${col}">
-      <div style="font-size:24px;margin-bottom:6px">${icon}</div>
-      <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:4px">${label}</p>
-      <p style="font-size:26px;font-weight:800;color:${col};margin-bottom:2px">${val}</p>
-      ${sub?`<p style="font-size:13px;color:${MU}">${sub}</p>`:""}
-    </div>`;
-    const bar=(val,max,color,label,label2)=>`<div style="margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:72px;font-size:13px;color:${MU};text-align:right;flex-shrink:0;font-weight:600">${label}</div>
-        <div style="flex:1;background:#F0F4F8;border-radius:5px;height:24px;overflow:hidden;position:relative">
-          <div style="width:${Math.max(Math.round((val/max)*100),2)}%;height:100%;background:${color};border-radius:5px;transition:width .3s"></div>
-          <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:${val>max*0.3?"#fff":TX}">${label2||val}</span>
-        </div>
-      </div>
-    </div>`;
+
+    const ctx={
+      rango,
+      pac:pacPeriodo||[],
+      pacTotal:pacTotalCount??null,
+      cons:consPeriodo||[],
+      consTotal:consTotalCount??null,
+      pagos:pagosPeriodo||[],
+      pagosTodos:pagosTodos||[],
+      usuarios:usuariosData||[],
+      inter:interData||[],
+      bitacora:bitData||[]
+    };
+
     document.getElementById("rep-loading").style.display="none";
     const el=document.getElementById("rep-content");el.style.display="block";
-    el.innerHTML=`
-      <!-- KPIs -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-        ${kpi("👥","Pacientes totales",(totalPac||0).toLocaleString(),"+"+(pacMes||0)+" este mes","#E3F2FD","#1565C0")}
-        ${kpi("🩺","Consultas este mes",(consMes||0).toLocaleString(),(totalCons||0).toLocaleString()+" total","#E8F5E9","#2E7D32")}
-        ${kpi("💰","Ingresos este mes","$"+ingMes.toLocaleString("es-MX",{minimumFractionDigits:0}),pendMes>0?"$"+pendMes.toLocaleString("es-MX",{minimumFractionDigits:0})+" pendiente":"Sin pendientes","#FFF8E1","#E65100")}
-        ${kpi("💵","Ingresos totales","$"+ingTotal.toLocaleString("es-MX",{minimumFractionDigits:0}),"Histórico registrado","#F3E5F5","#6A1B9A")}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-        <!-- Ingresos por mes -->
-        <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
-          <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">💰 Ingresos por mes</p>
-          ${meses.map(m=>bar(m.ing,maxIng,"#1565C0",m.label,"$"+m.ing.toLocaleString("es-MX",{maximumFractionDigits:0}))).join("")}
-        </div>
-        <!-- Consultas por mes -->
-        <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
-          <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">🩺 Consultas por mes</p>
-          ${meses.map(m=>bar(m.cons,maxCons,"#2E7D32",m.label,m.cons+" cons.")).join("")}
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
-        <!-- Por médico -->
-        <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
-          <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">👨‍⚕️ Actividad por médico (últimos 6 meses)</p>
-          ${medArr.length===0?`<p style="color:${MU};font-size:14px">Sin datos</p>`:
-          `<table style="width:100%;border-collapse:collapse;font-size:14px">
-            <thead><tr style="background:${PL}">${["Médico","Consultas","Ingresos"].map(h=>`<th style="padding:8px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
-            <tbody>${medArr.map(([nm,d],i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-              <td style="padding:8px 12px;font-weight:600">${nm}</td>
-              <td style="padding:8px 12px;text-align:center"><span style="background:${PL};color:${P};padding:2px 10px;border-radius:20px;font-weight:700">${d.cons}</span></td>
-              <td style="padding:8px 12px;font-weight:700;color:#1B5E20">$${d.ing.toLocaleString("es-MX",{minimumFractionDigits:0})}</td>
-            </tr>`).join("")}</tbody>
-          </table>`}
-        </div>
-        <!-- Forma de pago -->
-        <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
-          <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">💳 Forma de pago (este mes)</p>
-          ${formaArr.length===0?`<p style="color:${MU};font-size:14px;text-align:center;padding:20px">Sin pagos este mes</p>`:
-          formaArr.map(([f,v])=>bar(v,maxForma,"#6A1B9A",f.substring(0,10),"$"+v.toLocaleString("es-MX",{maximumFractionDigits:0}))).join("")}
-        </div>
-      </div>
-      <!-- Nuevos pacientes -->
-      <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px">
-        <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">👥 Nuevos pacientes por mes</p>
-        <div style="display:flex;align-items:flex-end;gap:8px;height:90px;padding-bottom:4px">
-          ${meses.map(m=>{
-            const maxNP=Math.max(...meses.map(x=>x.nPac),1);
-            const h=Math.max(Math.round((m.nPac/maxNP)*80),4);
-            return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
-              <span style="font-size:13px;font-weight:700;color:${P}">${m.nPac}</span>
-              <div style="width:100%;height:${h}px;background:${P};border-radius:4px 4px 0 0"></div>
-              <span style="font-size:11px;color:${MU}">${m.label}</span>
-            </div>`;
-          }).join("")}
-        </div>
-      </div>`;
+
+    if(STATE.repTab==="resumen")el.innerHTML=renderRepResumen(ctx);
+    else if(STATE.repTab==="epi")el.innerHTML=renderRepEpi(ctx);
+    else if(STATE.repTab==="fin")el.innerHTML=renderRepFin(ctx);
+    else if(STATE.repTab==="admin")el.innerHTML=renderRepAdmin(ctx);
+
   }catch(e){
     document.getElementById("rep-loading").innerHTML=`<p style="color:${DA}">Error al cargar reportes: ${e.message}</p>`;
   }
+}
+
+// ── Helpers de render compartidos ──────────────────────────
+function repKpi(icon,label,val,sub,bg,col){
+  return`<div style="background:${bg};border-radius:12px;padding:16px 18px;border-left:4px solid ${col}">
+    <div style="font-size:24px;margin-bottom:6px">${icon}</div>
+    <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:4px">${label}</p>
+    <p style="font-size:26px;font-weight:800;color:${col};margin-bottom:2px">${val}</p>
+    ${sub?`<p style="font-size:13px;color:${MU}">${sub}</p>`:""}
+  </div>`;
+}
+function repBar(val,max,color,label,label2){
+  return`<div style="margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="width:80px;font-size:13px;color:${MU};text-align:right;flex-shrink:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</div>
+      <div style="flex:1;background:#F0F4F8;border-radius:5px;height:24px;overflow:hidden;position:relative">
+        <div style="width:${Math.max(Math.round((val/max)*100),val>0?2:0)}%;height:100%;background:${color};border-radius:5px;transition:width .3s"></div>
+        <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:${val>max*0.3?"#fff":TX}">${label2!==undefined?label2:val}</span>
+      </div>
+    </div>
+  </div>`;
+}
+function repPanel(title,inner,extraStyle=""){
+  return`<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:16px;${extraStyle}">
+    <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:14px">${title}</p>
+    ${inner}
+  </div>`;
+}
+function repVacio(msg){return`<p style="color:${MU};font-size:14px;text-align:center;padding:24px">${msg}</p>`;}
+function repTabla(headers,rows){
+  if(rows.length===0)return repVacio("Sin datos en el periodo seleccionado");
+  return`<table style="width:100%;border-collapse:collapse;font-size:14px">
+    <thead><tr style="background:${PL}">${headers.map(h=>`<th style="padding:8px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((r,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">${r.map(c=>`<td style="padding:8px 12px">${c}</td>`).join("")}</tr>`).join("")}</tbody>
+  </table>`;
+}
+
+// ── TAB: RESUMEN ────────────────────────────────────────────
+function renderRepResumen(ctx){
+  const ingPeriodo=ctx.pagos.filter(p=>p.estado!=="Cancelado").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const pendPeriodo=ctx.pagos.filter(p=>p.estado==="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const nuevosPac=ctx.pac.length;
+  const numCons=ctx.cons.length;
+  const pacientesUnicos=new Set(ctx.cons.map(c=>c.paciente_id)).size;
+  const ticketProm=numCons>0?(ingPeriodo/numCons):0;
+  const interPend=ctx.inter.filter(i=>(i.estatus||"").includes("Pendiente")).length;
+
+  // serie temporal de consultas e ingresos
+  const buckets=repBuckets(STATE.repPeriodo,ctx.rango);
+  const serieCons=buckets.map(b=>({...b,val:ctx.cons.filter(c=>b.test(c.created_at)).length}));
+  const serieIng=buckets.map(b=>({...b,val:ctx.pagos.filter(p=>p.estado!=="Cancelado"&&b.test((p.fecha||"")+"T12:00:00")).reduce((a,p)=>a+(parseFloat(p.monto)||0),0)}));
+  const maxCons=Math.max(...serieCons.map(b=>b.val),1);
+  const maxIng=Math.max(...serieIng.map(b=>b.val),1);
+
+  // tipo de nota
+  const tipoMap={};
+  ctx.cons.forEach(c=>{const t=c.tipo_nota||"Nota de evolución";tipoMap[t]=(tipoMap[t]||0)+1;});
+  const tipoArr=Object.entries(tipoMap).sort((a,b)=>b[1]-a[1]);
+  const maxTipo=Math.max(...tipoArr.map(t=>t[1]),1);
+
+  return`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      ${repKpi("👥","Pacientes nuevos",nuevosPac.toLocaleString(),(ctx.pacTotal!=null?ctx.pacTotal.toLocaleString()+" total":""),"#E3F2FD","#1565C0")}
+      ${repKpi("🩺","Consultas",numCons.toLocaleString(),pacientesUnicos+" pacientes atendidos","#E8F5E9","#2E7D32")}
+      ${repKpi("💰","Ingresos del periodo","$"+ingPeriodo.toLocaleString("es-MX",{minimumFractionDigits:0}),pendPeriodo>0?"$"+pendPeriodo.toLocaleString("es-MX",{minimumFractionDigits:0})+" pendiente":"Sin pendientes","#FFF8E1","#E65100")}
+      ${repKpi("🎫","Ticket promedio","$"+ticketProm.toLocaleString("es-MX",{maximumFractionDigits:0}),"por consulta","#F3E5F5","#6A1B9A")}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      ${repPanel("🩺 Consultas en el periodo",
+        serieCons.every(b=>b.val===0)?repVacio("Sin consultas registradas"):
+        `<div style="display:flex;align-items:flex-end;gap:4px;height:100px;padding-bottom:4px;overflow-x:auto">
+          ${serieCons.map(b=>{const h=Math.max(Math.round((b.val/maxCons)*80),b.val>0?4:1);
+            return`<div style="flex:1;min-width:18px;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="font-size:11px;font-weight:700;color:${P}">${b.val||""}</span>
+              <div style="width:100%;height:${h}px;background:${P};border-radius:4px 4px 0 0"></div>
+              <span style="font-size:10px;color:${MU}">${b.label}</span>
+            </div>`;}).join("")}
+        </div>`)}
+      ${repPanel("💰 Ingresos en el periodo",
+        serieIng.every(b=>b.val===0)?repVacio("Sin ingresos registrados"):
+        `<div style="display:flex;align-items:flex-end;gap:4px;height:100px;padding-bottom:4px;overflow-x:auto">
+          ${serieIng.map(b=>{const h=Math.max(Math.round((b.val/maxIng)*80),b.val>0?4:1);
+            return`<div style="flex:1;min-width:18px;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="font-size:10px;font-weight:700;color:${SU}">${b.val>0?"$"+Math.round(b.val/1000)+"k":""}</span>
+              <div style="width:100%;height:${h}px;background:${SU};border-radius:4px 4px 0 0"></div>
+              <span style="font-size:10px;color:${MU}">${b.label}</span>
+            </div>`;}).join("")}
+        </div>`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      ${repPanel("📋 Consultas por tipo de nota",
+        tipoArr.length===0?repVacio("Sin datos"):
+        tipoArr.map(([t,v])=>repBar(v,maxTipo,"#1565C0",t.replace("Nota de ","").replace("Nota ","").substring(0,14),v+"")).join(""))}
+      ${repPanel("📌 Alertas operativas",`
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:${interPend>0?"#FFF3E0":"#F0F4F8"};border-radius:8px">
+            <span style="font-size:14px;font-weight:600">Interconsultas pendientes</span>
+            <span style="font-size:18px;font-weight:800;color:${interPend>0?"#E65100":MU}">${interPend}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:${pendPeriodo>0?"#FFF3E0":"#F0F4F8"};border-radius:8px">
+            <span style="font-size:14px;font-weight:600">Pagos pendientes</span>
+            <span style="font-size:18px;font-weight:800;color:${pendPeriodo>0?"#E65100":MU}">$${pendPeriodo.toLocaleString("es-MX",{maximumFractionDigits:0})}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#F0F4F8;border-radius:8px">
+            <span style="font-size:14px;font-weight:600">Notas bloqueadas (firmadas)</span>
+            <span style="font-size:18px;font-weight:800;color:${TX}">${ctx.cons.filter(c=>c.bloqueada).length} / ${numCons}</span>
+          </div>
+        </div>`)}
+    </div>`;
+}
+
+// ── TAB: EPIDEMIOLÓGICO ─────────────────────────────────────
+function renderRepEpi(ctx){
+  // Sexo / Género (de pacientes nuevos en el periodo)
+  const sexoMap={};
+  ctx.pac.forEach(p=>{const s=p.sexo_biologico||"Sin indicar";sexoMap[s]=(sexoMap[s]||0)+1;});
+  const sexoArr=Object.entries(sexoMap).sort((a,b)=>b[1]-a[1]);
+  const maxSexo=Math.max(...sexoArr.map(s=>s[1]),1);
+
+  // Pirámide de edades
+  const rangos=[[0,9,"0-9"],[10,19,"10-19"],[20,29,"20-29"],[30,39,"30-39"],[40,49,"40-49"],[50,59,"50-59"],[60,69,"60-69"],[70,79,"70-79"],[80,150,"80+"]];
+  const edadMap={};rangos.forEach(r=>edadMap[r[2]]=0);
+  ctx.pac.forEach(p=>{
+    if(!p.fecha_nacimiento)return;
+    const edad=Math.floor((Date.now()-new Date(p.fecha_nacimiento).getTime())/(365.25*86400000));
+    const r=rangos.find(rg=>edad>=rg[0]&&edad<=rg[1]);
+    if(r)edadMap[r[2]]++;
+  });
+  const edadArr=rangos.map(r=>[r[2],edadMap[r[2]]]);
+  const maxEdad=Math.max(...edadArr.map(e=>e[1]),1);
+
+  // Diagnósticos CIE-10 extraídos de "analisis"
+  const dxMap={};
+  ctx.cons.forEach(c=>{
+    const txt=c.analisis||"";
+    const matches=[...txt.matchAll(CIE10_REGEX)];
+    matches.forEach(m=>{const code=m[1].toUpperCase();dxMap[code]=(dxMap[code]||0)+1;});
+  });
+  const dxArr=Object.entries(dxMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxDx=Math.max(...dxArr.map(d=>d[1]),1);
+
+  // Tipo de nota (perfil de atención)
+  const tipoMap={};
+  ctx.cons.forEach(c=>{const t=c.tipo_nota||"Nota de evolución";tipoMap[t]=(tipoMap[t]||0)+1;});
+  const tipoArr=Object.entries(tipoMap).sort((a,b)=>b[1]-a[1]);
+  const maxTipo=Math.max(...tipoArr.map(t=>t[1]),1);
+
+  // EVA dolor promedio
+  const evaVals=ctx.cons.map(c=>c.eva_dolor).filter(v=>v!=null&&!isNaN(v));
+  const evaProm=evaVals.length?(evaVals.reduce((a,b)=>a+b,0)/evaVals.length):null;
+
+  // Distribución geográfica (entidad de domicilio)
+  const geoMap={};
+  ctx.pac.forEach(p=>{
+    const ent=p.domicilio?.entidad||"Sin indicar";
+    geoMap[ent]=(geoMap[ent]||0)+1;
+  });
+  const geoArr=Object.entries(geoMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxGeo=Math.max(...geoArr.map(g=>g[1]),1);
+
+  // Estado civil
+  const ecMap={};
+  ctx.pac.forEach(p=>{const e=p.estado_civil||"Sin indicar";ecMap[e]=(ecMap[e]||0)+1;});
+  const ecArr=Object.entries(ecMap).sort((a,b)=>b[1]-a[1]);
+  const maxEc=Math.max(...ecArr.map(e=>e[1]),1);
+
+  return`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      ${repKpi("👶","Pacientes nuevos",ctx.pac.length.toLocaleString(),"registrados en el periodo","#E3F2FD","#1565C0")}
+      ${repKpi("🩺","Consultas analizadas",ctx.cons.length.toLocaleString(),"para extracción de diagnósticos","#E8F5E9","#2E7D32")}
+      ${repKpi("🧬","Diagnósticos CIE-10 únicos",Object.keys(dxMap).length.toLocaleString(),"detectados en notas","#F3E5F5","#6A1B9A")}
+      ${repKpi("😣","EVA dolor promedio",evaProm!=null?evaProm.toFixed(1):"—",evaVals.length+" registros","#FFF8E1","#E65100")}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      ${repPanel("🧑‍🤝‍🧑 Distribución por sexo biológico (pacientes nuevos)",
+        sexoArr.length===0?repVacio("Sin pacientes nuevos en el periodo"):
+        sexoArr.map(([s,v])=>repBar(v,maxSexo,"#1565C0",s,v+"")).join(""))}
+      ${repPanel("📊 Pirámide de edades (pacientes nuevos)",
+        ctx.pac.length===0?repVacio("Sin pacientes nuevos en el periodo"):
+        edadArr.map(([r,v])=>repBar(v,maxEdad,"#0288D1",r,v+"")).join(""))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      ${repPanel("🧬 Top 10 diagnósticos CIE-10 (consultas del periodo)",
+        dxArr.length===0?repVacio("No se detectaron códigos CIE-10 en las notas del periodo"):
+        dxArr.map(([code,v])=>repBar(v,maxDx,"#6A1B9A",code,v+"")).join("")+
+        `<p style="font-size:12px;color:${MU};margin-top:10px">* Extracción automática por patrón CIE-10 en el campo "Análisis". Verificar con catálogo oficial.</p>`)}
+      ${repPanel("📋 Perfil de atención (tipo de nota)",
+        tipoArr.length===0?repVacio("Sin datos"):
+        tipoArr.map(([t,v])=>repBar(v,maxTipo,"#2E7D32",t.replace("Nota de ","").replace("Nota ","").substring(0,16),v+"")).join(""))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      ${repPanel("📍 Origen geográfico (entidad, pacientes nuevos)",
+        geoArr.length===0?repVacio("Sin pacientes nuevos en el periodo"):
+        geoArr.map(([g,v])=>repBar(v,maxGeo,"#00695C",g.substring(0,16),v+"")).join(""))}
+      ${repPanel("💍 Estado civil (pacientes nuevos)",
+        ecArr.length===0?repVacio("Sin pacientes nuevos en el periodo"):
+        ecArr.map(([e,v])=>repBar(v,maxEc,"#C2185B",e,v+"")).join(""))}
+    </div>`;
+}
+
+// ── TAB: FINANCIERO ──────────────────────────────────────────
+function renderRepFin(ctx){
+  const pagos=ctx.pagos;
+  const ingPeriodo=pagos.filter(p=>p.estado!=="Cancelado"&&p.estado!=="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const pendPeriodo=pagos.filter(p=>p.estado==="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const cancPeriodo=pagos.filter(p=>p.estado==="Cancelado").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const totalRegistrado=pagos.reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+  const ingTotalHist=ctx.pagosTodos.filter(p=>p.estado!=="Cancelado"&&p.estado!=="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
+
+  // serie temporal de ingresos
+  const buckets=repBuckets(STATE.repPeriodo,ctx.rango);
+  const serie=buckets.map(b=>({...b,val:pagos.filter(p=>p.estado!=="Cancelado"&&b.test((p.fecha||"")+"T12:00:00")).reduce((a,p)=>a+(parseFloat(p.monto)||0),0)}));
+  const maxSerie=Math.max(...serie.map(s=>s.val),1);
+
+  // por médico
+  const medMap={};
+  pagos.filter(p=>p.estado!=="Cancelado"&&p.estado!=="Pendiente").forEach(p=>{
+    const nm=p.medico_nombre||"Sin asignar";
+    medMap[nm]=(medMap[nm]||0)+(parseFloat(p.monto)||0);
+  });
+  const medArr=Object.entries(medMap).sort((a,b)=>b[1]-a[1]);
+  const maxMed=Math.max(...medArr.map(m=>m[1]),1);
+
+  // forma de pago
+  const formaMap={};
+  pagos.filter(p=>p.estado!=="Cancelado"&&p.estado!=="Pendiente").forEach(p=>{
+    const f=p.forma_pago||"Otro";
+    formaMap[f]=(formaMap[f]||0)+(parseFloat(p.monto)||0);
+  });
+  const formaArr=Object.entries(formaMap).sort((a,b)=>b[1]-a[1]);
+  const maxForma=Math.max(...formaArr.map(f=>f[1]),1);
+
+  // por concepto
+  const concMap={};
+  pagos.filter(p=>p.estado!=="Cancelado"&&p.estado!=="Pendiente").forEach(p=>{
+    const c=p.concepto||"Sin especificar";
+    if(!concMap[c])concMap[c]={monto:0,n:0};
+    concMap[c].monto+=(parseFloat(p.monto)||0);concMap[c].n++;
+  });
+  const concArr=Object.entries(concMap).sort((a,b)=>b[1].monto-a[1].monto).slice(0,10);
+
+  // estatus de pagos
+  const estMap={};
+  pagos.forEach(p=>{const e=p.estado||"Sin estado";estMap[e]=(estMap[e]||0)+1;});
+
+  return`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      ${repKpi("💰","Ingresos cobrados","$"+ingPeriodo.toLocaleString("es-MX",{minimumFractionDigits:0}),"en el periodo seleccionado","#E8F5E9","#2E7D32")}
+      ${repKpi("⏳","Pendientes por cobrar","$"+pendPeriodo.toLocaleString("es-MX",{minimumFractionDigits:0}),pagos.filter(p=>p.estado==="Pendiente").length+" registros","#FFF8E1","#E65100")}
+      ${repKpi("🚫","Cancelados","$"+cancPeriodo.toLocaleString("es-MX",{minimumFractionDigits:0}),pagos.filter(p=>p.estado==="Cancelado").length+" registros","#FFEBEE","#C62828")}
+      ${repKpi("📈","Total registrado","$"+totalRegistrado.toLocaleString("es-MX",{minimumFractionDigits:0}),"Histórico cobrado: $"+ingTotalHist.toLocaleString("es-MX",{maximumFractionDigits:0}),"#F3E5F5","#6A1B9A")}
+    </div>
+    ${repPanel("💰 Ingresos en el periodo",
+      serie.every(s=>s.val===0)?repVacio("Sin ingresos registrados en el periodo"):
+      `<div style="display:flex;align-items:flex-end;gap:4px;height:110px;padding-bottom:4px;overflow-x:auto">
+        ${serie.map(s=>{const h=Math.max(Math.round((s.val/maxSerie)*85),s.val>0?4:1);
+          return`<div style="flex:1;min-width:20px;display:flex;flex-direction:column;align-items:center;gap:4px">
+            <span style="font-size:10px;font-weight:700;color:${SU}">${s.val>0?"$"+(s.val>=1000?Math.round(s.val/1000)+"k":Math.round(s.val)):""}</span>
+            <div style="width:100%;height:${h}px;background:${SU};border-radius:4px 4px 0 0"></div>
+            <span style="font-size:10px;color:${MU}">${s.label}</span>
+          </div>`;}).join("")}
+      </div>`,"margin-bottom:16px")}
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+      ${repPanel("👨‍⚕️ Ingresos por médico",
+        medArr.length===0?repVacio("Sin datos"):
+        `<table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr style="background:${PL}">${["Médico","Ingresos","% del total"].map(h=>`<th style="padding:8px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+          <tbody>${medArr.map(([nm,v],i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+            <td style="padding:8px 12px;font-weight:600">${nm}</td>
+            <td style="padding:8px 12px;font-weight:700;color:#1B5E20">$${v.toLocaleString("es-MX",{minimumFractionDigits:0})}</td>
+            <td style="padding:8px 12px;color:${MU}">${ingPeriodo>0?((v/ingPeriodo)*100).toFixed(1):0}%</td>
+          </tr>`).join("")}</tbody>
+        </table>`)}
+      ${repPanel("💳 Forma de pago",
+        formaArr.length===0?repVacio("Sin pagos en el periodo"):
+        formaArr.map(([f,v])=>repBar(v,maxForma,"#6A1B9A",f.substring(0,14),"$"+v.toLocaleString("es-MX",{maximumFractionDigits:0}))).join(""))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      ${repPanel("🧾 Top conceptos",
+        concArr.length===0?repVacio("Sin datos"):
+        repTabla(["Concepto","# Pagos","Monto"],concArr.map(([c,d])=>[c.substring(0,40),d.n,"$"+d.monto.toLocaleString("es-MX",{minimumFractionDigits:0})])))}
+      ${repPanel("📌 Estatus de pagos (periodo)",
+        Object.keys(estMap).length===0?repVacio("Sin pagos en el periodo"):
+        Object.entries(estMap).map(([e,n])=>{
+          const col=e==="Pagado"?SU:e==="Pendiente"?"#E65100":e==="Cancelado"?DA:MU;
+          return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#F8F9FA;border-radius:8px;margin-bottom:8px;border-left:4px solid ${col}">
+            <span style="font-size:14px;font-weight:600">${e}</span>
+            <span style="font-size:18px;font-weight:800;color:${col}">${n}</span>
+          </div>`;
+        }).join(""))}
+    </div>`;
+}
+
+// ── TAB: ADMINISTRATIVO ──────────────────────────────────────
+function renderRepAdmin(ctx){
+  // Consultas por médico
+  const medMap={};
+  ctx.cons.forEach(c=>{
+    const nm=c.medico_nombre||"Sin asignar";
+    if(!medMap[nm])medMap[nm]={total:0,tipos:{}};
+    medMap[nm].total++;
+    const t=c.tipo_nota||"Nota de evolución";
+    medMap[nm].tipos[t]=(medMap[nm].tipos[t]||0)+1;
+  });
+  const medArr=Object.entries(medMap).sort((a,b)=>b[1].total-a[1].total);
+  const maxMed=Math.max(...medArr.map(m=>m[1].total),1);
+
+  // Interconsultas
+  const interEstMap={};
+  ctx.inter.forEach(i=>{const e=i.estatus||"Pendiente de respuesta";interEstMap[e]=(interEstMap[e]||0)+1;});
+  const interEspMap={};
+  ctx.inter.forEach(i=>{const e=i.especialidad||"Sin especificar";interEspMap[e]=(interEspMap[e]||0)+1;});
+  const interEspArr=Object.entries(interEspMap).sort((a,b)=>b[1]-a[1]);
+  const maxInterEsp=Math.max(...interEspArr.map(i=>i[1]),1);
+
+  // Bitácora — actividad por tipo de acción
+  const accMap={};
+  ctx.bitacora.forEach(b=>{const a=b.accion||"Otra";accMap[a]=(accMap[a]||0)+1;});
+  const accArr=Object.entries(accMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxAcc=Math.max(...accArr.map(a=>a[1]),1);
+
+  // Bitácora — actividad por usuario
+  const userMap={};
+  ctx.bitacora.forEach(b=>{const u=b.usuario_nombre||"Desconocido";userMap[u]=(userMap[u]||0)+1;});
+  const userArr=Object.entries(userMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxUser=Math.max(...userArr.map(u=>u[1]),1);
+
+  // Notas bloqueadas vs activas
+  const bloqueadas=ctx.cons.filter(c=>c.bloqueada).length;
+  const activas=ctx.cons.length-bloqueadas;
+
+  return`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      ${repKpi("👨‍⚕️","Médicos activos",ctx.usuarios.length.toLocaleString(),"personal registrado","#E3F2FD","#1565C0")}
+      ${repKpi("📝","Notas firmadas / bloqueadas",bloqueadas.toLocaleString(),activas+" en edición","#E8F5E9","#2E7D32")}
+      ${repKpi("🔁","Interconsultas",ctx.inter.length.toLocaleString(),(interEstMap["Pendiente de respuesta"]||0)+" pendientes","#FFF8E1","#E65100")}
+      ${repKpi("📋","Acciones en bitácora",ctx.bitacora.length.toLocaleString(),"registros del periodo","#F3E5F5","#6A1B9A")}
+    </div>
+    ${repPanel("👨‍⚕️ Actividad clínica por médico",
+      medArr.length===0?repVacio("Sin consultas en el periodo"):
+      `<table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr style="background:${PL}">${["Médico","Total consultas","Detalle por tipo"].map(h=>`<th style="padding:8px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+        <tbody>${medArr.map(([nm,d],i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+          <td style="padding:8px 12px;font-weight:600;vertical-align:top">${nm}</td>
+          <td style="padding:8px 12px;vertical-align:top"><span style="background:${PL};color:${P};padding:2px 10px;border-radius:20px;font-weight:700">${d.total}</span></td>
+          <td style="padding:8px 12px;color:${MU};font-size:13px">${Object.entries(d.tipos).map(([t,n])=>`${t.replace("Nota de ","").replace("Nota ","")}: ${n}`).join(" · ")}</td>
+        </tr>`).join("")}</tbody>
+      </table>`,"margin-bottom:16px")}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      ${repPanel("🔁 Interconsultas por especialidad",
+        interEspArr.length===0?repVacio("Sin interconsultas en el periodo"):
+        interEspArr.map(([e,v])=>repBar(v,maxInterEsp,"#00695C",e.substring(0,16),v+"")).join("")+
+        (ctx.inter.length>0?`<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          ${Object.entries(interEstMap).map(([e,n])=>{
+            const ok=e==="Respondida";
+            return`<span style="background:${ok?"#C8E6C9":"#FFF3E0"};color:${ok?"#1B5E20":"#E65100"};padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700">${e}: ${n}</span>`;
+          }).join("")}
+        </div>`:"")
+      )}
+      ${repPanel("📝 Notas: estatus de firma",
+        ctx.cons.length===0?repVacio("Sin consultas en el periodo"):
+        `<div style="display:flex;gap:16px;align-items:center;padding:8px 0">
+          <div style="flex:1;text-align:center;padding:16px;background:#E8F5E9;border-radius:10px">
+            <p style="font-size:32px;font-weight:800;color:${SU}">${bloqueadas}</p>
+            <p style="font-size:13px;color:${MU};font-weight:600">Firmadas / bloqueadas</p>
+          </div>
+          <div style="flex:1;text-align:center;padding:16px;background:#FFF8E1;border-radius:10px">
+            <p style="font-size:32px;font-weight:800;color:#E65100">${activas}</p>
+            <p style="font-size:13px;color:${MU};font-weight:600">En edición (&lt;24h)</p>
+          </div>
+        </div>
+        <p style="font-size:12px;color:${MU};margin-top:10px">Conforme a NOM-004-SSA3-2012, las notas se bloquean automáticamente 24h después de su creación.</p>`)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      ${repPanel("📋 Acciones registradas (bitácora)",
+        accArr.length===0?repVacio("Sin actividad registrada en bitácora"):
+        accArr.map(([a,v])=>repBar(v,maxAcc,"#1565C0",a.substring(0,16),v+"")).join(""))}
+      ${repPanel("👤 Actividad por usuario (bitácora)",
+        userArr.length===0?repVacio("Sin actividad registrada"):
+        userArr.map(([u,v])=>repBar(v,maxUser,"#C2185B",u.substring(0,16),v+"")).join(""))}
+    </div>`;
 }
 
 // ── CORTE DE CAJA ─────────────────────────────────────────
