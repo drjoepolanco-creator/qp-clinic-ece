@@ -6684,6 +6684,16 @@ function ckdEpi2021(scr,age,female){
   if(female)egfr*=1.012;
   return egfr;
 }
+// CKD-EPI 2021 Creatinina-Cistatina C (eGFRcr-cys) — NEJM 2021;385:1737-1749
+function ckdEpiCrCys2021(scr,scys,age,female){
+  const k=female?0.7:0.9, a=female?-0.219:-0.144;
+  const ratioCr=scr/k;
+  let egfr=135*Math.pow(Math.min(ratioCr,1),a)*Math.pow(Math.max(ratioCr,1),-0.544)
+    *Math.pow(Math.min(scys/0.8,1),-0.323)*Math.pow(Math.max(scys/0.8,1),-0.778)
+    *Math.pow(0.9961,age);
+  if(female)egfr*=0.963;
+  return egfr;
+}
 function kdigoStage(egfr){
   if(egfr>=90)return["G1","≥90 — Normal o alta","#2E7D32"];
   if(egfr>=60)return["G2","60–89 — Levemente disminuida","#558B2F"];
@@ -6696,6 +6706,35 @@ function cockcroftGault(age,weight,scr,female){
   let crcl=((140-age)*weight)/(72*scr);
   if(female)crcl*=0.85;
   return crcl;
+}
+// Categorías de albuminuria KDIGO (UACR mg/g)
+function albuminuriaCat(uacr){
+  if(uacr<30)return["A1","<30 — Normal a levemente aumentada"];
+  if(uacr<=300)return["A2","30–300 — Moderadamente aumentada"];
+  return["A3",">300 — Severamente aumentada"];
+}
+// Mapa de calor KDIGO (riesgo combinado eGFR × albuminuria)
+// niveles: 0 verde (bajo riesgo/normal), 1 amarillo (riesgo moderado), 2 naranja (riesgo alto), 3 rojo (riesgo muy alto)
+function kdigoHeatmap(gStage,aCat){
+  const gIdx={G1:0,G2:1,G3a:2,G3b:3,G4:4,G5:5}[gStage];
+  const aIdx={A1:0,A2:1,A3:2}[aCat];
+  // matriz [G][A] según KDIGO 2012/2024
+  const matriz=[
+    [0,1,2], // G1
+    [0,1,2], // G2
+    [1,2,3], // G3a
+    [2,3,3], // G3b
+    [3,3,3], // G4
+    [3,3,3], // G5
+  ];
+  const nivel=matriz[gIdx][aIdx];
+  const info=[
+    {label:"Riesgo bajo (normal)",color:"#2E7D32",bg:"#E8F5E9",rec:"Vigilancia anual o según riesgo basal."},
+    {label:"Riesgo moderadamente aumentado",color:"#F9A825",bg:"#FFF8E1",rec:"Vigilar 1×/año. Considerar IECA/ARA2 si hay albuminuria persistente."},
+    {label:"Riesgo alto",color:"#EF6C00",bg:"#FFF3E0",rec:"Vigilar ≥2×/año. Optimizar control de TA y glucemia; valorar referencia a nefrología."},
+    {label:"Riesgo muy alto",color:"#C62828",bg:"#FFEBEE",rec:"Vigilar ≥3-4×/año. Referencia a nefrología."},
+  ];
+  return{nivel,...info[nivel]};
 }
 
 const HERR_CATALOGO=[
@@ -6943,7 +6982,7 @@ function toolTfg(){
   const p=STATE.pat;
   const edad=p&&p.fecha_nacimiento?Math.floor((Date.now()-new Date(p.fecha_nacimiento))/(365.25*86400000)):"";
   const sexoF=p&&(p.sexo_biologico==="Mujer");
-  return herrHeader("🧪 TFG — CKD-EPI 2021","Tasa de filtrado glomerular sin variable de raza (NKF/ASN 2021) + estadio KDIGO + Cockcroft-Gault")+
+  return herrHeader("🧪 TFG — CKD-EPI 2021","Tasa de filtrado glomerular sin variable de raza (NKF/ASN 2021) + estadificación KDIGO (TFG × albuminuria) + Cockcroft-Gault")+
   `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:12px">
       <div style="display:flex;flex-direction:column;gap:4px"><label class="fld-label">Sexo biológico</label>
@@ -6951,42 +6990,109 @@ function toolTfg(){
           <option value="f" ${sexoF?"selected":""}>Mujer</option><option value="m" ${!sexoF?"selected":""}>Hombre</option></select></div>
       ${herrInput("tfg_age","Edad (años)",edad,"Ej: 55",'type="number" oninput="calcTfg()"')}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:12px">
       ${herrInput("tfg_scr","Creatinina sérica (mg/dL)","","Ej: 0.9",'type="number" step="0.01" oninput="calcTfg()"')}
       ${herrInput("tfg_peso","Peso (kg) — para Cockcroft-Gault","","Ej: 70",'type="number" oninput="calcTfg()"')}
+    </div>
+    <div style="border-top:1px solid ${BR};margin:14px 0;padding-top:14px">
+      <p style="font-size:13px;font-weight:700;color:${TX};margin-bottom:8px">Cistatina C (opcional) — ecuación combinada eGFRcr-cys, más precisa</p>
+      ${herrInput("tfg_scys","Cistatina C sérica (mg/L)","","Ej: 0.9",'type="number" step="0.01" oninput="calcTfg()"')}
+    </div>
+    <div style="border-top:1px solid ${BR};margin:14px 0;padding-top:14px">
+      <p style="font-size:13px;font-weight:700;color:${TX};margin-bottom:8px">Albuminuria / proteinuria (opcional) — para estadificación KDIGO completa</p>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px"><label class="fld-label">Tipo de resultado disponible</label>
+        <select id="tfg_prot_tipo" oninput="renderProtInput();calcTfg()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;background:#fff;font-size:14px">
+          <option value="ninguno">No disponible</option>
+          <option value="uacr">Relación albúmina/creatinina urinaria (UACR, mg/g)</option>
+          <option value="dipstick">Tira reactiva (dipstick) de proteínas</option>
+        </select></div>
+      <div id="tfg-prot-input"></div>
     </div>
     ${herrResultBox()}
   </div>`;
 }
-window.init_tfg=function(){calcTfg();}
+window.init_tfg=function(){renderProtInput();calcTfg();}
+window.renderProtInput=function(){
+  const tipo=gv("tfg_prot_tipo");const c=document.getElementById("tfg-prot-input");if(!c)return;
+  if(tipo==="uacr"){
+    c.innerHTML=herrInput("tfg_uacr","UACR (mg/g)","","Ej: 45",'type="number" step="0.1" oninput="calcTfg()"');
+  } else if(tipo==="dipstick"){
+    c.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px"><label class="fld-label">Resultado de tira reactiva</label>
+      <select id="tfg_dipstick" oninput="calcTfg()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;background:#fff;font-size:14px">
+        <option value="neg">Negativo / trazas (~UACR &lt;30, A1)</option>
+        <option value="1+">1+ (~UACR 30–300, A2)</option>
+        <option value="2+">2+ o más (~UACR &gt;300, A3)</option>
+      </select>
+      <p style="font-size:12px;color:${MU};margin-top:4px">Correlación aproximada; ante duda confirme con UACR de laboratorio.</p></div>`;
+  } else { c.innerHTML=""; }
+}
 window.calcTfg=function(){
   const female=gv("tfg_sex")==="f";
-  const age=parseFloat(gv("tfg_age")),scr=parseFloat(gv("tfg_scr")),peso=parseFloat(gv("tfg_peso"));
+  const age=parseFloat(gv("tfg_age")),scr=parseFloat(gv("tfg_scr")),peso=parseFloat(gv("tfg_peso")),scys=parseFloat(gv("tfg_scys"));
   const res=document.getElementById("tool-result");if(!res)return;
   if(isNaN(age)||isNaN(scr)||scr<=0){res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Complete edad y creatinina sérica para calcular.</p>`;return;}
   const egfr=ckdEpi2021(scr,age,female);
   const [stg,desc,col]=kdigoStage(egfr);
-  let cg="";let txtCg="";
-  if(!isNaN(peso)&&peso>0){const crcl=cockcroftGault(age,peso,scr,female);
+
+  // eGFRcr-cys (opcional)
+  let crcysBlock="",txtCrCys="",egfrCrCys=null,stgCrCys=null;
+  if(!isNaN(scys)&&scys>0){
+    egfrCrCys=ckdEpiCrCys2021(scr,scys,age,female);
+    const [stg2,,col2]=kdigoStage(egfrCrCys);stgCrCys=stg2;
+    crcysBlock=`<div style="flex:1;min-width:160px;text-align:center;background:#6A1B9A14;border:1px solid #6A1B9A40;border-radius:10px;padding:14px">
+      <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">eGFRcr-cys (2021)</p>
+      <p style="font-size:30px;font-weight:800;color:#6A1B9A">${egfrCrCys.toFixed(0)}</p>
+      <p style="font-size:12px;color:${MU}">mL/min/1.73m² · estadio ${stg2}</p></div>`;
+    txtCrCys=` eGFRcr-cys (creatinina-cistatina C, ecuación combinada 2021, más precisa): ${egfrCrCys.toFixed(0)} mL/min/1.73m² (estadio ${stg2}).`;
+  }
+
+  // Cockcroft-Gault (opcional)
+  let cg="";let txtCg="";let crclVal=null;
+  if(!isNaN(peso)&&peso>0){const crcl=cockcroftGault(age,peso,scr,female);crclVal=Math.round(crcl*10)/10;
     cg=`<div style="flex:1;min-width:160px;text-align:center;background:#1565C014;border:1px solid #1565C040;border-radius:10px;padding:14px">
       <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">Cockcroft-Gault</p>
       <p style="font-size:28px;font-weight:800;color:#1565C0">${crcl.toFixed(0)}</p>
       <p style="font-size:12px;color:${MU}">mL/min · ajuste de dosis</p></div>`;
     txtCg=` Depuración Cockcroft-Gault: ${crcl.toFixed(0)} mL/min.`;
   }
-  const txt=`TFG estimada (CKD-EPI 2021): ${egfr.toFixed(0)} mL/min/1.73m² — Estadio KDIGO ${stg} (${desc}).${txtCg}`;
-  prepararGuardado(Math.round(egfr*10)/10,"mL/min/1.73m²",{estadio_kdigo:stg,scr,edad:age,sexo:female?"f":"m",cockcroft_gault:!isNaN(peso)&&peso>0?Math.round(cockcroftGault(age,peso,scr,female)*10)/10:null});
+
+  // Albuminuria / KDIGO heat map (opcional)
+  const protTipo=gv("tfg_prot_tipo");
+  let uacrVal=null,aCat=null,aDesc=null,heatBlock="",txtHeat="";
+  if(protTipo==="uacr"){
+    const u=parseFloat(gv("tfg_uacr"));
+    if(!isNaN(u)&&u>=0){uacrVal=u;[aCat,aDesc]=albuminuriaCat(u);}
+  } else if(protTipo==="dipstick"){
+    const d=gv("tfg_dipstick");
+    const map={"neg":["A1","<30 — Normal a levemente aumentada (estimado por tira)"],"1+":["A2","30–300 — Moderadamente aumentada (estimado por tira)"],"2+":["A3",">300 — Severamente aumentada (estimado por tira)"]};
+    [aCat,aDesc]=map[d]||map["neg"];
+  }
+  if(aCat){
+    const stgParaHeatmap=(stgCrCys||stg); // si hay eGFRcr-cys, usar ese para la estadificación
+    const heat=kdigoHeatmap(stgParaHeatmap,aCat);
+    heatBlock=`<div style="margin-top:14px;padding:14px;background:${heat.bg};border:1px solid ${heat.color}40;border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+        <p style="font-size:14px;font-weight:800;color:${heat.color}">🗺️ Mapa de riesgo KDIGO: ${stgParaHeatmap} + ${aCat}</p>
+        <span style="background:${heat.color};color:#fff;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700">${heat.label}</span>
+      </div>
+      <p style="font-size:13px;color:${TX};margin-bottom:4px"><b>Albuminuria ${aCat}:</b> ${aDesc}${uacrVal!=null?` (UACR ${uacrVal} mg/g)`:""}</p>
+      <p style="font-size:13px;color:${TX};line-height:1.5"><b>Recomendación:</b> ${heat.rec}</p>
+    </div>`;
+    txtHeat=` Albuminuria ${aCat} (${aDesc}${uacrVal!=null?`, UACR ${uacrVal} mg/g`:""}). Mapa de riesgo KDIGO ${stgParaHeatmap}+${aCat}: ${heat.label}.`;
+  }
+
+  const txt=`TFG estimada (CKD-EPI 2021): ${egfr.toFixed(0)} mL/min/1.73m² — Estadio KDIGO ${stg} (${desc}).${txtCrCys}${txtCg}${txtHeat}`;
+  prepararGuardado(Math.round((egfrCrCys??egfr)*10)/10,"mL/min/1.73m²",{estadio_kdigo:stgCrCys||stg,egfr_cr:Math.round(egfr*10)/10,egfr_cr_cys:egfrCrCys!=null?Math.round(egfrCrCys*10)/10:null,scr,scys:!isNaN(scys)?scys:null,edad:age,sexo:female?"f":"m",cockcroft_gault:crclVal,albuminuria_cat:aCat,uacr:uacrVal});
   res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:160px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
-        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">TFG (CKD-EPI 2021)</p>
+        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">TFG — eGFRcr (2021)</p>
         <p style="font-size:30px;font-weight:800;color:${col}">${egfr.toFixed(0)}</p>
-        <p style="font-size:12px;color:${MU}">mL/min/1.73m²</p></div>
-      <div style="flex:1;min-width:160px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
-        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">Estadio KDIGO</p>
-        <p style="font-size:30px;font-weight:800;color:${col}">${stg}</p>
-        <p style="font-size:12px;color:${MU}">${desc}</p></div>
+        <p style="font-size:12px;color:${MU}">mL/min/1.73m² · estadio ${stg}</p></div>
+      ${crcysBlock}
       ${cg}
-    </div>${botonesResultado(txt)}`;
+    </div>
+    ${heatBlock}
+    ${botonesResultado(txt)}`;
 }
 
 // ════════ ESCALA FRAIL ════════
