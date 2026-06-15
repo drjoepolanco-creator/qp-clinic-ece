@@ -4,14 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QP Clinic — Expediente Clínico</title>
+<link rel="icon" type="image/jpeg" href="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;font-size:14px;background:#F0F4F8;color:#263238}
-input,select,textarea,button{font-family:inherit;font-size:14px}
+body{font-family:'Comfortaa',system-ui,sans-serif;font-size:14px;background:#F0F4F8;color:#263238}
+input,select,textarea,button{font-family:'Comfortaa',inherit;font-size:14px}
 .fade{animation:fd .2s ease}
 @keyframes fd{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
 ::-webkit-scrollbar{width:10px;height:10px}
@@ -22,7 +26,7 @@ input,select,textarea,button{font-family:inherit;font-size:14px}
 .spin{display:inline-block;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .upload-area{border:2px dashed #B3E5FC;border-radius:10px;padding:28px;text-align:center;cursor:pointer;background:#F0F9FF;transition:all .2s}
-.upload-area:hover{border-color:#0288D1;background:#E1F5FE}
+.upload-area:hover{border-color:#24B1DA;background:#E1F5FE}
 /* Sticky save footer */
 .sticky-save{position:sticky;bottom:0;background:#fff;border-top:1px solid #CFD8DC;padding:12px 16px;display:flex;justify-content:flex-end;gap:8px;z-index:10;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
 /* Empty states */
@@ -32,7 +36,7 @@ input,select,textarea,button{font-family:inherit;font-size:14px}
 .empty-state small{font-size:13px;color:#90A4AE}
 /* Form sections */
 .form-section{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);overflow:hidden;margin-bottom:16px}
-.form-section-header{background:#1565C0;padding:10px 16px}
+.form-section-header{background:#006BB6;padding:10px 16px}
 .form-section-header b{color:#fff;font-size:13px}
 .form-section-body{padding:18px}
 /* Field labels bigger */
@@ -50,7 +54,7 @@ const SB = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidWtqZHhlZWtoemV1cm1oZ2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDI3NDAsImV4cCI6MjA5NDM3ODc0MH0.eXaNf2lXjU8_q0CeYz8CHUBZJftp9_JZY153uZFWYVQ'
 );
 // ── ESTADO GLOBAL ─────────────────────────────────────────
-const P="#1565C0",PD="#0D47A1",PL="#E3F2FD",AC="#0288D1",SU="#2E7D32",DA="#C62828",BR="#CFD8DC",TX="#1A237E",MU="#546E7A",WA="#25D366";
+const P="#006BB6",PD="#005089",PL="#E3F4FB",AC="#24B1DA",SU="#2E7D32",DA="#C62828",BR="#CFD8DC",TX="#003A5D",MU="#546E7A",WA="#25D366";
 const WA_CLINICA="525644237028"; // WhatsApp oficial QP Clinic
 let STATE={
   user:null, userProfile:null,
@@ -314,14 +318,14 @@ function pgLogin(){
     <div style="background:#fff;border-radius:14px;width:100%;max-width:680px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px #00000040">
       <div style="padding:14px 20px;border-bottom:1px solid #CFD8DC;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div style="display:flex;gap:0">
-          <button id="tab-terminos" onclick="switchLegal('terminos')" style="padding:7px 16px;border:1.5px solid #1565C0;background:#1565C0;color:#fff;cursor:pointer;border-radius:7px 0 0 7px;font-size:14px;font-weight:600">Términos y Condiciones</button>
-          <button id="tab-privacidad" onclick="switchLegal('privacidad')" style="padding:7px 16px;border:1.5px solid #1565C0;background:#fff;color:#1565C0;cursor:pointer;border-radius:0 7px 7px 0;font-size:14px;font-weight:600">Aviso de Privacidad</button>
+          <button id="tab-terminos" onclick="switchLegal('terminos')" style="padding:7px 16px;border:1.5px solid #006BB6;background:#006BB6;color:#fff;cursor:pointer;border-radius:7px 0 0 7px;font-size:14px;font-weight:600">Términos y Condiciones</button>
+          <button id="tab-privacidad" onclick="switchLegal('privacidad')" style="padding:7px 16px;border:1.5px solid #006BB6;background:#fff;color:#006BB6;cursor:pointer;border-radius:0 7px 7px 0;font-size:14px;font-weight:600">Aviso de Privacidad</button>
         </div>
         <button onclick="cerrarLegal()" style="background:#C62828;color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700">✕</button>
       </div>
       <div id="legal-content" style="padding:20px 24px;overflow-y:auto;flex:1;font-size:14px;line-height:1.9;color:#263238"></div>
       <div style="padding:12px 20px;border-top:1px solid #CFD8DC;display:flex;justify-content:flex-end;flex-shrink:0">
-        <button onclick="cerrarLegal()" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:8px 24px;cursor:pointer;font-weight:600;font-size:14px">Entendido</button>
+        <button onclick="cerrarLegal()" style="background:#006BB6;color:#fff;border:none;border-radius:7px;padding:8px 24px;cursor:pointer;font-weight:600;font-size:14px">Entendido</button>
       </div>
     </div>
   </div>`;}
@@ -340,24 +344,24 @@ window.switchLegal=function(tab){
   if(!c)return;
   if(bt&&bp){
     if(tab==="terminos"){
-      bt.style.background="#1565C0";bt.style.color="#fff";
-      bp.style.background="#fff";bp.style.color="#1565C0";
+      bt.style.background="#006BB6";bt.style.color="#fff";
+      bp.style.background="#fff";bp.style.color="#006BB6";
     } else {
-      bp.style.background="#1565C0";bp.style.color="#fff";
-      bt.style.background="#fff";bt.style.color="#1565C0";
+      bp.style.background="#006BB6";bp.style.color="#fff";
+      bt.style.background="#fff";bt.style.color="#006BB6";
     }
   }
   if(tab==="terminos") c.innerHTML=TERMINOS_HTML;
   else c.innerHTML=PRIVACIDAD_HTML;
 }
 const TERMINOS_HTML=`
-<h2 style="font-size:15px;font-weight:800;color:#1A237E;margin-bottom:4px">TÉRMINOS Y CONDICIONES DE USO</h2>
+<h2 style="font-size:15px;font-weight:800;color:#003A5D;margin-bottom:4px">TÉRMINOS Y CONDICIONES DE USO</h2>
 <p style="color:#546E7A;font-size:14px;margin-bottom:16px">QP Clinic — Expediente Clínico Electrónico | Versión 1.0 | Vigente desde mayo 2026</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">1. OBJETO</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">1. OBJETO</h3>
 <p>Los presentes Términos y Condiciones regulan el acceso y uso del sistema de Expediente Clínico Electrónico (ECE) de <strong>QP Clinic — Especialistas en Salud Integral</strong>, con domicilio en Insurgentes Sur 933, Ciudad de México, en adelante "QP Clinic". Al acceder al sistema, el usuario acepta íntegramente estos términos.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">2. USUARIOS AUTORIZADOS</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">2. USUARIOS AUTORIZADOS</h3>
 <p>El acceso al ECE está restringido exclusivamente al personal médico, paramédico y administrativo de QP Clinic debidamente registrado y autorizado. Queda estrictamente prohibido compartir credenciales de acceso. Cada usuario es responsable de todas las acciones realizadas con su cuenta.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">3. USO ACEPTABLE</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">3. USO ACEPTABLE</h3>
 <p>El sistema debe utilizarse exclusivamente para:</p>
 <ul style="margin:6px 0 6px 20px">
   <li>Registro, consulta y actualización de expedientes clínicos de pacientes</li>
@@ -366,9 +370,9 @@ const TERMINOS_HTML=`
   <li>Actividades directamente relacionadas con la atención médica en QP Clinic</li>
 </ul>
 <p>Queda prohibido el uso del sistema para fines distintos a los médico-clínicos, la extracción masiva de datos, o cualquier actividad que vulnere la privacidad de los pacientes.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">4. CONFIDENCIALIDAD Y SECRETO MÉDICO</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">4. CONFIDENCIALIDAD Y SECRETO MÉDICO</h3>
 <p>Toda información contenida en los expedientes clínicos es estrictamente confidencial. El personal autorizado está obligado a guardar secreto profesional conforme a lo dispuesto en la <strong>Ley General de Salud</strong>, el <strong>Código de Ética Médica</strong> y la <strong>NOM-004-SSA3-2012</strong> sobre el Expediente Clínico. La divulgación no autorizada de información de pacientes constituye una violación grave sujeta a sanciones legales y laborales.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">5. NORMATIVIDAD APLICABLE</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">5. NORMATIVIDAD APLICABLE</h3>
 <p>El presente sistema cumple con:</p>
 <ul style="margin:6px 0 6px 20px">
   <li><strong>NOM-004-SSA3-2012</strong> — Del Expediente Clínico</li>
@@ -376,31 +380,31 @@ const TERMINOS_HTML=`
   <li><strong>Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP)</strong></li>
   <li><strong>Ley General de Salud</strong> y su Reglamento en materia de prestación de servicios de atención médica</li>
 </ul>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">6. PROPIEDAD INTELECTUAL</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">6. PROPIEDAD INTELECTUAL</h3>
 <p>El sistema ECE, su diseño, código y contenido son propiedad de QP Clinic. Queda prohibida su reproducción, modificación o distribución sin autorización expresa y por escrito.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">7. LIMITACIÓN DE RESPONSABILIDAD</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">7. LIMITACIÓN DE RESPONSABILIDAD</h3>
 <p>QP Clinic no será responsable por daños derivados del uso inadecuado del sistema, pérdida de datos por causas de fuerza mayor, o interrupciones del servicio ajenas a su control. El usuario asume la responsabilidad de la veracidad y exactitud de los datos que registra en el sistema.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">8. MODIFICACIONES</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">8. MODIFICACIONES</h3>
 <p>QP Clinic se reserva el derecho de modificar estos Términos y Condiciones en cualquier momento. Los cambios serán notificados a los usuarios y entrarán en vigor a partir de su publicación en el sistema.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">9. JURISDICCIÓN</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">9. JURISDICCIÓN</h3>
 <p>Para cualquier controversia derivada del uso de este sistema, las partes se someten a la jurisdicción de los tribunales competentes de la Ciudad de México, renunciando a cualquier otro fuero que pudiera corresponderles.</p>
-<p style="margin-top:16px;padding:10px;background:#E3F2FD;border-radius:7px;color:#1565C0;font-size:14px">📋 Para dudas o aclaraciones sobre estos términos, contáctenos en: <strong>recepcion@qpclinic.mx</strong></p>`;
+<p style="margin-top:16px;padding:10px;background:#E3F4FB;border-radius:7px;color:#006BB6;font-size:14px">📋 Para dudas o aclaraciones sobre estos términos, contáctenos en: <strong>recepcion@qpclinic.mx</strong></p>`;
 const PRIVACIDAD_HTML=`
-<h2 style="font-size:15px;font-weight:800;color:#1A237E;margin-bottom:4px">AVISO DE PRIVACIDAD</h2>
+<h2 style="font-size:15px;font-weight:800;color:#003A5D;margin-bottom:4px">AVISO DE PRIVACIDAD</h2>
 <p style="color:#546E7A;font-size:14px;margin-bottom:16px">QP Clinic — Expediente Clínico Electrónico | Versión 1.0 | Vigente desde mayo 2026</p>
 <p style="background:#FFF8E1;border-left:4px solid #FFA726;padding:10px 14px;border-radius:0 7px 7px 0;margin-bottom:14px;font-size:14px">De conformidad con lo previsto en la <strong>Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP)</strong> y su Reglamento, QP Clinic pone a su disposición el presente Aviso de Privacidad.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">I. IDENTIDAD Y DOMICILIO DEL RESPONSABLE</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">I. IDENTIDAD Y DOMICILIO DEL RESPONSABLE</h3>
 <p><strong>QP Clinic — Especialistas en Salud Integral</strong><br>
 Domicilio: Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México, C.P. 03810<br>
 Correo electrónico: recepcion@qpclinic.mx<br>
 Sitio web: www.qpclinic.org</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">II. DATOS PERSONALES QUE SE RECABAN</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">II. DATOS PERSONALES QUE SE RECABAN</h3>
 <p>Para la prestación de servicios médicos, QP Clinic recaba las siguientes categorías de datos personales:</p>
 <p><strong>Datos de identificación:</strong> nombre completo, fecha de nacimiento, sexo, CURP, estado civil, nacionalidad, escolaridad, ocupación.</p>
 <p><strong>Datos de contacto:</strong> domicilio, teléfono, celular, correo electrónico.</p>
 <p><strong>Datos de salud (datos sensibles):</strong> antecedentes heredofamiliares, antecedentes personales patológicos y no patológicos, diagnósticos, tratamientos, signos vitales, estudios de laboratorio y gabinete, notas médicas, alergias, medicamentos e información relacionada con su estado de salud.</p>
 <p><strong>Datos financieros:</strong> información de facturación (RFC, régimen fiscal), datos de seguro médico.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">III. FINALIDADES DEL TRATAMIENTO</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">III. FINALIDADES DEL TRATAMIENTO</h3>
 <p><strong>Finalidades primarias (necesarias para la atención médica):</strong></p>
 <ul style="margin:6px 0 6px 20px">
   <li>Integración y gestión del expediente clínico electrónico</li>
@@ -417,7 +421,7 @@ Sitio web: www.qpclinic.org</p>
   <li>Evaluación de la calidad de la atención médica recibida</li>
   <li>Fines estadísticos internos (datos anonimizados)</li>
 </ul>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">IV. TRANSFERENCIAS DE DATOS</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">IV. TRANSFERENCIAS DE DATOS</h3>
 <p>QP Clinic podrá transferir sus datos personales, sin requerir su consentimiento, en los siguientes casos:</p>
 <ul style="margin:6px 0 6px 20px">
   <li>A médicos especialistas en caso de interconsulta, para garantizar la continuidad de su atención</li>
@@ -425,17 +429,17 @@ Sitio web: www.qpclinic.org</p>
   <li>A autoridades sanitarias (COFEPRIS, Secretaría de Salud) cuando la ley lo requiera</li>
   <li>A su compañía de seguros médicos, únicamente para los trámites que usted autorice</li>
 </ul>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">V. DERECHOS ARCO</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">V. DERECHOS ARCO</h3>
 <p>Usted tiene derecho a <strong>Acceder, Rectificar, Cancelar u Oponerse</strong> al tratamiento de sus datos personales. Para ejercer estos derechos deberá presentar solicitud por escrito a:</p>
-<p style="background:#E3F2FD;padding:10px 14px;border-radius:7px;margin:8px 0"><strong>Correo:</strong> recepcion@qpclinic.mx<br>
+<p style="background:#E3F4FB;padding:10px 14px;border-radius:7px;margin:8px 0"><strong>Correo:</strong> recepcion@qpclinic.mx<br>
 <strong>Domicilio:</strong> Insurgentes Sur 933, CDMX<br>
 <strong>Horario:</strong> Lunes a viernes de 8:00 a 20:00 horas</p>
 <p>Su solicitud deberá contener: nombre completo, domicilio, copia de identificación oficial y descripción clara de los datos y el derecho que desea ejercer. QP Clinic responderá en un plazo máximo de <strong>20 días hábiles</strong>.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">VI. SEGURIDAD DE LOS DATOS</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">VI. SEGURIDAD DE LOS DATOS</h3>
 <p>QP Clinic implementa medidas de seguridad administrativas, técnicas y físicas para proteger sus datos personales contra daño, pérdida, alteración, destrucción o acceso no autorizado. El sistema utiliza cifrado SSL/TLS, autenticación segura y bases de datos protegidas conforme a estándares internacionales.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">VII. CAMBIOS AL AVISO DE PRIVACIDAD</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">VII. CAMBIOS AL AVISO DE PRIVACIDAD</h3>
 <p>Cualquier modificación a este Aviso de Privacidad será notificada a través del sistema ECE y/o por correo electrónico con al menos 30 días de anticipación a su entrada en vigor.</p>
-<h3 style="font-size:14px;font-weight:700;color:#1565C0;margin:14px 0 6px">VIII. AUTORIDAD</h3>
+<h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">VIII. AUTORIDAD</h3>
 <p>Si considera que su derecho a la protección de datos personales ha sido vulnerado, puede acudir al <strong>Instituto Nacional de Transparencia, Acceso a la Información y Protección de Datos Personales (INAI)</strong>, www.inai.org.mx</p>
 <p style="margin-top:16px;padding:10px;background:#E8F5E9;border-radius:7px;color:#2E7D32;font-size:14px">✅ Última actualización: Mayo 2026 | Este aviso cumple con la LFPDPPP y su Reglamento, la NOM-004-SSA3-2012 y la NOM-024-SSA3-2012.</p>`;
 window.doLogin=async function(){
@@ -479,7 +483,7 @@ async function pgMedicos(){
   loading(false);
   const u=usuarios||[];
   const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición","psicologo":"Psicólogo(a)","pasante":"Pasante"};
-  const ROL_COLORS={"admin":"#6A1B9A","medico":"#1565C0","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B","psicologo":"#5D4037","pasante":"#455A64"};
+  const ROL_COLORS={"admin":"#6A1B9A","medico":"#006BB6","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B","psicologo":"#5D4037","pasante":"#455A64"};
   RR().innerHTML=nav()+`
   <div style="max-width:1200px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -493,7 +497,7 @@ async function pgMedicos(){
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
-      ${[["Médicos",u.filter(x=>x.rol==="medico"&&x.activo!==false).length,"#1565C0","👨‍⚕️"],["Fisioterapeutas",u.filter(x=>x.rol==="fisioterapeuta"&&x.activo!==false).length,"#2E7D32","🦾"],["Nutrición",u.filter(x=>x.rol==="nutricion"&&x.activo!==false).length,"#00796B","🥗"],["Enfermería",u.filter(x=>x.rol==="enfermeria"&&x.activo!==false).length,"#E65100","💉"],["Recep / Admin",u.filter(x=>["admin","recepcion"].includes(x.rol)&&x.activo!==false).length,"#6A1B9A","🏥"]].map(([l,n,c,ic])=>`
+      ${[["Médicos",u.filter(x=>x.rol==="medico"&&x.activo!==false).length,"#006BB6","👨‍⚕️"],["Fisioterapeutas",u.filter(x=>x.rol==="fisioterapeuta"&&x.activo!==false).length,"#2E7D32","🦾"],["Nutrición",u.filter(x=>x.rol==="nutricion"&&x.activo!==false).length,"#00796B","🥗"],["Enfermería",u.filter(x=>x.rol==="enfermeria"&&x.activo!==false).length,"#E65100","💉"],["Recep / Admin",u.filter(x=>["admin","recepcion"].includes(x.rol)&&x.activo!==false).length,"#6A1B9A","🏥"]].map(([l,n,c,ic])=>`
         <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;text-align:center">
           <div style="font-size:26px;margin-bottom:6px">${ic}</div>
           <div style="font-size:22px;font-weight:800;color:${c}">${n}</div>
@@ -523,7 +527,7 @@ async function pgMedicos(){
               <td style="padding:10px 12px;white-space:nowrap"><span style="background:${activo?"#E8F5E9":"#F5F5F5"};color:${activo?"#2E7D32":MU};border:1px solid ${activo?"#A5D6A7":BR};padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700">${activo?"✓ Activo":"✗ Inactivo"}</span></td>
               <td style="padding:10px 12px;white-space:nowrap">
                 <div style="display:flex;gap:4px">
-                  <button onclick="abrirModalUsuario('${m.id}')" title="Editar usuario" style="background:#1565C0;color:#fff;border:none;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:13px">✏️ Editar</button>
+                  <button onclick="abrirModalUsuario('${m.id}')" title="Editar usuario" style="background:#006BB6;color:#fff;border:none;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:13px">✏️ Editar</button>
                   <button onclick="resetPasswordUsuario('${m.id}')" title="Cambiar contraseña" style="background:#E65100;color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:13px">🔑</button>
                   <button onclick="toggleActivoUsuario('${m.id}',${activo})" title="${activo?"Desactivar":"Activar"}" style="background:${activo?"#546E7A":"#2E7D32"};color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:13px">${activo?"🚫":"✅"}</button>
                 </div>
@@ -606,7 +610,7 @@ window.abrirModalUsuario=async function(uid=""){
     <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">📅 Agenda y firma médica</b></div>
     <div style="display:grid;grid-template-columns:3fr 1fr;gap:12px;margin-bottom:12px">
       ${fld("URL Google Calendar (iframe embed)",inp("mu_cal",u.calendar_url||"","https://calendar.google.com/calendar/embed?src=..."))}
-      ${fld("Color en agenda",`<div style="display:flex;gap:8px;align-items:center"><input id="mu_color" type="color" value="${u.calendar_color||"#1565C0"}" style="width:50px;height:38px;border:1.5px solid ${BR};border-radius:6px;cursor:pointer;padding:2px"></div>`)}
+      ${fld("Color en agenda",`<div style="display:flex;gap:8px;align-items:center"><input id="mu_color" type="color" value="${u.calendar_color||"#006BB6"}" style="width:50px;height:38px;border:1.5px solid ${BR};border-radius:6px;cursor:pointer;padding:2px"></div>`)}
     </div>
     <div style="margin-bottom:16px">
       <label class="fld-label">Firma médica (imagen PNG/JPG — aparece en recetas)</label>
@@ -680,7 +684,7 @@ window.guardarUsuario=async function(uid=""){
     // Agenda y contacto
     telefono:gv("mu_tel")||null,
     calendar_url:gv("mu_cal")||null,
-    calendar_color:document.getElementById("mu_color")?.value||"#1565C0",
+    calendar_color:document.getElementById("mu_color")?.value||"#006BB6",
     activo:true,
   };
   if(firma_url)profilePayload.firma_digital=firma_url;
@@ -748,7 +752,7 @@ window.resetPasswordUsuario=async function(uid){
   overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px";
   overlay.innerHTML=`
     <div style="background:#fff;border-radius:14px;width:100%;max-width:460px;box-shadow:0 16px 40px #00000040;overflow:hidden">
-      <div style="background:#1565C0;padding:14px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="background:#006BB6;padding:14px 20px;display:flex;align-items:center;justify-content:space-between">
         <b style="color:#fff;font-size:15px">🔑 Restablecer contraseña</b>
         <button onclick="this.closest('[style*=fixed]').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700">✕</button>
       </div>
@@ -894,9 +898,9 @@ async function pgPerfil(){
         </div>
         <div style="display:grid;grid-template-columns:3fr 1fr;gap:12px;margin-bottom:14px">
           ${fld("URL del iframe de Google Calendar",inp("pf_cal",u.calendar_url||"","https://calendar.google.com/calendar/embed?src=..."))}
-          ${fld("Color en agenda del admin",`<div style="display:flex;gap:8px;align-items:center"><input id="pf_color" type="color" value="${u.calendar_color||"#1565C0"}" style="width:50px;height:38px;border:1.5px solid ${BR};border-radius:6px;cursor:pointer;padding:2px"></div>`)}
+          ${fld("Color en agenda del admin",`<div style="display:flex;gap:8px;align-items:center"><input id="pf_color" type="color" value="${u.calendar_color||"#006BB6"}" style="width:50px;height:38px;border:1.5px solid ${BR};border-radius:6px;cursor:pointer;padding:2px"></div>`)}
         </div>
-        ${u.calendar_url?`<div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:${P}">✅ Calendario vinculado. <a href="javascript:go('agenda')" style="color:${AC};font-weight:600">Ver en agenda →</a></div>`:`<div style="background:#FFF8E1;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#E65100">⚠️ Sin calendario vinculado.</div>`}
+        ${u.calendar_url?`<div style="background:#E3F4FB;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:${P}">✅ Calendario vinculado. <a href="javascript:go('agenda')" style="color:${AC};font-weight:600">Ver en agenda →</a></div>`:`<div style="background:#FFF8E1;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#E65100">⚠️ Sin calendario vinculado.</div>`}
         <div style="display:flex;justify-content:flex-end">
           ${btn("💾 Guardar Google Calendar","guardarCalendarioPerfil()","ok",1)}
         </div>
@@ -990,7 +994,7 @@ window.guardarCalendarioPerfil=async function(){
   loading(true,"Guardando Google Calendar...");
   const {error}=await SB.from("usuarios").update({
     calendar_url:gv("pf_cal")||null,
-    calendar_color:document.getElementById("pf_color")?.value||"#1565C0",
+    calendar_color:document.getElementById("pf_color")?.value||"#006BB6",
   }).eq("id",uid);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
@@ -1092,12 +1096,12 @@ async function pgTramites(){
 
     <!-- ACTA CONSTITUTIVA ✅ -->
     <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:18px">
-      <div style="background:#1565C0;padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+      <div style="background:#006BB6;padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
         <b style="color:#fff;font-size:15px">📄 Acta Constitutiva — QP Clinic, S.C.</b>
         <span style="background:rgba(255,255,255,.25);color:#fff;padding:3px 14px;border-radius:20px;font-size:13px;font-weight:700">✅ COMPLETADO</span>
       </div>
       <div style="padding:16px">
-        <div style="background:#E3F2FD;border-radius:8px;padding:12px 14px;font-size:13px;color:#263238">
+        <div style="background:#E3F4FB;border-radius:8px;padding:12px 14px;font-size:13px;color:#263238">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
             <span><b>Escritura:</b> 64,553</span>
             <span><b>Notaría:</b> 25 — Notario Emiliano Zubiria Maqueo</span>
@@ -1187,7 +1191,7 @@ async function pgBitacora(){
         </tr></thead>
         <tbody>
           ${registros.map((r,i)=>{
-            const ACCION_COLOR={"INICIO DE SESIÓN":"#1565C0","APERTURA DE EXPEDIENTE":"#2E7D32","GUARDADO DE NOTA":"#E65100","FIRMA DE NOTA":"#6A1B9A","CIERRE DE SESIÓN":"#546E7A"};
+            const ACCION_COLOR={"INICIO DE SESIÓN":"#006BB6","APERTURA DE EXPEDIENTE":"#2E7D32","GUARDADO DE NOTA":"#E65100","FIRMA DE NOTA":"#6A1B9A","CIERRE DE SESIÓN":"#546E7A"};
             const col=ACCION_COLOR[r.accion]||MU;
             const ts=r.timestamp?new Date(r.timestamp).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}):""
             return`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
@@ -1327,29 +1331,29 @@ function renderSeccionEspecial(tipo,d){
 
   if(tipo==="Nota de evolución"){
     // Nota estándar — solo muestra recordatorio NOM-004
-    return`<div style="background:#E3F2FD;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px">
+    return`<div style="background:#E3F4FB;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px">
       <span style="font-size:20px">ℹ️</span>
-      <p style="font-size:13px;color:#1565C0">NOM-004-SSA3-2012 — Nota de evolución: debe contener evolución del padecimiento, signos vitales, exploración física dirigida, resultados de estudios, diagnóstico y plan actualizado.</p>
+      <p style="font-size:13px;color:#006BB6">NOM-004-SSA3-2012 — Nota de evolución: debe contener evolución del padecimiento, signos vitales, exploración física dirigida, resultados de estudios, diagnóstico y plan actualizado.</p>
     </div>`;
   }
 
   if(tipo==="Nota de primera vez (Historia clínica)"){
     return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E3F2FD,#fff)">
-        <b style="font-size:14px;color:#1565C0">📋 Historia clínica — Nota de primera vez (NOM-004)</b>
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E3F4FB,#fff)">
+        <b style="font-size:14px;color:#006BB6">📋 Historia clínica — Nota de primera vez (NOM-004)</b>
       </div>
       <div style="padding:14px">
-        ${H("Antecedentes (integrados en el expediente)","#1565C0")}
+        ${H("Antecedentes (integrados en el expediente)","#006BB6")}
         <div style="background:#E8F5E9;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#1B5E20">
           ✅ Los antecedentes heredofamiliares, patológicos, no patológicos, alérgicos, ginecológicos y medicamentos están registrados en las pestañas del expediente del paciente. Esta nota los integra por referencia conforme al Art. 7 Fracc. IV de la NOM-004.
         </div>
-        ${H("Motivo de consulta y padecimiento actual","#1565C0")}
+        ${H("Motivo de consulta y padecimiento actual","#006BB6")}
         <p style="font-size:12px;color:${MU};margin-bottom:6px">Completa el campo <b>Subjetivo</b> con el inicio, evolución, características y cronología del padecimiento actual.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
           ${fld("Tiempo de evolución",INP("dc_tiempo_evol",d.tiempo_evol,"Ej: 3 semanas, 6 meses"))}
           ${fld("Estado general al inicio del tratamiento",SEL("dc_estado_general",[["","Seleccionar..."],["Bueno","Bueno"],["Regular","Regular"],["Malo","Malo"],["Crítico","Crítico"]],d.estado_general))}
         </div>
-        ${H("Exploración física completa (initial)","#1565C0")}
+        ${H("Exploración física completa (initial)","#006BB6")}
         <p style="font-size:12px;color:${MU};margin-bottom:8px">Completa el campo <b>Exploración física</b> arriba con: aspecto general, tegumentos, cabeza y cuello, tórax, abdomen, extremidades, neurológico y área específica de consulta.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
           ${fld("Clasificación por IMC",SEL("dc_imc_clas",[["","Seleccionar..."],["Bajo peso","Bajo peso (<18.5)"],["Normal","Normal (18.5–24.9)"],["Sobrepeso","Sobrepeso (25–29.9)"],["Obesidad I","Obesidad Grado I (30–34.9)"],["Obesidad II","Obesidad Grado II (35–39.9)"],["Obesidad III","Obesidad Grado III (≥40)"]],d.imc_clas))}
@@ -1366,7 +1370,7 @@ function renderSeccionEspecial(tipo,d){
     const gtcol=gt<=8?"#C62828":gt<=12?"#E65100":gt<=14?"#F57C00":"#2E7D32";
     const gtbg=gt<=8?"#FFEBEE":gt<=12?"#FFF3E0":gt<=14?"#FFF8E1":"#E8F5E9";
     const gtlbl=gt<=8?"LESIÓN GRAVE — Coma":gt<=12?"Lesión moderada":gt<=14?"Lesión leve":"Normal";
-    const TRIAJE_COLS={"1-Rojo":"#C62828","2-Naranja":"#E65100","3-Amarillo":"#F9A825","4-Verde":"#2E7D32","5-Azul":"#1565C0"};
+    const TRIAJE_COLS={"1-Rojo":"#C62828","2-Naranja":"#E65100","3-Amarillo":"#F9A825","4-Verde":"#2E7D32","5-Azul":"#006BB6"};
     const triajeActual=d.triaje||"";
     return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#FFEBEE,#fff)">
@@ -1863,20 +1867,20 @@ function aplicarPreregistro(r){
     ["🏃 No patológicos",[["Actividad física",d.actividad_fisica],["Tabaco",d.tabaco],["Alcohol",d.alcohol],["Otras notas",d.nopa_otros]]],
   ];
   overlay.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3)">
-    <div style="background:#0D47A1;padding:14px 18px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center">
+    <div style="background:#005089;padding:14px 18px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center">
       <b style="color:#fff;font-size:15px">📋 Pre-registro completado — ${r.nombre_paciente}</b>
       <button onclick="this.closest('[style*=fixed]').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer">✕</button>
     </div>
     <div style="padding:18px">
       ${secciones.map(([titulo,campos])=>`<div style="margin-bottom:14px">
-        <p style="font-size:12px;font-weight:700;color:#1565C0;text-transform:uppercase;border-bottom:1px solid #CFD8DC;padding-bottom:4px;margin-bottom:8px">${titulo}</p>
+        <p style="font-size:12px;font-weight:700;color:#006BB6;text-transform:uppercase;border-bottom:1px solid #CFD8DC;padding-bottom:4px;margin-bottom:8px">${titulo}</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
           ${campos.filter(([,v])=>v).map(([k,v])=>`<div style="background:#F8F9FA;border-radius:6px;padding:6px 10px"><span style="font-size:11px;color:#546E7A;display:block">${k}</span><span style="font-size:13px;font-weight:600;color:#263238">${v}</span></div>`).join("")}
         </div>
       </div>`).join("")}
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;padding-top:12px;border-top:1px solid #CFD8DC">
         <button onclick="this.closest('[style*=fixed]').remove()" style="background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px">Cerrar</button>
-        <button onclick="STATE.preregParaAplicar=STATE.preregDatos;showToast('✓ Se aplicará al guardar el expediente');this.closest('[style*=fixed]').remove();document.getElementById('prereg-status').innerHTML='<span style=background:#C8E6C9;color:#1B5E20;padding:3px 10px;border-radius:20px;font-weight:600>✅ Datos listos — guarda el paciente</span>'" style="background:#1565C0;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">✓ Aplicar al expediente</button>
+        <button onclick="STATE.preregParaAplicar=STATE.preregDatos;showToast('✓ Se aplicará al guardar el expediente');this.closest('[style*=fixed]').remove();document.getElementById('prereg-status').innerHTML='<span style=background:#C8E6C9;color:#1B5E20;padding:3px 10px;border-radius:20px;font-weight:600>✅ Datos listos — guarda el paciente</span>'" style="background:#006BB6;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">✓ Aplicar al expediente</button>
       </div>
     </div>
   </div>`;
@@ -2003,7 +2007,7 @@ function pgExp(){
           ${g.items.map(item=>{
             const activo=STATE.expTab===item.k;
             const onclick=item.ext?`go('${item.k}')`:`setET('${item.k}')`;
-            return`<button onclick="${onclick}" style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 16px;border:none;background:${activo?"#E3F2FD":"transparent"};color:${activo?P:TX};cursor:pointer;text-align:left;border-left:3px solid ${activo?P:"transparent"};transition:background .15s" onmouseover="if('${item.k}'!==STATE.expTab)this.style.background='#F8F9FA'" onmouseout="if('${item.k}'!==STATE.expTab)this.style.background='transparent'">
+            return`<button onclick="${onclick}" style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 16px;border:none;background:${activo?"#E3F4FB":"transparent"};color:${activo?P:TX};cursor:pointer;text-align:left;border-left:3px solid ${activo?P:"transparent"};transition:background .15s" onmouseover="if('${item.k}'!==STATE.expTab)this.style.background='#F8F9FA'" onmouseout="if('${item.k}'!==STATE.expTab)this.style.background='transparent'">
               <i class="ti ${item.icon}" style="font-size:17px;width:20px;flex-shrink:0;color:${activo?P:MU}" aria-hidden="true"></i>
               <span style="font-size:13px;font-weight:${activo?700:400}">${item.label}</span>
             </button>`;
@@ -3040,7 +3044,7 @@ async function cargarConsultas(){
         const bloq=c.bloqueada;
         const medNom=c.medico_nombre||(c.medico_id&&medMap[c.medico_id])||"Médico no registrado";
         const esp=c.medico_especialidad?"<br><span style='font-size:11px;color:"+MU+"'>"+c.medico_especialidad+"</span>":"";
-        const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#1565C0","Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C"};
+        const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C"};
         const tipoColor=TIPO_COLOR[c.tipo_nota]||MU;
         const tipoLabel=(c.tipo_nota||"Nota de evolución").replace("Nota de ","").replace("Nota ","");
         return `<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
@@ -3235,8 +3239,8 @@ window.verInterconsulta=async function(id){
           </div>
           <div style="margin-top:10px"><p style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:4px">Recomendaciones</p><div style="background:#fff;border-radius:7px;padding:8px;font-size:14px;white-space:pre-wrap">${ic.recomendaciones||"—"}</div></div>
         </div>`:`
-        <div style="background:#E3F2FD;border-radius:10px;padding:14px;border:1px solid #90CAF9">
-          <p style="font-size:13px;font-weight:700;color:#1565C0;margin-bottom:12px">📝 Registrar respuesta de interconsulta</p>
+        <div style="background:#E3F4FB;border-radius:10px;padding:14px;border:1px solid #90CAF9">
+          <p style="font-size:13px;font-weight:700;color:#006BB6;margin-bottom:12px">📝 Registrar respuesta de interconsulta</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
             ${fld("Hallazgos clínicos",`<textarea id="ic_hallazgos" rows="3" placeholder="Hallazgos del médico interconsultante..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-family:inherit;font-size:14px;resize:vertical"></textarea>`)}
             ${fld("Diagnóstico interconsultante",`<textarea id="ic_diag_resp" rows="3" placeholder="Diagnóstico con CIE-10..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-family:inherit;font-size:14px;resize:vertical"></textarea>`)}
@@ -3246,7 +3250,7 @@ window.verInterconsulta=async function(id){
           </div>
           <div style="display:flex;justify-content:flex-end;gap:8px">
             <button onclick="document.getElementById('modal-inter-ver').remove()" style="background:#F5F5F5;border:1px solid ${BR};border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px">Cerrar sin responder</button>
-            <button onclick="guardarRespuestaInterconsulta('${ic.id}','${medNom.replace(/'/g,"\\'")}')" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">✅ Guardar respuesta</button>
+            <button onclick="guardarRespuestaInterconsulta('${ic.id}','${medNom.replace(/'/g,"\\'")}')" style="background:#006BB6;color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">✅ Guardar respuesta</button>
           </div>
         </div>`}
       </div>
@@ -3460,10 +3464,10 @@ window.abrirModalFirmaGlobal=function(){
   div.innerHTML=`
     <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:480px;box-shadow:0 16px 40px #00000040;max-height:90vh;overflow-y:auto">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <b style="font-size:14px;color:#1A237E">📱 Enviar para firma digital</b>
+        <b style="font-size:14px;color:#003A5D">📱 Enviar para firma digital</b>
         <button onclick="document.getElementById('modal-firma-global').remove()" style="background:#C62828;color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-weight:700;font-size:14px">✕</button>
       </div>
-      <div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#1A237E">
+      <div style="background:#E3F4FB;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#003A5D">
         El paciente recibirá un enlace por WhatsApp para leer y firmar los documentos desde su celular. Los documentos firmados se guardan automáticamente en el expediente.
       </div>
       <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#1B5E20">
@@ -3483,23 +3487,23 @@ window.abrirModalFirmaGlobal=function(){
           ["infiltraciones","Consentimiento para Infiltraciones"],
           ["esfuerzo","Consentimiento Prueba de Esfuerzo"],
           ["glp1","Consentimiento GLP-1 (Ozempic® / Mounjaro®)"],
-        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#1565C0;width:14px;height:14px"> ${l}</label>`).join("")}
+        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px"> ${l}</label>`).join("")}
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Rehabilitación y procedimientos</p>
         ${[
           ["fisioterapia","Consentimiento — Medicina Física y Rehabilitación"],
           ["puncion_seca","Consentimiento — Punción Seca"],
           ["electropuntura","Consentimiento — Electropuntura"],
           ["proloterapia","Consentimiento — Infiltración Perineural / Proloterapia"],
-        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#1565C0;width:14px;height:14px"> ${l}</label>`).join("")}
+        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px"> ${l}</label>`).join("")}
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Ginecología</p>
         ${[
           ["biopsia_mama","Consentimiento — Biopsia de Mama"],
           ["checkup_gine","Consentimiento — Checkup Ginecológico completo"],
-        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#1565C0;width:14px;height:14px"> ${l}</label>`).join("")}
+        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px"> ${l}</label>`).join("")}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <button onclick="enviarFirmaWAGlobal()" style="flex:1;padding:10px;background:#25D366;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px">💬 Enviar por WhatsApp</button>
-        <button onclick="enviarFirmaEmailGlobal()" style="flex:1;padding:10px;background:#fff;color:#1565C0;border:1.5px solid #CFD8DC;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px">📧 Por correo</button>
+        <button onclick="enviarFirmaEmailGlobal()" style="flex:1;padding:10px;background:#fff;color:#006BB6;border:1.5px solid #CFD8DC;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px">📧 Por correo</button>
       </div>
       <div style="display:flex;gap:10px">
         <div style="flex:0.4">
@@ -3812,7 +3816,7 @@ async function renderAnalitos(ab){
     .eq("paciente_id",pid).order("fecha",{ascending:false});
   const panels=data||[];
   const PANELES_COMUNES=["Biometría Hemática","Química Sanguínea","Perfil Lipídico","Perfil Hepático","Perfil Renal","Función Tiroidea","Perfil Hormonal","Uroanálisis","Hemoglobina Glucosilada (HbA1c)","Electrolitos séricos","Examen General de Orina","Coprocultivo","Cultivo de secreción","Panel metabólico completo","Panel nutricional","Otro panel"];
-  const INTERP=[["N","Normal","#2E7D32"],["A","Alterado","#E65100"],["H","Alto (H)","#C62828"],["L","Bajo (L)","#1565C0"],["C","Crítico","#880E4F"]];
+  const INTERP=[["N","Normal","#2E7D32"],["A","Alterado","#E65100"],["H","Alto (H)","#C62828"],["L","Bajo (L)","#006BB6"],["C","Crítico","#880E4F"]];
   ab.innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       ${btn("➕ Registrar resultados","mostrarFormAnalitos()","p",1)}
@@ -3865,8 +3869,8 @@ async function renderAnalitos(ab){
     ${panels.length===0?`<div style="text-align:center;padding:32px;color:${MU}">Sin resultados registrados. Usa "Registrar resultados" para agregar.</div>`:
     panels.map((panel,i)=>{
       const al=panel.analitos||[];
-      const COLS={"N":"#E8F5E9","A":"#FFF3E0","H":"#FFEBEE","L":"#E3F2FD","C":"#FCE4EC"};
-      const TCOLS={"N":"#2E7D32","A":"#E65100","H":"#C62828","L":"#1565C0","C":"#880E4F"};
+      const COLS={"N":"#E8F5E9","A":"#FFF3E0","H":"#FFEBEE","L":"#E3F4FB","C":"#FCE4EC"};
+      const TCOLS={"N":"#2E7D32","A":"#E65100","H":"#C62828","L":"#006BB6","C":"#880E4F"};
       return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
         <div style="background:${i%2===0?PD:"#2E7D32"};padding:9px 14px;display:flex;align-items:center;justify-content:space-between">
           <div>
@@ -4140,7 +4144,7 @@ async function renderEnfermeria(b){
       </div>
       ${notas.length===0?`<div style="text-align:center;padding:28px;color:${MU}">Sin notas de enfermería registradas.</div>`:
       notas.map((n,i)=>{
-        const TURNO_COLS={"Matutino":"#E3F2FD","Vespertino":"#FFF8E1","Nocturno":"#EDE7F6","Especial":"#E8F5E9"};
+        const TURNO_COLS={"Matutino":"#E3F4FB","Vespertino":"#FFF8E1","Nocturno":"#EDE7F6","Especial":"#E8F5E9"};
         const turnoKey=Object.keys(TURNO_COLS).find(k=>(n.turno||"").includes(k))||"Matutino";
         const tc=TURNO_COLS[turnoKey];
         return`<div style="border-bottom:1px solid ${BR};padding:12px 16px;background:${i%2?"#FAFAFA":"#fff"}">
@@ -4152,7 +4156,7 @@ async function renderEnfermeria(b){
             <span style="font-size:13px;color:${MU}">🏥 ${n.enfermero_nombre||"—"}</span>
           </div>
           ${[n.temperatura,n.frecuencia_cardiaca,n.frecuencia_respiratoria,n.saturacion_o2,n.glucosa].some(v=>v!=null)?
-          `<div style="background:#E3F2FD;border-radius:7px;padding:7px 12px;margin-bottom:8px;font-size:13px;color:#1565C0">
+          `<div style="background:#E3F4FB;border-radius:7px;padding:7px 12px;margin-bottom:8px;font-size:13px;color:#006BB6">
             📊 Signos vitales:${n.temperatura?` T°${n.temperatura}°C`:""}${n.frecuencia_cardiaca?` FC:${n.frecuencia_cardiaca}`:""}${n.frecuencia_respiratoria?` FR:${n.frecuencia_respiratoria}`:""}${n.saturacion_o2?` Sat:${n.saturacion_o2}%`:""}${n.glucosa?` Glu:${n.glucosa} mg/dL`:""}
           </div>`:""}
           ${n.estado_general?`<p style="font-size:14px;color:${TX};margin-bottom:4px"><b>Estado general:</b> ${n.estado_general}</p>`:""}
@@ -4216,7 +4220,7 @@ async function renderInBody(b){
     const v=parseFloat(val);
     const pct=Math.min(100,Math.max(0,((v-min)/(max-min))*100));
     const lowPct=((low-min)/(max-min))*100;const highPct=((high-min)/(max-min))*100;
-    const col=v<low?"#1565C0":v>high?"#C62828":"#2E7D32";
+    const col=v<low?"#006BB6":v>high?"#C62828":"#2E7D32";
     const lbl=v<low?"Bajo":v>high?"Alto":"Normal";
     return`<div>
       <div style="display:flex;justify-content:space-between;margin-bottom:2px">
@@ -4297,7 +4301,7 @@ async function renderInBody(b){
         <p id="ib-pdf-name" style="display:none;color:${SU};font-size:14px;margin-top:4px"></p>
       </div>
       <div style="margin-bottom:14px">
-        <button onclick="extraerInBodyIA()" style="background:linear-gradient(135deg,#7B1FA2,#1565C0);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px">
+        <button onclick="extraerInBodyIA()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px">
           🤖 Extraer datos automáticamente con IA (del PDF/imagen)
         </button>
         <p style="font-size:12px;color:${MU};margin-top:4px">Selecciona el archivo arriba y luego haz clic para que la IA lea y llene todos los campos</p>
@@ -4312,7 +4316,7 @@ async function renderInBody(b){
 
     <!-- Último resultado — resumen visual -->
     ${ultimo?`<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
-      <div style="background:linear-gradient(135deg,#1565C0,#0D47A1);padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+      <div style="background:linear-gradient(135deg,#006BB6,#005089);padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
         <div>
           <b style="color:#fff;font-size:15px">📊 Última evaluación — ${ultimo.fecha}</b>
           ${ultimo.puntuacion?`<span style="background:rgba(255,255,255,.2);color:#fff;padding:2px 10px;border-radius:20px;font-size:13px;margin-left:10px;font-weight:700">Score: ${ultimo.puntuacion}/100</span>`:""}
@@ -4325,15 +4329,15 @@ async function renderInBody(b){
       <div style="padding:16px">
         <!-- Score visual -->
         ${ultimo.puntuacion?`<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid ${BR}">
-          <div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#1565C0,#42A5F5);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#006BB6,#42A5F5);display:flex;align-items:center;justify-content:center;flex-shrink:0">
             <span style="color:#fff;font-size:22px;font-weight:800">${ultimo.puntuacion}</span>
           </div>
           <div>
             <p style="font-size:14px;font-weight:700;color:${TX}">Puntuación InBody</p>
             <p style="font-size:13px;color:${MU}">de 100 puntos${ultimo.modelo?" — "+ultimo.modelo:""}</p>
           </div>
-          <div style="flex:1;background:#E3F2FD;border-radius:8px;height:12px;overflow:hidden">
-            <div style="width:${ultimo.puntuacion}%;height:100%;background:linear-gradient(90deg,#42A5F5,#1565C0);border-radius:8px"></div>
+          <div style="flex:1;background:#E3F4FB;border-radius:8px;height:12px;overflow:hidden">
+            <div style="width:${ultimo.puntuacion}%;height:100%;background:linear-gradient(90deg,#42A5F5,#006BB6);border-radius:8px"></div>
           </div>
         </div>`:""}
         <!-- KPIs principales -->
@@ -4360,7 +4364,7 @@ async function renderInBody(b){
         ${(ultimo.seg_brazo_der||ultimo.seg_tronco)?`
         <p style="font-size:13px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Masa magra segmental</p>
         <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-          ${[["Brazo D.",ultimo.seg_brazo_der],["Brazo I.",ultimo.seg_brazo_izq],["Tronco",ultimo.seg_tronco],["Pierna D.",ultimo.seg_pierna_der],["Pierna I.",ultimo.seg_pierna_izq]].map(([l,v])=>v!=null?`<div style="background:#E3F2FD;border-radius:8px;padding:8px 12px;text-align:center"><p style="font-size:12px;color:#1565C0;font-weight:600">${l}</p><p style="font-size:15px;font-weight:800;color:#1565C0">${N(v," kg",2)}</p></div>`:"").join("")}
+          ${[["Brazo D.",ultimo.seg_brazo_der],["Brazo I.",ultimo.seg_brazo_izq],["Tronco",ultimo.seg_tronco],["Pierna D.",ultimo.seg_pierna_der],["Pierna I.",ultimo.seg_pierna_izq]].map(([l,v])=>v!=null?`<div style="background:#E3F4FB;border-radius:8px;padding:8px 12px;text-align:center"><p style="font-size:12px;color:#006BB6;font-weight:600">${l}</p><p style="font-size:15px;font-weight:800;color:#006BB6">${N(v," kg",2)}</p></div>`:"").join("")}
         </div>`:""}
       </div>
     </div>`:""}
@@ -4380,9 +4384,9 @@ async function renderInBody(b){
               const col=d>0?"#C62828":"#2E7D32";
               return`<span style="font-size:11px;color:${col};font-weight:700;margin-left:4px">${d>0?"+":""}${d.toFixed(1)}</span>`;
             };
-            return`<tr style="border-top:1px solid ${BR};background:${i===0?"#E3F2FD":i%2?"#FAFAFA":"#fff"}">
+            return`<tr style="border-top:1px solid ${BR};background:${i===0?"#E3F4FB":i%2?"#FAFAFA":"#fff"}">
               <td style="padding:8px 12px;font-weight:${i===0?700:400};white-space:nowrap">${r.fecha}${i===0?` <span style="background:${P};color:#fff;font-size:11px;padding:1px 6px;border-radius:10px">Reciente</span>`:""}</td>
-              <td style="padding:8px 12px;font-weight:700;color:#1565C0">${r.puntuacion||"—"}</td>
+              <td style="padding:8px 12px;font-weight:700;color:#006BB6">${r.puntuacion||"—"}</td>
               <td style="padding:8px 12px">${N(r.peso," kg",1)}${diff("peso")}</td>
               <td style="padding:8px 12px">${N(r.masa_grasa," kg",1)}${diff("masa_grasa")}</td>
               <td style="padding:8px 12px">${N(r.masa_musculo," kg",1)}${diff("masa_musculo")}</td>
@@ -4508,7 +4512,7 @@ window.incluirInBodyEnNota=async function(id){
     <h3 style="font-size:15px;font-weight:700;color:#263238;margin-bottom:8px">📊 Incluir InBody en nota médica</h3>
     <p style="font-size:14px;color:#546E7A;margin-bottom:18px">No hay consulta abierta. ¿Qué deseas hacer?</p>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <button onclick="this.closest('[style*=fixed]').remove();irAConsultasConInBody()" style="background:#1565C0;color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left">
+      <button onclick="this.closest('[style*=fixed]').remove();irAConsultasConInBody()" style="background:#006BB6;color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left">
         📋 Ir a Consultas para abrirla o crear una nueva<br><small style="font-weight:400;opacity:.8">El InBody se incluirá automáticamente al abrir la consulta</small>
       </button>
       <button onclick="copiarInBodyClipboard()" style="background:#37474F;color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left">
@@ -4666,7 +4670,7 @@ function pgConsulta(){
         ${["Nota de evolución","Nota de primera vez (Historia clínica)","Nota de urgencias","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
       </select>
       <div style="width:1px;height:24px;background:${BR}"></div>
-      <button onclick="abrirModalIA()" style="background:linear-gradient(135deg,#7B1FA2,#1565C0);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">🤖 Generar nota con IA</button>
+      <button onclick="abrirModalIA()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">🤖 Generar nota con IA</button>
       ${c.bloqueada?`<span style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">🔒 Nota cerrada — solo lectura</span>`:`${btn("💾 Guardar","guardarConsulta()","ok",1)}
       <button onclick="firmarNota()" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">✍️ Firmar y cerrar nota</button>`}
       <button onclick="descargarNotaPDF()" style="background:#37474F;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📄 PDF nota</button>
@@ -4674,7 +4678,7 @@ function pgConsulta(){
       ${(c.tipo_nota||"").includes("referencia")||gv("cs_tipo_nota").includes("referencia")?`<button onclick="imprimirHojaReferencia()" style="background:#00695C;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🏥 Hoja de Referencia</button>`:""}
       ${btn("✕ Cerrar","cerrarConsulta()","d",1)}
       <button onclick="showRecipe('receta')" style="background:#1B5E20;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">💊 Receta</button>
-      <button onclick="showRecipe('lab')" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🔬 Sol. Lab</button>
+      <button onclick="showRecipe('lab')" style="background:#006BB6;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🔬 Sol. Lab</button>
       <button onclick="showRecipe('gab')" style="background:#6A1B9A;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📡 Sol. Gabinete</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px;background:#F0F4F8">
@@ -4725,7 +4729,7 @@ function pgConsulta(){
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🔍 Análisis / Diagnóstico</b>
             <div style="display:flex;align-items:center;gap:8px">
-              <button onclick="sugerirDxIA()" style="background:linear-gradient(135deg,#7B1FA2,#1565C0);color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px">
+              <button onclick="sugerirDxIA()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px">
                 <i class="ti ti-brain" style="font-size:15px" aria-hidden="true"></i> Sugerir diagnósticos CIE-10 con IA
               </button>
               <span style="font-size:13px;color:#7B1FA2;background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA</span>
@@ -4780,13 +4784,13 @@ function pgConsulta(){
     </div>
     <div id="modal-ia" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto">
       <div style="background:#fff;border-radius:16px;width:100%;max-width:680px;margin:0 auto;box-shadow:0 20px 60px #00000040;overflow:hidden">
-        <div style="background:linear-gradient(135deg,#7B1FA2,#1565C0);padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+        <div style="background:linear-gradient(135deg,#7B1FA2,#006BB6);padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
           <div><b style="color:#fff;font-size:14px">🤖 Generador de Nota Médica con IA</b><p style="color:rgba(255,255,255,.8);font-size:14px;margin-top:2px">Usa el micrófono, transcribe y genera la nota completa</p></div>
           <button onclick="cerrarModalIA()" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700">✕</button>
         </div>
         <div style="padding:16px">
-          <div style="background:linear-gradient(135deg,#F3E5F5,#E3F2FD);border-radius:10px;padding:14px;margin-bottom:14px">
-            <p style="font-size:14px;font-weight:700;color:#1A237E;margin-bottom:10px">🎤 Paso 1: Graba el interrogatorio</p>
+          <div style="background:linear-gradient(135deg,#F3E5F5,#E3F4FB);border-radius:10px;padding:14px;margin-bottom:14px">
+            <p style="font-size:14px;font-weight:700;color:#003A5D;margin-bottom:10px">🎤 Paso 1: Graba el interrogatorio</p>
             <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
               <button id="btn-grabar" onclick="toggleGrabacion()" style="background:#C62828;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px">
                 <span id="ic-grabar">🎤</span> <span id="txt-grabar">Iniciar grabación</span>
@@ -4806,7 +4810,7 @@ function pgConsulta(){
               <p style="font-size:14px;color:#546E7A;align-self:center">O escribe directamente el interrogatorio arriba</p>
             </div>
           </div>
-          <button id="btn-generar-ia" onclick="generarNotaIA()" style="width:100%;padding:12px;background:linear-gradient(135deg,#7B1FA2,#1565C0);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px">
+          <button id="btn-generar-ia" onclick="generarNotaIA()" style="width:100%;padding:12px;background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px">
             ✨ Paso 2: Generar Nota Médica Completa
           </button>
           <div id="ia-resultados" style="display:none">
@@ -4819,7 +4823,7 @@ function pgConsulta(){
               <textarea id="ia_subj" rows="3" style="width:100%;border:none;padding:10px 12px;font-size:14px;resize:none;outline:none;font-family:inherit;line-height:1.6"></textarea>
             </div>
             <div style="border:1.5px solid #B3E5FC;border-radius:10px;overflow:hidden;margin-bottom:10px">
-              <div style="background:#E3F2FD;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+              <div style="background:#E3F4FB;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
                 <b style="font-size:14px;color:${P}">🫀 Exploración física sugerida</b>
                 <button onclick="aplicarCampoIA('cs_expl','ia_expl')" style="background:${P};color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:14px;font-weight:600">✓ Aplicar</button>
               </div>
@@ -4876,7 +4880,7 @@ function pgConsulta(){
                 </select>`)}
               </div>
             </div>
-            <button onclick="aplicarTodoIA()" style="width:100%;padding:12px;background:linear-gradient(135deg,#2E7D32,#1565C0);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
+            <button onclick="aplicarTodoIA()" style="width:100%;padding:12px;background:linear-gradient(135deg,#2E7D32,#006BB6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
               ✅ Aplicar TODO a la consulta y cerrar
             </button>
           </div>
@@ -4937,7 +4941,7 @@ window.sugerirDxIA=async function(){
       dxDiv.innerHTML=`<p style="font-size:13px;color:#7B1FA2;padding:4px">Sin diagnósticos sugeridos. Agrega más contenido a la nota.</p>`;
       return;
     }
-    const CERT_COLOR={"Principal":"#1B5E20","Secundario":"#E65100","Diferencial":"#1565C0"};
+    const CERT_COLOR={"Principal":"#1B5E20","Secundario":"#E65100","Diferencial":"#006BB6"};
     dxDiv.innerHTML=`
       <p style="font-size:12px;font-weight:700;color:#7B1FA2;margin-bottom:8px;text-transform:uppercase">Diagnósticos sugeridos — haz clic para agregar</p>
       <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px">
@@ -5243,7 +5247,7 @@ function renderRecipeModal(tipo="receta"){
         <div style="color:${MU}">Edad: ${calcEdad(p.fecha_nacimiento)} &nbsp; Nac: ${p.fecha_nacimiento||""}</div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px">
-        <button onclick="generarPDFReceta('${tipo}')" style="flex:1;padding:9px;background:#1565C0;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">⬇️ Descargar PDF</button>
+        <button onclick="generarPDFReceta('${tipo}')" style="flex:1;padding:9px;background:#006BB6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">⬇️ Descargar PDF</button>
         <button onclick="enviarRecetaWA('${tipo}')" style="flex:1;padding:9px;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">💬 WhatsApp</button>
         <button onclick="enviarRecetaEmail('${tipo}')" style="flex:1;padding:9px;background:#EA4335;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">📧 Correo</button>
       </div>
@@ -6320,7 +6324,7 @@ function renderRepResumen(ctx){
 
   return`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-      ${repKpi("👥","Pacientes nuevos",nuevosPac.toLocaleString(),(ctx.pacTotal!=null?ctx.pacTotal.toLocaleString()+" total":""),"#E3F2FD","#1565C0")}
+      ${repKpi("👥","Pacientes nuevos",nuevosPac.toLocaleString(),(ctx.pacTotal!=null?ctx.pacTotal.toLocaleString()+" total":""),"#E3F4FB","#006BB6")}
       ${repKpi("🩺","Consultas",numCons.toLocaleString(),pacientesUnicos+" pacientes atendidos","#E8F5E9","#2E7D32")}
       ${repKpi("💰","Ingresos del periodo","$"+ingPeriodo.toLocaleString("es-MX",{minimumFractionDigits:0}),pendPeriodo>0?"$"+pendPeriodo.toLocaleString("es-MX",{minimumFractionDigits:0})+" pendiente":"Sin pendientes","#FFF8E1","#E65100")}
       ${repKpi("🎫","Ticket promedio","$"+ticketProm.toLocaleString("es-MX",{maximumFractionDigits:0}),"por consulta","#F3E5F5","#6A1B9A")}
@@ -6350,7 +6354,7 @@ function renderRepResumen(ctx){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       ${repPanel("📋 Consultas por tipo de nota",
         tipoArr.length===0?repVacio("Sin datos"):
-        tipoArr.map(([t,v])=>repBar(v,maxTipo,"#1565C0",t.replace("Nota de ","").replace("Nota ","").substring(0,14),v+"")).join(""))}
+        tipoArr.map(([t,v])=>repBar(v,maxTipo,"#006BB6",t.replace("Nota de ","").replace("Nota ","").substring(0,14),v+"")).join(""))}
       ${repPanel("📌 Alertas operativas",`
         <div style="display:flex;flex-direction:column;gap:10px">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:${interPend>0?"#FFF3E0":"#F0F4F8"};border-radius:8px">
@@ -6426,7 +6430,7 @@ function renderRepEpi(ctx){
 
   return`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-      ${repKpi("👶","Pacientes nuevos",ctx.pac.length.toLocaleString(),"registrados en el periodo","#E3F2FD","#1565C0")}
+      ${repKpi("👶","Pacientes nuevos",ctx.pac.length.toLocaleString(),"registrados en el periodo","#E3F4FB","#006BB6")}
       ${repKpi("🩺","Consultas analizadas",ctx.cons.length.toLocaleString(),"para extracción de diagnósticos","#E8F5E9","#2E7D32")}
       ${repKpi("🧬","Diagnósticos CIE-10 únicos",Object.keys(dxMap).length.toLocaleString(),"detectados en notas","#F3E5F5","#6A1B9A")}
       ${repKpi("😣","EVA dolor promedio",evaProm!=null?evaProm.toFixed(1):"—",evaVals.length+" registros","#FFF8E1","#E65100")}
@@ -6434,10 +6438,10 @@ function renderRepEpi(ctx){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       ${repPanel("🧑‍🤝‍🧑 Distribución por sexo biológico (pacientes nuevos)",
         sexoArr.length===0?repVacio("Sin pacientes nuevos en el periodo"):
-        sexoArr.map(([s,v])=>repBar(v,maxSexo,"#1565C0",s,v+"")).join(""))}
+        sexoArr.map(([s,v])=>repBar(v,maxSexo,"#006BB6",s,v+"")).join(""))}
       ${repPanel("📊 Pirámide de edades (pacientes nuevos)",
         ctx.pac.length===0?repVacio("Sin pacientes nuevos en el periodo"):
-        edadArr.map(([r,v])=>repBar(v,maxEdad,"#0288D1",r,v+"")).join(""))}
+        edadArr.map(([r,v])=>repBar(v,maxEdad,"#24B1DA",r,v+"")).join(""))}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       ${repPanel("🧬 Top 10 diagnósticos CIE-10 (consultas del periodo)",
@@ -6591,7 +6595,7 @@ function renderRepAdmin(ctx){
 
   return`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-      ${repKpi("👨‍⚕️","Médicos activos",ctx.usuarios.length.toLocaleString(),"personal registrado","#E3F2FD","#1565C0")}
+      ${repKpi("👨‍⚕️","Médicos activos",ctx.usuarios.length.toLocaleString(),"personal registrado","#E3F4FB","#006BB6")}
       ${repKpi("📝","Notas firmadas / bloqueadas",bloqueadas.toLocaleString(),activas+" en edición","#E8F5E9","#2E7D32")}
       ${repKpi("🔁","Interconsultas",ctx.inter.length.toLocaleString(),(interEstMap["Pendiente de respuesta"]||0)+" pendientes","#FFF8E1","#E65100")}
       ${repKpi("📋","Acciones en bitácora",ctx.bitacora.length.toLocaleString(),"registros del periodo","#F3E5F5","#6A1B9A")}
@@ -6634,7 +6638,7 @@ function renderRepAdmin(ctx){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       ${repPanel("📋 Acciones registradas (bitácora)",
         accArr.length===0?repVacio("Sin actividad registrada en bitácora"):
-        accArr.map(([a,v])=>repBar(v,maxAcc,"#1565C0",a.substring(0,16),v+"")).join(""))}
+        accArr.map(([a,v])=>repBar(v,maxAcc,"#006BB6",a.substring(0,16),v+"")).join(""))}
       ${repPanel("👤 Actividad por usuario (bitácora)",
         userArr.length===0?repVacio("Sin actividad registrada"):
         userArr.map(([u,v])=>repBar(v,maxUser,"#C2185B",u.substring(0,16),v+"")).join(""))}
@@ -6747,7 +6751,7 @@ const HERR_CATALOGO=[
   {grupo:"🧓 Geriatría",color:"#6A1B9A",tools:[
     {k:"frail",icon:"🚶",nombre:"Escala FRAIL — Fragilidad",desc:"Cribado de fragilidad de 5 ítems (Morley 2012)"}
   ]},
-  {grupo:"♿ Medicina Física y Rehabilitación",color:"#1565C0",tools:[
+  {grupo:"♿ Medicina Física y Rehabilitación",color:"#006BB6",tools:[
     {k:"barthel",icon:"🛏️",nombre:"Índice de Barthel — Discapacidad",desc:"Independencia en actividades básicas de la vida diaria (0–100)"}
   ]},
   {grupo:"🧠 Salud Mental",color:"#5D4037",tools:[
@@ -7049,9 +7053,9 @@ window.calcTfg=function(){
   // Cockcroft-Gault (opcional)
   let cg="";let txtCg="";let crclVal=null;
   if(!isNaN(peso)&&peso>0){const crcl=cockcroftGault(age,peso,scr,female);crclVal=Math.round(crcl*10)/10;
-    cg=`<div style="flex:1;min-width:160px;text-align:center;background:#1565C014;border:1px solid #1565C040;border-radius:10px;padding:14px">
+    cg=`<div style="flex:1;min-width:160px;text-align:center;background:#006BB614;border:1px solid #006BB640;border-radius:10px;padding:14px">
       <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">Cockcroft-Gault</p>
-      <p style="font-size:28px;font-weight:800;color:#1565C0">${crcl.toFixed(0)}</p>
+      <p style="font-size:28px;font-weight:800;color:#006BB6">${crcl.toFixed(0)}</p>
       <p style="font-size:12px;color:${MU}">mL/min · ajuste de dosis</p></div>`;
     txtCg=` Depuración Cockcroft-Gault: ${crcl.toFixed(0)} mL/min.`;
   }
@@ -7301,7 +7305,7 @@ window.calcNutricion=function(){
   if(isNaN(peso)||isNaN(tallaCm)||peso<=0||tallaCm<=0){res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Complete peso y talla para calcular.</p>`;return;}
   const tallaM=tallaCm/100, imc=peso/(tallaM*tallaM);
   let cls,col;
-  if(imc<18.5){cls="Bajo peso";col="#1565C0";}
+  if(imc<18.5){cls="Bajo peso";col="#006BB6";}
   else if(imc<25){cls="Peso normal";col="#2E7D32";}
   else if(imc<30){cls="Sobrepeso";col="#F9A825";}
   else if(imc<35){cls="Obesidad grado I";col="#EF6C00";}
@@ -7312,9 +7316,9 @@ window.calcNutricion=function(){
     const tmb=10*peso+6.25*tallaCm-5*edad+(female?-161:5);
     const get=tmb*act;
     tmbVal=Math.round(tmb);getVal=Math.round(get);
-    tmbBlock=`<div style="flex:1;min-width:150px;text-align:center;background:#1565C014;border:1px solid #1565C040;border-radius:10px;padding:14px">
+    tmbBlock=`<div style="flex:1;min-width:150px;text-align:center;background:#006BB614;border:1px solid #006BB640;border-radius:10px;padding:14px">
         <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">TMB (Mifflin)</p>
-        <p style="font-size:28px;font-weight:800;color:#1565C0">${tmb.toFixed(0)}</p><p style="font-size:12px;color:${MU}">kcal/día en reposo</p></div>
+        <p style="font-size:28px;font-weight:800;color:#006BB6">${tmb.toFixed(0)}</p><p style="font-size:12px;color:${MU}">kcal/día en reposo</p></div>
       <div style="flex:1;min-width:150px;text-align:center;background:#2E7D3214;border:1px solid #2E7D3240;border-radius:10px;padding:14px">
         <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">Gasto energético total</p>
         <p style="font-size:28px;font-weight:800;color:#2E7D32">${get.toFixed(0)}</p><p style="font-size:12px;color:${MU}">kcal/día con actividad</p></div>`;
@@ -7355,7 +7359,7 @@ window.calcSc=function(){
   const card=(l,v,c)=>`<div style="flex:1;min-width:150px;text-align:center;background:${c}14;border:1px solid ${c}40;border-radius:10px;padding:14px">
     <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">${l}</p>
     <p style="font-size:30px;font-weight:800;color:${c}">${v.toFixed(2)}</p><p style="font-size:12px;color:${MU}">m²</p></div>`;
-  res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">${card("Mosteller",mosteller,"#1565C0")}${card("DuBois",dubois,"#00838F")}</div>${botonesResultado(txt)}`;
+  res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">${card("Mosteller",mosteller,"#006BB6")}${card("DuBois",dubois,"#00838F")}</div>${botonesResultado(txt)}`;
 }
 
 // ════════ VO₂máx ════════
@@ -7541,7 +7545,7 @@ window.cargarCorte=async function(){
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${[["💵","Total cobrado","$"+totalPag.toLocaleString("es-MX",{minimumFractionDigits:2}),"#E8F5E9","#1B5E20"],
          ["⏳","Total pendiente","$"+totalPend.toLocaleString("es-MX",{minimumFractionDigits:2}),"#FFF8E1","#E65100"],
-         ["📋","Total movimientos",pagos.length.toString()+" registros","#E3F2FD","#1565C0"]].map(([i,l,v,bg,c])=>`
+         ["📋","Total movimientos",pagos.length.toString()+" registros","#E3F4FB","#006BB6"]].map(([i,l,v,bg,c])=>`
       <div style="background:${bg};border-radius:10px;padding:14px 16px;border-left:4px solid ${c}">
         <p style="font-size:22px;margin-bottom:4px">${i}</p>
         <p style="font-size:13px;color:${MU};font-weight:600">${l}</p>
@@ -7617,7 +7621,7 @@ async function pgPagos(){
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       ${[["💵","Total pagado","$"+totalPagado.toLocaleString("es-MX",{minimumFractionDigits:2}),"#E8F5E9","#1B5E20"],
          ["⏳","Saldo pendiente","$"+totalPendiente.toLocaleString("es-MX",{minimumFractionDigits:2}),"#FFF8E1","#E65100"],
-         ["📋","Total visitas",pagos.length+" registros","#E3F2FD","#1565C0"]].map(([i,l,v,bg,c])=>`
+         ["📋","Total visitas",pagos.length+" registros","#E3F4FB","#006BB6"]].map(([i,l,v,bg,c])=>`
       <div style="background:${bg};border-radius:10px;padding:14px 16px;border-left:4px solid ${c}">
         <p style="font-size:20px;margin-bottom:2px">${i}</p>
         <p style="font-size:13px;color:${MU};font-weight:600">${l}</p>
@@ -7728,7 +7732,7 @@ async function renderSVTab(b,pid){
       </div>
       <div style="padding:14px">
         ${ultimoHoy?`<div style="background:#E8F5E9;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#2E7D32">✅ Mostrando registro de hoy.</div>`:`<div style="background:#FFF3E0;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#E65100">📝 Sin registro de hoy.</div>`}
-        ${ibUltimo&&(ibPeso||ibTalla)?`<div style="background:#E3F2FD;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#1565C0">📊 Peso/Talla pre-llenados desde InBody del ${ibUltimo.fecha}</div>`:""}
+        ${ibUltimo&&(ibPeso||ibTalla)?`<div style="background:#E3F4FB;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#006BB6">📊 Peso/Talla pre-llenados desde InBody del ${ibUltimo.fecha}</div>`:""}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
           ${fld("Temperatura (°C)",`<input id="sv_temp" type="number" step="0.1" value="${v.temperatura||""}" placeholder="36.5" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
           ${fld("F. Cardíaca (lat/min)",`<input id="sv_fc" type="number" value="${v.frecuencia_cardiaca||""}" placeholder="72" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
@@ -7787,13 +7791,13 @@ async function renderCCTab(b,pid){
   const ultimo=resultados[0];
   svBody.innerHTML=`
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
-      <div style="background:linear-gradient(135deg,#1565C0,#0D47A1);padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+      <div style="background:linear-gradient(135deg,#006BB6,#005089);padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
         <b style="color:#fff;font-size:14px">📊 Composición Corporal — ${ultimo.fecha}${ultimo.puntuacion?" | Score: "+ultimo.puntuacion+"/100":""}</b>
         <button onclick="STATE.expTab='inbody';renderTab(STATE.expTab,document.getElementById('eb'))" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px">Ver detalle →</button>
       </div>
       <div style="padding:16px">
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-          ${[["⚖️","Peso",N(ultimo.peso," kg"),"#E3F2FD","#1565C0"],
+          ${[["⚖️","Peso",N(ultimo.peso," kg"),"#E3F4FB","#006BB6"],
              ["💪","Músculo ESQ",N(ultimo.masa_musculo," kg"),"#E8F5E9","#2E7D32"],
              ["🧈","Masa Grasa",N(ultimo.masa_grasa," kg")+" ("+N(ultimo.pgc,"%")+"%)","#FFF3E0","#E65100"],
              ["📐","IMC",N(ultimo.imc," kg/m²"),"#F3E5F5","#6A1B9A"]].map(([i,l,v,bg,c])=>`
@@ -7817,7 +7821,7 @@ async function renderCCTab(b,pid){
           <tbody>${resultados.map((r,i)=>{
             const prev=resultados[i+1];
             const fl=(k,inv)=>{if(!prev||prev[k]==null||r[k]==null)return"";const d=parseFloat(r[k])-parseFloat(prev[k]);if(Math.abs(d)<0.05)return"";const ok=inv?d<0:d>0;return`<span style="color:${ok?"#2E7D32":"#C62828"};font-size:11px">${d>0?"▲":"▼"}${Math.abs(d).toFixed(1)}</span>`;};
-            return`<tr style="border-top:1px solid ${BR};background:${i===0?"#E3F2FD":i%2?"#FAFAFA":"#fff"}">
+            return`<tr style="border-top:1px solid ${BR};background:${i===0?"#E3F4FB":i%2?"#FAFAFA":"#fff"}">
               <td style="padding:7px 10px;font-weight:${i===0?700:400}">${r.fecha}</td>
               <td style="padding:7px 10px">${N(r.peso," kg")} ${fl("peso")}</td>
               <td style="padding:7px 10px">${N(r.masa_grasa," kg")} ${fl("masa_grasa",true)}</td>
@@ -7917,7 +7921,7 @@ async function renderFisio(b){
   const {data:prescs}=await SB.from("fisioterapia_prescripciones").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const {data:notas}=await SB.from("fisioterapia_notas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const lista=prescs||[];
-  const tabSt=(activo)=>`padding:10px 16px;border:none;cursor:pointer;font-size:13px;font-weight:${activo?700:500};color:${activo?P:MU};background:${activo?"#E3F2FD":"transparent"};border-bottom:2px solid ${activo?P:"transparent"};display:flex;align-items:center;gap:6px;white-space:nowrap`;
+  const tabSt=(activo)=>`padding:10px 16px;border:none;cursor:pointer;font-size:13px;font-weight:${activo?700:500};color:${activo?P:MU};background:${activo?"#E3F4FB":"transparent"};border-bottom:2px solid ${activo?P:"transparent"};display:flex;align-items:center;gap:6px;white-space:nowrap`;
   b.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;align-items:center;padding:0 4px;background:#FAFAFA">
@@ -7982,7 +7986,7 @@ function renderFisioForm(presc,pid){
   const ejercicio=[["estiramiento","Estiramiento"],["fortalecimiento","Fortalecimiento"],["propiocepcion","Propiocepción / Equilibrio"],["postural","Reeducación postural"],["cadena","Cadena cinética"],["aerobico","Ejercicio aeróbico"],["pliometria","Pliometría"],["readaptacion","Readaptación deportiva"],["pilates","Pilates terapéutico"]];
   const neuro=[["marcha","Reeducación de la marcha"],["sensoriomotriz","Estimulación sensoriomotriz"],["avd","AVD – independencia"],["cognitiva","Rehabilitación cognitiva"]];
   const limitaciones=[["marcha","Marcha"],["laboral","Actividad laboral"],["deportiva","Actividad deportiva"],["avd_bas","AVD básicas"],["avd_ins","AVD instrumentales"]];
-  const chkGroup=(items,prefix,saved={})=>items.map(([k,v])=>`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:14px;padding:4px 8px;background:${saved[k]?"#E3F2FD":"#F8F9FA"};border:1px solid ${saved[k]?"#90CAF9":BR};border-radius:6px">
+  const chkGroup=(items,prefix,saved={})=>items.map(([k,v])=>`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:14px;padding:4px 8px;background:${saved[k]?"#E3F4FB":"#F8F9FA"};border:1px solid ${saved[k]?"#90CAF9":BR};border-radius:6px">
     <input type="checkbox" id="ft_${prefix}_${k}" ${saved[k]?"checked":""} style="accent-color:${P};width:13px;height:13px">${v}
   </label>`).join("");
   const sel={};if(p.tratamiento)Object.assign(sel,p.tratamiento);
@@ -8069,7 +8073,7 @@ function renderFisioForm(presc,pid){
         <b style="font-size:14px;color:${P};text-transform:uppercase">5. Control de sesiones</b>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
-        ${Array.from({length:20},(_,i)=>{const ses=p.sesiones_completadas||[];const done=ses.includes(i+1);return`<div onclick="toggleSesion(${i+1})" style="width:44px;height:44px;border-radius:8px;border:1.5px solid ${done?"#1565C0":BR};background:${done?PL:"#fff"};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column">
+        ${Array.from({length:20},(_,i)=>{const ses=p.sesiones_completadas||[];const done=ses.includes(i+1);return`<div onclick="toggleSesion(${i+1})" style="width:44px;height:44px;border-radius:8px;border:1.5px solid ${done?"#006BB6":BR};background:${done?PL:"#fff"};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column">
           <span style="font-size:14px;font-weight:700;color:${done?P:MU}">${i+1}</span>
           ${done?`<span style="font-size:8px;color:${P}">✓</span>`:`<span style="font-size:7px;color:${BR}">—</span>`}
         </div>`;}).join("")}
@@ -8265,7 +8269,7 @@ function resetTimerInactividad(){
       <div style="font-size:44px;margin-bottom:10px">⏱️</div>
       <h3 style="font-size:16px;font-weight:800;color:#263238;margin-bottom:8px">Sesión por cerrar</h3>
       <p style="font-size:14px;color:#546E7A;line-height:1.7;margin-bottom:16px">Por inactividad la sesión se cerrará en<br><b id="inact-cd" style="font-size:28px;color:#C62828">60</b> segundos.<br><small style="color:#9E9E9E">NOM-024-SSA3-2012 — Protección de datos del paciente</small></p>
-      <button onclick="resetTimerInactividad()" style="background:#1565C0;color:#fff;border:none;border-radius:9px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Continuar sesión</button>
+      <button onclick="resetTimerInactividad()" style="background:#006BB6;color:#fff;border:none;border-radius:9px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Continuar sesión</button>
     </div>`;
     document.body.appendChild(div);
     _timerCd=setInterval(()=>{
