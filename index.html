@@ -256,7 +256,7 @@ function nav(){
     <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
-    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","🧰 Herramientas"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     ${STATE.userProfile?.rol==="admin"?`
     <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
@@ -1973,6 +1973,7 @@ function pgExp(){
     ]},
     {label:"",items:[
       {k:"fisio",icon:"ti-walk",label:"Fisioterapia"},
+      {k:"herramientas",icon:"ti-calculator",label:"Herramientas",ext:true},
     ]},
   ];
   RR().innerHTML=nav()+`
@@ -2001,7 +2002,8 @@ function pgExp(){
           </div>
           ${g.items.map(item=>{
             const activo=STATE.expTab===item.k;
-            return`<button onclick="setET('${item.k}')" style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 16px;border:none;background:${activo?"#E3F2FD":"transparent"};color:${activo?P:TX};cursor:pointer;text-align:left;border-left:3px solid ${activo?P:"transparent"};transition:background .15s" onmouseover="if('${item.k}'!==STATE.expTab)this.style.background='#F8F9FA'" onmouseout="if('${item.k}'!==STATE.expTab)this.style.background='transparent'">
+            const onclick=item.ext?`go('${item.k}')`:`setET('${item.k}')`;
+            return`<button onclick="${onclick}" style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 16px;border:none;background:${activo?"#E3F2FD":"transparent"};color:${activo?P:TX};cursor:pointer;text-align:left;border-left:3px solid ${activo?P:"transparent"};transition:background .15s" onmouseover="if('${item.k}'!==STATE.expTab)this.style.background='#F8F9FA'" onmouseout="if('${item.k}'!==STATE.expTab)this.style.background='transparent'">
               <i class="ti ${item.icon}" style="font-size:17px;width:20px;flex-shrink:0;color:${activo?P:MU}" aria-hidden="true"></i>
               <span style="font-size:13px;font-weight:${activo?700:400}">${item.label}</span>
             </button>`;
@@ -6731,9 +6733,12 @@ async function pgHerramientas(){
     <div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:3px">${t.nombre}</p><p style="font-size:13px;color:${MU};line-height:1.4">${t.desc}</p></div>
   </button>`;
   RR().innerHTML=nav()+`<div style="max-width:1100px;margin:0 auto;padding:20px 14px" class="fade">
-    <div style="margin-bottom:18px">
-      <h2 style="font-size:20px;font-weight:800;color:${TX}">🧰 Herramientas Clínicas</h2>
-      <p style="font-size:14px;color:${MU}">Calculadoras y escalas validadas de apoyo a la consulta${STATE.pat?` · Paciente activo: <b style="color:${P}">${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""}</b>`:""}</p>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+      <div>
+        <h2 style="font-size:20px;font-weight:800;color:${TX}">Herramientas Clínicas</h2>
+        <p style="font-size:14px;color:${MU}">Calculadoras y escalas validadas de apoyo a la consulta${STATE.pat?` · Paciente activo: <b style="color:${P}">${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""}</b>`:""}</p>
+      </div>
+      ${STATE.pat?btn("← Volver al expediente","go('expediente')","s",1):""}
     </div>
     ${HERR_CATALOGO.map(g=>`<div style="margin-bottom:20px">
       <p style="font-size:13px;font-weight:700;color:${g.color};text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">${g.grupo}</p>
@@ -6750,7 +6755,10 @@ window.cerrarHerramienta=function(){STATE.toolActive=null;pgHerramientas();}
 function herrHeader(titulo,subtitulo){
   return`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
     <div><h2 style="font-size:19px;font-weight:800;color:${TX}">${titulo}</h2><p style="font-size:13px;color:${MU}">${subtitulo}</p></div>
-    ${btn("← Todas las herramientas","cerrarHerramienta()","s",1)}
+    <div style="display:flex;gap:8px">
+      ${btn("← Todas las herramientas","cerrarHerramienta()","s",1)}
+      ${STATE.pat?btn("Volver al expediente","go('expediente')","s",1):""}
+    </div>
   </div>`;
 }
 function herrInput(id,label,val="",ph="",extra=""){
@@ -6766,7 +6774,7 @@ function herrToggle(id,label,checked=false){
   </label>`;
 }
 function herrResultBox(){
-  return`<div id="tool-result" style="margin-top:18px"></div>`;
+  return`<div id="tool-result" style="margin-top:18px"></div><div id="tool-historial"></div>`;
 }
 function insertarEnNota(texto){
   if(!STATE.pat){showToast("No hay paciente activo para insertar la nota",false);return;}
@@ -6779,14 +6787,82 @@ function botonesResultado(textoPlano){
   return`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
     <button onclick="navigator.clipboard.writeText('${esc}');showToast('✓ Resultado copiado')" style="background:${P};color:#fff;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:13px">📋 Copiar resultado</button>
     ${STATE.pat?`<button onclick="insertarEnNota('${esc}')" style="background:${SU};color:#fff;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:13px">➕ Copiar para nota de ${STATE.pat.nombre}</button>`:""}
+    ${STATE.pat&&STATE.toolResultActual?`<button onclick="guardarResultadoHerramienta()" style="background:#6A1B9A;color:#fff;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:13px">💾 Guardar en expediente</button>`:""}
   </div>`;
+}
+// Cada calc* llama a esto justo antes de renderizar botonesResultado, para
+// dejar disponible el resultado a guardar (resumen texto + datos estructurados + valor principal).
+function prepararGuardado(valorPrincipal,unidad,datos){
+  if(!STATE.toolActive){STATE.toolResultActual=null;return;}
+  STATE.toolResultActual={herramienta:STATE.toolActive,valor_principal:valorPrincipal,unidad,datos};
+}
+window.guardarResultadoHerramienta=async function(){
+  const pid=STATE.pat?.id;const r=STATE.toolResultActual;
+  if(!pid||!r){showToast("No hay resultado o paciente activo",false);return;}
+  const HERR_LABELS={prevent:"Riesgo CV PREVENT",tfg:"TFG (CKD-EPI 2021)",frail:"Escala FRAIL",barthel:"Índice de Barthel",phq9:"PHQ-9 (Depresión)",gad7:"GAD-7 (Ansiedad)",nutricion:"IMC / Gasto energético",sc:"Superficie corporal",vo2max:"VO₂máx",rm:"1RM",fczonas:"Zonas de FC"};
+  const med=STATE.userProfile||{};
+  loading(true,"Guardando resultado...");
+  const {error}=await SB.from("resultados_herramientas").insert({
+    paciente_id:pid,
+    medico_id:STATE.user?.id||null,
+    medico_nombre:`${med.titulo||""} ${med.nombre||""} ${med.apellidos||""}`.trim(),
+    herramienta:r.herramienta,
+    herramienta_label:HERR_LABELS[r.herramienta]||r.herramienta,
+    valor_principal:r.valor_principal,
+    unidad:r.unidad||null,
+    datos:r.datos||{},
+  });
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("✓ Guardado en el expediente de "+STATE.pat.nombre);
+  cargarHistorialHerramienta(r.herramienta);
+}
+async function cargarHistorialHerramienta(key){
+  const cont=document.getElementById("tool-historial");
+  if(!cont)return;
+  if(!STATE.pat?.id){cont.innerHTML="";return;}
+  cont.innerHTML=`<p style="font-size:13px;color:${MU}"><span class="spin">⚙️</span> Cargando historial...</p>`;
+  const {data,error}=await SB.from("resultados_herramientas").select("*").eq("paciente_id",STATE.pat.id).eq("herramienta",key).order("created_at",{ascending:false}).limit(10);
+  if(error||!data||data.length===0){cont.innerHTML="";return;}
+  const rows=data.map(d=>{
+    const fecha=new Date(d.created_at).toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"})+" "+new Date(d.created_at).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+    return[fecha,`${d.valor_principal!=null?d.valor_principal:"—"}${d.unidad?" "+d.unidad:""}`,d.medico_nombre||"—",d.id];
+  });
+  // variación entre el más reciente y el anterior
+  let variacion="";
+  if(data.length>=2&&data[0].valor_principal!=null&&data[1].valor_principal!=null){
+    const diff=data[0].valor_principal-data[1].valor_principal;
+    const col=diff>0?"#C62828":diff<0?"#2E7D32":MU;
+    const signo=diff>0?"+":"";
+    variacion=`<p style="font-size:12px;color:${col};font-weight:700;margin-top:6px">Δ vs. registro anterior: ${signo}${diff.toFixed(2)} ${data[0].unidad||""}</p>`;
+  }
+  cont.innerHTML=`<div style="margin-top:18px;border-top:1px solid ${BR};padding-top:14px">
+    <p style="font-size:13px;font-weight:700;color:${TX};margin-bottom:8px">📅 Historial de ${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:${PL}">${["Fecha","Resultado","Registrado por",""].map(h=>`<th style="padding:6px 10px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map(([f,v,m,id],i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+        <td style="padding:6px 10px">${f}</td>
+        <td style="padding:6px 10px;font-weight:700;color:${P}">${v}</td>
+        <td style="padding:6px 10px;color:${MU}">${m}</td>
+        <td style="padding:6px 10px"><button onclick="eliminarResultadoHerramienta('${id}','${key}')" title="Eliminar" style="background:none;border:none;color:${DA};cursor:pointer;font-size:13px">🗑️</button></td>
+      </tr>`).join("")}</tbody>
+    </table>${variacion}
+  </div>`;
+}
+window.eliminarResultadoHerramienta=async function(id,key){
+  if(!confirm("¿Eliminar este resultado del historial?"))return;
+  loading(true);
+  await SB.from("resultados_herramientas").delete().eq("id",id);
+  loading(false);
+  cargarHistorialHerramienta(key);
 }
 
 function renderHerramienta(k){
   const map={prevent:toolPrevent,tfg:toolTfg,frail:toolFrail,barthel:toolBarthel,phq9:toolPhq9,gad7:toolGad7,nutricion:toolNutricion,sc:toolSc,vo2max:toolVo2max,rm:toolRm,fczonas:toolFczonas};
+  STATE.toolResultActual=null;
   RR().innerHTML=nav()+`<div style="max-width:860px;margin:0 auto;padding:20px 14px" class="fade">${(map[k]||(()=>"<p>Herramienta no encontrada</p>"))()}</div>`;
   // ejecutar cálculo inicial si aplica
-  setTimeout(()=>{const f=window["init_"+k];if(f)f();},30);
+  setTimeout(()=>{const f=window["init_"+k];if(f)f();cargarHistorialHerramienta(k);},30);
 }
 
 // ════════ PREVENT ════════
@@ -6849,6 +6925,7 @@ window.calcPrevent=function(){
     <p style="font-size:30px;font-weight:800;color:${col}">${val.toFixed(1)}%</p>
     ${sub?`<p style="font-size:12px;color:${MU};margin-top:2px">${sub}</p>`:""}</div>`;
   const txt=`Riesgo cardiovascular PREVENT (AHA 2023), 10 años — ECV total: ${cvd.toFixed(1)}%, ASCVD: ${ascvd.toFixed(1)}% (riesgo ${cat}), Insuficiencia cardiaca: ${hf.toFixed(1)}%.`;
+  prepararGuardado(Math.round(ascvd*10)/10,"% ASCVD 10a",{ecv_total:Math.round(cvd*10)/10,ascvd:Math.round(ascvd*10)/10,ic:Math.round(hf*10)/10,categoria:cat,edad:age,sbp,tc,hdl,egfr,bmi,dm,smk,htn,statin,sexo:sx});
   res.innerHTML=`${aviso?`<p style="color:#EF6C00;font-size:13px;margin-bottom:10px">${aviso}</p>`:""}
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       ${card("ECV total 10 años",cvd,"#C62828","ASCVD + IC")}
@@ -6898,6 +6975,7 @@ window.calcTfg=function(){
     txtCg=` Depuración Cockcroft-Gault: ${crcl.toFixed(0)} mL/min.`;
   }
   const txt=`TFG estimada (CKD-EPI 2021): ${egfr.toFixed(0)} mL/min/1.73m² — Estadio KDIGO ${stg} (${desc}).${txtCg}`;
+  prepararGuardado(Math.round(egfr*10)/10,"mL/min/1.73m²",{estadio_kdigo:stg,scr,edad:age,sexo:female?"f":"m",cockcroft_gault:!isNaN(peso)&&peso>0?Math.round(cockcroftGault(age,peso,scr,female)*10)/10:null});
   res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:160px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
         <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">TFG (CKD-EPI 2021)</p>
@@ -6939,6 +7017,7 @@ window.calcFrail=function(){
   let cat,col;if(score===0){cat="Robusto (sin fragilidad)";col="#2E7D32";}else if(score<=2){cat="Pre-frágil";col="#F9A825";}else{cat="Frágil";col="#C62828";}
   const res=document.getElementById("tool-result");if(!res)return;
   const txt=`Escala FRAIL: ${score}/5 — ${cat}.`;
+  prepararGuardado(score,"/5",{categoria:cat});
   res.innerHTML=`<div style="text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:18px">
     <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase">Puntaje FRAIL</p>
     <p style="font-size:38px;font-weight:800;color:${col}">${score} / 5</p>
@@ -6983,6 +7062,7 @@ window.calcBarthel=function(){
   else{cat="Dependencia total";col="#C62828";}
   const res=document.getElementById("tool-result");if(!res)return;
   const txt=`Índice de Barthel: ${score}/100 — ${cat}.`;
+  prepararGuardado(score,"/100",{categoria:cat});
   res.innerHTML=`<div style="text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:18px">
     <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase">Puntaje Barthel</p>
     <p style="font-size:38px;font-weight:800;color:${col}">${score} / 100</p>
@@ -7028,6 +7108,7 @@ window.calcPhq9=function(){
   else{cat="Grave";col="#C62828";}
   const res=document.getElementById("tool-result");if(!res)return;
   const txt=`PHQ-9: ${score}/27 — Depresión ${cat}.`;
+  prepararGuardado(score,"/27",{categoria:cat,item9_positivo:item9>0});
   res.innerHTML=`<div style="text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:18px">
     <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase">Puntaje PHQ-9</p>
     <p style="font-size:38px;font-weight:800;color:${col}">${score} / 27</p>
@@ -7070,6 +7151,7 @@ window.calcGad7=function(){
   else{cat="Grave";col="#C62828";}
   const res=document.getElementById("tool-result");if(!res)return;
   const txt=`GAD-7: ${score}/21 — Ansiedad ${cat}.`;
+  prepararGuardado(score,"/21",{categoria:cat});
   res.innerHTML=`<div style="text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:18px">
     <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase">Puntaje GAD-7</p>
     <p style="font-size:38px;font-weight:800;color:${col}">${score} / 21</p>
@@ -7119,10 +7201,11 @@ window.calcNutricion=function(){
   else if(imc<35){cls="Obesidad grado I";col="#EF6C00";}
   else if(imc<40){cls="Obesidad grado II";col="#D84315";}
   else{cls="Obesidad grado III";col="#C62828";}
-  let tmbBlock="",txtTmb="";
+  let tmbBlock="",txtTmb="",tmbVal=null,getVal=null;
   if(!isNaN(edad)&&edad>0){
     const tmb=10*peso+6.25*tallaCm-5*edad+(female?-161:5);
     const get=tmb*act;
+    tmbVal=Math.round(tmb);getVal=Math.round(get);
     tmbBlock=`<div style="flex:1;min-width:150px;text-align:center;background:#1565C014;border:1px solid #1565C040;border-radius:10px;padding:14px">
         <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">TMB (Mifflin)</p>
         <p style="font-size:28px;font-weight:800;color:#1565C0">${tmb.toFixed(0)}</p><p style="font-size:12px;color:${MU}">kcal/día en reposo</p></div>
@@ -7132,6 +7215,7 @@ window.calcNutricion=function(){
     txtTmb=` TMB: ${tmb.toFixed(0)} kcal/día; GET (factor ${act}): ${get.toFixed(0)} kcal/día.`;
   }
   const txt=`Antropometría — IMC: ${imc.toFixed(1)} kg/m² (${cls}).${txtTmb}`;
+  prepararGuardado(Math.round(imc*10)/10,"kg/m²",{categoria:cls,peso,talla_cm:tallaCm,tmb:tmbVal,get:getVal,actividad:act});
   res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:150px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
         <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">IMC</p>
@@ -7161,6 +7245,7 @@ window.calcSc=function(){
   const mosteller=Math.sqrt((talla*peso)/3600);
   const dubois=0.007184*Math.pow(peso,0.425)*Math.pow(talla,0.725);
   const txt=`Superficie corporal — Mosteller: ${mosteller.toFixed(2)} m²; DuBois: ${dubois.toFixed(2)} m².`;
+  prepararGuardado(Math.round(mosteller*100)/100,"m² (Mosteller)",{mosteller:Math.round(mosteller*100)/100,dubois:Math.round(dubois*100)/100,peso,talla_cm:talla});
   const card=(l,v,c)=>`<div style="flex:1;min-width:150px;text-align:center;background:${c}14;border:1px solid ${c}40;border-radius:10px;padding:14px">
     <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">${l}</p>
     <p style="font-size:30px;font-weight:800;color:${c}">${v.toFixed(2)}</p><p style="font-size:12px;color:${MU}">m²</p></div>`;
@@ -7218,6 +7303,7 @@ window.calcVo2=function(){
   else if(vo2<53){cat="Muy bueno";col="#558B2F";}
   else{cat="Excelente";col="#2E7D32";}
   const txt=`VO₂máx estimado (${detalle}): ${vo2.toFixed(1)} mL/kg/min (${mets.toFixed(1)} METs) — ${cat}.`;
+  prepararGuardado(Math.round(vo2*10)/10,"mL/kg/min",{mets:Math.round(mets*10)/10,categoria:cat,metodo:detalle});
   res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:150px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
         <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">VO₂máx</p>
@@ -7234,7 +7320,8 @@ window.calcVo2=function(){
 function toolRm(){
   return herrHeader("🏋️ 1RM — Repetición Máxima","Estimación de carga máxima y porcentajes de entrenamiento")+
   `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      ${herrInput("rm_ejercicio","Ejercicio (opcional)","","Ej: Sentadilla, Press banca",'oninput="calcRm()"')}
       ${herrInput("rm_peso","Peso levantado (kg)","","Ej: 80",'type="number" step="0.5" oninput="calcRm()"')}
       ${herrInput("rm_reps","Repeticiones realizadas","","Ej: 8",'type="number" oninput="calcRm()"')}
     </div>
@@ -7252,7 +7339,9 @@ window.calcRm=function(){
   const lombardi=w*Math.pow(r,0.10);
   const prom=(epley+brzycki+lombardi)/3;
   const pcts=[[95,"Fuerza máx"],[90,"Fuerza"],[85,"Fuerza"],[80,"Fuerza-hipertrofia"],[75,"Hipertrofia"],[70,"Hipertrofia"],[65,"Resistencia"],[60,"Resistencia"]];
-  const txt=`1RM estimado: ${prom.toFixed(1)} kg (promedio de Epley ${epley.toFixed(1)}, Brzycki ${brzycki.toFixed(1)}, Lombardi ${lombardi.toFixed(1)} kg).`;
+  const ejercicio=gv("rm_ejercicio")||"Sin especificar";
+  const txt=`1RM estimado${ejercicio!=="Sin especificar"?" ("+ejercicio+")":""}: ${prom.toFixed(1)} kg (promedio de Epley ${epley.toFixed(1)}, Brzycki ${brzycki.toFixed(1)}, Lombardi ${lombardi.toFixed(1)} kg).`;
+  prepararGuardado(Math.round(prom*10)/10,"kg",{ejercicio,peso_levantado:w,repeticiones:r,epley:Math.round(epley*10)/10,brzycki:Math.round(brzycki*10)/10,lombardi:Math.round(lombardi*10)/10});
   res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="flex:2;min-width:180px;text-align:center;background:#EF6C0014;border:1px solid #EF6C0040;border-radius:10px;padding:14px">
         <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">1RM estimado (promedio)</p>
@@ -7292,6 +7381,7 @@ window.calcFczonas=function(){
   const zonas=[["Z1 Recuperación",50,60,"#90A4AE"],["Z2 Aeróbico ligero",60,70,"#42A5F5"],["Z3 Aeróbico",70,80,"#2E7D32"],["Z4 Umbral",80,90,"#EF6C00"],["Z5 Máximo",90,100,"#C62828"]];
   const fcz=(pct)=>usarKarvonen?Math.round((fcmax-fcrep)*pct/100+fcrep):Math.round(fcmax*pct/100);
   const txt=`FC máxima estimada (Tanaka): ${fcmax} lpm. Zonas (${usarKarvonen?"Karvonen, FC reserva":"% FC máx"}): `+zonas.map(z=>`${z[0]} ${fcz(z[1])}–${fcz(z[2])} lpm`).join("; ")+".";
+  prepararGuardado(fcmax,"lpm (FCmáx)",{fc_reposo:!isNaN(fcrep)?fcrep:null,metodo:usarKarvonen?"Karvonen":"%FCmax",zonas:zonas.map(z=>({zona:z[0],min:fcz(z[1]),max:fcz(z[2])}))});
   res.innerHTML=`<div style="text-align:center;background:#C6282814;border:1px solid #C6282840;border-radius:10px;padding:14px;margin-bottom:14px">
       <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">FC máxima estimada (Tanaka)</p>
       <p style="font-size:34px;font-weight:800;color:#C62828">${fcmax} <span style="font-size:16px">lpm</span></p>
