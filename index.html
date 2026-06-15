@@ -158,7 +158,7 @@ function espInput(id,val,ph="Especialidad o escribe la tuya"){
   </div>`;
 }
 const RR=()=>document.getElementById("R");
-function go(pg,ex={}){Object.assign(STATE,{page:pg,...ex});draw();}
+function go(pg,ex={}){if(pg==="herramientas"&&!("toolActive"in ex))STATE.toolActive=null;Object.assign(STATE,{page:pg,...ex});draw();}
 // ── BITÁCORA DE ACCESO (NOM-024) ─────────────────────────
 async function logBitacora(accion,detalle="",paciente_id=null){
   try{
@@ -178,7 +178,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -256,7 +256,7 @@ function nav(){
     <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
-    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","🧰 Herramientas"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     ${STATE.userProfile?.rol==="admin"?`
     <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
@@ -6637,6 +6637,672 @@ function renderRepAdmin(ctx){
         userArr.length===0?repVacio("Sin actividad registrada"):
         userArr.map(([u,v])=>repBar(v,maxUser,"#C2185B",u.substring(0,16),v+"")).join(""))}
     </div>`;
+}
+
+// ── HERRAMIENTAS CLÍNICAS ─────────────────────────────────
+// Calculadoras y escalas validadas de apoyo a la consulta, por especialidad.
+
+// Coeficientes oficiales PREVENT (AHA 2023) — modelo base 10 años.
+// Orden de términos idéntico para los 3 desenlaces.
+const PREVENT_ORDER=["cage","cnhdl","chdl","sbp_lt","sbp_ge","dm","smk","bmi_lt","bmi_ge","egfr_lt","egfr_ge","htn","statin","tx_sbp","tx_nhdl","age_nhdl","age_hdl","age_sbp","age_dm","age_smk","age_bmi","age_egfr","const"];
+const PREVENT={
+  female_cvd:[0.7939329,0.0305239,-0.1606857,-0.2394003,0.3600781,0.8667604,0.5360739,0,0,0.6045917,0.0433769,0.3151672,-0.1477655,-0.0663612,0.1197879,-0.0819715,0.0306769,-0.0946348,-0.27057,-0.078715,0,-0.1637806,-3.307728],
+  male_cvd:[0.7688528,0.0736174,-0.0954431,-0.4347345,0.3362658,0.7692857,0.4386871,0,0,0.5378979,0.0164827,0.288879,-0.1337349,-0.0475924,0.150273,-0.0517874,0.0191169,-0.1049477,-0.2251948,-0.0895067,0,-0.1543702,-3.031168],
+  female_ascvd:[0.719883,0.1176967,-0.151185,-0.0835358,0.3592852,0.8348585,0.4831078,0,0,0.4864619,0.0397779,0.2265309,-0.0592374,-0.0395762,0.0844423,-0.0567839,0.0325692,-0.1035985,-0.2417542,-0.0791142,0,-0.1671492,-3.819975],
+  male_ascvd:[0.7099847,0.1658663,-0.1144285,-0.2837212,0.3239977,0.7189597,0.3956973,0,0,0.3690075,0.0203619,0.2036522,-0.0865581,-0.0322916,0.114563,-0.0300005,0.0232747,-0.0927024,-0.2018525,-0.0970527,0,-0.1217081,-3.500655],
+  female_hf:[0.8998235,0,0,-0.4559771,0.3576505,1.038346,0.583916,-0.0072294,0.2997706,0.7451638,0.0557087,0.3534442,0,-0.0981511,0,0,0,-0.0946663,-0.3581041,-0.1159453,-0.003878,-0.1884289,-4.310409],
+  male_hf:[0.8972642,0,0,-0.6811466,0.3634461,0.923776,0.5023736,-0.0485841,0.3726929,0.6926917,0.0251827,0.2980922,0,-0.0497731,0,0,0,-0.1289201,-0.3040924,-0.1401688,0.0068126,-0.1797778,-3.946391]
+};
+function preventTerms(sx,age,tc,hdl,sbp,dm,smk,bmi,egfr,htn,statin){
+  const M=0.02586;
+  const cage=(age-55)/10;
+  const cnhdl=((tc-hdl)*M)-3.5;
+  const chdl=((hdl*M)-1.3)/0.3;
+  const sbp_lt=(Math.min(sbp,110)-110)/20;
+  const sbp_ge=(Math.max(sbp,110)-130)/20;
+  const bmi_lt=(Math.min(bmi,30)-25)/5;
+  const bmi_ge=(Math.max(bmi,30)-30)/5;
+  const egfr_lt=(Math.min(egfr,60)-60)/-15;
+  const egfr_ge=(Math.max(egfr,60)-90)/-15;
+  return{cage,cnhdl,chdl,sbp_lt,sbp_ge,dm,smk,bmi_lt,bmi_ge,egfr_lt,egfr_ge,htn,statin,
+    tx_sbp:htn?sbp_ge:0, tx_nhdl:statin?cnhdl:0,
+    age_nhdl:cage*cnhdl, age_hdl:cage*chdl, age_sbp:cage*sbp_ge, age_dm:cage*dm,
+    age_smk:cage*smk, age_bmi:cage*bmi_ge, age_egfr:cage*egfr_lt, const:1};
+}
+function preventRisk(model,t){
+  let lp=0;PREVENT_ORDER.forEach((k,i)=>{lp+=model[i]*t[k];});
+  return Math.exp(lp)/(1+Math.exp(lp));
+}
+
+// ── CKD-EPI 2021 + Cockcroft-Gault ─────────────────────────
+function ckdEpi2021(scr,age,female){
+  const k=female?0.7:0.9, a=female?-0.241:-0.302;
+  const ratio=scr/k;
+  let egfr=142*Math.pow(Math.min(ratio,1),a)*Math.pow(Math.max(ratio,1),-1.200)*Math.pow(0.9938,age);
+  if(female)egfr*=1.012;
+  return egfr;
+}
+function kdigoStage(egfr){
+  if(egfr>=90)return["G1","≥90 — Normal o alta","#2E7D32"];
+  if(egfr>=60)return["G2","60–89 — Levemente disminuida","#558B2F"];
+  if(egfr>=45)return["G3a","45–59 — Leve-moderada","#F9A825"];
+  if(egfr>=30)return["G3b","30–44 — Moderada-grave","#EF6C00"];
+  if(egfr>=15)return["G4","15–29 — Gravemente disminuida","#D84315"];
+  return["G5","<15 — Falla renal","#C62828"];
+}
+function cockcroftGault(age,weight,scr,female){
+  let crcl=((140-age)*weight)/(72*scr);
+  if(female)crcl*=0.85;
+  return crcl;
+}
+
+const HERR_CATALOGO=[
+  {grupo:"❤️ Cardiología / Medicina General",color:"#C62828",tools:[
+    {k:"prevent",icon:"🫀",nombre:"Riesgo Cardiovascular PREVENT",desc:"Riesgo a 10 años de ECV total, ASCVD e insuficiencia cardiaca (AHA 2023, sin raza)"}
+  ]},
+  {grupo:"🫘 Nefrología / Medicina Interna",color:"#00695C",tools:[
+    {k:"tfg",icon:"🧪",nombre:"TFG — CKD-EPI 2021",desc:"Tasa de filtrado glomerular sin raza, estadio KDIGO y depuración Cockcroft-Gault"}
+  ]},
+  {grupo:"🧓 Geriatría",color:"#6A1B9A",tools:[
+    {k:"frail",icon:"🚶",nombre:"Escala FRAIL — Fragilidad",desc:"Cribado de fragilidad de 5 ítems (Morley 2012)"}
+  ]},
+  {grupo:"♿ Medicina Física y Rehabilitación",color:"#1565C0",tools:[
+    {k:"barthel",icon:"🛏️",nombre:"Índice de Barthel — Discapacidad",desc:"Independencia en actividades básicas de la vida diaria (0–100)"}
+  ]},
+  {grupo:"🧠 Salud Mental",color:"#5D4037",tools:[
+    {k:"phq9",icon:"💭",nombre:"PHQ-9 — Depresión",desc:"Cribado y severidad de depresión (dominio público, validado en español)"},
+    {k:"gad7",icon:"😰",nombre:"GAD-7 — Ansiedad",desc:"Cribado y severidad de ansiedad generalizada (dominio público)"}
+  ]},
+  {grupo:"🥗 Nutrición / Antropometría",color:"#2E7D32",tools:[
+    {k:"nutricion",icon:"⚖️",nombre:"IMC y Gasto Energético",desc:"IMC (OMS), TMB y requerimiento calórico (Mifflin-St Jeor)"},
+    {k:"sc",icon:"🧮",nombre:"Superficie Corporal",desc:"Mosteller y DuBois — útil para dosificación"}
+  ]},
+  {grupo:"🏃 Medicina del Deporte y Rehabilitación",color:"#EF6C00",tools:[
+    {k:"vo2max",icon:"🫁",nombre:"VO₂máx — Capacidad aeróbica",desc:"Estimación por test de Cooper o frecuencia cardiaca + equivalente en METs"},
+    {k:"rm",icon:"🏋️",nombre:"1RM — Repetición Máxima",desc:"Estimación de carga máxima (Epley/Brzycki/Lombardi) y tabla de % de entrenamiento"},
+    {k:"fczonas",icon:"💓",nombre:"Zonas de FC de Entrenamiento",desc:"FC máxima (Tanaka) y zonas de intensidad (método Karvonen)"}
+  ]}
+];
+
+async function pgHerramientas(){
+  if(STATE.toolActive){renderHerramienta(STATE.toolActive);return;}
+  const tarjeta=(g,t)=>`<button onclick="abrirHerramienta('${t.k}')" style="text-align:left;background:#fff;border:1px solid ${BR};border-left:4px solid ${g.color};border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;gap:12px;align-items:flex-start" onmouseover="this.style.boxShadow='0 4px 12px #00000018';this.style.transform='translateY(-1px)'" onmouseout="this.style.boxShadow='none';this.style.transform='none'">
+    <span style="font-size:26px;flex-shrink:0">${t.icon}</span>
+    <div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:3px">${t.nombre}</p><p style="font-size:13px;color:${MU};line-height:1.4">${t.desc}</p></div>
+  </button>`;
+  RR().innerHTML=nav()+`<div style="max-width:1100px;margin:0 auto;padding:20px 14px" class="fade">
+    <div style="margin-bottom:18px">
+      <h2 style="font-size:20px;font-weight:800;color:${TX}">🧰 Herramientas Clínicas</h2>
+      <p style="font-size:14px;color:${MU}">Calculadoras y escalas validadas de apoyo a la consulta${STATE.pat?` · Paciente activo: <b style="color:${P}">${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""}</b>`:""}</p>
+    </div>
+    ${HERR_CATALOGO.map(g=>`<div style="margin-bottom:20px">
+      <p style="font-size:13px;font-weight:700;color:${g.color};text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">${g.grupo}</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
+        ${g.tools.map(t=>tarjeta(g,t)).join("")}
+      </div>
+    </div>`).join("")}
+    <p style="font-size:12px;color:${MU};margin-top:8px;padding:12px;background:#FFF8E1;border-radius:8px;border-left:3px solid #F9A825">⚠️ Estas herramientas son de apoyo a la decisión clínica y no sustituyen el juicio médico. Verifique siempre con la guía vigente correspondiente.</p>
+  </div>`;
+}
+window.abrirHerramienta=function(k){STATE.toolActive=k;pgHerramientas();}
+window.cerrarHerramienta=function(){STATE.toolActive=null;pgHerramientas();}
+
+function herrHeader(titulo,subtitulo){
+  return`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <div><h2 style="font-size:19px;font-weight:800;color:${TX}">${titulo}</h2><p style="font-size:13px;color:${MU}">${subtitulo}</p></div>
+    ${btn("← Todas las herramientas","cerrarHerramienta()","s",1)}
+  </div>`;
+}
+function herrInput(id,label,val="",ph="",extra=""){
+  return`<div style="display:flex;flex-direction:column;gap:4px">
+    <label class="fld-label">${label}</label>
+    <input id="${id}" value="${val}" placeholder="${ph}" ${extra} style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+  </div>`;
+}
+function herrToggle(id,label,checked=false){
+  return`<label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;cursor:pointer;background:#fff">
+    <input type="checkbox" id="${id}" ${checked?"checked":""} oninput="${id.startsWith('prv')?'calcPrevent()':''}" style="width:17px;height:17px;accent-color:${P}">
+    <span style="font-size:14px;color:${TX}">${label}</span>
+  </label>`;
+}
+function herrResultBox(){
+  return`<div id="tool-result" style="margin-top:18px"></div>`;
+}
+function insertarEnNota(texto){
+  if(!STATE.pat){showToast("No hay paciente activo para insertar la nota",false);return;}
+  STATE.toolInsert=texto;
+  showToast("✓ Resultado copiado. Pégalo en la nota con Ctrl+V");
+  navigator.clipboard?.writeText(texto).catch(()=>{});
+}
+function botonesResultado(textoPlano){
+  const esc=textoPlano.replace(/'/g,"\\'").replace(/\n/g,"\\n");
+  return`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+    <button onclick="navigator.clipboard.writeText('${esc}');showToast('✓ Resultado copiado')" style="background:${P};color:#fff;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:13px">📋 Copiar resultado</button>
+    ${STATE.pat?`<button onclick="insertarEnNota('${esc}')" style="background:${SU};color:#fff;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:13px">➕ Copiar para nota de ${STATE.pat.nombre}</button>`:""}
+  </div>`;
+}
+
+function renderHerramienta(k){
+  const map={prevent:toolPrevent,tfg:toolTfg,frail:toolFrail,barthel:toolBarthel,phq9:toolPhq9,gad7:toolGad7,nutricion:toolNutricion,sc:toolSc,vo2max:toolVo2max,rm:toolRm,fczonas:toolFczonas};
+  RR().innerHTML=nav()+`<div style="max-width:860px;margin:0 auto;padding:20px 14px" class="fade">${(map[k]||(()=>"<p>Herramienta no encontrada</p>"))()}</div>`;
+  // ejecutar cálculo inicial si aplica
+  setTimeout(()=>{const f=window["init_"+k];if(f)f();},30);
+}
+
+// ════════ PREVENT ════════
+function toolPrevent(){
+  const p=STATE.pat;
+  const edad=p&&p.fecha_nacimiento?Math.floor((Date.now()-new Date(p.fecha_nacimiento))/(365.25*86400000)):"";
+  const sexoF=p&&(p.sexo_biologico==="Mujer");
+  return herrHeader("🫀 Riesgo Cardiovascular PREVENT","AHA 2023 — Riesgo a 10 años de ECV total, ASCVD e insuficiencia cardiaca · Válido 30–79 años")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+      <div style="display:flex;flex-direction:column;gap:4px"><label class="fld-label">Sexo biológico</label>
+        <select id="prv_sex" oninput="calcPrevent()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;background:#fff;font-size:14px">
+          <option value="female" ${sexoF?"selected":""}>Mujer</option><option value="male" ${!sexoF?"selected":""}>Hombre</option></select></div>
+      ${herrInput("prv_age","Edad (años)",edad,"30–79",'type="number" oninput="calcPrevent()"')}
+      ${herrInput("prv_sbp","TA sistólica (mmHg)","","Ej: 130",'type="number" oninput="calcPrevent()"')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+      ${herrInput("prv_tc","Colesterol total (mg/dL)","","Ej: 200",'type="number" oninput="calcPrevent()"')}
+      ${herrInput("prv_hdl","Colesterol HDL (mg/dL)","","Ej: 50",'type="number" oninput="calcPrevent()"')}
+      ${herrInput("prv_egfr","TFG / eGFR (mL/min/1.73m²)","","Ej: 90",'type="number" oninput="calcPrevent()"')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:12px">
+      ${herrInput("prv_bmi","IMC (kg/m²) — para riesgo de IC","","Ej: 26",'type="number" oninput="calcPrevent()"')}
+      <div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+      ${herrToggle("prv_dm","Diabetes mellitus")}
+      ${herrToggle("prv_smk","Tabaquismo actual")}
+      ${herrToggle("prv_htn","Tratamiento antihipertensivo")}
+      ${herrToggle("prv_statin","Uso de estatina")}
+    </div>
+    ${herrResultBox()}
+  </div>`;
+}
+window.init_prevent=function(){calcPrevent();}
+window.calcPrevent=function(){
+  const sx=gv("prv_sex");
+  const age=parseFloat(gv("prv_age")),sbp=parseFloat(gv("prv_sbp")),tc=parseFloat(gv("prv_tc")),
+    hdl=parseFloat(gv("prv_hdl")),egfr=parseFloat(gv("prv_egfr")),bmi=parseFloat(gv("prv_bmi")||"25");
+  const dm=document.getElementById("prv_dm")?.checked?1:0, smk=document.getElementById("prv_smk")?.checked?1:0,
+    htn=document.getElementById("prv_htn")?.checked?1:0, statin=document.getElementById("prv_statin")?.checked?1:0;
+  const res=document.getElementById("tool-result");if(!res)return;
+  if([age,sbp,tc,hdl,egfr].some(v=>isNaN(v))){
+    res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Complete edad, TA sistólica, colesterol total, HDL y TFG para calcular.</p>`;return;
+  }
+  let aviso="";
+  if(age<30||age>79)aviso="⚠️ PREVENT está validado solo para 30–79 años. ";
+  const t=preventTerms(sx,Math.max(30,Math.min(79,age)),tc,hdl,sbp,dm,smk,bmi,egfr,htn,statin);
+  const cvd=preventRisk(PREVENT[sx+"_cvd"],t)*100;
+  const ascvd=preventRisk(PREVENT[sx+"_ascvd"],t)*100;
+  const hf=preventRisk(PREVENT[sx+"_hf"],t)*100;
+  // Categoría ASCVD (umbrales ACC/AHA)
+  let cat,catCol;
+  if(ascvd<5){cat="Bajo";catCol="#2E7D32";}
+  else if(ascvd<7.5){cat="Limítrofe";catCol="#F9A825";}
+  else if(ascvd<20){cat="Intermedio";catCol="#EF6C00";}
+  else{cat="Alto";catCol="#C62828";}
+  const card=(label,val,col,sub)=>`<div style="flex:1;min-width:140px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
+    <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">${label}</p>
+    <p style="font-size:30px;font-weight:800;color:${col}">${val.toFixed(1)}%</p>
+    ${sub?`<p style="font-size:12px;color:${MU};margin-top:2px">${sub}</p>`:""}</div>`;
+  const txt=`Riesgo cardiovascular PREVENT (AHA 2023), 10 años — ECV total: ${cvd.toFixed(1)}%, ASCVD: ${ascvd.toFixed(1)}% (riesgo ${cat}), Insuficiencia cardiaca: ${hf.toFixed(1)}%.`;
+  res.innerHTML=`${aviso?`<p style="color:#EF6C00;font-size:13px;margin-bottom:10px">${aviso}</p>`:""}
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${card("ECV total 10 años",cvd,"#C62828","ASCVD + IC")}
+      ${card("ASCVD 10 años",ascvd,catCol,"Riesgo "+cat)}
+      ${card("Insuf. cardiaca",hf,"#6A1B9A","10 años")}
+    </div>
+    <div style="margin-top:12px;padding:12px;background:#F0F4F8;border-radius:8px;font-size:13px;color:${TX};line-height:1.5">
+      <b>Interpretación (ASCVD):</b> umbral de tratamiento de hipertensión y estatina según guía 2025 AHA/ACC ≥7.5% de riesgo a 10 años (o ECV clínica, diabetes o ERC presente). Considere potenciadores de riesgo para personalizar.
+    </div>
+    ${botonesResultado(txt)}`;
+}
+
+// ════════ TFG CKD-EPI 2021 ════════
+function toolTfg(){
+  const p=STATE.pat;
+  const edad=p&&p.fecha_nacimiento?Math.floor((Date.now()-new Date(p.fecha_nacimiento))/(365.25*86400000)):"";
+  const sexoF=p&&(p.sexo_biologico==="Mujer");
+  return herrHeader("🧪 TFG — CKD-EPI 2021","Tasa de filtrado glomerular sin variable de raza (NKF/ASN 2021) + estadio KDIGO + Cockcroft-Gault")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:12px">
+      <div style="display:flex;flex-direction:column;gap:4px"><label class="fld-label">Sexo biológico</label>
+        <select id="tfg_sex" oninput="calcTfg()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;background:#fff;font-size:14px">
+          <option value="f" ${sexoF?"selected":""}>Mujer</option><option value="m" ${!sexoF?"selected":""}>Hombre</option></select></div>
+      ${herrInput("tfg_age","Edad (años)",edad,"Ej: 55",'type="number" oninput="calcTfg()"')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      ${herrInput("tfg_scr","Creatinina sérica (mg/dL)","","Ej: 0.9",'type="number" step="0.01" oninput="calcTfg()"')}
+      ${herrInput("tfg_peso","Peso (kg) — para Cockcroft-Gault","","Ej: 70",'type="number" oninput="calcTfg()"')}
+    </div>
+    ${herrResultBox()}
+  </div>`;
+}
+window.init_tfg=function(){calcTfg();}
+window.calcTfg=function(){
+  const female=gv("tfg_sex")==="f";
+  const age=parseFloat(gv("tfg_age")),scr=parseFloat(gv("tfg_scr")),peso=parseFloat(gv("tfg_peso"));
+  const res=document.getElementById("tool-result");if(!res)return;
+  if(isNaN(age)||isNaN(scr)||scr<=0){res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Complete edad y creatinina sérica para calcular.</p>`;return;}
+  const egfr=ckdEpi2021(scr,age,female);
+  const [stg,desc,col]=kdigoStage(egfr);
+  let cg="";let txtCg="";
+  if(!isNaN(peso)&&peso>0){const crcl=cockcroftGault(age,peso,scr,female);
+    cg=`<div style="flex:1;min-width:160px;text-align:center;background:#1565C014;border:1px solid #1565C040;border-radius:10px;padding:14px">
+      <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">Cockcroft-Gault</p>
+      <p style="font-size:28px;font-weight:800;color:#1565C0">${crcl.toFixed(0)}</p>
+      <p style="font-size:12px;color:${MU}">mL/min · ajuste de dosis</p></div>`;
+    txtCg=` Depuración Cockcroft-Gault: ${crcl.toFixed(0)} mL/min.`;
+  }
+  const txt=`TFG estimada (CKD-EPI 2021): ${egfr.toFixed(0)} mL/min/1.73m² — Estadio KDIGO ${stg} (${desc}).${txtCg}`;
+  res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:160px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
+        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">TFG (CKD-EPI 2021)</p>
+        <p style="font-size:30px;font-weight:800;color:${col}">${egfr.toFixed(0)}</p>
+        <p style="font-size:12px;color:${MU}">mL/min/1.73m²</p></div>
+      <div style="flex:1;min-width:160px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
+        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">Estadio KDIGO</p>
+        <p style="font-size:30px;font-weight:800;color:${col}">${stg}</p>
+        <p style="font-size:12px;color:${MU}">${desc}</p></div>
+      ${cg}
+    </div>${botonesResultado(txt)}`;
+}
+
+// ════════ ESCALA FRAIL ════════
+const FRAIL_ITEMS=[
+  ["Fatigue — Fatiga","¿Se ha sentido cansado(a) la mayor parte del tiempo en las últimas 4 semanas?"],
+  ["Resistance — Resistencia","¿Tiene dificultad para subir un piso de escaleras sin ayuda ni descanso?"],
+  ["Ambulation — Deambulación","¿Tiene dificultad para caminar una cuadra sin ayuda?"],
+  ["Illness — Enfermedades","¿Padece 5 o más enfermedades crónicas?"],
+  ["Loss of weight — Pérdida de peso","¿Ha perdido ≥5% de su peso en el último año?"]
+];
+function toolFrail(){
+  return herrHeader("🚶 Escala FRAIL — Fragilidad","Cribado de fragilidad de 5 ítems (Morley et al., 2012)")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    ${FRAIL_ITEMS.map((it,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #F0F4F8">
+      <div><p style="font-size:14px;font-weight:600;color:${TX}">${it[0]}</p><p style="font-size:13px;color:${MU}">${it[1]}</p></div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <label style="cursor:pointer"><input type="radio" name="frail${i}" value="0" checked oninput="calcFrail()" style="display:none"><span class="frail-opt" style="display:inline-block;padding:6px 16px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;font-weight:600">No</span></label>
+        <label style="cursor:pointer"><input type="radio" name="frail${i}" value="1" oninput="calcFrail()" style="display:none"><span class="frail-opt" style="display:inline-block;padding:6px 16px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;font-weight:600">Sí</span></label>
+      </div>
+    </div>`).join("")}
+    ${herrResultBox()}
+  </div>
+  <style>input[type=radio]:checked + .frail-opt{background:${P};color:#fff;border-color:${P}}</style>`;
+}
+window.init_frail=function(){calcFrail();}
+window.calcFrail=function(){
+  let score=0;for(let i=0;i<5;i++){const v=document.querySelector(`input[name="frail${i}"]:checked`);if(v)score+=parseInt(v.value);}
+  let cat,col;if(score===0){cat="Robusto (sin fragilidad)";col="#2E7D32";}else if(score<=2){cat="Pre-frágil";col="#F9A825";}else{cat="Frágil";col="#C62828";}
+  const res=document.getElementById("tool-result");if(!res)return;
+  const txt=`Escala FRAIL: ${score}/5 — ${cat}.`;
+  res.innerHTML=`<div style="text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:18px">
+    <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase">Puntaje FRAIL</p>
+    <p style="font-size:38px;font-weight:800;color:${col}">${score} / 5</p>
+    <p style="font-size:16px;font-weight:700;color:${col}">${cat}</p>
+  </div>${botonesResultado(txt)}`;
+}
+
+// ════════ ÍNDICE DE BARTHEL ════════
+const BARTHEL_ITEMS=[
+  ["Alimentación",[["Independiente",10],["Necesita ayuda",5],["Dependiente",0]]],
+  ["Baño / Ducha",[["Independiente",5],["Dependiente",0]]],
+  ["Aseo personal",[["Independiente",5],["Dependiente",0]]],
+  ["Vestirse",[["Independiente",10],["Necesita ayuda",5],["Dependiente",0]]],
+  ["Control intestinal",[["Continente",10],["Accidente ocasional",5],["Incontinente",0]]],
+  ["Control vesical",[["Continente",10],["Accidente ocasional",5],["Incontinente",0]]],
+  ["Uso del retrete",[["Independiente",10],["Necesita ayuda",5],["Dependiente",0]]],
+  ["Traslado cama-sillón",[["Independiente",15],["Mínima ayuda",10],["Gran ayuda",5],["Dependiente",0]]],
+  ["Deambulación",[["Independiente",15],["Necesita ayuda",10],["Independiente en silla de ruedas",5],["Inmóvil",0]]],
+  ["Subir/bajar escaleras",[["Independiente",10],["Necesita ayuda",5],["Dependiente",0]]]
+];
+function toolBarthel(){
+  return herrHeader("🛏️ Índice de Barthel","Independencia en actividades básicas de la vida diaria (0–100)")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    ${BARTHEL_ITEMS.map((it,i)=>`<div style="padding:11px 0;border-bottom:1px solid #F0F4F8">
+      <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:7px">${it[0]}</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${it[1].map((op,j)=>`<label style="cursor:pointer"><input type="radio" name="bar${i}" value="${op[1]}" ${j===0?"checked":""} oninput="calcBarthel()" style="display:none"><span class="bar-opt" style="display:inline-block;padding:6px 13px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;font-weight:600">${op[0]} <b style="opacity:.6">(${op[1]})</b></span></label>`).join("")}
+      </div>
+    </div>`).join("")}
+    ${herrResultBox()}
+  </div>
+  <style>input[type=radio]:checked + .bar-opt{background:${P};color:#fff;border-color:${P}}</style>`;
+}
+window.init_barthel=function(){calcBarthel();}
+window.calcBarthel=function(){
+  let score=0;for(let i=0;i<BARTHEL_ITEMS.length;i++){const v=document.querySelector(`input[name="bar${i}"]:checked`);if(v)score+=parseInt(v.value);}
+  let cat,col;
+  if(score===100){cat="Independiente";col="#2E7D32";}
+  else if(score>=60){cat="Dependencia leve";col="#558B2F";}
+  else if(score>=40){cat="Dependencia moderada";col="#F9A825";}
+  else if(score>=20){cat="Dependencia grave";col="#EF6C00";}
+  else{cat="Dependencia total";col="#C62828";}
+  const res=document.getElementById("tool-result");if(!res)return;
+  const txt=`Índice de Barthel: ${score}/100 — ${cat}.`;
+  res.innerHTML=`<div style="text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:18px">
+    <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase">Puntaje Barthel</p>
+    <p style="font-size:38px;font-weight:800;color:${col}">${score} / 100</p>
+    <p style="font-size:16px;font-weight:700;color:${col}">${cat}</p>
+  </div>${botonesResultado(txt)}`;
+}
+
+// ════════ PHQ-9 (depresión) ════════
+const PHQ9_ITEMS=[
+  "Poco interés o placer en hacer las cosas",
+  "Se ha sentido decaído(a), deprimido(a) o sin esperanza",
+  "Dificultad para dormir o dormir demasiado",
+  "Se ha sentido cansado(a) o con poca energía",
+  "Falta de apetito o comer en exceso",
+  "Se ha sentido mal con usted mismo(a) — o que es un fracaso o ha quedado mal con su familia",
+  "Dificultad para concentrarse (leer, ver televisión)",
+  "Se mueve o habla tan lento que otros lo notan — o lo contrario, muy inquieto(a)",
+  "Pensamientos de que estaría mejor muerto(a) o de hacerse daño de algún modo"
+];
+const ESCALA4=[["Nunca",0],["Varios días",1],["Más de la mitad de los días",2],["Casi todos los días",3]];
+function toolPhq9(){
+  return herrHeader("💭 PHQ-9 — Depresión","Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas? (dominio público)")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    ${PHQ9_ITEMS.map((it,i)=>`<div style="padding:11px 0;border-bottom:1px solid #F0F4F8">
+      <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:7px">${i+1}. ${it}</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${ESCALA4.map((op,j)=>`<label style="cursor:pointer"><input type="radio" name="phq${i}" value="${op[1]}" ${j===0?"checked":""} oninput="calcPhq9()" style="display:none"><span class="esc-opt" style="display:inline-block;padding:6px 12px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;font-weight:600">${op[0]}</span></label>`).join("")}
+      </div>
+    </div>`).join("")}
+    ${herrResultBox()}
+  </div>
+  <style>input[type=radio]:checked + .esc-opt{background:${P};color:#fff;border-color:${P}}</style>`;
+}
+window.init_phq9=function(){calcPhq9();}
+window.calcPhq9=function(){
+  let score=0;for(let i=0;i<9;i++){const v=document.querySelector(`input[name="phq${i}"]:checked`);if(v)score+=parseInt(v.value);}
+  const item9=parseInt(document.querySelector(`input[name="phq8"]:checked`)?.value||"0");
+  let cat,col;
+  if(score<=4){cat="Mínima";col="#2E7D32";}
+  else if(score<=9){cat="Leve";col="#558B2F";}
+  else if(score<=14){cat="Moderada";col="#F9A825";}
+  else if(score<=19){cat="Moderadamente grave";col="#EF6C00";}
+  else{cat="Grave";col="#C62828";}
+  const res=document.getElementById("tool-result");if(!res)return;
+  const txt=`PHQ-9: ${score}/27 — Depresión ${cat}.`;
+  res.innerHTML=`<div style="text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:18px">
+    <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase">Puntaje PHQ-9</p>
+    <p style="font-size:38px;font-weight:800;color:${col}">${score} / 27</p>
+    <p style="font-size:16px;font-weight:700;color:${col}">Depresión ${cat}</p>
+  </div>
+  ${item9>0?`<div style="margin-top:12px;padding:12px 14px;background:#FFEBEE;border:1px solid #EF9A9A;border-radius:8px;font-size:13px;color:#B71C1C;line-height:1.5"><b>⚠️ Ítem 9 positivo.</b> El paciente reporta ideación de muerte o autolesión. Realice una valoración de riesgo, no deje al paciente solo y considere derivación urgente a salud mental.</div>`:""}
+  ${botonesResultado(txt)}`;
+}
+
+// ════════ GAD-7 (ansiedad) ════════
+const GAD7_ITEMS=[
+  "Sentirse nervioso(a), ansioso(a) o muy alterado(a)",
+  "No poder dejar de preocuparse o controlar la preocupación",
+  "Preocuparse demasiado por diferentes cosas",
+  "Dificultad para relajarse",
+  "Estar tan inquieto(a) que es difícil permanecer sentado(a)",
+  "Irritarse o enojarse con facilidad",
+  "Sentir miedo como si algo terrible fuera a suceder"
+];
+function toolGad7(){
+  return herrHeader("😰 GAD-7 — Ansiedad","Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas? (dominio público)")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    ${GAD7_ITEMS.map((it,i)=>`<div style="padding:11px 0;border-bottom:1px solid #F0F4F8">
+      <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:7px">${i+1}. ${it}</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${ESCALA4.map((op,j)=>`<label style="cursor:pointer"><input type="radio" name="gad${i}" value="${op[1]}" ${j===0?"checked":""} oninput="calcGad7()" style="display:none"><span class="esc-opt" style="display:inline-block;padding:6px 12px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;font-weight:600">${op[0]}</span></label>`).join("")}
+      </div>
+    </div>`).join("")}
+    ${herrResultBox()}
+  </div>
+  <style>input[type=radio]:checked + .esc-opt{background:${P};color:#fff;border-color:${P}}</style>`;
+}
+window.init_gad7=function(){calcGad7();}
+window.calcGad7=function(){
+  let score=0;for(let i=0;i<7;i++){const v=document.querySelector(`input[name="gad${i}"]:checked`);if(v)score+=parseInt(v.value);}
+  let cat,col;
+  if(score<=4){cat="Mínima";col="#2E7D32";}
+  else if(score<=9){cat="Leve";col="#558B2F";}
+  else if(score<=14){cat="Moderada";col="#F9A825";}
+  else{cat="Grave";col="#C62828";}
+  const res=document.getElementById("tool-result");if(!res)return;
+  const txt=`GAD-7: ${score}/21 — Ansiedad ${cat}.`;
+  res.innerHTML=`<div style="text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:18px">
+    <p style="font-size:13px;color:${MU};font-weight:600;text-transform:uppercase">Puntaje GAD-7</p>
+    <p style="font-size:38px;font-weight:800;color:${col}">${score} / 21</p>
+    <p style="font-size:16px;font-weight:700;color:${col}">Ansiedad ${cat}</p>
+  </div>${botonesResultado(txt)}`;
+}
+
+// ════════ NUTRICIÓN: IMC + Gasto energético ════════
+function toolNutricion(){
+  const p=STATE.pat;
+  const edad=p&&p.fecha_nacimiento?Math.floor((Date.now()-new Date(p.fecha_nacimiento))/(365.25*86400000)):"";
+  const sexoF=p&&(p.sexo_biologico==="Mujer");
+  return herrHeader("⚖️ IMC y Gasto Energético","Índice de masa corporal (OMS) + tasa metabólica basal y requerimiento calórico (Mifflin-St Jeor)")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+      ${herrInput("nut_peso","Peso (kg)","","Ej: 70",'type="number" step="0.1" oninput="calcNutricion()"')}
+      ${herrInput("nut_talla","Talla (cm)","","Ej: 170",'type="number" oninput="calcNutricion()"')}
+      ${herrInput("nut_edad","Edad (años)",edad,"Ej: 35",'type="number" oninput="calcNutricion()"')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      <div style="display:flex;flex-direction:column;gap:4px"><label class="fld-label">Sexo biológico</label>
+        <select id="nut_sex" oninput="calcNutricion()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;background:#fff;font-size:14px">
+          <option value="f" ${sexoF?"selected":""}>Mujer</option><option value="m" ${!sexoF?"selected":""}>Hombre</option></select></div>
+      <div style="display:flex;flex-direction:column;gap:4px"><label class="fld-label">Nivel de actividad física</label>
+        <select id="nut_act" oninput="calcNutricion()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;background:#fff;font-size:14px">
+          <option value="1.2">Sedentario (poco o nada de ejercicio)</option>
+          <option value="1.375">Ligero (1–3 días/semana)</option>
+          <option value="1.55" selected>Moderado (3–5 días/semana)</option>
+          <option value="1.725">Intenso (6–7 días/semana)</option>
+          <option value="1.9">Muy intenso (atleta / trabajo físico)</option>
+        </select></div>
+    </div>
+    ${herrResultBox()}
+  </div>`;
+}
+window.init_nutricion=function(){calcNutricion();}
+window.calcNutricion=function(){
+  const peso=parseFloat(gv("nut_peso")),tallaCm=parseFloat(gv("nut_talla")),edad=parseFloat(gv("nut_edad"));
+  const female=gv("nut_sex")==="f", act=parseFloat(gv("nut_act")||"1.55");
+  const res=document.getElementById("tool-result");if(!res)return;
+  if(isNaN(peso)||isNaN(tallaCm)||peso<=0||tallaCm<=0){res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Complete peso y talla para calcular.</p>`;return;}
+  const tallaM=tallaCm/100, imc=peso/(tallaM*tallaM);
+  let cls,col;
+  if(imc<18.5){cls="Bajo peso";col="#1565C0";}
+  else if(imc<25){cls="Peso normal";col="#2E7D32";}
+  else if(imc<30){cls="Sobrepeso";col="#F9A825";}
+  else if(imc<35){cls="Obesidad grado I";col="#EF6C00";}
+  else if(imc<40){cls="Obesidad grado II";col="#D84315";}
+  else{cls="Obesidad grado III";col="#C62828";}
+  let tmbBlock="",txtTmb="";
+  if(!isNaN(edad)&&edad>0){
+    const tmb=10*peso+6.25*tallaCm-5*edad+(female?-161:5);
+    const get=tmb*act;
+    tmbBlock=`<div style="flex:1;min-width:150px;text-align:center;background:#1565C014;border:1px solid #1565C040;border-radius:10px;padding:14px">
+        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">TMB (Mifflin)</p>
+        <p style="font-size:28px;font-weight:800;color:#1565C0">${tmb.toFixed(0)}</p><p style="font-size:12px;color:${MU}">kcal/día en reposo</p></div>
+      <div style="flex:1;min-width:150px;text-align:center;background:#2E7D3214;border:1px solid #2E7D3240;border-radius:10px;padding:14px">
+        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">Gasto energético total</p>
+        <p style="font-size:28px;font-weight:800;color:#2E7D32">${get.toFixed(0)}</p><p style="font-size:12px;color:${MU}">kcal/día con actividad</p></div>`;
+    txtTmb=` TMB: ${tmb.toFixed(0)} kcal/día; GET (factor ${act}): ${get.toFixed(0)} kcal/día.`;
+  }
+  const txt=`Antropometría — IMC: ${imc.toFixed(1)} kg/m² (${cls}).${txtTmb}`;
+  res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:150px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
+        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">IMC</p>
+        <p style="font-size:30px;font-weight:800;color:${col}">${imc.toFixed(1)}</p>
+        <p style="font-size:13px;color:${col};font-weight:700">${cls}</p></div>
+      ${tmbBlock}
+    </div>${botonesResultado(txt)}`;
+}
+
+// ════════ SUPERFICIE CORPORAL ════════
+function toolSc(){
+  const p=STATE.pat;
+  return herrHeader("🧮 Superficie Corporal","Mosteller y DuBois — útil para dosificación de fármacos")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      ${herrInput("sc_peso","Peso (kg)","","Ej: 70",'type="number" step="0.1" oninput="calcSc()"')}
+      ${herrInput("sc_talla","Talla (cm)","","Ej: 170",'type="number" oninput="calcSc()"')}
+    </div>
+    ${herrResultBox()}
+  </div>`;
+}
+window.init_sc=function(){calcSc();}
+window.calcSc=function(){
+  const peso=parseFloat(gv("sc_peso")),talla=parseFloat(gv("sc_talla"));
+  const res=document.getElementById("tool-result");if(!res)return;
+  if(isNaN(peso)||isNaN(talla)||peso<=0||talla<=0){res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Complete peso y talla para calcular.</p>`;return;}
+  const mosteller=Math.sqrt((talla*peso)/3600);
+  const dubois=0.007184*Math.pow(peso,0.425)*Math.pow(talla,0.725);
+  const txt=`Superficie corporal — Mosteller: ${mosteller.toFixed(2)} m²; DuBois: ${dubois.toFixed(2)} m².`;
+  const card=(l,v,c)=>`<div style="flex:1;min-width:150px;text-align:center;background:${c}14;border:1px solid ${c}40;border-radius:10px;padding:14px">
+    <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">${l}</p>
+    <p style="font-size:30px;font-weight:800;color:${c}">${v.toFixed(2)}</p><p style="font-size:12px;color:${MU}">m²</p></div>`;
+  res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">${card("Mosteller",mosteller,"#1565C0")}${card("DuBois",dubois,"#00838F")}</div>${botonesResultado(txt)}`;
+}
+
+// ════════ VO₂máx ════════
+function toolVo2max(){
+  const p=STATE.pat;
+  const edad=p&&p.fecha_nacimiento?Math.floor((Date.now()-new Date(p.fecha_nacimiento))/(365.25*86400000)):"";
+  return herrHeader("🫁 VO₂máx — Capacidad aeróbica","Estimación de consumo máximo de oxígeno y equivalente en METs")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px"><label class="fld-label">Método de estimación</label>
+      <select id="vo2_metodo" oninput="renderVo2Inputs();calcVo2()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;background:#fff;font-size:14px">
+        <option value="cooper">Test de Cooper (12 minutos)</option>
+        <option value="fcrep">Frecuencia cardiaca en reposo (Uth 2004)</option>
+      </select></div>
+    <div id="vo2-inputs"></div>
+    ${herrResultBox()}
+  </div>`;
+}
+window.init_vo2max=function(){renderVo2Inputs();calcVo2();}
+window.renderVo2Inputs=function(){
+  const m=gv("vo2_metodo");const c=document.getElementById("vo2-inputs");if(!c)return;
+  const p=STATE.pat;const edad=p&&p.fecha_nacimiento?Math.floor((Date.now()-new Date(p.fecha_nacimiento))/(365.25*86400000)):"";
+  if(m==="cooper"){
+    c.innerHTML=`<div style="display:grid;grid-template-columns:1fr;gap:12px">
+      ${herrInput("vo2_dist","Distancia recorrida en 12 min (metros)","","Ej: 2400",'type="number" oninput="calcVo2()"')}
+    </div>`;
+  } else {
+    c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      ${herrInput("vo2_edad","Edad (años)",edad,"Ej: 35",'type="number" oninput="calcVo2()"')}
+      ${herrInput("vo2_fcrep","FC en reposo (lpm)","","Ej: 60",'type="number" oninput="calcVo2()"')}
+    </div>`;
+  }
+}
+window.calcVo2=function(){
+  const m=gv("vo2_metodo");const res=document.getElementById("tool-result");if(!res)return;
+  let vo2=NaN,detalle="";
+  if(m==="cooper"){
+    const d=parseFloat(gv("vo2_dist"));
+    if(isNaN(d)||d<=0){res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Ingrese la distancia recorrida en 12 minutos.</p>`;return;}
+    vo2=(d-504.9)/44.73;detalle="Test de Cooper";
+  } else {
+    const edad=parseFloat(gv("vo2_edad")),fcrep=parseFloat(gv("vo2_fcrep"));
+    if(isNaN(edad)||isNaN(fcrep)||fcrep<=0){res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Ingrese edad y FC en reposo.</p>`;return;}
+    const fcmax=208-0.7*edad;
+    vo2=15.3*(fcmax/fcrep);detalle="Método FC reposo (Uth 2004)";
+  }
+  const mets=vo2/3.5;
+  let cat,col;
+  if(vo2<25){cat="Bajo";col="#C62828";}
+  else if(vo2<35){cat="Regular";col="#EF6C00";}
+  else if(vo2<43){cat="Bueno";col="#F9A825";}
+  else if(vo2<53){cat="Muy bueno";col="#558B2F";}
+  else{cat="Excelente";col="#2E7D32";}
+  const txt=`VO₂máx estimado (${detalle}): ${vo2.toFixed(1)} mL/kg/min (${mets.toFixed(1)} METs) — ${cat}.`;
+  res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:150px;text-align:center;background:${col}14;border:1px solid ${col}40;border-radius:10px;padding:14px">
+        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">VO₂máx</p>
+        <p style="font-size:30px;font-weight:800;color:${col}">${vo2.toFixed(1)}</p><p style="font-size:12px;color:${col};font-weight:700">${cat}</p><p style="font-size:11px;color:${MU}">mL/kg/min</p></div>
+      <div style="flex:1;min-width:150px;text-align:center;background:#6A1B9A14;border:1px solid #6A1B9A40;border-radius:10px;padding:14px">
+        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">Equivalente METs</p>
+        <p style="font-size:30px;font-weight:800;color:#6A1B9A">${mets.toFixed(1)}</p><p style="font-size:11px;color:${MU}">METs máximos</p></div>
+    </div>
+    <p style="font-size:12px;color:${MU};margin-top:10px">La categoría es orientativa; la interpretación precisa depende de normas por edad y sexo.</p>
+    ${botonesResultado(txt)}`;
+}
+
+// ════════ 1RM ════════
+function toolRm(){
+  return herrHeader("🏋️ 1RM — Repetición Máxima","Estimación de carga máxima y porcentajes de entrenamiento")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      ${herrInput("rm_peso","Peso levantado (kg)","","Ej: 80",'type="number" step="0.5" oninput="calcRm()"')}
+      ${herrInput("rm_reps","Repeticiones realizadas","","Ej: 8",'type="number" oninput="calcRm()"')}
+    </div>
+    ${herrResultBox()}
+  </div>`;
+}
+window.init_rm=function(){calcRm();}
+window.calcRm=function(){
+  const w=parseFloat(gv("rm_peso")),r=parseFloat(gv("rm_reps"));
+  const res=document.getElementById("tool-result");if(!res)return;
+  if(isNaN(w)||isNaN(r)||w<=0||r<=0){res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Ingrese el peso levantado y las repeticiones.</p>`;return;}
+  if(r>15){res.innerHTML=`<p style="color:#EF6C00;font-size:13px;padding:12px;background:#FFF3E0;border-radius:8px">⚠️ Las fórmulas pierden precisión con más de ~12–15 repeticiones. Use una serie más pesada para mayor exactitud.</p>`;return;}
+  const epley=w*(1+r/30);
+  const brzycki=w*36/(37-r);
+  const lombardi=w*Math.pow(r,0.10);
+  const prom=(epley+brzycki+lombardi)/3;
+  const pcts=[[95,"Fuerza máx"],[90,"Fuerza"],[85,"Fuerza"],[80,"Fuerza-hipertrofia"],[75,"Hipertrofia"],[70,"Hipertrofia"],[65,"Resistencia"],[60,"Resistencia"]];
+  const txt=`1RM estimado: ${prom.toFixed(1)} kg (promedio de Epley ${epley.toFixed(1)}, Brzycki ${brzycki.toFixed(1)}, Lombardi ${lombardi.toFixed(1)} kg).`;
+  res.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="flex:2;min-width:180px;text-align:center;background:#EF6C0014;border:1px solid #EF6C0040;border-radius:10px;padding:14px">
+        <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">1RM estimado (promedio)</p>
+        <p style="font-size:34px;font-weight:800;color:#EF6C00">${prom.toFixed(1)} <span style="font-size:16px">kg</span></p>
+        <p style="font-size:12px;color:${MU}">Epley ${epley.toFixed(1)} · Brzycki ${brzycki.toFixed(1)} · Lombardi ${lombardi.toFixed(1)}</p></div>
+    </div>
+    <p style="font-size:13px;font-weight:700;color:${TX};margin-bottom:8px">Cargas de entrenamiento sugeridas</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead><tr style="background:${PL}">${["% 1RM","Carga (kg)","Objetivo"].map(h=>`<th style="padding:7px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+      <tbody>${pcts.map(([pc,obj],i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+        <td style="padding:7px 12px;font-weight:700">${pc}%</td>
+        <td style="padding:7px 12px;font-weight:700;color:#EF6C00">${(prom*pc/100).toFixed(1)}</td>
+        <td style="padding:7px 12px;color:${MU}">${obj}</td></tr>`).join("")}</tbody>
+    </table>${botonesResultado(txt)}`;
+}
+
+// ════════ ZONAS DE FC ════════
+function toolFczonas(){
+  const p=STATE.pat;
+  const edad=p&&p.fecha_nacimiento?Math.floor((Date.now()-new Date(p.fecha_nacimiento))/(365.25*86400000)):"";
+  return herrHeader("💓 Zonas de FC de Entrenamiento","FC máxima (Tanaka 2001) y zonas de intensidad por método Karvonen (FC de reserva)")+
+  `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      ${herrInput("fc_edad","Edad (años)",edad,"Ej: 35",'type="number" oninput="calcFczonas()"')}
+      ${herrInput("fc_rep","FC en reposo (lpm) — opcional","","Ej: 60 (mejora la precisión)",'type="number" oninput="calcFczonas()"')}
+    </div>
+    ${herrResultBox()}
+  </div>`;
+}
+window.init_fczonas=function(){calcFczonas();}
+window.calcFczonas=function(){
+  const edad=parseFloat(gv("fc_edad")),fcrep=parseFloat(gv("fc_rep"));
+  const res=document.getElementById("tool-result");if(!res)return;
+  if(isNaN(edad)||edad<=0){res.innerHTML=`<p style="color:${MU};font-size:13px;padding:12px;background:#F0F4F8;border-radius:8px">Ingrese la edad para calcular.</p>`;return;}
+  const fcmax=Math.round(208-0.7*edad);
+  const usarKarvonen=!isNaN(fcrep)&&fcrep>0&&fcrep<fcmax;
+  const zonas=[["Z1 Recuperación",50,60,"#90A4AE"],["Z2 Aeróbico ligero",60,70,"#42A5F5"],["Z3 Aeróbico",70,80,"#2E7D32"],["Z4 Umbral",80,90,"#EF6C00"],["Z5 Máximo",90,100,"#C62828"]];
+  const fcz=(pct)=>usarKarvonen?Math.round((fcmax-fcrep)*pct/100+fcrep):Math.round(fcmax*pct/100);
+  const txt=`FC máxima estimada (Tanaka): ${fcmax} lpm. Zonas (${usarKarvonen?"Karvonen, FC reserva":"% FC máx"}): `+zonas.map(z=>`${z[0]} ${fcz(z[1])}–${fcz(z[2])} lpm`).join("; ")+".";
+  res.innerHTML=`<div style="text-align:center;background:#C6282814;border:1px solid #C6282840;border-radius:10px;padding:14px;margin-bottom:14px">
+      <p style="font-size:12px;color:${MU};font-weight:600;text-transform:uppercase;margin-bottom:6px">FC máxima estimada (Tanaka)</p>
+      <p style="font-size:34px;font-weight:800;color:#C62828">${fcmax} <span style="font-size:16px">lpm</span></p>
+      <p style="font-size:12px;color:${MU}">Método: ${usarKarvonen?"Karvonen (FC de reserva)":"% de FC máxima — añada FC reposo para mayor precisión"}</p></div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead><tr style="background:${PL}">${["Zona","Intensidad","Rango FC (lpm)"].map(h=>`<th style="padding:7px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+      <tbody>${zonas.map((z,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+        <td style="padding:7px 12px;font-weight:700;color:${z[3]}">${z[0]}</td>
+        <td style="padding:7px 12px;color:${MU}">${z[1]}–${z[2]}%</td>
+        <td style="padding:7px 12px;font-weight:700">${fcz(z[1])} – ${fcz(z[2])}</td></tr>`).join("")}</tbody>
+    </table>${botonesResultado(txt)}`;
 }
 
 // ── CORTE DE CAJA ─────────────────────────────────────────
