@@ -4792,7 +4792,7 @@ window.imprimirInterconsulta=async function(id){
   // Médico solicitante (de Supabase) o actual
   const medSol=medSolData||medActual;
   const T=(v)=>{if(v===null||v===undefined)return"";const s=String(v);return(s==="null"||s==="undefined")?"":s;};
-  const S=(v)=>T(v).replace(/[áÁ]/g,"a").replace(/[éÉ]/g,"e").replace(/[íÍ]/g,"i").replace(/[óÓ]/g,"o").replace(/[úÚüÜ]/g,"u").replace(/[ñÑ]/g,"n").replace(/[\u0100-\uFFFF]/g,"?");
+  const S=(v)=>T(v).replace(/[áÁ]/g,"a").replace(/[éÉ]/g,"e").replace(/[íÍ]/g,"i").replace(/[óÓ]/g,"o").replace(/[úÚüÜ]/g,"u").replace(/[ñÑ]/g,"n").replace(/[—–]/g,"-").replace(/[""«»]/g,'"').replace(/['']/g,"'").replace(/[•·]/g,"-").replace(/[→←↑↓]/g,"->").replace(/[µ]/g,"u").replace(/[°]/g," gr.").replace(/[²³]/g,"").replace(/[\u0100-\uFFFF]/g,"?");
   const nomPac=S([p.nombre,p.apellido_paterno,p.apellido_materno].filter(Boolean).join(" "));
   const medSolNom=S([medSol?.titulo||"Dr.",medSol?.nombre||"",medSol?.apellidos||""].filter(Boolean).join(" "));
   const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
@@ -4900,7 +4900,7 @@ window.imprimirInterconsulta=async function(id){
     caja("Especialidad solicitada",S(ic.especialidad||""),M+106,y,CW-106,11);y+=12;
     caja("Prioridad",S(ic.prioridad||""),M,y,60,11);
     caja("Fecha de solicitud",S(ic.fecha_solicitud||""),M+61,y,50,11);
-    caja("Hora",S(ic.hora_solicitud||""),M+112,y,CW-112,11);y+=13;
+    caja("Hora",S((ic.hora_solicitud||"").substring(0,5)),M+112,y,CW-112,11);y+=13;
     y+=2;
     // ── IV-VI SECCIÓN DE SOLICITUD ────────────────────────
     y=bloq("IV. DIAGNOSTICO ACTUAL DEL PACIENTE (CIE-10)",S(ic.diagnostico||""),y,[0,80,137]);
@@ -7142,7 +7142,7 @@ window.imprimirHojaReferencia=async function(){
   const med=STATE.medProfile||STATE.userProfile||{};
   const d=c.datos_clinicos||{};
   const T=(v)=>{if(v===null||v===undefined)return"";const s=String(v);return(s==="null"||s==="undefined")?"":s;};
-  const S=(v)=>T(v).replace(/[\u0100-\uFFFF]/g,c=>{const m={"á":"a","é":"e","í":"i","ó":"o","ú":"u","ü":"u","ñ":"n","Á":"A","É":"E","Í":"I","Ó":"O","Ú":"U","Ü":"U","Ñ":"N"};return m[c]||"?";}); 
+  const S=(v)=>T(v).replace(/[áÁ]/g,"a").replace(/[éÉ]/g,"e").replace(/[íÍ]/g,"i").replace(/[óÓ]/g,"o").replace(/[úÚüÜ]/g,"u").replace(/[ñÑ]/g,"n").replace(/[—–]/g,"-").replace(/[""«»]/g,'"').replace(/['']/g,"'").replace(/[•·]/g,"-").replace(/[→←↑↓]/g,"->").replace(/[µ]/g,"u").replace(/[°]/g," gr.").replace(/[²³]/g,"").replace(/[\u0100-\uFFFF]/g,"?");
   const nomPac=S([p.nombre,p.apellido_paterno,p.apellido_materno].filter(Boolean).join(" "));
   const medNom=S([med.titulo||"Dr.",med.nombre,med.apellidos].filter(Boolean).join(" "));
   const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
