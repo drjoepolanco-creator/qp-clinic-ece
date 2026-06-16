@@ -5423,7 +5423,10 @@ async function renderGabinete(ab){
           <td style="padding:10px 12px;white-space:nowrap">
             ${d.storage_path?`<button onclick="verPDF('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:
             d.url_archivo?`<button onclick="window.open('${d.url_archivo}','_blank')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:""}
-            ${d.storage_path?`<button onclick="descargarDoc('${d.id}')" style="background:#37474F;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">⬇️</button>`:""}
+            ${d.storage_path?`<button onclick="descargarDoc('${d.id}')" style="background:#37474F;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">⬇️</button>`:""}
+            ${(d.storage_path&&(d.tipo_documento==="Laboratorio (PDF)"||d.tipo_documento==="Otro estudio de gabinete"||d.tipo_documento==="Espirometría"||d.titulo?.toLowerCase().includes("lab")||d.titulo?.toLowerCase().includes("resultado")))?
+              `<button onclick="analizarLaboratorioIA('${d.id}','${(d.titulo||"").replace(/'/g,"\\'")}','${d.fecha||""}')" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;font-weight:700" title="Analizar con IA y copiar a nota">🤖 IA</button>`
+              :`<button onclick="analizarLaboratorioIA('${d.id}','${(d.titulo||"").replace(/'/g,"\\'")}','${d.fecha||""}')" style="background:#546E7A;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px" title="Analizar con IA">🤖</button>`}
           </td>
         </tr>`).join("")}
       </tbody>
@@ -5431,6 +5434,173 @@ async function renderGabinete(ab){
 }
 window.mostrarFormGabinete=function(){document.getElementById("form-gabinete").style.display="block";}
 window.ocultarFormGabinete=function(){document.getElementById("form-gabinete").style.display="none";}
+
+// ── ANÁLISIS DE LABORATORIO CON IA ────────────────────────
+window.analizarLaboratorioIA=async function(docId,titulo,fecha){
+  // 1. Obtener storage_path del doc
+  loading(true,"🤖 Obteniendo documento...");
+  const {data:doc}=await SB.from("anexos").select("storage_path,tipo_documento,titulo,fecha").eq("id",docId).single();
+  if(!doc?.storage_path){loading(false);showToast("El documento no tiene archivo adjunto",false);return;}
+
+  // 2. Generar URL firmada y descargar como blob
+  const {data:urlData}=await SB.storage.from("expedientes").createSignedUrl(doc.storage_path,300);
+  if(!urlData?.signedUrl){loading(false);showToast("Error al obtener el archivo",false);return;}
+
+  let base64="",mediaType="application/pdf";
+  try{
+    const resp=await fetch(urlData.signedUrl);
+    if(!resp.ok)throw new Error("No se pudo descargar el archivo");
+    const blob=await resp.blob();
+    mediaType=blob.type||"application/pdf";
+    // Convertir a base64
+    base64=await new Promise((res,rej)=>{
+      const reader=new FileReader();
+      reader.onload=()=>res(reader.result.split(",")[1]);
+      reader.onerror=rej;
+      reader.readAsDataURL(blob);
+    });
+  }catch(e){loading(false);showToast("Error al leer el archivo: "+e.message,false);return;}
+
+  loading(true,"🤖 Analizando laboratorio con IA... (15-25 seg)");
+
+  try{
+    const resp=await fetch("/api/ia-medica",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({tipo:"laboratorio",imageBase64:base64,mediaType})
+    });
+    const json=await resp.json();
+    loading(false);
+    if(!resp.ok||!json.laboratorio){showToast("Error IA: "+(json.error||"respuesta inválida"),false);return;}
+    const lab=json.laboratorio;
+
+    // 3. Mostrar modal con resultados
+    const overlay=document.createElement("div");
+    overlay.id="modal-lab-ia";
+    overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9990;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+
+    // Tabla de analitos con color por interpretación
+    const colInterp={"Normal":"#1B5E20","Alto":"#C62828","Bajo":"#1565C0","Critico":"#B71C1C","No interpretable":"#546E7A"};
+    const bgInterp={"Normal":"#E8F5E9","Alto":"#FFEBEE","Bajo":"#E3F2FD","Critico":"#FCE4EC","No interpretable":"#ECEFF1"};
+    const analitosHtml=(lab.analitos||[]).map(a=>`
+      <tr style="border-top:1px solid #E0E0E0">
+        <td style="padding:7px 10px;font-size:13px;font-weight:600;color:#263238">${a.nombre||"—"}</td>
+        <td style="padding:7px 10px;font-size:14px;font-weight:800;color:${colInterp[a.interpretacion]||"#263238"}">${a.valor||"—"}</td>
+        <td style="padding:7px 10px;font-size:13px;color:#546E7A">${a.unidad||"—"}</td>
+        <td style="padding:7px 10px;font-size:13px;color:#546E7A">${a.referencia||"—"}</td>
+        <td style="padding:7px 10px">
+          <span style="background:${bgInterp[a.interpretacion]||"#F5F5F5"};color:${colInterp[a.interpretacion]||"#546E7A"};padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700">
+            ${a.interpretacion==="Normal"?"✓ Normal":a.interpretacion==="Alto"?"↑ Alto":a.interpretacion==="Bajo"?"↓ Bajo":a.interpretacion==="Critico"?"⚠️ Crítico":"—"}
+          </span>
+        </td>
+      </tr>`).join("");
+
+    overlay.innerHTML=`
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:860px;box-shadow:0 20px 60px rgba(0,0,0,.3);margin:auto">
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,#7B1FA2,#006BB6);padding:14px 20px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <p style="color:rgba(255,255,255,.75);font-size:12px;font-weight:600;margin-bottom:2px">🤖 ANÁLISIS IA — LABORATORIO</p>
+          <b style="color:#fff;font-size:15px">${doc.titulo||titulo}</b>
+          <span style="color:rgba(255,255,255,.8);font-size:13px;margin-left:10px">${lab.fecha||doc.fecha||fecha||""}</span>
+          ${lab.laboratorio?`<span style="background:rgba(255,255,255,.2);color:#fff;padding:1px 8px;border-radius:20px;font-size:12px;margin-left:8px">${lab.laboratorio}</span>`:""}
+        </div>
+        <button onclick="document.getElementById('modal-lab-ia').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:16px;font-weight:700">✕</button>
+      </div>
+
+      <div style="padding:16px 20px">
+        <!-- Resumen clínico IA -->
+        ${lab.resumen_clinico?`
+        <div style="background:#F3E5F5;border-left:4px solid #7B1FA2;border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:16px">
+          <p style="font-size:12px;font-weight:700;color:#6A1B9A;text-transform:uppercase;margin-bottom:6px">📋 Interpretación clínica (IA)</p>
+          <p style="font-size:14px;color:#263238;line-height:1.7">${lab.resumen_clinico}</p>
+        </div>`:""}
+
+        <!-- Tabla de analitos -->
+        ${(lab.analitos||[]).length>0?`
+        <p style="font-size:13px;font-weight:700;color:#546E7A;text-transform:uppercase;margin-bottom:8px">Resultados por analito</p>
+        <div style="overflow-x:auto;margin-bottom:16px;border:1px solid #E0E0E0;border-radius:8px">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="background:#F5F5F5">
+              ${["Analito","Valor","Unidad","Referencia","Interpretación"].map(h=>`<th style="padding:8px 10px;text-align:left;font-weight:700;color:#263238">${h}</th>`).join("")}
+            </tr></thead>
+            <tbody>${analitosHtml}</tbody>
+          </table>
+        </div>`:""}
+
+        <!-- Texto para nota médica -->
+        <p style="font-size:13px;font-weight:700;color:#546E7A;text-transform:uppercase;margin-bottom:8px">Texto listo para la nota médica</p>
+        <textarea id="lab-ia-texto" rows="10" style="width:100%;padding:12px;border:1.5px solid #CFD8DC;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.6;resize:vertical;outline:none;background:#FAFAFA">${lab.texto_nota||""}</textarea>
+
+        <!-- Botones de acción -->
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          <button onclick="insertarLabEnNota()" style="flex:1;padding:11px;background:#2E7D32;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;min-width:160px">
+            📋 Insertar en campo LABORATORIOS de la nota abierta
+          </button>
+          <button onclick="copiarLabClipboard()" style="flex:1;padding:11px;background:#37474F;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;min-width:140px">
+            📋 Copiar al portapapeles
+          </button>
+          <button onclick="document.getElementById('modal-lab-ia').remove()" style="padding:11px 18px;background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:9px;font-size:14px;cursor:pointer">
+            Cerrar
+          </button>
+        </div>
+        <p style="font-size:11px;color:#90A4AE;margin-top:10px">⚠️ Revisa siempre los resultados. La IA puede cometer errores en la lectura de documentos.</p>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+
+  }catch(e){loading(false);showToast("Error: "+e.message,false);}
+}
+
+window.insertarLabEnNota=function(){
+  const texto=document.getElementById("lab-ia-texto")?.value||"";
+  if(!texto){showToast("Sin texto para insertar",false);return;}
+  // Buscar campo de laboratorios en la nota abierta
+  const campoLab=document.getElementById("cs_lab");
+  if(campoLab){
+    campoLab.value=(campoLab.value?campoLab.value+"\n\n":"")+texto;
+    campoLab.focus();
+    campoLab.scrollIntoView({behavior:"smooth",block:"center"});
+    document.getElementById("modal-lab-ia")?.remove();
+    showToast("✓ Resultados insertados en el campo Laboratorios de la nota");
+    return;
+  }
+  // Si no hay nota abierta, guardar en STATE y notificar
+  STATE.labIAPendiente=texto;
+  document.getElementById("modal-lab-ia")?.remove();
+  showToast("📋 Texto guardado — ábrela consulta y usa 'Pegar lab IA' en el campo Laboratorios",false);
+}
+
+window.copiarLabClipboard=async function(){
+  const texto=document.getElementById("lab-ia-texto")?.value||"";
+  if(!texto)return;
+  try{
+    await navigator.clipboard.writeText(texto);
+    showToast("✓ Resultados copiados al portapapeles");
+  }catch(e){
+    const ta=document.createElement("textarea");ta.value=texto;
+    document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);
+    showToast("✓ Copiado al portapapeles");
+  }
+}
+
+window.pegarLabIAEnNota=function(){
+  const texto=STATE.labIAPendiente;
+  if(!texto){showToast("No hay resultados de Lab IA pendientes",false);return;}
+  const campoLab=document.getElementById("cs_lab");
+  if(!campoLab){showToast("Abre una consulta primero",false);return;}
+  campoLab.value=(campoLab.value?campoLab.value+"\n\n":"")+texto;
+  campoLab.focus();
+  campoLab.scrollIntoView({behavior:"smooth",block:"center"});
+  STATE.labIAPendiente=null;
+  showToast("✓ Resultados de laboratorio insertados en la nota");
+  // Re-render para quitar el botón del header
+  const consultaActual=STATE.consultaActual;
+  if(consultaActual){
+    const b=document.getElementById("cs_lab");
+    if(b)b.value=texto;
+  }
+}
 window.subirGabinete=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
   const titulo=(document.getElementById("gab-titulo")?.value||"").trim();
@@ -6490,9 +6660,12 @@ function pgConsulta(){
           <div style="padding:12px">${ta("cs_trat",c.tratamiento||"","Medicamentos, dosis, medidas generales...",8)}</div>
         </div>
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
-          <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
+          <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
             <b style="font-size:14px;color:${TX}">🔬 Laboratorio</b>
-            <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
+              ${STATE.labIAPendiente?`<button onclick="pegarLabIAEnNota()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px;font-weight:700;animation:fd .3s ease">📋 Pegar Lab IA</button>`:""}
+            </div>
           </div>
           <div style="padding:12px">${ta("cs_lab",c.laboratorio||"","BH, QS, EGO, PCR...",6)}</div>
         </div>
