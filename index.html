@@ -6923,126 +6923,203 @@ window.generarPDFReceta=async function(tipo="receta"){
 
 // ── HOJA DE REFERENCIA/CONTRARREFERENCIA (NOM-004 Art. 13) ────
 window.imprimirHojaReferencia=async function(){
-  const {jsPDF}=window.jspdf;if(!jsPDF)return;
+  const {jsPDF}=window.jspdf;if(!jsPDF){showToast("jsPDF no disponible",false);return;}
   const c=STATE.consultaActual||{};const p=STATE.pat||{};
   const med=STATE.medProfile||STATE.userProfile||{};
   const d=c.datos_clinicos||{};
-  const T=(v)=>{if(v===null||v===undefined)return"";const s=String(v);return s==="null"||s==="undefined"?"":s;};
-  const S=(v)=>T(v).replace(/[\u0100-\uFFFF]/g,"?");
+  const T=(v)=>{if(v===null||v===undefined)return"";const s=String(v);return(s==="null"||s==="undefined")?"":s;};
+  const S=(v)=>T(v).replace(/[\u0100-\uFFFF]/g,c=>{const m={"á":"a","é":"e","í":"i","ó":"o","ú":"u","ü":"u","ñ":"n","Á":"A","É":"E","Í":"I","Ó":"O","Ú":"U","Ü":"U","Ñ":"N"};return m[c]||"?";}); 
   const nomPac=S([p.nombre,p.apellido_paterno,p.apellido_materno].filter(Boolean).join(" "));
   const medNom=S([med.titulo||"Dr.",med.nombre,med.apellidos].filter(Boolean).join(" "));
   const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
   const hora=new Date().toTimeString().substring(0,5);
-  let logoB64=null;
-  try{const LOGO="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg";
-  logoB64=await urlToBase64firma(LOGO);}catch(e){}
+  const folio="REF-"+Date.now().toString().slice(-8);
+  // Leer campos actuales de la nota de referencia (en caso de no haber guardado)
+  const gv2=(id)=>document.getElementById(id)?.value||"";
+  const receptor=S(d.receptor||gv2("dc_receptor")||"");
+  const espRef=S(d.especialidad_ref||gv2("dc_especialidad_ref")||"");
+  const tipoRef=S(d.tipo_ref||gv2("dc_tipo_ref")||"Programada");
+  const dxRef=S(d.dx_ref||gv2("dc_dx_ref")||c.analisis||"");
+  const motivoRef=S(d.motivo_ref||gv2("dc_motivo_ref")||c.plan||"");
+  const resumenRef=S(d.resumen_ref||gv2("dc_resumen_ref")||c.tratamiento||"");
+  const condTraslado=S(d.cond_traslado||gv2("dc_cond_traslado")||"Estable");
+  const medioTraslado=S(d.medio_traslado||gv2("dc_medio_traslado")||"");
+  const acompTraslado=S(d.acomp_traslado||gv2("dc_acomp_traslado")||"");
+  const estudiosRef=S(d.estudios_ref||gv2("dc_estudios_ref")||"");
+  const medsTraslado=S(d.meds_traslado||gv2("dc_meds_traslado")||"");
+  // Construir credenciales completas del médico
+  const shortI=s=>s?s.split(" — ")[0].split(" · ")[0].trim():"";
+  const credLines=[];
+  if(med.licenciatura||med.institucion_grado)
+    credLines.push(S([med.licenciatura,shortI(med.institucion_grado)].filter(Boolean).join(" — ")));
+  if(med.cedula_medico)credLines.push("Ced. Prof. "+S(med.cedula_medico));
+  if(med.especialidad_1)credLines.push("Esp. "+S(med.especialidad_1)+(med.institucion_esp_1?" — "+S(shortI(med.institucion_esp_1)):""));
+  if(med.cedula_esp_1)credLines.push("Ced. Esp. "+S(med.cedula_esp_1));
+  if(med.especialidad_2)credLines.push("Subesp. "+S(med.especialidad_2)+(med.institucion_esp_2?" — "+S(shortI(med.institucion_esp_2)):""));
+  if(med.cedula_subesp)credLines.push("Ced. Subesp. "+S(med.cedula_subesp));
+  if(med.alta_especialidad)credLines.push("Alta Esp. "+S(med.alta_especialidad));
+  let logoB64=null,firmaB64=null;
+  try{logoB64=await urlToBase64firma("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");}catch(e){}
+  if(med.firma_digital){try{firmaB64=await urlToBase64firma(med.firma_digital);}catch(e){}}
   try{
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
-  const W=215.9,M=14,CUERPO=W-2*M;
-  const AZUL=[21,101,192],GRIS=[38,50,56];
-  // ENCABEZADO
-  doc.setFillColor(21,101,192);doc.rect(0,0,W,38,"F");
+  const W=215.9,M=14,CW=W-2*M;
+  // ── ENCABEZADO ──────────────────────────────────────────
+  doc.setFillColor(0,80,137);doc.rect(0,0,W,40,"F");
+  if(logoB64){try{doc.addImage(logoB64,"JPEG",W-50,2,44,34);}catch(e){}}
   doc.setTextColor(255,255,255);
-  doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.setFontSize(11);doc.setFont("helvetica","bold");
   doc.text("QP Clinic - Especialistas en Salud Integral",M,9);
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");
-  doc.text("Insurgentes Sur 933, Piso 12, Napoles, CDMX  |  55 5682 4345  |  qpclinic.org",M,14);
-  doc.setFontSize(7.5);
-  const credStr=S([med.licenciatura,med.especialidad_1,med.cedula_medico?"Ced."+S(med.cedula_medico):""].filter(Boolean).join(" - "));
-  if(credStr)doc.text(credStr,M,19);
-  doc.setFontSize(9);doc.setFont("helvetica","bold");
-  doc.text(medNom,M,25);
-  if(logoB64){try{doc.addImage(logoB64,"JPEG",W-50,1,46,36);}catch(e){}}
-  // TÍTULO
-  doc.setFillColor(13,71,161);doc.rect(0,38,W,9,"F");
-  doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont("helvetica","bold");
-  doc.text("HOJA DE REFERENCIA / CONTRARREFERENCIA — NOM-004-SSA3-2012 ART. 13",W/2,44,{align:"center"});
-  // FOLIO Y FECHA
-  let y=50;
-  doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
-  doc.setFillColor(240,246,252);doc.rect(0,y,W,14,"F");
-  doc.setFont("helvetica","bold");doc.text("Folio:",M,y+5);doc.setFont("helvetica","normal");
-  doc.text("REF-"+Date.now().toString().slice(-8),M+10,y+5);
-  doc.setFont("helvetica","bold");doc.text("Fecha:",M+55,y+5);doc.setFont("helvetica","normal");doc.text(hoy,M+67,y+5);
-  doc.setFont("helvetica","bold");doc.text("Hora:",M+100,y+5);doc.setFont("helvetica","normal");doc.text(hora,M+110,y+5);
-  doc.setFont("helvetica","bold");doc.text("Tipo:",M,y+11);doc.setFont("helvetica","normal");
-  doc.text(d.receptor?"Referencia hacia: "+S(d.receptor).substring(0,50):"Referencia",M+10,y+11);
-  y+=16;
-  // Helper caja
-  const caja=(label,valor,x,cy,w,h=12)=>{
-    doc.setDrawColor(207,216,220);doc.setLineWidth(0.3);doc.rect(x,cy,w,h);
-    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(100,130,150);
-    doc.text(label,x+2,cy+4);
+  doc.text("Insurgentes Sur 933, Piso 12, Col. Napoles, Benito Juarez, CDMX",M,14);
+  doc.text("Tel. 55 5682 4345 / 56 4423 7028  |  qpclinic.org  |  RFC: QCL230518J66",M,18);
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(S(medNom),M,25);
+  doc.setFontSize(7.5);doc.setFont("helvetica","normal");
+  credLines.slice(0,4).forEach((cl,i)=>doc.text(cl,M,29+i*3.5));
+  // ── BANDA TÍTULO ────────────────────────────────────────
+  doc.setFillColor(0,107,182);doc.rect(0,40,W,8,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(9.5);doc.setFont("helvetica","bold");
+  doc.text("HOJA DE REFERENCIA / CONTRARREFERENCIA — NOM-004-SSA3-2012 Art. 13",W/2,45.5,{align:"center"});
+  // ── FOLIO / FECHA / TIPO ─────────────────────────────────
+  let y=52;
+  doc.setFillColor(227,244,251);doc.rect(M,y,CW,12,"F");
+  doc.setDrawColor(0,107,182);doc.setLineWidth(0.3);doc.rect(M,y,CW,12);
+  doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(0,58,93);
+  doc.text("Folio:",M+2,y+5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.text(folio,M+14,y+5);
+  doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);doc.text("Fecha:",M+60,y+5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.text(hoy,M+73,y+5);
+  doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);doc.text("Hora:",M+100,y+5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.text(hora,M+111,y+5);
+  doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);doc.text("Tipo de referencia:",M+2,y+10);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.text(tipoRef,M+42,y+10);
+  y+=14;
+  // Helpers
+  const caja=(label,valor,x,cy,w,h=11)=>{
+    doc.setDrawColor(190,210,230);doc.setLineWidth(0.25);doc.rect(x,cy,w,h);
+    doc.setFontSize(6.5);doc.setFont("helvetica","bold");doc.setTextColor(0,107,182);doc.text(S(label).toUpperCase(),x+2,cy+4);
     doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
-    const ls=doc.splitTextToSize(S(valor||""),w-4);
-    doc.text(ls[0]||"",x+2,cy+9);
+    const ls=doc.splitTextToSize(S(valor||"—"),w-4);doc.text(ls[0]||"",x+2,cy+9);
     return cy+h;
   };
-  const bloq=(titulo,contenido,cy2)=>{
-    doc.setFillColor(21,101,192);doc.rect(M,cy2,CUERPO,6,"F");
-    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
-    doc.text(titulo,M+2,cy2+4.2);cy2+=7;
+  const bloq=(titulo,contenido,cy2,color=[0,107,182])=>{
+    if(!contenido||!S(contenido).trim())return cy2;
+    if(cy2>238){doc.addPage();cy2=14;}
+    doc.setFillColor(...color);doc.rect(M,cy2,CW,6,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
+    doc.text(S(titulo),M+2,cy2+4.2);cy2+=7;
     doc.setTextColor(38,50,56);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
-    const ls2=doc.splitTextToSize(S(contenido||""),CUERPO-4);
-    ls2.forEach(l=>{if(cy2>255){doc.addPage();cy2=14;}doc.text(S(l),M+2,cy2);cy2+=4.5;});
+    const ls2=doc.splitTextToSize(S(contenido),CW-4);
+    ls2.forEach(l=>{if(cy2>250){doc.addPage();cy2=14;}doc.text(S(l),M+2,cy2);cy2+=4.5;});
     return cy2+3;
   };
-  // DATOS DEL PACIENTE
-  doc.setFillColor(21,101,192);doc.rect(M,y,CUERPO,6,"F");
-  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  // ── I. DATOS DEL PACIENTE ────────────────────────────────
+  if(y>245){doc.addPage();y=14;}
+  doc.setFillColor(0,80,137);doc.rect(M,y,CW,6,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
   doc.text("I. DATOS DEL PACIENTE",M+2,y+4.2);y+=7;
-  caja("Nombre completo",nomPac,M,y,100,11);
-  caja("Expediente no.",T(p.numero_expediente),M+101,y,CUERPO-101,11);
-  y+=12;
-  caja("Fecha de nacimiento",T(p.fecha_nacimiento),M,y,40,11);
-  caja("Edad",S(calcEdad(p.fecha_nacimiento)),M+41,y,25,11);
-  caja("Sexo",T(p.sexo_biologico),M+67,y,30,11);
-  caja("CURP",T(p.curp)||"",M+98,y,CUERPO-98,11);
-  y+=12;
-  caja("Domicilio",T(p.calle)||"",M,y,120,11);
-  caja("Teléfono",T(p.celular)||"",M+121,y,CUERPO-121,11);
-  y+=13;
-  if(d.cond_traslado){
-    caja("Condición al traslado",S(d.cond_traslado),M,y,80,11);
-    caja("Medio de traslado",S(d.medio_traslado||""),M+81,y,CUERPO-81,11);y+=13;
+  caja("Nombre completo",nomPac,M,y,105,11);
+  caja("No. expediente",T(p.numero_expediente),M+106,y,CW-106,11);y+=12;
+  caja("Fecha de nacimiento",T(p.fecha_nacimiento),M,y,45,11);
+  caja("Edad",S(calcEdad(p.fecha_nacimiento)),M+46,y,22,11);
+  caja("Sexo",S(p.sexo_biologico||""),M+69,y,28,11);
+  caja("CURP",S(p.curp||""),M+98,y,CW-98,11);y+=12;
+  caja("Domicilio",S([p.calle,p.colonia].filter(Boolean).join(", ")||""),M,y,105,11);
+  caja("Telefono / Celular",S(p.celular||p.telefono||""),M+106,y,CW-106,11);y+=12;
+  caja("Derechohabiente / Aseguradora",S(p.derechohabiente||"Sin especificar"),M,y,CW,11);y+=13;
+  // Condición traslado si viene
+  if(condTraslado||medioTraslado){
+    caja("Condicion al traslado",S(condTraslado),M,y,70,11);
+    caja("Medio de traslado",S(medioTraslado),M+71,y,60,11);
+    caja("Acompanante medico",S(acompTraslado),M+132,y,CW-132,11);y+=13;
   }
-  y+=3;
-  // MÉDICO REFERENTE
-  doc.setFillColor(21,101,192);doc.rect(M,y,CUERPO,6,"F");
-  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
-  doc.text("II. MÉDICO REFERENTE",M+2,y+4.2);y+=7;
-  caja("Nombre",medNom,M,y,100,11);
-  caja("Cédula profesional",T(med.cedula_medico)||"",M+101,y,CUERPO-101,11);y+=12;
-  caja("Especialidad",S(med.especialidad_1||""),M,y,100,11);
-  caja("Institución",T(med.institucion_esp_1)||"QP Clinic",M+101,y,CUERPO-101,11);y+=13;
-  // UNIDAD RECEPTORA
-  doc.setFillColor(21,101,192);doc.rect(M,y,CUERPO,6,"F");
-  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
-  doc.text("III. UNIDAD O MÉDICO RECEPTOR",M+2,y+4.2);y+=7;
-  caja("Nombre de la unidad o médico receptor",S(d.receptor||""),M,y,CUERPO,11);y+=12;
-  caja("Especialidad o servicio",S(d.especialidad_ref||""),M,y,CUERPO,11);y+=13;
-  // SECCIONES CLÍNICAS
-  y=bloq("IV. DIAGNÓSTICO ACTUAL (CIE-10)",S(c.analisis||""),y);
-  y=bloq("V. MOTIVO DE LA REFERENCIA",S(d.motivo_ref||c.plan||""),y);
-  y=bloq("VI. RESUMEN CLÍNICO Y TRATAMIENTO PREVIO",S(d.resumen_ref||c.tratamiento||""),y);
-  if(d.estudios_ref)y=bloq("VII. ESTUDIOS QUE SE ENVÍAN",S(d.estudios_ref),y);
-  // FIRMA
-  if(y>225)doc.addPage();y=Math.max(y,230);
-  doc.setDrawColor(207,216,220);doc.setLineWidth(0.3);doc.line(M,y,W-M,y);y+=3;
-  let firmaB64=null;if(med.firma_digital){try{firmaB64=await urlToBase64firma(med.firma_digital);}catch(e){}}
-  if(firmaB64){try{doc.addImage(firmaB64,"PNG",W/2-22,y,44,14);y+=16;}catch(e){}}
-  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);doc.line(W/2-28,y,W/2+28,y);y++;
-  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-  doc.text("FIRMA DEL MEDICO REFERENTE",W/2,y+4,{align:"center"});
+  y+=2;
+  // ── II. MÉDICO REFERENTE ────────────────────────────────
+  if(y>240){doc.addPage();y=14;}
+  doc.setFillColor(0,80,137);doc.rect(M,y,CW,6,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
+  doc.text("II. MEDICO REFERENTE",M+2,y+4.2);y+=7;
+  caja("Nombre del medico referente",S(medNom),M,y,105,11);
+  caja("Cedula profesional",S(med.cedula_medico||""),M+106,y,CW-106,11);y+=12;
+  if(med.especialidad_1){
+    caja("Especialidad",S(med.especialidad_1||""),M,y,80,11);
+    caja("Cedula de especialidad",S(med.cedula_esp_1||""),M+81,y,CW-81,11);y+=12;
+  }
+  if(med.especialidad_2){
+    caja("Subespecialidad",S(med.especialidad_2||""),M,y,80,11);
+    caja("Cedula de subespecialidad",S(med.cedula_subesp||""),M+81,y,CW-81,11);y+=12;
+  }
+  caja("Institucion / Consultorio",S(med.institucion_esp_1||"QP Clinic — Insurgentes Sur 933 P.12, CDMX"),M,y,CW,11);y+=13;
+  y+=2;
+  // ── III. UNIDAD RECEPTORA ───────────────────────────────
+  if(y>240){doc.addPage();y=14;}
+  doc.setFillColor(0,80,137);doc.rect(M,y,CW,6,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
+  doc.text("III. UNIDAD O MEDICO RECEPTOR",M+2,y+4.2);y+=7;
+  caja("Nombre de la unidad medica o medico receptor",S(receptor||""),M,y,CW,11);y+=12;
+  caja("Especialidad o servicio",S(espRef),M,y,105,11);
+  caja("Tipo de referencia",S(tipoRef),M+106,y,CW-106,11);y+=13;
+  y+=2;
+  // ── IV-VIII SECCIONES CLÍNICAS ───────────────────────────
+  y=bloq("IV. DIAGNOSTICO DE ENVIO (CIE-10)",dxRef||S(c.analisis||""),y,[0,80,137]);
+  y=bloq("V. MOTIVO DE LA REFERENCIA / JUSTIFICACION CLINICA",motivoRef,y,[0,80,137]);
+  y=bloq("VI. RESUMEN CLINICO Y TRATAMIENTO PREVIO RECIBIDO",resumenRef,y,[0,80,137]);
+  if(estudiosRef)y=bloq("VII. ESTUDIOS Y DOCUMENTOS QUE SE ENVIAN",estudiosRef,y,[0,80,137]);
+  if(medsTraslado)y=bloq("VIII. MEDICAMENTOS E INDICACIONES PARA EL TRASLADO",medsTraslado,y,[0,80,137]);
+  // ── ÁREA DE SELLO / ACEPTACIÓN RECEPTOR ────────────────
+  if(y>230){doc.addPage();y=14;}
+  y=Math.max(y+6,225);
+  doc.setDrawColor(190,210,230);doc.setLineWidth(0.3);doc.rect(M,y,CW,25);
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(0,107,182);
+  doc.text("ACUSE / SELLO DE RECEPCION (completar por unidad receptora):",M+2,y+5);
+  doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.setFontSize(7);
+  doc.text("Nombre y firma del receptor:  _______________________________________    Fecha de recepcion:  _______________",M+2,y+11);
+  doc.text("No. de cama / servicio: ________________    Folio receptor: ________________    Hora: ________________",M+2,y+17);
+  doc.text("Observaciones: _______________________________________________________________________",M+2,y+23);
+  y+=28;
+  // ── FIRMAS ───────────────────────────────────────────────
+  if(y>242){doc.addPage();y=14;}
+  doc.setDrawColor(190,210,230);doc.setLineWidth(0.3);doc.line(M,y,W-M,y);y+=4;
+  // Firma del médico
+  const fxMed=M+CW/4-20;
+  if(firmaB64){try{doc.addImage(firmaB64,"PNG",fxMed,y,40,14);y+=16;}catch(e){y+=2;}}
+  else{y+=16;}
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);doc.line(fxMed-4,y,fxMed+44,y);
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.text("FIRMA DEL MEDICO REFERENTE",fxMed+20,y+4,{align:"center"});
   doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
-  doc.text(medNom,W/2,y+8,{align:"center"});
-  if(med.cedula_medico)doc.text("Ced. Prof. "+S(med.cedula_medico),W/2,y+12,{align:"center"});
-  // Footer
+  doc.text(S(medNom),fxMed+20,y+8,{align:"center"});
+  credLines.slice(0,3).forEach((cl,i)=>doc.text(cl,fxMed+20,y+11+i*3.5,{align:"center"}));
+  // Espacio firma receptor
+  const fxRec=W-M-CW/4+8;
+  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);doc.line(fxRec-4,y,fxRec+44,y);
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
+  doc.text("FIRMA Y SELLO DEL RECEPTOR",fxRec+20,y+4,{align:"center"});
+  doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
+  doc.text("(completar en unidad receptora)",fxRec+20,y+8,{align:"center"});
+  // ── FOOTER ───────────────────────────────────────────────
   doc.setFontSize(6.5);doc.setTextColor(144,164,174);
-  doc.text("NOM-004-SSA3-2012 Art. 13 — QP Clinic ECE | qpclinic.org | "+hoy,W/2,272,{align:"center"});
+  doc.text("NOM-004-SSA3-2012 Art. 13  |  QP Clinic — qpclinic.org  |  Folio: "+folio+"  |  Generado: "+hoy+" "+hora,W/2,272,{align:"center"});
+  // ── GUARDAR EN SUPABASE ──────────────────────────────────
+  const pid=STATE.pat?.id;
+  if(pid){
+    try{
+      const pdfBlob=doc.output("blob");
+      const path=`${pid}/referencia_${Date.now()}.pdf`;
+      const {error:upErr}=await SB.storage.from("expedientes").upload(path,pdfBlob,{contentType:"application/pdf",upsert:false});
+      if(!upErr){
+        await SB.from("anexos").insert({
+          paciente_id:pid,
+          titulo:`HOJA DE REFERENCIA — ${folio}`,
+          tipo_documento:"referencia",
+          origen:"generado",
+          firmado:true,
+          storage_path:path,
+          fecha:new Date().toISOString().split("T")[0],
+        });
+        showToast("✓ Hoja de Referencia guardada en el expediente");
+      }
+    }catch(e){}
+  }
   doc.save("Hoja_Referencia_"+nomPac.replace(/ /g,"_")+"_"+hoy.replace(/\//g,"-")+".pdf");
   showToast("✓ Hoja de Referencia descargada");
-  }catch(err){showToast("Error: "+T(err.message),false);}
+  }catch(err){showToast("Error al generar PDF: "+T(err.message),false);console.error(err);}
 }
 window.descargarNotaPDF=async function(){
   const {jsPDF}=window.jspdf;
