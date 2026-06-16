@@ -2134,12 +2134,14 @@ function pgExp(){
       {k:"imagenes",icon:"ti-photo",label:"Imágenes"},
       {k:"inbody",icon:"ti-chart-bar",label:"InBody / Composición corporal"},
     ]},
-    {label:"Enfermería (NOM-004)",items:[
+    {label:"Enfermería",items:[
       {k:"indicaciones",icon:"ti-pill",label:"Indicaciones médicas"},
       {k:"enfermeria",icon:"ti-nurse",label:"Notas de enfermería"},
     ]},
-    {label:"",items:[
+    {label:"Fisioterapia",items:[
       {k:"fisio",icon:"ti-walk",label:"Fisioterapia"},
+    ]},
+    {label:"Herramientas",items:[
       {k:"herramientas",icon:"ti-calculator",label:"Herramientas",ext:true},
     ]},
   ];
@@ -2162,20 +2164,21 @@ function pgExp(){
       </div>
     </div>
     <div style="display:flex;flex:1;overflow:hidden">
-      <div style="width:210px;flex-shrink:0;background:#fff;border-right:1px solid ${BR};overflow-y:auto;padding:10px 0">
+      <div style="width:210px;flex-shrink:0;background:#fff;border-right:1px solid ${BR};overflow-y:auto;padding:8px 0">
         ${GRUPOS.map(g=>`
-          <div style="padding:6px 16px 3px">
-            <p style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;letter-spacing:.5px;margin:0;${g.label?'':'display:none'}">${g.label}</p>
-          </div>
+          ${g.label?`<div style="padding:10px 10px 4px">
+            <div style="background:${P};border-radius:6px;padding:4px 10px">
+              <p style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.6px;margin:0">${g.label}</p>
+            </div>
+          </div>`:""}
           ${g.items.map(item=>{
             const activo=STATE.expTab===item.k;
             const onclick=item.ext?`go('${item.k}')`:`setET('${item.k}')`;
-            return`<button onclick="${onclick}" style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 16px;border:none;background:${activo?"#E3F4FB":"transparent"};color:${activo?P:TX};cursor:pointer;text-align:left;border-left:3px solid ${activo?P:"transparent"};transition:background .15s" onmouseover="if('${item.k}'!==STATE.expTab)this.style.background='#F8F9FA'" onmouseout="if('${item.k}'!==STATE.expTab)this.style.background='transparent'">
-              <i class="ti ${item.icon}" style="font-size:17px;width:20px;flex-shrink:0;color:${activo?P:MU}" aria-hidden="true"></i>
-              <span style="font-size:13px;font-weight:${activo?700:400}">${item.label}</span>
+            return`<button onclick="${onclick}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 14px;border:none;background:${activo?"#E3F4FB":"transparent"};color:${activo?P:TX};cursor:pointer;text-align:left;border-left:3px solid ${activo?P:"transparent"};transition:background .15s" onmouseover="if('${item.k}'!==STATE.expTab)this.style.background='#F8F9FA'" onmouseout="if('${item.k}'!==STATE.expTab)this.style.background='transparent'">
+              <i class="ti ${item.icon}" style="font-size:16px;width:20px;flex-shrink:0;color:${activo?P:MU}" aria-hidden="true"></i>
+              <span style="font-size:13px;font-weight:${activo?700:500}">${item.label}</span>
             </button>`;
           }).join("")}
-          <div style="height:8px"></div>
         `).join("")}
         <div style="padding:10px 12px;border-top:1px solid ${BR};margin-top:4px">
           <button onclick="go('consulta')" style="width:100%;padding:9px 12px;background:${P};color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">
@@ -2758,6 +2761,7 @@ function saveABTextareas(){
   const meda=document.getElementById("meda");if(meda)STATE.medText=meda.value;
   const nopa=document.getElementById("nopa");if(nopa)STATE.antNoPatText=nopa.value;
   const patOt=document.getElementById("pat-otras");if(patOt)STATE.patOtrasNotes=patOt.value;
+  const sustCuales=document.getElementById("sust_cuales");if(sustCuales)STATE.patData.sust_cuales=sustCuales.value;
 }
 window.toggleFam=function(e,r){saveABTextareas();STATE.famData[e+"_"+r]=!STATE.famData[e+"_"+r];renderAB();}
 window.togglePat=function(p){saveABTextareas();STATE.patData[p]=!STATE.patData[p];renderAB();}
@@ -2827,14 +2831,14 @@ function renderAB(){
     let itClase="",itCol=MU;
     if(IT!==null){if(IT<10){itClase="Leve";itCol="#2E7D32";}else if(IT<20){itClase="Moderado";itCol="#F9A825";}else if(IT<40){itClase="Alto";itCol="#EF6C00";}else{itClase="Muy alto (riesgo mayor de EPOC/Ca pulmón)";itCol="#C62828";}}
     const widgetTab=`<div style="border:1px solid #CFD8DC;border-radius:10px;overflow:hidden;margin-bottom:10px">
-      <div style="background:#37474F;padding:8px 13px;display:flex;align-items:center;gap:10px">
+      <div style="background:${P};padding:8px 13px;display:flex;align-items:center;gap:10px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#fff;font-weight:700;font-size:14px">
-          <input type="checkbox" ${tabActivo?"checked":""} onchange="toggleAdic('tab_activo',this.checked)" style="accent-color:#FFB300;width:16px;height:16px"> 🚬 Tabaquismo activo
+          <input type="checkbox" ${tabActivo?"checked":""} onchange="toggleAdic('tab_activo',this.checked)" style="accent-color:#FFD54F;width:16px;height:16px"> 🚬 Tabaquismo activo
         </label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:rgba(255,255,255,.8);font-size:13px;margin-left:12px">
-          <input type="checkbox" ${tabExfum?"checked":""} onchange="toggleAdic('tab_exfumador',this.checked)" style="accent-color:#90A4AE;width:15px;height:15px"> Exfumador
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:rgba(255,255,255,.85);font-size:13px;margin-left:12px">
+          <input type="checkbox" ${tabExfum?"checked":""} onchange="toggleAdic('tab_exfumador',this.checked)" style="accent-color:#B3E5FC;width:15px;height:15px"> Exfumador
         </label>
-        ${IT!==null?`<span style="margin-left:auto;background:${itCol};color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">IT: ${IT} — ${itClase}</span>`:""}
+        ${IT!==null?`<span style="margin-left:auto;background:#fff;color:${itCol};padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">IT: ${IT} — ${itClase}</span>`:""}
       </div>
       ${tabActivo||tabExfum?`<div style="padding:12px;background:#FAFAFA;display:grid;grid-template-columns:1fr 1fr 1fr ${tabExfum?"1fr":""};gap:10px">
         <div>${fld("Cigarrillos/día",`<input id="tab_cig_dia" type="number" min="0" value="${d.tab_cig_dia||""}" placeholder="Ej: 10" oninput="actualizarAdic('tab_cig_dia',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>
@@ -2863,11 +2867,11 @@ function renderAB(){
       else{if(UBE<=14){alcRiesgo="Bajo riesgo";alcCol="#2E7D32";}else if(UBE<=21){alcRiesgo="Riesgo moderado";alcCol="#F9A825";}else{alcRiesgo="Consumo perjudicial / Dependencia";alcCol="#C62828";}}
     }
     const widgetAlc=`<div style="border:1px solid #CFD8DC;border-radius:10px;overflow:hidden;margin-bottom:10px">
-      <div style="background:#4A1942;padding:8px 13px;display:flex;align-items:center;gap:10px">
+      <div style="background:${P};padding:8px 13px;display:flex;align-items:center;gap:10px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#fff;font-weight:700;font-size:14px">
-          <input type="checkbox" ${alcActivo?"checked":""} onchange="toggleAdic('alc_activo',this.checked)" style="accent-color:#CE93D8;width:16px;height:16px"> 🍺 Alcoholismo / Consumo de alcohol
+          <input type="checkbox" ${alcActivo?"checked":""} onchange="toggleAdic('alc_activo',this.checked)" style="accent-color:#FFD54F;width:16px;height:16px"> 🍺 Alcoholismo / Consumo de alcohol
         </label>
-        ${alcRiesgo?`<span style="margin-left:auto;background:${alcCol};color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">${alcRiesgo}</span>`:""}
+        ${alcRiesgo?`<span style="margin-left:auto;background:#fff;color:${alcCol};padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">${alcRiesgo}</span>`:""}
       </div>
       ${alcActivo?`<div style="padding:12px;background:#FAFAFA;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
         <div>${fld("Bebidas/semana (UBE)",`<input id="alc_bebidas_semana" type="number" min="0" value="${d.alc_bebidas_semana||""}" placeholder="Ej: 6" oninput="actualizarAdic('alc_bebidas_semana',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>
@@ -2886,7 +2890,16 @@ function renderAB(){
         <p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Adicciones</p>
         ${widgetTab}
         ${widgetAlc}
-        ${patA.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${d[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}
+        <div style="border:1px solid #CFD8DC;border-radius:10px;overflow:hidden;margin-bottom:4px">
+          <div style="background:${P};padding:8px 13px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#fff;font-weight:700;font-size:14px">
+              <input type="checkbox" ${d["Otras sustancias psicoactivas"]?"checked":""} onchange="toggleAdic('Otras sustancias psicoactivas',this.checked)" style="accent-color:#FFD54F;width:16px;height:16px"> 💊 Otras sustancias psicoactivas
+            </label>
+          </div>
+          ${d["Otras sustancias psicoactivas"]?`<div style="padding:10px 12px;background:#FAFAFA">
+            ${fld("Especificar sustancias",`<input id="sust_cuales" type="text" value="${(d.sust_cuales||"").replace(/"/g,"&quot;")}" placeholder="Ej: Cannabis, benzodiacepinas, inhalables, cocaína..." oninput="actualizarAdic('sust_cuales',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          </div>`:""}
+        </div>
         <p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Exantemáticas</p>
         ${patEx.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${d[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}
       </div>
