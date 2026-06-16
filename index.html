@@ -6116,28 +6116,31 @@ async function renderInBody(b){
     ${resultados.length>1?`<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
       <div style="background:#37474F;padding:8px 14px"><b style="color:#fff;font-size:14px">📈 Historial y tendencias</b></div>
       <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:900px">
-          <thead><tr style="background:${PL}">${["Fecha","Score","Peso","Grasa","Músculo","IMC","% Grasa","Grasa Visc.","TMB","PDF",""].map(h=>`<th style="padding:8px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:960px">
+          <thead><tr style="background:${PL}">${["Fecha","Score","Peso","Grasa","Músculo","IMC","% Grasa","Gr. Visc.","TMB","PDF","Nota",""].map(h=>`<th style="padding:8px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
           <tbody>${resultados.map((r,i)=>{
             const prev=resultados[i+1];
-            const diff=(campo)=>{
+            // campo, invertido=true → bajar es favorable (grasa, IMC, %grasa, gr.visc)
+            const diff=(campo,invertido=false)=>{
               if(!prev||prev[campo]==null||r[campo]==null)return"";
               const d=parseFloat(r[campo])-parseFloat(prev[campo]);
-              if(Math.abs(d)<0.01)return"";
-              const col=d>0?"#C62828":"#2E7D32";
-              return`<span style="font-size:11px;color:${col};font-weight:700;margin-left:4px">${d>0?"+":""}${d.toFixed(1)}</span>`;
+              if(Math.abs(d)<0.01)return`<span style="font-size:11px;color:${MU};margin-left:4px">=</span>`;
+              const favorable=invertido?(d<0):(d>0);
+              const col=favorable?"#2E7D32":"#C62828";
+              return`<span style="font-size:11px;color:${col};font-weight:700;margin-left:4px">${d>0?"↑+":"↓"}${Math.abs(d).toFixed(1)}</span>`;
             };
             return`<tr style="border-top:1px solid ${BR};background:${i===0?"#E3F4FB":i%2?"#FAFAFA":"#fff"}">
               <td style="padding:8px 12px;font-weight:${i===0?700:400};white-space:nowrap">${r.fecha}${i===0?` <span style="background:${P};color:#fff;font-size:11px;padding:1px 6px;border-radius:10px">Reciente</span>`:""}</td>
               <td style="padding:8px 12px;font-weight:700;color:#006BB6">${r.puntuacion||"—"}</td>
-              <td style="padding:8px 12px">${N(r.peso," kg",1)}${diff("peso")}</td>
-              <td style="padding:8px 12px">${N(r.masa_grasa," kg",1)}${diff("masa_grasa")}</td>
-              <td style="padding:8px 12px">${N(r.masa_musculo," kg",1)}${diff("masa_musculo")}</td>
-              <td style="padding:8px 12px">${N(r.imc,"",1)}</td>
-              <td style="padding:8px 12px">${N(r.pgc,"%",1)}${diff("pgc")}</td>
-              <td style="padding:8px 12px">${r.grasa_visceral||"—"}</td>
+              <td style="padding:8px 12px">${N(r.peso," kg",1)}${diff("peso",false)}</td>
+              <td style="padding:8px 12px">${N(r.masa_grasa," kg",1)}${diff("masa_grasa",true)}</td>
+              <td style="padding:8px 12px">${N(r.masa_musculo," kg",1)}${diff("masa_musculo",false)}</td>
+              <td style="padding:8px 12px">${N(r.imc,"",1)}${diff("imc",true)}</td>
+              <td style="padding:8px 12px">${N(r.pgc,"%",1)}${diff("pgc",true)}</td>
+              <td style="padding:8px 12px">${r.grasa_visceral!=null?r.grasa_visceral:"—"}${diff("grasa_visceral",true)}</td>
               <td style="padding:8px 12px">${N(r.tmb," kcal",0)}</td>
               <td style="padding:8px 12px">${r.url_pdf?`<button onclick="verInBodyPDF('${r.storage_path||""}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px">📄</button>`:"—"}</td>
+              <td style="padding:8px 12px"><button onclick="incluirInBodyEnNota('${r.id}')" style="background:${i===0?SU:"#546E7A"};color:#fff;border:none;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:12px;white-space:nowrap">${i===0?"📋 Incluir":"📋"}</button></td>
               <td style="padding:8px 12px"><button onclick="eliminarInBody('${r.id}')" style="background:#FFEBEE;color:${DA};border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px">✕</button></td>
             </tr>`;
           }).join("")}</tbody>
@@ -6206,56 +6209,186 @@ window.mostrarFormInBody=function(){
   setTimeout(()=>f.scrollIntoView({behavior:"smooth",block:"start"}),60);
 }
 window.incluirInBodyEnNota=async function(id){
+  // Cargar evaluación actual
   const {data}=await SB.from("inbody_resultados").select("*").eq("id",id).maybeSingle();
   if(!data){showToast("No se encontró la evaluación",false);return;}
+
+  // Buscar evaluación anterior (la más reciente distinta a esta)
+  const {data:anteriores}=await SB.from("inbody_resultados")
+    .select("*")
+    .eq("paciente_id",STATE.pat?.id)
+    .neq("id",id)
+    .lt("fecha",data.fecha)  // estrictamente anterior en fecha
+    .order("fecha",{ascending:false})
+    .order("hora",{ascending:false})
+    .limit(1);
+  // También buscar si hay otra del mismo día pero hora anterior
+  const {data:mismoDia}=await SB.from("inbody_resultados")
+    .select("*")
+    .eq("paciente_id",STATE.pat?.id)
+    .neq("id",id)
+    .eq("fecha",data.fecha)
+    .lt("hora",data.hora||"99:99")
+    .order("hora",{ascending:false})
+    .limit(1);
+
+  const prev=(mismoDia&&mismoDia[0])?mismoDia[0]:(anteriores&&anteriores[0])?anteriores[0]:null;
+
+  // ── Helpers ──────────────────────────────────────────────
   const N=(v,u="",dec=1)=>v!=null&&v!==""?parseFloat(v).toFixed(dec)+u:"—";
-  const lineas=[
-    `ANÁLISIS DE COMPOSICIÓN CORPORAL — InBody (${data.modelo||"InBody"}) | Fecha: ${data.fecha}${data.puntuacion?" | Score: "+data.puntuacion+"/100":""}`,
-    ``,
+
+  // Delta: devuelve string con flecha y diferencia o vacío si no hay dato previo
+  // invertido=true → bajar es positivo (ej. grasa, IMC)
+  const D=(cur,prv,u="",dec=1,invertido=false)=>{
+    if(cur==null||cur===""||prv==null||prv==="")return"";
+    const d=parseFloat(cur)-parseFloat(prv);
+    if(Math.abs(d)<0.005)return" (=)";
+    const dStr=(d>0?"+":"")+d.toFixed(dec)+u;
+    // Flecha de tendencia
+    const arrow=d>0?"↑":"↓";
+    // Color semántico: verde si es favorable, rojo si desfavorable
+    const favorable=invertido?(d<0):(d>0);
+    const tag=favorable?"✅":"⚠️";
+    return` (${arrow}${dStr} ${tag})`;
+  };
+
+  // Delta neutral (sin valoración — agua, minerales, proteína, segmentales)
+  const DN=(cur,prv,u="",dec=1)=>{
+    if(cur==null||cur===""||prv==null||prv==="")return"";
+    const d=parseFloat(cur)-parseFloat(prv);
+    if(Math.abs(d)<0.005)return" (=)";
+    return` (${d>0?"+":""}${d.toFixed(dec)+u})`;
+  };
+
+  const pd=prev; // abreviatura
+  const esPrimera=!pd;
+  const encabezado=esPrimera
+    ? `EVALUACIÓN INICIAL DE COMPOSICIÓN CORPORAL — InBody (${data.modelo||"InBody"}) | Fecha: ${data.fecha}${data.puntuacion?" | Score: "+data.puntuacion+"/100":""}`
+    : `SEGUIMIENTO DE COMPOSICIÓN CORPORAL — InBody (${data.modelo||"InBody"}) | Fecha: ${data.fecha}${data.puntuacion?" | Score: "+data.puntuacion+"/100":""}` +
+      `\n  Evaluación previa: ${pd.fecha}${pd.puntuacion?" | Score previo: "+pd.puntuacion+"/100":""}` +
+      (()=>{
+        // Días entre evaluaciones
+        const d1=new Date(data.fecha),d2=new Date(pd.fecha);
+        const dias=Math.round((d1-d2)/(1000*60*60*24));
+        return dias>0?` (${dias} días de seguimiento)`:"";
+      })();
+
+  // ── Bloque: Composición corporal ─────────────────────────
+  const bloqueComp=[
     `COMPOSICIÓN CORPORAL:`,
-    `  Peso: ${N(data.peso," kg")} | Talla: ${N(data.altura," cm",0)} | IMC: ${N(data.imc," kg/m²")}`,
-    `  Masa Músculo Esquelético (MME): ${N(data.masa_musculo," kg")} | Masa Grasa: ${N(data.masa_grasa," kg")} (${N(data.pgc,"%")} de grasa corporal)`,
-    `  Agua Corporal Total: ${N(data.agua_corporal," L")} | AEC/ACT: ${N(data.aec_act,"",3)} | Proteína: ${N(data.proteina," kg")} | Minerales: ${N(data.minerales," kg",3)}`,
-    ``,
+    `  Peso:        ${N(data.peso," kg")}${D(data.peso,pd?.peso," kg",1,false)} — objetivo ideal: ${N(data.peso_ideal," kg")}`,
+    `  Talla:       ${N(data.altura," cm",0)}`,
+    `  IMC:         ${N(data.imc," kg/m²")}${D(data.imc,pd?.imc," kg/m²",1,true)}`,
+    `  Músculo ESQ: ${N(data.masa_musculo," kg")}${D(data.masa_musculo,pd?.masa_musculo," kg",1,false)}`,
+    `  Masa Grasa:  ${N(data.masa_grasa," kg")}${D(data.masa_grasa,pd?.masa_grasa," kg",1,true)} | % Grasa Corporal: ${N(data.pgc,"%")}${D(data.pgc,pd?.pgc,"%",1,true)}`,
+    `  Agua Corp.:  ${N(data.agua_corporal," L")}${DN(data.agua_corporal,pd?.agua_corporal," L")} | AEC/ACT: ${N(data.aec_act,"",3)}${DN(data.aec_act,pd?.aec_act,"",3)}`,
+    `  Proteína:    ${N(data.proteina," kg")}${DN(data.proteina,pd?.proteina," kg")} | Minerales: ${N(data.minerales," kg",3)}${DN(data.minerales,pd?.minerales," kg",3)}`,
+  ].join("\n");
+
+  // ── Bloque: Obesidad / metabólico ────────────────────────
+  const bloqueObe=[
     `ANÁLISIS DE OBESIDAD:`,
-    `  IMC: ${N(data.imc," kg/m²")} | % Grasa Corporal: ${N(data.pgc,"%")} | Grasa Visceral: ${data.grasa_visceral||"—"} | TMB: ${N(data.tmb," kcal",0)}`,
-    data.rcl?`  Relación Cintura-Cadera: ${N(data.rcl,"",2)}`:"",
-    ``,
-    `CONTROL DE PESO:`,
-    `  Peso ideal: ${N(data.peso_ideal," kg")} | Control peso: ${N(data.control_peso," kg")} | Control grasa: ${N(data.control_grasa," kg")} | Control músculo: ${N(data.control_musculo," kg")}`,
-    (data.seg_brazo_der||data.seg_tronco)?[
-      ``,`MASA MAGRA SEGMENTAL:`,
-      `  Brazo D.: ${N(data.seg_brazo_der," kg")} | Brazo I.: ${N(data.seg_brazo_izq," kg")} | Tronco: ${N(data.seg_tronco," kg")} | Pierna D.: ${N(data.seg_pierna_der," kg")} | Pierna I.: ${N(data.seg_pierna_izq," kg")}`,
-    ].join("\n"):"",
-    (data.grasa_tronco)?[
-      ``,`GRASA SEGMENTAL:`,
-      `  Brazo D.: ${N(data.grasa_brazo_der," kg")} | Brazo I.: ${N(data.grasa_brazo_izq," kg")} | Tronco: ${N(data.grasa_tronco," kg")} | Pierna D.: ${N(data.grasa_pierna_der," kg")} | Pierna I.: ${N(data.grasa_pierna_izq," kg")}`,
-    ].join("\n"):"",
-    data.notas?`\nNOTAS: ${data.notas}`:"",
+    `  % Grasa Corporal: ${N(data.pgc,"%")}${D(data.pgc,pd?.pgc,"%",1,true)}`,
+    `  Grasa Visceral:   ${data.grasa_visceral!=null?data.grasa_visceral:"—"}${D(data.grasa_visceral,pd?.grasa_visceral,"",1,true)}`,
+    `  TMB:              ${N(data.tmb," kcal",0)}${DN(data.tmb,pd?.tmb," kcal",0)}`,
+    data.rcl?`  RCC:              ${N(data.rcl,"",2)}${DN(data.rcl,pd?.rcl,"",2)}`:"",
   ].filter(Boolean).join("\n");
+
+  // ── Bloque: Control de peso ──────────────────────────────
+  const bloqueCtrl=[
+    `CONTROL DE PESO:`,
+    `  Peso actual: ${N(data.peso," kg")} | Peso ideal: ${N(data.peso_ideal," kg")} | Diferencia: ${N(data.control_peso," kg")}`,
+    `  Ajuste grasa: ${N(data.control_grasa," kg")} | Ajuste músculo: ${N(data.control_musculo," kg")}`,
+  ].join("\n");
+
+  // ── Bloque: Segmentales ──────────────────────────────────
+  const tieneSeg=data.seg_brazo_der||data.seg_tronco;
+  const tieneGrasaSeg=data.grasa_tronco;
+  const bloqueSegs=tieneSeg?[
+    `MASA MAGRA SEGMENTAL:`,
+    `  Brazo D.: ${N(data.seg_brazo_der," kg")}${DN(data.seg_brazo_der,pd?.seg_brazo_der," kg")}` +
+    ` | Brazo I.: ${N(data.seg_brazo_izq," kg")}${DN(data.seg_brazo_izq,pd?.seg_brazo_izq," kg")}` +
+    ` | Tronco: ${N(data.seg_tronco," kg")}${DN(data.seg_tronco,pd?.seg_tronco," kg")}` +
+    ` | Pierna D.: ${N(data.seg_pierna_der," kg")}${DN(data.seg_pierna_der,pd?.seg_pierna_der," kg")}` +
+    ` | Pierna I.: ${N(data.seg_pierna_izq," kg")}${DN(data.seg_pierna_izq,pd?.seg_pierna_izq," kg")}`,
+  ].join("\n"):"";
+
+  const bloqueGrasaSeg=tieneGrasaSeg?[
+    `GRASA SEGMENTAL:`,
+    `  Brazo D.: ${N(data.grasa_brazo_der," kg")}${DN(data.grasa_brazo_der,pd?.grasa_brazo_der," kg")}` +
+    ` | Brazo I.: ${N(data.grasa_brazo_izq," kg")}${DN(data.grasa_brazo_izq,pd?.grasa_brazo_izq," kg")}` +
+    ` | Tronco: ${N(data.grasa_tronco," kg")}${DN(data.grasa_tronco,pd?.grasa_tronco," kg")}` +
+    ` | Pierna D.: ${N(data.grasa_pierna_der," kg")}${DN(data.grasa_pierna_der,pd?.grasa_pierna_der," kg")}` +
+    ` | Pierna I.: ${N(data.grasa_pierna_izq," kg")}${DN(data.grasa_pierna_izq,pd?.grasa_pierna_izq," kg")}`,
+  ].join("\n"):"";
+
+  // ── Bloque resumen de cambios (solo en seguimiento) ───────
+  let bloqueCambios="";
+  if(!esPrimera){
+    const cambios=[];
+    const chk=(label,cur,prv,u,dec,invertido)=>{
+      if(cur==null||prv==null||cur===""||prv==="")return;
+      const d=parseFloat(cur)-parseFloat(prv);
+      if(Math.abs(d)<0.005){cambios.push(`  ${label}: sin cambio`);return;}
+      const dStr=(d>0?"+":"")+d.toFixed(dec)+u;
+      const flecha=d>0?"↑":"↓";
+      const favorable=invertido?(d<0):(d>0);
+      cambios.push(`  ${label}: ${flecha}${dStr} ${favorable?"✅ Favorable":"⚠️ Desfavorable"}`);
+    };
+    chk("Peso",data.peso,pd.peso," kg",1,false);
+    chk("Masa Grasa",data.masa_grasa,pd.masa_grasa," kg",1,true);
+    chk("% Grasa",data.pgc,pd.pgc,"%",1,true);
+    chk("Músculo ESQ",data.masa_musculo,pd.masa_musculo," kg",1,false);
+    chk("IMC",data.imc,pd.imc," kg/m²",1,true);
+    chk("Grasa Visceral",data.grasa_visceral,pd.grasa_visceral,"",1,true);
+    if(data.puntuacion&&pd.puntuacion){
+      chk("Score InBody",data.puntuacion,pd.puntuacion,"/100",0,false);
+    }
+    if(cambios.length>0){
+      bloqueCambios=`CAMBIOS RESPECTO A EVALUACIÓN PREVIA (${pd.fecha}):\n`+cambios.join("\n");
+    }
+  }
+
+  // ── Ensamble final ────────────────────────────────────────
+  const lineas=[
+    encabezado,
+    "",
+    bloqueComp,
+    "",
+    bloqueObe,
+    "",
+    bloqueCtrl,
+    bloqueSegs?"\n"+bloqueSegs:"",
+    bloqueGrasaSeg?"\n"+bloqueGrasaSeg:"",
+    bloqueCambios?"\n"+bloqueCambios:"",
+    data.notas?`\nNOTAS: ${data.notas}`:"",
+  ].filter(v=>v!==null&&v!==undefined).join("\n").replace(/\n{3,}/g,"\n\n").trim();
 
   // ¿Hay una consulta abierta en el DOM?
   const campo=document.getElementById("cs_expl")||document.getElementById("cs_subj");
   if(campo){
-    // Insertar directamente en la nota abierta
-    const actual=campo.value;
-    campo.value=(actual?actual+"\n\n":"")+lineas;
+    campo.value=(campo.value?campo.value+"\n\n":"")+lineas;
     campo.focus();
     campo.scrollIntoView({behavior:"smooth",block:"center"});
-    showToast("✓ Datos InBody incluidos en la nota");
+    showToast(esPrimera?"✓ Evaluación inicial InBody incluida en la nota":"✓ Seguimiento InBody con cambios incluido en la nota");
     return;
   }
 
   // No hay consulta abierta — guardar en STATE y mostrar opciones
   STATE.inBodyPendiente={id,texto:lineas,fecha:data.fecha};
-  // Modal con opciones
   const overlay=document.createElement("div");
-  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:flex;align-items:center;justify-content:center";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:flex;align-items:center;justify-content:center;padding:16px";
   overlay.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:440px;box-shadow:0 16px 40px #00000040">
-    <h3 style="font-size:15px;font-weight:700;color:#263238;margin-bottom:8px">📊 Incluir InBody en nota médica</h3>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <span style="font-size:22px">📊</span>
+      <div>
+        <h3 style="font-size:15px;font-weight:700;color:#263238">${esPrimera?"Evaluación inicial InBody":"Seguimiento InBody con cambios"}</h3>
+        <p style="font-size:13px;color:${MU}">${esPrimera?"Primera evaluación registrada":"vs. evaluación previa: "+pd.fecha}</p>
+      </div>
+    </div>
     <p style="font-size:14px;color:#546E7A;margin-bottom:18px">No hay consulta abierta. ¿Qué deseas hacer?</p>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <button onclick="this.closest('[style*=fixed]').remove();irAConsultasConInBody()" style="background:#006BB6;color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left">
+      <button onclick="this.closest('[style*=fixed]').remove();irAConsultasConInBody()" style="background:${P};color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left">
         📋 Ir a Consultas para abrirla o crear una nueva<br><small style="font-weight:400;opacity:.8">El InBody se incluirá automáticamente al abrir la consulta</small>
       </button>
       <button onclick="copiarInBodyClipboard()" style="background:#37474F;color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left">
