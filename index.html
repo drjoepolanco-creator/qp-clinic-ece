@@ -43,6 +43,22 @@ input,select,textarea,button{font-family:inherit;font-size:14px}
 <body>
 <div id="R" style="min-height:100vh"></div>
 <div id="toast-container" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
+<!-- Modal de confirmación con marca QP Clinic -->
+<div id="qp-confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.25);max-width:420px;width:100%;overflow:hidden;animation:fd .15s ease">
+    <div id="qp-confirm-header" style="background:#005089;padding:14px 18px;display:flex;align-items:center;gap:10px">
+      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:26px;border-radius:3px;background:#fff;padding:1px">
+      <span id="qp-confirm-title" style="color:#fff;font-size:14px;font-weight:700"></span>
+    </div>
+    <div style="padding:20px 18px">
+      <p id="qp-confirm-msg" style="font-size:14px;color:#263238;line-height:1.6;margin-bottom:18px"></p>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="qp-confirm-cancel" onclick="qpConfirmRespond(false)" style="padding:8px 16px;border:1.5px solid #CFD8DC;border-radius:8px;background:#fff;color:#546E7A;cursor:pointer;font-size:13px;font-weight:600">Cancelar</button>
+        <button id="qp-confirm-ok" onclick="qpConfirmRespond(true)" style="padding:8px 18px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;color:#fff"></button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
 // ── SUPABASE ──────────────────────────────────────────────
 const { createClient } = supabase;
@@ -185,7 +201,18 @@ function draw(){
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
 function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`;}
 function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
-function ta(id,val,ph,rows=4){return`<div style="position:relative"><textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:10px 40px 10px 13px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;line-height:1.5;font-size:14px">${val||""}</textarea><button type="button" onclick="dictarCampo('${id}')" id="mic_${id}" title="Dictar con micrófono" style="position:absolute;top:8px;right:8px;background:none;border:1.5px solid ${BR};border-radius:7px;padding:3px 6px;cursor:pointer;font-size:14px;color:${MU};transition:all .2s;z-index:1">🎤</button></div>`;}
+function ta(id,val,ph,rows=4){
+  const charCount=val?val.length:0;
+  return`<div style="position:relative">
+    <textarea id="${id}" rows="${rows}" placeholder="${ph}" oninput="actualizarContador('${id}')" style="width:100%;padding:10px 40px 10px 13px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;line-height:1.5;font-size:14px">${val||""}</textarea>
+    <button type="button" onclick="dictarCampo('${id}')" id="mic_${id}" title="Dictar con micrófono" style="position:absolute;top:8px;right:8px;background:none;border:1.5px solid ${BR};border-radius:7px;padding:3px 6px;cursor:pointer;font-size:14px;color:${MU};transition:all .2s;z-index:1">🎤</button>
+    <span id="cnt_${id}" style="position:absolute;bottom:6px;right:10px;font-size:11px;color:#B0BEC5;pointer-events:none">${charCount>0?charCount+" c":""}</span>
+  </div>`;
+}
+window.actualizarContador=function(id){
+  const el=document.getElementById(id);const cnt=document.getElementById("cnt_"+id);
+  if(el&&cnt){const n=el.value.length;cnt.textContent=n>0?n+" c":"";}
+}
 // ── DICTADO POR VOZ ──────────────────────────────────────
 let _dictRecog=null;
 let _dictActive=null;
@@ -251,8 +278,107 @@ function showToast(msg,ok=true){
   setTimeout(()=>{t.style.transform="translateX(120%)";setTimeout(()=>t.remove(),300);},3500);
 }
 function loading(show,msg="Guardando..."){STATE.loading=show;const l=document.getElementById("loading-overlay");if(l){l.style.display=show?"flex":"none";const m=document.getElementById("loading-msg");if(m)m.textContent=msg;}}
+
+// ── MODAL DE CONFIRMACIÓN (reemplaza confirm() nativo) ─────
+let _qpConfirmResolve=null;
+function qpConfirm(msg,{title="QP Clinic",okLabel="Confirmar",okColor=DA,danger=false}={}){
+  return new Promise(resolve=>{
+    _qpConfirmResolve=resolve;
+    const overlay=document.getElementById("qp-confirm-overlay");
+    document.getElementById("qp-confirm-title").textContent=title;
+    document.getElementById("qp-confirm-msg").textContent=msg;
+    const okBtn=document.getElementById("qp-confirm-ok");
+    okBtn.textContent=okLabel;
+    okBtn.style.background=danger?DA:P;
+    const header=document.getElementById("qp-confirm-header");
+    header.style.background=danger?"#7F1D1D":PD;
+    overlay.style.display="flex";
+    // Foco en botón cancelar por seguridad
+    setTimeout(()=>document.getElementById("qp-confirm-cancel")?.focus(),50);
+  });
+}
+window.qpConfirmRespond=function(ok){
+  document.getElementById("qp-confirm-overlay").style.display="none";
+  if(_qpConfirmResolve){_qpConfirmResolve(ok);_qpConfirmResolve=null;}
+}
+// Cerrar con Escape
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&document.getElementById("qp-confirm-overlay")?.style.display==="flex")
+    window.qpConfirmRespond(false);
+  // Ctrl+S — guardar nota de consulta
+  if((e.ctrlKey||e.metaKey)&&e.key==="s"&&STATE.page==="consulta"&&!STATE.consultaActual?.bloqueada){
+    e.preventDefault();
+    window.guardarConsulta?.();
+  }
+});
+
+// ── DEBOUNCE ──────────────────────────────────────────────
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+
+// ── AUTOGUARDADO (nota de consulta) ───────────────────────
+let _autoguardadoInterval=null;
+function iniciarAutoguardado(){
+  detenerAutoguardado();
+  _autoguardadoInterval=setInterval(async()=>{
+    if(STATE.page!=="consulta"||!STATE.pat||STATE.consultaActual?.bloqueada)return;
+    const campos=["cs_subj","cs_expl","cs_anal","cs_trat","cs_lab","cs_gab","cs_plan"];
+    const tieneContenido=campos.some(id=>{const e=document.getElementById(id);return e&&e.value.trim().length>0;});
+    if(!tieneContenido)return;
+    const ind=document.getElementById("autosave-indicator");
+    if(ind){ind.textContent="Guardando...";ind.style.color="rgba(255,255,255,.6)";}
+    await guardarConsultaSilencioso();
+    if(ind){
+      ind.textContent="✓ Guardado automáticamente";ind.style.color="rgba(255,255,255,.75)";
+      setTimeout(()=>{if(ind)ind.textContent="";},3000);
+    }
+  },30000);
+}
+function detenerAutoguardado(){
+  if(_autoguardadoInterval){clearInterval(_autoguardadoInterval);_autoguardadoInterval=null;}
+}
+async function guardarConsultaSilencioso(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  if(STATE.consultaActual?.bloqueada)return;
+  const med=STATE.userProfile||{};
+  const medNombre=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+  const ahora=new Date();
+  const payload={
+    paciente_id:pid,medico_id:STATE.user?.id||null,medico_nombre:medNombre,
+    medico_especialidad:med.especialidad_2||med.especialidad_1||"",
+    fecha:ahora.toISOString().split("T")[0],
+    hora:ahora.toTimeString().substring(0,5),
+    tipo_nota:gv("cs_tipo_nota")||"Nota de evolución",
+    hora_inicio:STATE.consultaActual?.hora_inicio||ahora.toTimeString().substring(0,5),
+    subjetivo:gv("cs_subj"),alergias_nota:gv("cs_alerg"),
+    temperatura:parseFloat(gv("cs_temp"))||null,frecuencia_cardiaca:parseFloat(gv("cs_fc"))||null,
+    frecuencia_respiratoria:parseFloat(gv("cs_fr"))||null,saturacion_o2:parseFloat(gv("cs_sat"))||null,
+    peso:parseFloat(gv("cs_peso"))||null,talla:parseFloat(gv("cs_talla"))||null,
+    imc:parseFloat(gv("cs_imc"))||null,presion_sistolica:parseFloat(gv("cs_tas"))||null,
+    presion_diastolica:parseFloat(gv("cs_tad"))||null,glucosa:parseFloat(gv("cs_glu"))||null,
+    exploracion_fisica:gv("cs_expl"),analisis:gv("cs_anal"),tratamiento:gv("cs_trat"),
+    laboratorio:gv("cs_lab"),gabinete:gv("cs_gab"),plan:gv("cs_plan"),
+    pronostico_funcion:gv("cs_prog_func")||null,pronostico_vida:gv("cs_prog_vida")||null,
+    eva_dolor:parseInt(document.getElementById("cs_eva")?.value)||null,
+    datos_clinicos:leerDatosClinicos(),bloqueada:false,
+  };
+  let res;
+  try{
+    if(STATE.consultaActual?.id){
+      res=await SB.from("consultas").update(payload).eq("id",STATE.consultaActual.id).select().single();
+    } else {
+      payload.hora_inicio=ahora.toTimeString().substring(0,5);
+      res=await SB.from("consultas").insert(payload).select().single();
+    }
+    if(res?.data&&!res?.error)STATE.consultaActual=res.data;
+  }catch(e){/* silencioso */}
+}
 function nav(){
+  // Título dinámico del tab
+  const patNombre=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""} — `:"";
+  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",perfil:"Mi perfil — "};
+  document.title=`${pageTitles[STATE.page]||""}${patNombre}QP Clinic`;
   const u=STATE.userProfile;const p=STATE.pat;
+  const online=navigator.onLine;
   return`<div style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
     <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
@@ -271,12 +397,13 @@ function nav(){
       </div>
     </div>`:""}
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-      ${p?`<button onclick="go('expediente')" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 9px;color:#fff;cursor:pointer;font-size:14px">📋 ${p.nombre} ${p.apellido_paterno}</button>`:""}
+      ${p?`<button onclick="go('expediente')" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 9px;color:#fff;cursor:pointer;font-size:14px" title="Abrir expediente de ${p.nombre} ${p.apellido_paterno}">📋 ${p.nombre} ${p.apellido_paterno}</button>`:""}
+      <div title="${online?"Conectado a internet":"Sin conexión a internet"}" style="width:8px;height:8px;border-radius:50%;background:${online?"#69F0AE":"#FF5252"};box-shadow:0 0 0 2px rgba(255,255,255,.2);flex-shrink:0"></div>
       <button onclick="go('perfil')" title="Mi perfil y configuración" style="background:${STATE.page==="perfil"?"rgba(255,255,255,.25)":"rgba(255,255,255,.1)"};border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 10px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:5px">
         <span style="font-size:16px">👤</span>
         <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u?u.titulo+" "+u.nombre+" "+u.apellidos:"Mi perfil"}</span>
       </button>
-      <button onclick="cerrarSesion()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:3px 9px;color:#fff;cursor:pointer;font-size:14px">Salir</button>
+      <button onclick="cerrarSesion()" title="Cerrar sesión" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:3px 9px;color:#fff;cursor:pointer;font-size:14px">Salir</button>
     </div>
   </div>
   <div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9998;align-items:center;justify-content:center">
@@ -296,19 +423,39 @@ async function cerrarSesion(){
 function pgLogin(){
   RR().innerHTML=`
   <div style="min-height:100vh;background:linear-gradient(135deg,${PD},${AC});display:flex;align-items:center;justify-content:center;padding:20px">
-    <div style="background:#fff;border-radius:16px;padding:36px;width:360px;box-shadow:0 16px 40px #00000030">
-      <div style="text-align:center;margin-bottom:24px">
-        <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="width:200px;margin:0 auto 12px;display:block">
-        <p style="color:${MU};font-size:14px;margin-top:4px">Expediente Clínico Electrónico</p>
+    <div style="background:#fff;border-radius:18px;width:380px;box-shadow:0 24px 60px rgba(0,0,0,.25);overflow:hidden;animation:fd .3s ease">
+      <!-- Header con marca -->
+      <div style="background:${PD};padding:28px 32px 24px;text-align:center">
+        <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="width:160px;margin:0 auto;display:block;border-radius:6px;background:#fff;padding:4px">
+        <p style="color:rgba(255,255,255,.8);font-size:13px;margin-top:10px;letter-spacing:.3px">Expediente Clínico Electrónico</p>
       </div>
-      <div style="display:flex;flex-direction:column;gap:13px">
-        ${fld("Nombre de usuario",`<input id="lu" type="text" placeholder="Ej: dr.polanco" autocomplete="username" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`)}
-        ${fld("Contraseña",inp("lp","","••••••••","password"))}
-        <button id="login-btn" onclick="doLogin()" style="width:100%;padding:11px;background:${P};color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;margin-top:4px">Entrar al Sistema</button>
-        <div id="login-error" style="display:none;background:#FFEBEE;color:${DA};padding:8px 12px;border-radius:7px;font-size:14px;text-align:center"></div>
+      <!-- Formulario -->
+      <div style="padding:28px 32px">
+        <p style="font-size:15px;font-weight:700;color:${TX};margin-bottom:20px">Iniciar sesión</p>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <label class="fld-label">Usuario</label>
+            <div style="position:relative">
+              <i class="ti ti-user" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:${MU};font-size:16px" aria-hidden="true"></i>
+              <input id="lu" type="text" placeholder="dr.polanco" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('lp').focus()" style="width:100%;padding:10px 13px 10px 36px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;transition:border .2s" onfocus="this.style.borderColor='${P}'" onblur="this.style.borderColor='${BR}'">
+            </div>
+          </div>
+          <div>
+            <label class="fld-label">Contraseña</label>
+            <div style="position:relative">
+              <i class="ti ti-lock" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:${MU};font-size:16px" aria-hidden="true"></i>
+              <input id="lp" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;padding:10px 40px 10px 36px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;transition:border .2s" onfocus="this.style.borderColor='${P}'" onblur="this.style.borderColor='${BR}'">
+              <button type="button" id="btn-ver-pass" onclick="toggleVerPass()" title="Mostrar/ocultar contraseña" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:${MU};padding:2px"><i class="ti ti-eye" style="font-size:16px" aria-hidden="true"></i></button>
+            </div>
+          </div>
+          <button id="login-btn" onclick="doLogin()" style="width:100%;padding:12px;background:${P};color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;margin-top:2px;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='${PD}'" onmouseout="this.style.background='${P}'">
+            <i class="ti ti-login" aria-hidden="true"></i> Entrar al sistema
+          </button>
+          <div id="login-error" style="display:none;background:#FFEBEE;color:${DA};padding:9px 13px;border-radius:7px;font-size:13px;text-align:center;border-left:3px solid ${DA}"></div>
+        </div>
+        <p style="text-align:center;font-size:12px;color:#90A4AE;margin-top:20px">Al ingresar acepta los <span onclick="abrirLegal('terminos')" style="color:${P};cursor:pointer;text-decoration:underline">Términos y Condiciones</span> y el <span onclick="abrirLegal('privacidad')" style="color:${P};cursor:pointer;text-decoration:underline">Aviso de Privacidad</span></p>
+        <p style="text-align:center;font-size:12px;color:${AC};margin-top:6px;font-style:italic">"Ciencia, calidez y compromiso"</p>
       </div>
-      <p style="text-align:center;font-size:14px;color:#90A4AE;margin-top:16px">Al ingresar acepta los <span onclick="abrirLegal('terminos')" style="color:${P};cursor:pointer;text-decoration:underline">Términos y Condiciones</span> y el <span onclick="abrirLegal('privacidad')" style="color:${P};cursor:pointer;text-decoration:underline">Aviso de Privacidad</span></p>
-      <p style="text-align:center;font-size:14px;color:${AC};margin-top:10px;font-style:italic">"Ciencia, calidez y compromiso"</p>
     </div>
   </div>
   <div id="modal-legal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:16px">
@@ -444,7 +591,7 @@ window.doLogin=async function(){
   const pass=gv("lp");
   if(!usuario||!pass){showLoginError("Ingresa tu usuario y contraseña");return;}
   const lb=document.getElementById("login-btn");
-  lb.textContent="Entrando...";lb.disabled=true;
+  lb.innerHTML='<span class="spin">⚙️</span> Verificando...';lb.disabled=true;
   // Si no tiene @ lo tratamos como username → buscar email en usuarios
   let email=usuario;
   if(!usuario.includes("@")){
@@ -460,7 +607,6 @@ window.doLogin=async function(){
   const {data,error}=await SB.auth.signInWithPassword({email,password:pass});
   if(error){
     showLoginError("Usuario o contraseña incorrectos");
-    lb.textContent="Entrar al Sistema";lb.disabled=false;
     return;
   }
   STATE.user=data.user;
@@ -470,7 +616,22 @@ window.doLogin=async function(){
   logBitacora("INICIO DE SESIÓN","Login exitoso",null);
   go("agenda");
 }
-function showLoginError(msg){const e=document.getElementById("login-error");if(e){e.style.display="block";e.textContent=msg;}}
+function showLoginError(msg){
+  const e=document.getElementById("login-error");
+  if(e){e.style.display="block";e.innerHTML=`<i class="ti ti-alert-circle" aria-hidden="true"></i> ${msg}`;}
+  const lb=document.getElementById("login-btn");
+  if(lb){lb.innerHTML='<i class="ti ti-login" aria-hidden="true"></i> Entrar al sistema';lb.disabled=false;}
+}
+window.toggleVerPass=function(){
+  const inp=document.getElementById("lp");const btn=document.getElementById("btn-ver-pass");
+  if(!inp)return;
+  const show=inp.type==="password";
+  inp.type=show?"text":"password";
+  if(btn)btn.innerHTML=`<i class="ti ti-eye${show?"-off":""}" style="font-size:16px" aria-hidden="true"></i>`;
+}
+// Indicador de conexión — actualizar nav al cambiar estado
+window.addEventListener("online",()=>{draw();showToast("✓ Conexión restaurada");});
+window.addEventListener("offline",()=>{draw();showToast("Sin conexión a internet",false);});
 // ── AGENDA ────────────────────────────────────────────────
 // ── GESTIÓN DE MÉDICOS (solo admin) ──────────────────────
 async function pgMedicos(){
@@ -1590,10 +1751,10 @@ async function cargarPacientes(q=""){
     <p style="font-size:14px;color:${MU};padding:8px 12px">${data.length} paciente(s) encontrado(s)</p>
   </div>`;
 }
-window.buscarPacs=function(){
+window.buscarPacs=debounce(function(){
   const q=(document.getElementById("bq")||{value:""}).value.trim();
   cargarPacientes(q);
-}
+},300);
 window.abrirExpediente=async function(id){
   // Limpiar TODOS los datos del paciente previo antes de cargar el nuevo
   STATE.pat=null;
@@ -4089,7 +4250,7 @@ window.confirmarAdministracion=async function(id){
   renderIndicaciones(document.getElementById("eb"));
 }
 window.cancelarIndicacion=async function(id){
-  if(!confirm("¿Cancelar esta indicación?"))return;
+  if(!await qpConfirm("¿Cancelar esta indicación? Esta acción no se puede deshacer.",{title:"Cancelar indicación",okLabel:"Sí, cancelar",danger:true}))return;
   loading(true);
   await SB.from("indicaciones_medicas").update({estado:"Cancelado",activa:false}).eq("id",id);
   loading(false);
@@ -4583,7 +4744,7 @@ window.guardarInBody=async function(){
   renderInBody(document.getElementById("eb"));
 }
 window.eliminarInBody=async function(id){
-  if(!confirm("¿Eliminar esta evaluación InBody?"))return;
+  if(!await qpConfirm("¿Eliminar esta evaluación InBody? Los datos no se pueden recuperar.",{title:"Eliminar evaluación InBody",okLabel:"Eliminar",danger:true}))return;
   loading(true);await SB.from("inbody_resultados").delete().eq("id",id);
   loading(false);showToast("✓ Evaluación eliminada");
   renderInBody(document.getElementById("eb"));
@@ -4669,7 +4830,8 @@ function pgConsulta(){
       <div style="width:1px;height:24px;background:${BR}"></div>
       <button onclick="abrirModalIA()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">🤖 Generar nota con IA</button>
       ${c.bloqueada?`<span style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">🔒 Nota cerrada — solo lectura</span>`:`${btn("💾 Guardar","guardarConsulta()","ok",1)}
-      <button onclick="firmarNota()" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">✍️ Firmar y cerrar nota</button>`}
+      <button onclick="firmarNota()" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">✍️ Firmar y cerrar nota</button>
+      <span id="autosave-indicator" style="font-size:12px;color:rgba(255,255,255,.6);margin-left:4px"></span>`}
       <button onclick="descargarNotaPDF()" style="background:#37474F;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📄 PDF nota</button>
       ${c.id?`<button onclick="verHistorialNota('${c.id}')" style="background:#7B1FA2;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🕐 Historial</button>`:""}
       ${(c.tipo_nota||"").includes("referencia")||gv("cs_tipo_nota").includes("referencia")?`<button onclick="imprimirHojaReferencia()" style="background:#00695C;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🏥 Hoja de Referencia</button>`:""}
@@ -4886,6 +5048,8 @@ function pgConsulta(){
     </div>
     <div id="recipe-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto"></div>
   </div>`;
+  // Iniciar autoguardado (30s) si la nota no está cerrada
+  if(!STATE.consultaActual?.bloqueada) iniciarAutoguardado();
 }
 // ── MOTIVOS COMUNES ───────────────────────────────────────
 window.toggleMotivos=function(){
@@ -5174,10 +5338,10 @@ window.guardarConsulta=async function(){
 }
 window.firmarNota=async function(){
   const cid=STATE.consultaActual?.id;if(!cid)return;
-  if(!confirm("¿Firmar y cerrar esta nota? No podrá editarse después."))return;
-  loading(true,"Firmando nota...");
   const med=STATE.userProfile||{};
-  const medNombre=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+  const medNombre=`${med.titulo||""} ${med.nombre||""} ${med.apellidos||""}`.trim();
+  if(!await qpConfirm(`¿Firmar y cerrar esta nota como ${medNombre}? Una vez firmada, la nota quedará en modo solo lectura y no podrá editarse. Esta acción es conforme a NOM-004-SSA3-2012.`,{title:"Firmar y cerrar nota",okLabel:"✍️ Firmar nota",okColor:SU,danger:false}))return;
+  loading(true,"Firmando nota...");
   const horaFin=new Date().toTimeString().substring(0,5);
   await SB.from("consultas").update({
     bloqueada:true,
@@ -5192,7 +5356,7 @@ window.firmarNota=async function(){
   showToast("✓ Nota firmada y cerrada");
   cerrarConsulta();
 }
-window.cerrarConsulta=function(){STATE.consultaActual=null;go("expediente");}
+window.cerrarConsulta=function(){detenerAutoguardado();STATE.consultaActual=null;go("expediente");}
 window.showRecipe=function(tipo="receta"){
   const m=document.getElementById("recipe-modal");
   if(m){m.dataset.tipo=tipo;m.style.display="flex";renderRecipeModal(tipo);}
@@ -6082,7 +6246,7 @@ window.verImagen=async function(path,nombre){
   else showToast("Error al obtener la imagen",false);
 }
 window.eliminarImagen=async function(id,path){
-  if(!confirm("¿Eliminar esta imagen del expediente?"))return;
+  if(!await qpConfirm("¿Eliminar esta imagen del expediente? No se puede recuperar.",{title:"Eliminar imagen",okLabel:"Eliminar",danger:true}))return;
   loading(true,"Eliminando...");
   await SB.storage.from("expedientes").remove([path]);
   await SB.from("imagenes_expediente").delete().eq("id",id);
@@ -6890,7 +7054,7 @@ async function cargarHistorialHerramienta(key){
   </div>`;
 }
 window.eliminarResultadoHerramienta=async function(id,key){
-  if(!confirm("¿Eliminar este resultado del historial?"))return;
+  if(!await qpConfirm("¿Eliminar este resultado del historial clínico?",{title:"Eliminar resultado",okLabel:"Eliminar",danger:true}))return;
   loading(true);
   await SB.from("resultados_herramientas").delete().eq("id",id);
   loading(false);
@@ -7688,7 +7852,7 @@ window.registrarPago=async function(pid){
   pgPagos();
 }
 window.eliminarPago=async function(id){
-  if(!confirm("¿Eliminar este registro?"))return;
+  if(!await qpConfirm("¿Eliminar este registro de pago? Esta acción no se puede deshacer.",{title:"Eliminar pago",okLabel:"Eliminar",danger:true}))return;
   loading(true);await SB.from("pagos").delete().eq("id",id);loading(false);
   showToast("✓ Eliminado");
   if(STATE.page==="cortecaja")cargarCorte();else pgPagos();
