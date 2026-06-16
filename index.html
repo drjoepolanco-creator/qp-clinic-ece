@@ -2224,6 +2224,565 @@ window.eliminarRegistroTrans=function(i){
   actualizarTipoNota(gv("cs_tipo_nota")||STATE.consultaActual?.tipo_nota||"");
 }
 
+// ── CONSENTIMIENTOS INFORMADOS ────────────────────────────
+// Catálogo completo de consentimientos con textos legales
+// Conformes a NOM-004-SSA3-2012, NOM-006-SSA3-2011, NOM-024-SSA3-2010
+// y Ley General de Salud Arts. 29, 100-103
+
+const CI_CATALOGO={
+  general:{
+    titulo:"CONSENTIMIENTO INFORMADO GENERAL",
+    categoria:"General",
+    clave:"general",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}, en pleno uso de mis facultades mentales y de manera libre y voluntaria:`,
+      "",
+      `DECLARO que he sido atendido por ${med} (en adelante "el Médico") en las instalaciones de QP Clinic, S.C. (RFC: QCL230518J66), ubicada en Insurgentes Sur 933, Piso 12, Col. Nápoles, Ciudad de México, y que:`,
+      "",
+      "1. HE SIDO INFORMADO sobre mi diagnóstico, el tratamiento propuesto, sus posibles alternativas, los riesgos y beneficios esperados, el pronóstico de mi padecimiento y las consecuencias de no recibir el tratamiento.",
+      "",
+      "2. HE TENIDO OPORTUNIDAD de hacer preguntas y de aclarar todas mis dudas respecto al tratamiento propuesto, las cuales fueron respondidas a mi entera satisfacción.",
+      "",
+      "3. ENTIENDO que el ejercicio de la medicina no es una ciencia exacta y que, a pesar de la aplicación de las mejores prácticas médicas, existen riesgos inherentes a cualquier tratamiento, incluyendo:\n   • Reacciones individuales no previsibles\n   • Respuesta insuficiente al tratamiento\n   • Necesidad de ajustar o cambiar el tratamiento\n   • Posibles efectos adversos de los medicamentos indicados",
+      "",
+      "4. AUTORIZO al Médico y al equipo de QP Clinic a realizar los procedimientos diagnósticos y terapéuticos que sean necesarios para mi atención, de acuerdo con su criterio clínico y las guías de práctica médica vigentes.",
+      "",
+      "5. COMPRENDO que tengo derecho a retirar este consentimiento en cualquier momento, con excepción de los casos en que ello implique un riesgo inmediato para mi vida.",
+      "",
+      "6. AUTORIZO el manejo de mis datos de salud conforme al Aviso de Privacidad de QP Clinic, disponible en www.qpclinic.org.",
+      "",
+      "Este documento se firma de conformidad con los artículos 29 y 100 al 103 de la Ley General de Salud, y con la Norma Oficial Mexicana NOM-004-SSA3-2012 del Expediente Clínico.",
+    ]
+  },
+  privacidad:{
+    titulo:"AVISO DE PRIVACIDAD — DATOS PERSONALES Y DATOS DE SALUD",
+    categoria:"General",
+    clave:"privacidad",
+    texto:(p,med,fecha)=>[
+      `Fecha: ${fecha}   Paciente: ${p}`,
+      "",
+      "QP Clinic, S.C. (RFC: QCL230518J66), con domicilio en Insurgentes Sur 933, Piso 12, Col. Nápoles, C.P. 03810, Ciudad de México, en cumplimiento con lo establecido en la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP) y su Reglamento, le informa:",
+      "",
+      "DATOS QUE RECABAMOS:",
+      "Nombre, domicilio, teléfono, correo electrónico, fecha de nacimiento, CURP, RFC, así como datos de salud: antecedentes médicos, diagnósticos, estudios clínicos, tratamientos y cualquier otra información necesaria para su atención médica.",
+      "",
+      "FINALIDADES DEL TRATAMIENTO:",
+      "• Prestación de servicios médicos y de salud\n• Integración y actualización de su expediente clínico electrónico\n• Seguimiento y continuidad de su tratamiento\n• Elaboración de recetas, referencias y documentos clínicos\n• Fines estadísticos internos (datos anonimizados)\n• Cumplimiento de obligaciones legales y normativas",
+      "",
+      "TRANSFERENCIA DE DATOS:",
+      "QP Clinic podrá transferir sus datos personales, sin requerir su consentimiento, en los siguientes casos:\n• A autoridades de salud cuando la Ley lo exija\n• A instituciones de seguros médicos con las que tenga contrato activo\n• A otros profesionales de la salud directamente involucrados en su atención",
+      "",
+      "DERECHOS ARCO:",
+      "Usted tiene derecho a Acceder, Rectificar, Cancelar u Oponerse (ARCO) al tratamiento de sus datos, enviando una solicitud a: privacidad@qpclinic.org",
+      "",
+      "Sus datos de salud son tratados con las medidas de seguridad establecidas en la NOM-024-SSA3-2010 sobre expedientes clínicos electrónicos.",
+      "",
+      "Al firmar, usted declara haber leído y aceptado el presente Aviso de Privacidad.",
+    ]
+  },
+  telemedicina:{
+    titulo:"CONSENTIMIENTO INFORMADO PARA CONSULTA POR TELEMEDICINA",
+    categoria:"General",
+    clave:"telemedicina",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "AUTORIZO a ${med} a realizar consultas médicas a través de medios de telecomunicación (videoconferencia, mensajería, llamada telefónica), en adelante «telemedicina», bajo los siguientes términos y condiciones:",
+      "",
+      "1. NATURALEZA DEL SERVICIO. Entiendo que la telemedicina es una modalidad de atención médica que utiliza tecnologías de información y comunicación para proveer servicios de salud a distancia. Reconozco que tiene limitaciones inherentes respecto a la consulta presencial.",
+      "",
+      "2. LIMITACIONES. Comprendo que la telemedicina:\n   • No sustituye a la exploración física cuando esta sea necesaria\n   • No es adecuada para situaciones de urgencia (llame al 911 o acuda a urgencias)\n   • Puede estar sujeta a interrupciones técnicas ajenas al control del Médico\n   • Puede requerir una consulta presencial posterior",
+      "",
+      "3. PRIVACIDAD Y SEGURIDAD. Entiendo que:\n   • Las sesiones NO serán grabadas por ninguna de las partes sin consentimiento mutuo\n   • Debo asegurarme de estar en un lugar privado durante la consulta\n   • QP Clinic utiliza plataformas con cifrado para proteger la comunicación",
+      "",
+      "4. RESPONSABILIDAD DEL PACIENTE. Me comprometo a:\n   • Proporcionar información veraz y completa sobre mis síntomas\n   • Tener a la mano mi lista de medicamentos actuales\n   • Comunicar inmediatamente cualquier deterioro que requiera atención de urgencias\n   • Acudir a valoración presencial cuando el Médico lo indique",
+      "",
+      "5. CONSENTIMIENTO. Habiendo leído y comprendido lo anterior, CONSIENTO el uso de la telemedicina para mi atención médica en QP Clinic.",
+      "",
+      "Conforme a los lineamientos de la NOM-004-SSA3-2012 y las guías de telemedicina de la Secretaría de Salud.",
+    ]
+  },
+  fisioterapia:{
+    titulo:"CONSENTIMIENTO INFORMADO — FISIOTERAPIA Y REHABILITACIÓN",
+    categoria:"Fisioterapia",
+    clave:"fisioterapia",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO recibir tratamiento de fisioterapia y rehabilitación en QP Clinic, a cargo del equipo de Medicina Física y Rehabilitación, bajo los siguientes términos:",
+      "",
+      "MODALIDADES DE TRATAMIENTO. Entiendo que el tratamiento puede incluir una o más de las siguientes modalidades:",
+      "",
+      "• TERMOTERAPIA (aplicación de calor): compresas húmedo-calientes, ultrasonido terapéutico, infrarrojos, diatermia, microondas. RIESGOS: quemaduras de primer o segundo grado, eritema, edema, dolor local, agravamiento de procesos inflamatorios agudos.",
+      "",
+      "• CRIOTERAPIA (aplicación de frío): hielo, compresas frías, criomasa, spray frío. RIESGOS: quemaduras por frío, crioulceración, vasoconstricción excesiva, daño de tejidos en casos de hipersensibilidad al frío o Raynaud.",
+      "",
+      "• ELECTROTERAPIA: corrientes galvánicas, TENS, corrientes interferenciales, corrientes rusas, electroestimulación neuromuscular (NMES), iontoforesis, ultrasonido. RIESGOS: quemaduras eléctricas, irritación cutánea, reacciones alérgicas al gel conductor, espasmos musculares involuntarios, dolor, sensación de picazón o quemazón. CONTRAINDICACIÓN ABSOLUTA en portadores de marcapasos o implantes electrónicos activos.",
+      "",
+      "• MAGNETOTERAPIA: campos magnéticos pulsados. RIESGOS: cefalea, mareo, hipotensión transitoria. CONTRAINDICADO en marcapasos.",
+      "",
+      "• LÁSER TERAPÉUTICO (bajo nivel): fotobioestimulación. RIESGOS: eritema, daño ocular si no se usan protectores adecuados.",
+      "",
+      "• HIDROTERAPIA: tanques, tinas de contraste, baños de remolino. RIESGOS: hipotermia o hipertermia, broncoaspiración, infecciones cruzadas.",
+      "",
+      "• TERAPIA MANUAL: masoterapia, movilizaciones, tracciones, manipulaciones. RIESGOS: dolor post-sesión (24-48h), hematomas superficiales, raramente agravamiento de hernias discales, fracturas patológicas en osteoporosis severa.",
+      "",
+      "• EJERCICIO TERAPÉUTICO: estiramientos, fortalecimiento, propiocepción. RIESGOS: dolor muscular de aparición tardía, fatiga, riesgo de lesión si no se reportan síntomas adversos.",
+      "",
+      "• VENDAJE FUNCIONAL / KINESIOTAPING: RIESGOS: irritación cutánea, reacción alérgica al adhesivo, ampollas.",
+      "",
+      "• ULTRASONIDO TERAPÉUTICO: RIESGOS: calentamiento excesivo, periostitis si se aplica cerca del hueso sin técnica adecuada.",
+      "",
+      "BENEFICIOS ESPERADOS. Reducción del dolor, recuperación de movilidad y fuerza, mejoría funcional y calidad de vida.",
+      "",
+      "COMPROMISOS DEL PACIENTE. Me comprometo a:\n   • Informar al fisioterapeuta sobre cualquier incomodidad, ardor, dolor o reacción inusual durante o después del tratamiento\n   • Informar si soy portador de marcapasos, implantes metálicos o electrónicos, coagulopatías, neoplasias activas o procesos infecciosos\n   • Informar si estoy embarazada\n   • Acudir puntualmente a las sesiones programadas\n   • Reportar cualquier lesión o cambio en mi condición entre sesiones",
+      "",
+      "Conforme a la NOM-004-SSA3-2012 y los lineamientos de la NOM-019-SSA3-2013 (práctica de enfermería y rehabilitación).",
+    ]
+  },
+  puncion_seca:{
+    titulo:"CONSENTIMIENTO INFORMADO — PUNCIÓN SECA",
+    categoria:"Fisioterapia / Procedimientos",
+    clave:"puncion_seca",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO la realización de PUNCIÓN SECA (PS) — técnica invasiva de fisioterapia que consiste en la inserción de agujas de acupuntura estériles en puntos gatillo miofasciales, tendones o músculos con el fin terapéutico de reducir el dolor y mejorar la función.",
+      "",
+      "BENEFICIOS ESPERADOS: Desactivación de puntos gatillo, reducción de dolor miofascial, mejoría de rango de movimiento, relajación muscular.",
+      "",
+      "RIESGOS Y POSIBLES EFECTOS ADVERSOS:",
+      "• Dolor local durante y hasta 24-48 horas después del procedimiento (respuesta normal)\n• Hematoma o sangrado en el sitio de punción\n• Respuesta de espasmo local (LTR — local twitch response) — dolorosa pero terapéutica\n• Mareo o síncope vasovagal (poco frecuente)\n• Infección local si no se mantienen condiciones de esterilidad (muy poco frecuente)\n• Neumotórax si se aplica en región torácica (riesgo bajo con técnica adecuada)\n• Lesión nerviosa (extremadamente rara)\n• Ruptura de aguja (muy rara con agujas desechables de un solo uso)",
+      "",
+      "CONTRAINDICACIONES ABSOLUTAS (confirmo NO presentar):\n   • Trastorno de coagulación no controlado o anticoagulación de alto riesgo\n   • Linfedema en la región a tratar\n   • Alergia al metal (níquel)\n   • Miedo severo o fobia a las agujas (belefonefobia)\n   • Piel comprometida, infección o tumor en la zona\n   • Embarazo (en zonas contraindicadas)",
+      "",
+      "Confirmo que he informado a mi fisioterapeuta sobre mis antecedentes médicos relevantes, medicamentos actuales y condiciones anteriores. AUTORIZO la realización de la punción seca.",
+    ]
+  },
+  electropuntura:{
+    titulo:"CONSENTIMIENTO INFORMADO — ELECTROPUNTURA",
+    categoria:"Fisioterapia / Procedimientos",
+    clave:"electropuntura",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO la realización de ELECTROPUNTURA — técnica que combina la inserción de agujas de acupuntura estériles con la aplicación de corriente eléctrica de baja frecuencia a través de las mismas, con finalidad analgésica y terapéutica.",
+      "",
+      "BENEFICIOS ESPERADOS: Potenciación del efecto analgésico de la punción seca, estimulación de liberación de endorfinas, modulación del dolor crónico, mejoría funcional.",
+      "",
+      "RIESGOS Y POSIBLES EFECTOS ADVERSOS:",
+      "• Los mismos que la punción seca (ver arriba)\n• Quemaduras eléctricas en el sitio de la aguja si la intensidad es excesiva\n• Sensación de quemazón, picazón o dolor eléctrico durante el procedimiento\n• Espasmos musculares involuntarios\n• Irritación cutánea alrededor del sitio de punción\n• Cefalea, mareo o náusea (poco frecuente)",
+      "",
+      "CONTRAINDICACIONES ABSOLUTAS (confirmo NO presentar):\n   • Portador de marcapasos cardíaco u otro implante electrónico activo\n   • Epilepsia activa sin control farmacológico\n   • Embarazo (zonas abdominales, lumbares o pelvianas)\n   • Trombosis venosa profunda activa\n   • Áreas de pérdida sensitiva (no hay percepción del dolor ni de quemaduras)",
+      "",
+      "AUTORIZO la realización de la electropuntura con los parámetros determinados por mi fisioterapeuta.",
+    ]
+  },
+  proloterapia:{
+    titulo:"CONSENTIMIENTO INFORMADO — INFILTRACIÓN PERINEURAL / PROLOTERAPIA",
+    categoria:"Procedimientos",
+    clave:"proloterapia",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO la realización de INFILTRACIÓN PERINEURAL (inyecciones perineurales subcutáneas de solución glucosada al 5%, técnica de Lyftogt) y/o PROLOTERAPIA (inyecciones en ligamentos, tendones o articulaciones con soluciones proliferantes), con el fin de reducir el dolor neuropático periférico y promover la reparación de tejidos blandos.",
+      "",
+      "BENEFICIOS ESPERADOS: Reducción del dolor neuropático periférico, regeneración de ligamentos y tendones, estabilización articular, mejoría funcional.",
+      "",
+      "SUSTANCIAS UTILIZADAS: Solución glucosada al 5% isotónica (perineural) o al 12.5-25% (proloterapia), Procaína o Lidocaína al 0.1-0.5%, Vitamina B12, suero fisiológico. Se utilizan agujas desechables estériles.",
+      "",
+      "RIESGOS Y POSIBLES EFECTOS ADVERSOS:",
+      "• Dolor, ardor e inflamación local post-procedimiento (24-72 horas — esperado y parte del mecanismo de acción)\n• Hematoma en el sitio de inyección\n• Reacción vasovagal (mareo, náusea, síncope) durante el procedimiento\n• Infección local (riesgo bajo con técnica aséptica)\n• Reacción alérgica al anestésico local (Procaína/Lidocaína) — avise si tiene antecedentes\n• Lesión nerviosa o vascular (muy rara con guía ecográfica o técnica adecuada)\n• Neumotórax si se aplica en región torácica (muy raro)\n• Agravamiento transitorio del dolor (2-5 días)",
+      "",
+      "CONTRAINDICACIONES (confirmo NO presentar actualmente):\n   • Diabetes descontrolada (glucosa >250 mg/dL)\n   • Infección activa en la zona a tratar\n   • Anticoagulación de alto riesgo o coagulopatía grave\n   • Alergia conocida a anestésicos locales tipo amida o éster\n   • Neoplasia activa en la región\n   • Corticoterapia sistémica activa (puede interferir con el efecto)",
+      "",
+      "He sido informado de que se requiere un promedio de 3 a 6 sesiones con intervalos de 1-3 semanas para observar resultados óptimos. AUTORIZO el procedimiento.",
+    ]
+  },
+  infiltraciones:{
+    titulo:"CONSENTIMIENTO INFORMADO — INFILTRACIONES ARTICULARES Y DE TEJIDOS BLANDOS",
+    categoria:"Procedimientos",
+    clave:"infiltraciones",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO la realización de INFILTRACIONES TERAPÉUTICAS en articulaciones, bursas, tendones o tejidos blandos, mediante inyección de medicamentos (corticosteroide, hialuronato de sodio, anestésico local, o combinación).",
+      "",
+      "BENEFICIOS ESPERADOS: Reducción del dolor articular, disminución de inflamación, mejoría de movilidad, posible regeneración del cartílago (hialurónico).",
+      "",
+      "SUSTANCIAS QUE PUEDEN UTILIZARSE:\n   • Corticosteroide (metilprednisolona, triamcinolona, betametasona) + anestésico local\n   • Hialuronato de sodio (viscosuplementación)\n   • Plasma Rico en Plaquetas (PRP) — si aplica\n   • Anestésico local (lidocaína, bupivacaína)",
+      "",
+      "RIESGOS Y POSIBLES EFECTOS ADVERSOS:",
+      "• Dolor post-infiltración (6-24 horas — esperable con corticosteroide)\n• Hematoma o equimosis en el sitio\n• Infección articular séptica (artritis séptica) — rara (<1 en 3,000 procedimientos)\n• Reacción alérgica al medicamento inyectado\n• Atrofia o despigmentación cutánea (con corticosteroide superficial)\n• Ruptura tendinosa si se infiltra directamente el tendón con corticosteroide\n• Elevación transitoria de glucemia en pacientes diabéticos\n• Efecto rebote o agravamiento temporal del dolor\n• Calcificación heterotópica (muy rara)",
+      "",
+      "CONTRAINDICACIONES (confirmo NO presentar):\n   • Infección activa local o sistémica\n   • Articulación protésica infectada\n   • Fractura intraarticular no estabilizada\n   • Alergia conocida a los medicamentos a inyectar\n   • Coagulopatía no controlada",
+      "",
+      "NÚMERO DE SESIONES: El médico determinará el número de infiltraciones según mi respuesta clínica. Se recomienda no exceder 3 infiltraciones con corticosteroide por articulación por año.",
+      "",
+      "AUTORIZO la realización de la infiltración terapéutica indicada.",
+    ]
+  },
+  esfuerzo:{
+    titulo:"CONSENTIMIENTO INFORMADO — PRUEBA DE ESFUERZO",
+    categoria:"Cardiología / Medicina del Deporte",
+    clave:"esfuerzo",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO la realización de una PRUEBA DE ESFUERZO (ergometría o prueba de tolerancia al ejercicio), que consiste en la realización de ejercicio físico progresivo en cinta rodante o bicicleta estacionaria mientras se monitorea el electrocardiograma, la presión arterial y la saturación de oxígeno.",
+      "",
+      "OBJETIVO DEL ESTUDIO: Evaluación de la capacidad cardiorrespiratoria, detección de isquemia miocárdica inducida por ejercicio, valoración del riesgo cardiovascular y prescripción de ejercicio.",
+      "",
+      "BENEFICIOS: Obtención de información objetiva sobre la función cardiaca y respiratoria bajo esfuerzo, que no es posible evaluar en reposo.",
+      "",
+      "RIESGOS:",
+      "• Mareo, náusea o fatiga durante la prueba\n• Molestia o dolor muscular\n• Alteraciones del ritmo cardiaco (arritmias transitorias)\n• Elevación anormal de la presión arterial\n• En casos muy raros (<1 en 10,000 pruebas): angina de pecho, infarto de miocardio, arritmia grave, paro cardiaco",
+      "",
+      "El personal de QP Clinic cuenta con equipo de reanimación cardiopulmonar y está capacitado en soporte vital avanzado. La prueba será SUSPENDIDA inmediatamente si aparecen signos o síntomas de alarma.",
+      "",
+      "CONTRAINDICACIONES (confirmo NO presentar actualmente):\n   • Infarto de miocardio reciente (<48-72 horas)\n   • Angina inestable\n   • Insuficiencia cardiaca descompensada\n   • Arritmias graves no controladas\n   • Estenosis aórtica severa\n   • Miocarditis aguda\n   • Presión arterial en reposo >200/110 mmHg\n   • Incapacidad física para realizar ejercicio",
+      "",
+      "ME COMPROMETO a informar inmediatamente si siento dolor en el pecho, disnea severa, mareo intenso, palpitaciones, debilidad extrema o cualquier síntoma que me preocupe durante la prueba.",
+      "",
+      "AUTORIZO la realización de la prueba de esfuerzo.",
+    ]
+  },
+  eaa:{
+    titulo:"CONSENTIMIENTO INFORMADO — TERAPIA CON ESTEROIDES ANABÓLICOS ANDROGÉNICOS (EAA) Y HORMONAS",
+    categoria:"Medicina del Deporte",
+    clave:"eaa",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO la prescripción y uso de terapia hormonal y/o sustancias con efecto anabólico-androgénico bajo supervisión médica de QP Clinic, habiendo recibido información completa sobre:",
+      "",
+      "PROPÓSITO MÉDICO: El tratamiento ha sido indicado con fines terapéuticos documentados (hipogonadismo, déficit hormonal, recuperación de lesión, prescripción médica justificada), y no con fines de dopaje o mejora del rendimiento fuera del contexto médico.",
+      "",
+      "RIESGOS CONOCIDOS Y POSIBLES EFECTOS ADVERSOS:",
+      "",
+      "CARDIOVASCULARES:\n   • Aumento de colesterol LDL y reducción de HDL\n   • Hipertensión arterial\n   • Hipertrofia ventricular izquierda\n   • Mayor riesgo de trombosis venosa, infarto y AVC\n   • Cardiomiopatía",
+      "",
+      "HEPÁTICOS (principalmente con presentaciones orales):\n   • Hepatotoxicidad, elevación de transaminasas\n   • Peliosis hepática, adenoma hepático (uso prolongado)\n   • Ictericia colestásica",
+      "",
+      "ENDOCRINOLÓGICOS:\n   • Supresión del eje hipotálamo-hipófisis-gónadas\n   • Atrofia testicular e infertilidad temporal o permanente\n   • Ginecomastia (aumento de tejido mamario en hombres)\n   • En mujeres: virilización, alteración del ciclo menstrual, clitoromegalia",
+      "",
+      "DERMATOLÓGICOS: Acné severo, alopecia androgénica, estrías.",
+      "",
+      "PSICOLÓGICOS: Cambios de humor, irritabilidad, agresividad (\"roid rage\"), depresión al suspender.",
+      "",
+      "MUSCULOESQUELÉTICOS (en adolescentes): Cierre prematuro de epífisis y talla baja definitiva.",
+      "",
+      "ME COMPROMETO a:\n   • Acudir a controles periódicos (laboratorios, ECG, hematología)\n   • Informar cualquier síntoma nuevo inmediatamente\n   • No administrar ni compartir las sustancias con terceros\n   • No participar en competencias deportivas sujetas a control antidopaje bajo este tratamiento sin previa consulta médica\n   • Seguir estrictamente el esquema de dosificación y suspensión indicado",
+      "",
+      "AUTORIZO la prescripción de esta terapia bajo supervisión médica de QP Clinic.",
+    ]
+  },
+  glp1:{
+    titulo:"CONSENTIMIENTO INFORMADO — TRATAMIENTO CON AGONISTAS GLP-1\n(semaglutida / tirzepatida — Ozempic®, Wegovy®, Mounjaro®)",
+    categoria:"Medicina General / Endocrinología",
+    clave:"glp1",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO el tratamiento con agonistas del receptor de GLP-1 (glucagón-like peptide-1) y/o agonistas duales GLP-1/GIP, bajo prescripción médica de QP Clinic.",
+      "",
+      "MEDICAMENTO(S) INDICADO(S): Semaglutida (Ozempic®/Wegovy®) y/o Tirzepatida (Mounjaro®/Zepbound®), administrados por inyección subcutánea semanal.",
+      "",
+      "INDICACIONES MÉDICAS APROBADAS: Diabetes mellitus tipo 2 (DM2), obesidad (IMC ≥30 o ≥27 con comorbilidades), reducción de riesgo cardiovascular en pacientes con DM2 y ECV establecida.",
+      "",
+      "BENEFICIOS ESPERADOS: Reducción de glucemia (HbA1c), pérdida de peso (5-15% o más), reducción de riesgo cardiovascular, mejoría del perfil metabólico.",
+      "",
+      "EFECTOS ADVERSOS FRECUENTES (>10%):\n   • Náusea, vómito, diarrea, estreñimiento (especialmente al inicio o aumentar dosis)\n   • Dolor abdominal, dispepsia, acidez",
+      "",
+      "EFECTOS ADVERSOS POCO FRECUENTES:\n   • Hipoglucemia (principalmente si se combina con insulina o sulfonilureas)\n   • Reacciones en el sitio de inyección\n   • Taquicardia leve\n   • Retinopatía diabética (con reducción rápida de HbA1c)\n   • Alopecia transitoria",
+      "",
+      "EFECTOS ADVERSOS RAROS PERO GRAVES:\n   • Pancreatitis aguda — consulte inmediatamente si presenta dolor abdominal severo irradiado a espalda\n   • Colelitiasis y colecistitis\n   • Insuficiencia renal aguda (por deshidratación secundaria a náusea/vómito)\n   • Íleo paralítico — reportado con uso crónico\n   • Riesgo teórico de carcinoma medular de tiroides (basado en estudios en roedores — no confirmado en humanos pero contraindicado en antecedentes familiares)",
+      "",
+      "ADVERTENCIAS IMPORTANTES:\n   • Contraindicado en embarazo y lactancia — use anticoncepción efectiva durante el tratamiento\n   • Suspender al menos 2 meses antes de intentar embarazo\n   • Contraindicado con antecedentes personales o familiares de carcinoma medular de tiroides o NEM tipo 2\n   • Contraindicado en pancreatitis crónica o antecedente de pancreatitis aguda severa\n   • La pérdida de peso rápida puede causar pérdida de masa muscular — recomendamos combinar con ejercicio y proteína adecuada",
+      "",
+      "MEDICAMENTOS DE LIBRE DISPONIBILIDAD (no regulados por COFEPRIS como medicamentos): Se le advierte que las versiones compuestas (\"compounded\") o no aprobadas disponibles en internet o redes sociales pueden ser falsificadas, contener dosificación incorrecta o sustancias no declaradas. QP Clinic solo prescribe medicamentos con registro COFEPRIS vigente.",
+      "",
+      "ME COMPROMETO a acudir a controles periódicos de laboratorio, peso y presión arterial; informar inmediatamente sobre dolor abdominal severo, vómito persistente, hipoglucemias o cualquier síntoma nuevo.",
+      "",
+      "AUTORIZO el inicio del tratamiento con agonista GLP-1/GIP bajo supervisión médica.",
+    ]
+  },
+  qpclinic:{
+    titulo:"CONSENTIMIENTO INFORMADO — TRATAMIENTO MÉDICO-DEPORTIVO EN QP CLINIC",
+    categoria:"Medicina del Deporte",
+    clave:"qpclinic",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO recibir atención médica especializada en Medicina del Deporte, Rehabilitación y Salud Integral en QP Clinic, S.C., bajo la supervisión del equipo médico multidisciplinario.",
+      "",
+      "SERVICIOS QUE PUEDEN PRESTARSE: Consulta médica deportiva, evaluación de composición corporal (InBody), prueba de esfuerzo, prescripción de ejercicio, nutrición deportiva, fisioterapia y rehabilitación, procedimientos diagnósticos y terapéuticos.",
+      "",
+      "COMPRENDO Y ACEPTO QUE:",
+      "1. El objetivo del tratamiento es optimizar mi salud, rendimiento deportivo y calidad de vida.\n2. Los resultados dependen de factores individuales y de mi adherencia al tratamiento.\n3. Debo informar verazmente sobre mi historial médico, lesiones previas, medicamentos, suplementos y nivel de actividad física.\n4. El ejercicio físico conlleva riesgos inherentes que aumentan con la intensidad; acudiré de inmediato si presento dolor en el pecho, disnea intensa o mareo durante el ejercicio.\n5. Seguiré las indicaciones de mi médico y fisioterapeuta durante y entre sesiones.\n6. Avisaré antes de cualquier competencia o evento deportivo para ajustar el plan de entrenamiento.",
+      "",
+      "DECLARACIÓN DE SALUD: Declaro que la información que he proporcionado en mi expediente es verídica. Entiendo que omitir información relevante puede comprometer mi seguridad y la efectividad del tratamiento.",
+      "",
+      "AUTORIZO a QP Clinic a utilizar mis resultados de manera anonimizada para fines educativos y de investigación interna, en cumplimiento con la LFPDPPP.",
+    ]
+  },
+  seguimiento:{
+    titulo:"CARTA COMPROMISO — SEGUIMIENTO MÉDICO-DEPORTIVO",
+    categoria:"Medicina del Deporte",
+    clave:"seguimiento",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "ASUMO el siguiente COMPROMISO DE SEGUIMIENTO con QP Clinic para garantizar la continuidad, seguridad y efectividad de mi plan de atención médico-deportiva:",
+      "",
+      "1. CITAS Y CONTROLES. Me comprometo a acudir puntualmente a mis citas programadas. En caso de no poder asistir, avisaré con al menos 24 horas de anticipación al +52 5644237028. La inasistencia reiterada sin aviso puede resultar en la cancelación de mi plan de seguimiento.",
+      "",
+      "2. INDICACIONES MÉDICAS. Seguiré el plan de entrenamiento, nutrición y tratamiento indicado por mi médico. No modificaré dosis de medicamentos ni suplementos sin consultar previamente.",
+      "",
+      "3. COMUNICACIÓN. Reportaré inmediatamente cualquier lesión, síntoma nuevo o deterioro de mi condición a través de los canales de QP Clinic.",
+      "",
+      "4. EXÁMENES DE CONTROL. Realizaré los estudios de laboratorio, gabinete y valoraciones físicas en las fechas indicadas.",
+      "",
+      "5. RESPONSABILIDAD. Comprendo que el éxito del tratamiento depende en gran medida de mi adherencia y participación activa. QP Clinic no puede hacerse responsable de resultados insatisfactorios derivados de incumplimiento del plan indicado.",
+      "",
+      "6. ACTUALIZACIÓN DE INFORMACIÓN. Informaré sobre cualquier cambio en mi estado de salud, medicamentos, cirugías o lesiones ocurridas fuera de QP Clinic.",
+      "",
+      "Firmo este compromiso de manera libre, voluntaria y consciente.",
+    ]
+  },
+  biopsia_mama:{
+    titulo:"CONSENTIMIENTO INFORMADO — BIOPSIA DE MAMA",
+    categoria:"Ginecología",
+    clave:"biopsia_mama",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO la realización de una BIOPSIA DE MAMA (toma de muestra de tejido mamario mediante aguja gruesa — trucut, aspiración con aguja fina — BAAF, o biopsia excisional), indicada para el estudio anatomopatológico de una lesión mamaria.",
+      "",
+      "OBJETIVO: Obtener tejido para análisis histopatológico que permita determinar la naturaleza (benigna o maligna) de la lesión identificada.",
+      "",
+      "RIESGOS Y POSIBLES COMPLICACIONES:",
+      "• Dolor o molestia durante y después del procedimiento\n• Hematoma o sangrado en la zona de punción\n• Infección local (poco frecuente)\n• Cicatriz en el sitio de biopsia\n• Resultados no concluyentes que requieran repetir el procedimiento\n• En biopsias excisionales: cambio estético de la mama",
+      "",
+      "HE SIDO INFORMADA de que:\n   • El procedimiento se realizará con anestesia local\n   • La muestra será enviada a patología para análisis\n   • Los resultados estarán disponibles en 5-10 días hábiles\n   • Un resultado negativo no descarta completamente una lesión maligna; el seguimiento clínico continuará",
+      "",
+      "AUTORIZO la realización de la biopsia de mama y el envío de la muestra al laboratorio de patología.",
+    ]
+  },
+  checkup_gine:{
+    titulo:"CONSENTIMIENTO INFORMADO — CHECKUP GINECOLÓGICO COMPLETO",
+    categoria:"Ginecología",
+    clave:"checkup_gine",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO la realización de un CHECKUP GINECOLÓGICO COMPLETO que puede incluir los siguientes procedimientos:",
+      "",
+      "• EXPLORACIÓN FÍSICA GINECOLÓGICA: Inspección de genitales externos, especuloscopía vaginal.\n• PAPANICOLAOU (Citología cervico-vaginal): Toma de muestra del cérvix para detección de lesiones premalignas y VPH.\n• COLPOSCOPÍA (si está indicada): Visualización amplificada del cérvix.\n• ULTRASONIDO PÉLVICO (transvaginal o transabdominal): Evaluación de útero, ovarios y cavidad pélvica.\n• MASTOGRAFÍA / ULTRASONIDO MAMARIO (según edad y factores de riesgo).\n• TOMA DE MUESTRAS: Para cultivo, detección de ITS u otras indicaciones clínicas.",
+      "",
+      "RIESGOS Y POSIBLES MOLESTIAS:",
+      "• Leve incomodidad o dolor durante la especuloscopía o toma de muestra\n• Sangrado escaso post-procedimiento (normal)\n• Resultado de Papanicolaou que requiera seguimiento adicional\n• Hallazgos inesperados que requieran estudios complementarios o derivación",
+      "",
+      "COMPRENDO que:\n   • Los resultados del Papanicolaou pueden tardar 7-15 días hábiles\n   • Un resultado normal no garantiza ausencia de patología futura\n   • El checkup no sustituye la atención de síntomas específicos\n   • Cualquier hallazgo significativo será comunicado de inmediato",
+      "",
+      "AUTORIZO la realización del checkup ginecológico y los procedimientos clínicamente indicados.",
+    ]
+  },
+  quirurgico:{
+    titulo:"CONSENTIMIENTO INFORMADO QUIRÚRGICO",
+    categoria:"Cirugía",
+    clave:"quirurgico",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO el acto quirúrgico indicado por mi médico, habiendo recibido información completa sobre el procedimiento a realizar.",
+      "",
+      "HE SIDO INFORMADO de:\n   • El diagnóstico que justifica la cirugía\n   • El nombre y descripción del procedimiento quirúrgico\n   • La técnica quirúrgica propuesta y las alternativas disponibles\n   • Los beneficios esperados y el pronóstico sin cirugía\n   • El tipo de anestesia propuesta (se firmará consentimiento anestésico por separado)",
+      "",
+      "RIESGOS GENERALES DE CUALQUIER CIRUGÍA:",
+      "• Infección del sitio quirúrgico (superficial, profunda o de órgano)\n• Sangrado intraoperatorio o postoperatorio que pueda requerir transfusión\n• Dehiscencia (apertura) de herida quirúrgica\n• Formación de cicatriz queloidea o hipertrófica\n• Trombosis venosa profunda (TVP) y tromboembolismo pulmonar (TEP)\n• Lesión de estructuras adyacentes (nervios, vasos, órganos)\n• Reacciones anestésicas (incluidas en consentimiento anestésico)\n• Necesidad de conversión a técnica abierta si el procedimiento es laparoscópico/artroscópico\n• Dolor postoperatorio\n• Complicaciones específicas del procedimiento realizado (descritas verbalmente)",
+      "",
+      "RIESGOS ESPECÍFICOS DEL PROCEDIMIENTO INDICADO:",
+      "(descritos verbalmente por el cirujano y registrados en la nota preoperatoria)",
+      "",
+      "COMPRENDO QUE:\n   • La cirugía no garantiza la curación completa\n   • Pueden requerirse procedimientos adicionales\n   • La recuperación puede variar individualmente\n   • Debo seguir estrictamente las indicaciones postoperatorias",
+      "",
+      "AUTORIZO al cirujano y a su equipo a realizar el procedimiento indicado, así como a tomar las medidas que sean médicamente necesarias en caso de hallazgos intraoperatorios imprevistos que pongan en riesgo mi vida o salud.",
+      "",
+      "Conforme a la NOM-004-SSA3-2012 Art. 10.",
+    ]
+  },
+  anestesia:{
+    titulo:"CONSENTIMIENTO INFORMADO ANESTÉSICO",
+    categoria:"Anestesiología",
+    clave:"anestesia",
+    texto:(p,med,fecha)=>[
+      `En la Ciudad de México, a ${fecha}, yo ${p}:`,
+      "",
+      "CONSIENTO la administración de anestesia para el procedimiento quirúrgico o médico indicado, a cargo del médico anestesiólogo de QP Clinic.",
+      "",
+      "HE SIDO INFORMADO de:\n   • El tipo de anestesia propuesta y sus alternativas\n   • La clasificación de riesgo anestésico (ASA) correspondiente a mi estado de salud\n   • Los beneficios de la anestesia para tolerar el procedimiento sin dolor",
+      "",
+      "RIESGOS Y POSIBLES COMPLICACIONES ANESTÉSICAS:",
+      "",
+      "FRECUENTES (pueden ocurrir en 1 de cada 10 pacientes):\n   • Náusea y vómito postoperatorio (NVPO)\n   • Dolor de garganta tras intubación endotraqueal\n   • Escalofríos y temblores al despertar\n   • Somnolencia, confusión o mareo transitorio\n   • Dolor en el sitio de venopuntura",
+      "",
+      "POCO FRECUENTES (1 en 100 a 1 en 1,000):\n   • Lesión dental durante la intubación\n   • Ronquera o disfonía transitoria\n   • Hipotensión o hipertensión arterial transoperatoria\n   • Arritmia cardiaca\n   • Cefalea post-punción lumbar (anestesia espinal/epidural)\n   • Dificultad para intubar (vía aérea difícil)",
+      "",
+      "RARAS PERO GRAVES (<1 en 10,000):\n   • Alergia o anafilaxia a medicamentos anestésicos\n   • Hipertermia maligna (reacción genética rara a agentes volátiles)\n   • Aspiración de contenido gástrico (neumonía aspirativa)\n   • Paro cardiaco intraoperatorio\n   • Daño neurológico (con anestesia neuroaxial)\n   • Conciencia durante la anestesia general (awareness — muy rara <1:1,000)",
+      "",
+      "ME COMPROMETO a:\n   • Respetar el ayuno indicado (sólidos 6h, líquidos claros 2h mínimo)\n   • Informar sobre todos mis medicamentos, suplementos y alergias\n   • Avisar si soy portador de marcapasos, prótesis o implantes\n   • Informar antecedentes de complicaciones anestésicas propias o familiares\n   • Seguir las indicaciones postanestésicas (no conducir hasta 24h después)",
+      "",
+      "AUTORIZO la administración de anestesia y las maniobras de soporte vital que sean necesarias durante el procedimiento.",
+      "",
+      "Conforme a la NOM-006-SSA3-2011 Arts. 8.2 y 9.",
+    ]
+  }
+};
+
+// ── PDF de consentimiento ─────────────────────────────────
+window.generarConsentimientoPDF=async function(clave){
+  const {jsPDF}=window.jspdf;
+  if(!jsPDF){showToast("jsPDF no disponible",false);return;}
+  const ci=CI_CATALOGO[clave];
+  if(!ci){showToast("Consentimiento no encontrado",false);return;}
+  const p=STATE.pat||{};
+  const med=STATE.userProfile||{};
+  const fecha=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"});
+  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim()||"PACIENTE NO ESPECIFICADO";
+  const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim().toUpperCase();
+  const lineas=ci.texto(nomPac.toUpperCase(),medNom,fecha);
+
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+  const W=216,M=14,maxW=W-M*2;
+
+  // ── Helper imagen ──
+  async function addImg(url,x,y,maxH,maxW2){
+    try{
+      const res=await fetch(url);const blob=await res.blob();
+      const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+      const img=await new Promise((rs,rj)=>{const i=new Image();i.onload=()=>rs(i);i.onerror=rj;i.src=b64;});
+      const ratio=img.width/img.height;let h=maxH,w=h*ratio;
+      if(w>maxW2){w=maxW2;h=w/ratio;}
+      doc.addImage(b64,url.toLowerCase().includes("png")?"PNG":"JPEG",x,y,w,h);
+      return{w,h};
+    }catch(e){return{w:0,h:0};}
+  }
+
+  // ── HEADER ──
+  await addImg("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",M,7,14,32);
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);
+  doc.text(medNom,W-M,11,{align:"right"});
+  if(med.especialidad_1){doc.setFont("helvetica","normal");doc.text(med.especialidad_1.toUpperCase(),W-M,15,{align:"right"});}
+  if(med.cedula_esp_1||med.cedula_medico){doc.text(`Céd. ${med.cedula_esp_1||med.cedula_medico}`,W-M,19,{align:"right"});}
+  doc.setDrawColor(0,58,93);doc.setLineWidth(0.8);doc.line(M,23,W-M,23);
+
+  // ── TÍTULO DEL DOCUMENTO ──
+  let cy=31;
+  doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);
+  const tLines=doc.splitTextToSize(ci.titulo,maxW);
+  tLines.forEach(tl=>{doc.text(tl,W/2,cy,{align:"center"});cy+=5.5;});
+  doc.setFontSize(7.5);doc.setFont("helvetica","italic");doc.setTextColor(70,70,70);
+  doc.text(`Folio de expediente: ${p.numero_expediente||"—"}   ·   Fecha: ${hoy}`,W/2,cy,{align:"center"});cy+=4;
+  doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);doc.line(M,cy,W-M,cy);cy+=5;
+
+  // ── DATOS DEL PACIENTE ──
+  doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.setTextColor(30,30,30);
+  doc.text("PACIENTE:",M,cy);doc.setFont("helvetica","normal");doc.text(nomPac,M+22,cy);
+  doc.setFont("helvetica","bold");doc.text("FECHA NAC.:",W/2-5,cy);doc.setFont("helvetica","normal");doc.text(p.fecha_nacimiento||"—",W/2+18,cy);
+  cy+=5;
+  doc.setFont("helvetica","bold");doc.text("SEXO:",M,cy);doc.setFont("helvetica","normal");doc.text(p.sexo_biologico||"—",M+13,cy);
+  doc.setFont("helvetica","bold");doc.text("CURP:",W/2-5,cy);doc.setFont("helvetica","normal");doc.text(p.curp||"—",W/2+8,cy);
+  cy+=4;doc.setDrawColor(180,180,180);doc.setLineWidth(0.2);doc.line(M,cy,W-M,cy);cy+=5;
+
+  // ── CUERPO DEL DOCUMENTO ──
+  doc.setFontSize(8.5);doc.setTextColor(30,30,30);
+  const FOOTER_Y=240;
+  for(const rawLine of lineas){
+    if(cy>FOOTER_Y){
+      doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);doc.line(M,FOOTER_Y+5,W-M,FOOTER_Y+5);
+      doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
+      doc.text("QP Clinic, S.C. · RFC QCL230518J66 · Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX · Tel. 5644237028",W/2,FOOTER_Y+9,{align:"center"});
+      doc.addPage();
+      cy=15;
+      doc.setFontSize(8.5);doc.setTextColor(30,30,30);
+    }
+    if(!rawLine.trim()){cy+=2.5;continue;}
+    const isBold=rawLine.match(/^[A-ZÁÉÍÓÚÑ\d•\-][A-ZÁÉÍÓÚÑ\s\d•\-]{4,}:/)||rawLine.match(/^\d+\./);
+    doc.setFont("helvetica",isBold?"bold":"normal");
+    const wrapped=doc.splitTextToSize(rawLine,maxW);
+    for(const wl of wrapped){
+      if(cy>FOOTER_Y){
+        doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);doc.line(M,FOOTER_Y+5,W-M,FOOTER_Y+5);
+        doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
+        doc.text("QP Clinic, S.C. · RFC QCL230518J66 · Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX · Tel. 5644237028",W/2,FOOTER_Y+9,{align:"center"});
+        doc.addPage();cy=15;
+        doc.setFontSize(8.5);doc.setTextColor(30,30,30);
+      }
+      doc.text(wl,M,cy);cy+=4.5;
+    }
+  }
+
+  // ── SECCIÓN DE FIRMAS ──
+  cy=Math.max(cy+6,FOOTER_Y-45);
+  if(cy>FOOTER_Y){doc.addPage();cy=20;}
+  doc.setDrawColor(0,58,93);doc.setLineWidth(0.4);doc.line(M,cy,W-M,cy);cy+=4;
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);
+  doc.text("FIRMAS",W/2,cy,{align:"center"});cy+=8;
+
+  // Firma paciente / tutor
+  const fCol1=M, fCol2=W/2+5;
+  const fY=cy+18;
+  doc.setDrawColor(60,60,60);doc.setLineWidth(0.4);
+  doc.line(fCol1,fY,fCol1+65,fY);
+  doc.line(fCol2,fY,fCol2+65,fY);
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(30,30,30);
+  doc.text("FIRMA DEL PACIENTE / TUTOR LEGAL",fCol1,fY+4);
+  doc.text("FIRMA DEL MÉDICO / PROFESIONAL DE SALUD",fCol2,fY+4);
+  doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(90,90,90);
+  doc.text(nomPac,fCol1,fY+8);
+  doc.text(medNom,fCol2,fY+8);
+  doc.text(`CURP: ${p.curp||"—"}`,fCol1,fY+12);
+  doc.text(`Céd. ${med.cedula_esp_1||med.cedula_medico||"—"}`,fCol2,fY+12);
+
+  // Firma digital del médico si existe
+  if(med.firma_digital){
+    try{
+      const res=await fetch(med.firma_digital);const blob=await res.blob();
+      const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+      const img=await new Promise((rs,rj)=>{const i=new Image();i.onload=()=>rs(i);i.onerror=rj;i.src=b64;});
+      const mxH=14,mxW=45,ratio=img.width/img.height;
+      let h=mxH,w=h*ratio;if(w>mxW){w=mxW;h=w/ratio;}
+      doc.addImage(b64,med.firma_digital.toLowerCase().includes("png")?"PNG":"JPEG",fCol2,fY-h-2,w,h);
+    }catch(e){}
+  }
+
+  // ── FOOTER ──
+  const fy=274;
+  doc.setDrawColor(0,58,93);doc.setLineWidth(0.4);doc.line(M,fy,W-M,fy);
+  doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(70,70,70);
+  doc.text("QP Clinic, S.C. · RFC QCL230518J66 · Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX · Tel. 5644237028 · www.qpclinic.org",W/2,fy+4,{align:"center"});
+  doc.text(`Documento generado el ${hoy} mediante ECE QP Clinic — NOM-004-SSA3-2012`,W/2,fy+8,{align:"center"});
+
+  const fname=`CI_${clave}_${nomPac.replace(/\s+/g,"_")}_${hoy.replace(/\//g,"-")}.pdf`;
+  doc.save(fname);
+  showToast("✓ Consentimiento generado");
+
+  // Guardar registro en Supabase
+  const pid=STATE.pat?.id;
+  if(pid){
+    SB.from("anexos").insert({
+      paciente_id:pid,
+      titulo:`CI - ${ci.titulo}`,
+      tipo_documento:"consentimiento_informado",
+      origen:"generado",
+      firmado:false,
+      fecha:new Date().toISOString().split("T")[0],
+    }).then(()=>{});
+  }
+}
+
 window.toggleCfgMenu=function(){
   const m=document.getElementById("cfg-menu");
   if(!m)return;
@@ -4354,7 +4913,17 @@ async function renderDocsAnexos(ab){
             ["infiltraciones","Consentimiento para Infiltraciones"],
             ["esfuerzo","Consentimiento Prueba de Esfuerzo"],
             ["glp1","Consentimiento GLP-1 (Ozempic® / Mounjaro®)"],
-          ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:5px 0;border-bottom:1px solid ${BR}"><input type="checkbox" data-doc="${k}" style="accent-color:${P};width:14px;height:14px"> ${l}</label>`).join("")}
+            ["quirurgico","Consentimiento Quirúrgico"],
+            ["anestesia","Consentimiento Anestésico"],
+            ["fisioterapia","Consentimiento — Fisioterapia y Rehabilitación"],
+            ["puncion_seca","Consentimiento — Punción Seca"],
+            ["electropuntura","Consentimiento — Electropuntura"],
+            ["proloterapia","Consentimiento — Infiltración Perineural / Proloterapia"],
+            ["biopsia_mama","Consentimiento — Biopsia de Mama"],
+            ["checkup_gine","Consentimiento — Checkup Ginecológico"],
+          ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:5px 0;border-bottom:1px solid ${BR}"><input type="checkbox" data-doc="${k}" style="accent-color:${P};width:14px;height:14px"> ${l}
+            <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" style="margin-left:auto;background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:1px 7px;cursor:pointer;font-size:11px;font-weight:700">📄</button>
+          </label>`).join("")}
         </div>
         <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:14px;color:#1B5E20">
           📱 <b>Se enviará desde:</b> WhatsApp QP Clinic <b>+52 5644237028</b><br>
@@ -4411,19 +4980,40 @@ window.abrirModalFirmaGlobal=function(){
           ["infiltraciones","Consentimiento para Infiltraciones"],
           ["esfuerzo","Consentimiento Prueba de Esfuerzo"],
           ["glp1","Consentimiento GLP-1 (Ozempic® / Mounjaro®)"],
-        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px"> ${l}</label>`).join("")}
-        <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Rehabilitación y procedimientos</p>
+        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
+          <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px"> 
+          <span style="flex:1">${l}</span>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
+        </label>`).join("")}
+        <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Quirúrgicos y anestésicos</p>
         ${[
-          ["fisioterapia","Consentimiento — Medicina Física y Rehabilitación"],
+          ["quirurgico","Consentimiento Quirúrgico"],
+          ["anestesia","Consentimiento Anestésico"],
+        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
+          <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px">
+          <span style="flex:1">${l}</span>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
+        </label>`).join("")}
+        <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Fisioterapia y procedimientos</p>
+        ${[
+          ["fisioterapia","Consentimiento — Fisioterapia y Rehabilitación"],
           ["puncion_seca","Consentimiento — Punción Seca"],
           ["electropuntura","Consentimiento — Electropuntura"],
           ["proloterapia","Consentimiento — Infiltración Perineural / Proloterapia"],
-        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px"> ${l}</label>`).join("")}
+        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
+          <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px">
+          <span style="flex:1">${l}</span>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
+        </label>`).join("")}
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Ginecología</p>
         ${[
           ["biopsia_mama","Consentimiento — Biopsia de Mama"],
           ["checkup_gine","Consentimiento — Checkup Ginecológico completo"],
-        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC"><input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px"> ${l}</label>`).join("")}
+        ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
+          <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px">
+          <span style="flex:1">${l}</span>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
+        </label>`).join("")}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <button onclick="enviarFirmaWAGlobal()" style="flex:1;padding:10px;background:#25D366;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px">💬 Enviar por WhatsApp</button>
