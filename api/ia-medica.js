@@ -77,57 +77,6 @@ IMPORTANTE: Devuelve SOLO el JSON puro, sin texto adicional, sin backticks, sin 
     } catch (e) { return res.status(500).json({ error: e.message }); }
   }
 
-  // ── MODO 4: Análisis de laboratorio desde PDF/imagen ───────────────────────
-  if (tipo === "laboratorio") {
-    if (!imageBase64) return res.status(400).json({ error: "Se requiere imageBase64" });
-    const contentBlock = mediaType === "application/pdf"
-      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: imageBase64 } }
-      : { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 } };
-    const prompt = `Eres un médico clínico experto en interpretación de resultados de laboratorio.
-Analiza este reporte de laboratorio y extrae TODOS los resultados. Devuelve ÚNICAMENTE un objeto JSON con esta estructura exacta:
-
-{
-  "fecha": "YYYY-MM-DD o null",
-  "laboratorio": "nombre del laboratorio o institución, o null",
-  "paciente": "nombre del paciente si aparece, o null",
-  "resumen_clinico": "párrafo breve (2-4 líneas) con interpretación clínica: qué está alterado, qué es relevante, qué sugiere. En español médico profesional.",
-  "texto_nota": "bloque de texto listo para copiar en la nota médica SOAP, sección LABORATORIOS. Formato: LABORATORIOS (fecha):\n  cada analito en su línea: Nombre: valor unidades [Normal/↑ Alto/↓ Bajo] (referencia: rango)\n\nHallazgos relevantes: lista de los valores fuera de rango o clínicamente significativos.",
-  "analitos": [
-    {
-      "nombre": "nombre del analito",
-      "valor": "valor numérico o texto como string",
-      "unidad": "unidad de medida",
-      "referencia": "rango de referencia como string ej: 70-100",
-      "interpretacion": "Normal | Alto | Bajo | Critico | No interpretable"
-    }
-  ]
-}
-
-REGLAS:
-- Extrae TODOS los analitos visibles en el documento
-- Para interpretacion usa exactamente: Normal, Alto, Bajo, Critico, o No interpretable
-- El texto_nota debe ser autocontenido y copiable directamente a la nota médica
-- Si hay múltiples paneles (BH, QS, PFH, etc.) agrúpalos en texto_nota con subtítulos
-- SOLO devuelve el JSON puro, sin backticks, sin texto adicional`;
-    try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "pdfs-2024-09-25" },
-        body: JSON.stringify({
-          model: "claude-opus-4-6",
-          max_tokens: 4096,
-          messages: [{ role: "user", content: [contentBlock, { type: "text", text: prompt }] }],
-        }),
-      });
-      if (!r.ok) { const t = await r.text(); return res.status(500).json({ error: `API ${r.status}: ${t.substring(0,300)}` }); }
-      const d = await r.json();
-      const raw = (d?.content?.[0]?.text || "").trim();
-      const parsed = parseJSON(raw);
-      if (!parsed) return res.status(500).json({ error: "No se pudo parsear respuesta", raw: raw.substring(0,400) });
-      return res.status(200).json({ laboratorio: parsed });
-    } catch (e) { return res.status(500).json({ error: e.message }); }
-  }
-
   // ── MODO 1: Solo diagnósticos CIE-10 ────────────────────────────────────────
   if (tipo === "diagnosticos") {
     if (!nota) return res.status(400).json({ error: "Se requiere el contenido de la nota" });
