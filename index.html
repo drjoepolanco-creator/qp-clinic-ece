@@ -2761,6 +2761,16 @@ function saveABTextareas(){
 }
 window.toggleFam=function(e,r){saveABTextareas();STATE.famData[e+"_"+r]=!STATE.famData[e+"_"+r];renderAB();}
 window.togglePat=function(p){saveABTextareas();STATE.patData[p]=!STATE.patData[p];renderAB();}
+window.toggleAdic=function(key,val){saveABTextareas();STATE.patData[key]=val;renderAB();}
+window.actualizarAdic=function(key,val){STATE.patData[key]=val;
+  // Recalcular IT o UBE sin re-renderizar (actualiza solo el badge en tiempo real)
+  const d=STATE.patData;
+  if(key.startsWith("tab_")){
+    const it=parseFloat(d.tab_cig_dia)*parseFloat(d.tab_anios)/20;
+    const el=document.getElementById("it-badge");
+    if(el&&!isNaN(it)){el.textContent="IT: "+Math.round(it*10)/10;}
+  }
+}
 window.toggleAlerg=function(a){saveABTextareas();STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];}
 window.agregarOtraAlergia=function(){
   const inp=document.getElementById("al-otra");
@@ -2792,7 +2802,7 @@ function renderAB(){
   const relKeys=["Padre","Madre","Ab.Pat","Ab.Mat","Hermanos"];
   const relLabels=["Padre","Madre","Abuelos Paternos","Abuelos Maternos","Hermanos"];
   const patG=["Alérgicos","Hospitalizaciones","Quirúrgicos","Traumáticos","Transfusionales"];
-  const patA=["Alcoholismo (ver detalles)","Tabaquismo (ver detalles)","Otras sustancias psicoactivas"];
+  const patA=["Otras sustancias psicoactivas"];
   const patEx=["Exantema súbito","Roséola escarlatina","Rubéola","Sarampión","Varicela","Otra patología exantemática"];
   const patI=["COVID-19","Influenza","Faringoamigdalitis","Fiebre Reumática","Hepatitis","Parotiditis (paperas)","Mononucleosis infecciosa","Parasitosis","Tifoidea","Dengue","Toxoplasmosis","Brucelosis","Leptospirosis","Amebiasis","Neurocisticercosis","Transmisión sexual","Tuberculosis","Otra infectocontagiosa"];
   const patC=["Diabetes Mellitus","Hipertensión Arterial Sistémica","Dislipidemias","Obesidad","Neoplásicas","Enf. reumatológicas","Enfermedad de Gota","Enf. psiquiátricas","Enf. sistema nervioso","Enf. sistema cardiovascular","Enf. sistema respiratorio","Enf. sistema gastrointestinal","Enf. sistema urinario","Enf. sistema musculoesquelético","Enf. sistema tegumentario","Enf. endocrinológicas","Enf. inmunológicas"];
@@ -2806,7 +2816,104 @@ function renderAB(){
   }
   else if(STATE.antTab==="pat"){
     const selCount=Object.values(STATE.patData).filter(Boolean).length;
-    ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px"><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Generales</p>${patG.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Adicciones</p>${patA.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}<p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Exantemáticas</p>${patEx.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Infectocontagiosas</p>${patI.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div><div><p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Crónico-degenerativas</p>${patC.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${STATE.patData[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}</div></div>${selCount>0?`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:14px;font-weight:700;color:#1B5E20;margin-right:4px">✓ Seleccionados:</span>${Object.entries(STATE.patData).filter(([,v])=>v).map(([k])=>`<span style="background:#C8E6C9;color:#1B5E20;padding:2px 8px;border-radius:20px;font-size:14px;font-weight:600">${k}</span>`).join("")}</div>`:""}<div style="border-top:2px dashed ${BR};padding-top:16px"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"><div><p style="font-size:14px;font-weight:700;color:${TX}">Otras enfermedades identificadas como antecedentes personales patológicos</p><p style="font-size:14px;color:${MU};margin-top:2px">Enfermedades adicionales no incluidas en las listas anteriores</p></div><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"><span style="font-size:14px;color:${MU};font-weight:600">Plantillas:</span>${PLANTILLAS_PAT.map(pl=>`<button onclick="insertPlantilla('${pl.txt.replace(/'/g,"\\'")}')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:14px;font-weight:600">${pl.lbl}</button>`).join("")}</div></div><textarea id="pat-otras" rows="5" placeholder="Ej: Sinusitis en la infancia remitida sin secuelas ni complicaciones." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;font-size:14px;line-height:1.6">${STATE.patOtrasNotes||""}</textarea><div class="sticky-save">${btn("💾 Guardar notas","guardarAnt()","ok",1)}</div></div>`;
+    const d=STATE.patData;
+    // ── Widget tabaquismo ────────────────────────────────────
+    const tabActivo=d.tab_activo||false, tabExfum=d.tab_exfumador||false;
+    const tabCigDia=parseFloat(d.tab_cig_dia)||0;
+    const tabAnios=parseFloat(d.tab_anios)||0;
+    const tabEdadInicio=d.tab_edad_inicio||"";
+    const tabAniosCeso=parseFloat(d.tab_anios_ceso)||0;
+    const IT=tabCigDia&&tabAnios?Math.round((tabCigDia*tabAnios)/20*10)/10:null;
+    let itClase="",itCol=MU;
+    if(IT!==null){if(IT<10){itClase="Leve";itCol="#2E7D32";}else if(IT<20){itClase="Moderado";itCol="#F9A825";}else if(IT<40){itClase="Alto";itCol="#EF6C00";}else{itClase="Muy alto (riesgo mayor de EPOC/Ca pulmón)";itCol="#C62828";}}
+    const widgetTab=`<div style="border:1px solid #CFD8DC;border-radius:10px;overflow:hidden;margin-bottom:10px">
+      <div style="background:#37474F;padding:8px 13px;display:flex;align-items:center;gap:10px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#fff;font-weight:700;font-size:14px">
+          <input type="checkbox" ${tabActivo?"checked":""} onchange="toggleAdic('tab_activo',this.checked)" style="accent-color:#FFB300;width:16px;height:16px"> 🚬 Tabaquismo activo
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:rgba(255,255,255,.8);font-size:13px;margin-left:12px">
+          <input type="checkbox" ${tabExfum?"checked":""} onchange="toggleAdic('tab_exfumador',this.checked)" style="accent-color:#90A4AE;width:15px;height:15px"> Exfumador
+        </label>
+        ${IT!==null?`<span style="margin-left:auto;background:${itCol};color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">IT: ${IT} — ${itClase}</span>`:""}
+      </div>
+      ${tabActivo||tabExfum?`<div style="padding:12px;background:#FAFAFA;display:grid;grid-template-columns:1fr 1fr 1fr ${tabExfum?"1fr":""};gap:10px">
+        <div>${fld("Cigarrillos/día",`<input id="tab_cig_dia" type="number" min="0" value="${d.tab_cig_dia||""}" placeholder="Ej: 10" oninput="actualizarAdic('tab_cig_dia',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>
+        <div>${fld("Años fumando",`<input id="tab_anios" type="number" min="0" value="${d.tab_anios||""}" placeholder="Ej: 5" oninput="actualizarAdic('tab_anios',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>
+        <div>${fld("Edad de inicio",`<input id="tab_edad_inicio" type="number" min="5" max="80" value="${tabEdadInicio}" placeholder="Ej: 18" oninput="actualizarAdic('tab_edad_inicio',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>
+        ${tabExfum?`<div>${fld("Años sin fumar",`<input id="tab_anios_ceso" type="number" min="0" value="${d.tab_anios_ceso||""}" placeholder="Ej: 2" oninput="actualizarAdic('tab_anios_ceso',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>`:""}
+      </div>
+      ${IT!==null?`<div style="padding:8px 12px;background:#fff;border-top:1px solid ${BR};font-size:13px;color:${itCol};font-weight:600">Índice tabáquico (IT) = cigarrillos/día × años / 20 = <b>${IT}</b> — ${itClase}${tabExfum&&tabAniosCeso?` · Exfumador hace ${tabAniosCeso} año(s)`:""}</div>`:""}
+      `:""}
+    </div>`;
+    // ── Widget alcoholismo ───────────────────────────────────
+    const alcActivo=d.alc_activo||false;
+    const alcFrecOpc=["Nunca / Negado","Ocasional (fiestas)","Fin de semana","2–3 veces/semana","Diario"];
+    const alcTipoOpc=["Cerveza (355 ml)","Vino (150 ml)","Destilados/shots (45 ml)","Mixto"];
+    const alcFrecCurr=d.alc_frecuencia||"";
+    const alcTipoCurr=d.alc_tipo||"";
+    const alcBebSem=parseFloat(d.alc_bebidas_semana)||0;
+    const alcEdadInicio=d.alc_edad_inicio||"";
+    const alcAnios=parseFloat(d.alc_anios)||0;
+    // UBE: 1 cerveza=1, 1 copa vino=1, 1 shot=1; aprox. 1 bebida estándar = 10g etanol
+    const UBE=alcBebSem; // cada "bebida" reportada = ~1 UBE
+    let alcRiesgo="",alcCol=MU;
+    if(alcBebSem>0){
+      const esMujer=STATE.pat?.sexo_biologico==="Mujer";
+      if(esMujer){if(UBE<=7){alcRiesgo="Bajo riesgo";alcCol="#2E7D32";}else if(UBE<=14){alcRiesgo="Riesgo moderado";alcCol="#F9A825";}else{alcRiesgo="Consumo perjudicial / Dependencia";alcCol="#C62828";}}
+      else{if(UBE<=14){alcRiesgo="Bajo riesgo";alcCol="#2E7D32";}else if(UBE<=21){alcRiesgo="Riesgo moderado";alcCol="#F9A825";}else{alcRiesgo="Consumo perjudicial / Dependencia";alcCol="#C62828";}}
+    }
+    const widgetAlc=`<div style="border:1px solid #CFD8DC;border-radius:10px;overflow:hidden;margin-bottom:10px">
+      <div style="background:#4A1942;padding:8px 13px;display:flex;align-items:center;gap:10px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#fff;font-weight:700;font-size:14px">
+          <input type="checkbox" ${alcActivo?"checked":""} onchange="toggleAdic('alc_activo',this.checked)" style="accent-color:#CE93D8;width:16px;height:16px"> 🍺 Alcoholismo / Consumo de alcohol
+        </label>
+        ${alcRiesgo?`<span style="margin-left:auto;background:${alcCol};color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">${alcRiesgo}</span>`:""}
+      </div>
+      ${alcActivo?`<div style="padding:12px;background:#FAFAFA;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+        <div>${fld("Bebidas/semana (UBE)",`<input id="alc_bebidas_semana" type="number" min="0" value="${d.alc_bebidas_semana||""}" placeholder="Ej: 6" oninput="actualizarAdic('alc_bebidas_semana',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>
+        <div>${fld("Frecuencia",`<select id="alc_frecuencia" onchange="actualizarAdic('alc_frecuencia',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;font-size:14px">${alcFrecOpc.map(o=>`<option ${alcFrecCurr===o?"selected":""}>${o}</option>`).join("")}</select>`)}</div>
+        <div>${fld("Tipo de bebida",`<select id="alc_tipo" onchange="actualizarAdic('alc_tipo',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;font-size:14px"><option value="">—</option>${alcTipoOpc.map(o=>`<option ${alcTipoCurr===o?"selected":""}>${o}</option>`).join("")}</select>`)}</div>
+        <div>${fld("Edad de inicio",`<input id="alc_edad_inicio" type="number" min="5" max="80" value="${alcEdadInicio}" placeholder="Ej: 20" oninput="actualizarAdic('alc_edad_inicio',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>
+        <div style="grid-column:span 2">${fld("Años de consumo",`<input id="alc_anios" type="number" min="0" value="${d.alc_anios||""}" placeholder="Ej: 10" oninput="actualizarAdic('alc_anios',this.value)" style="width:100%;padding:7px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>
+      </div>
+      ${alcBebSem>0?`<div style="padding:8px 12px;background:#fff;border-top:1px solid ${BR};font-size:13px;color:${alcCol};font-weight:600">${alcBebSem} UBE/semana · ${alcRiesgo}${alcAnios?` · ${alcAnios} año(s) de consumo`:""} <span style="font-size:11px;font-weight:400;color:${MU}"> — Umbrales OMS: ♀ bajo riesgo ≤7, ♂ ≤14 UBE/semana</span></div>`:""}
+      `:""}
+    </div>`;
+    ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px">
+      <div>
+        <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Generales</p>
+        ${patG.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${d[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}
+        <p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Adicciones</p>
+        ${widgetTab}
+        ${widgetAlc}
+        ${patA.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${d[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}
+        <p style="font-size:14px;font-weight:700;color:${P};margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Exantemáticas</p>
+        ${patEx.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${d[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}
+      </div>
+      <div>
+        <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Infectocontagiosas</p>
+        ${patI.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${d[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}
+      </div>
+      <div>
+        <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid ${PL}">Crónico-degenerativas</p>
+        ${patC.map(p=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 0;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5"><input type="checkbox" ${d[p]?"checked":""} onchange="togglePat('${p}')" style="accent-color:${P};width:15px;height:15px;flex-shrink:0">${p}</label>`).join("")}
+      </div>
+    </div>
+    ${selCount>0?`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:14px;font-weight:700;color:#1B5E20;margin-right:4px">✓ Seleccionados:</span>${Object.entries(d).filter(([k,v])=>v&&!k.startsWith("tab_")&&!k.startsWith("alc_")).map(([k])=>`<span style="background:#C8E6C9;color:#1B5E20;padding:2px 8px;border-radius:20px;font-size:14px;font-weight:600">${k}</span>`).join("")}</div>`:""}
+    <div style="border-top:2px dashed ${BR};padding-top:16px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div>
+          <p style="font-size:14px;font-weight:700;color:${TX}">Otras enfermedades identificadas como antecedentes personales patológicos</p>
+          <p style="font-size:14px;color:${MU};margin-top:2px">Enfermedades adicionales no incluidas en las listas anteriores</p>
+        </div>
+        <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:14px;color:${MU};font-weight:600">Plantillas:</span>
+          ${PLANTILLAS_PAT.map(pl=>`<button onclick="insertPlantilla('${pl.txt.replace(/'/g,"\\'")}')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:14px;font-weight:600">${pl.lbl}</button>`).join("")}
+        </div>
+      </div>
+      <textarea id="pat-otras" rows="5" placeholder="Ej: Sinusitis en la infancia remitida sin secuelas ni complicaciones." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;font-size:14px;line-height:1.6">${STATE.patOtrasNotes||""}</textarea>
+      <div class="sticky-save">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>
+    </div>`;
   }
   else if(STATE.antTab==="nop"){
     STATE._plantillaDep=`ANTECEDENTES NO PATOLÓGICOS — DEPORTIVOS\n\n• Familiares: ninguno.\n• Deportes practicados anteriormente: \n   - Logros: ninguno.\n• Ejercicio actual: \n   - Inicio: \n   - Frecuencia de entrenamiento (Días/horas): \n   - Logros más importantes: \n• Proyección: mejorar su forma física y estado de salud.\n• Alimentación: \n   - Número de comidas: \n   - ¿Completa? Cereales y tubérculos__ Prod. origen animal__ Leche__ Leguminosas__ Verduras__ Frutas__ Aceites y grasas__\n   - Lugar: __% casa\n\nHÁBITOS PERSONALES\nBaño: \nDefecación: \nLavarse los dientes: \nHabitación (cuartos, piso, techo, ventanas, hab, servicios): \nTabaquismo (cig/día/años): \nAlcoholismo (bebidas/frecuencia): \nToxicomanías (esp/día/años): \nAlimentación (frecuencia/tipo): \nDeportes (act. física/frecuencia): \nEscolaridad: \nInmunizaciones: \nHipersensibilidad/Alergias: \nTrabajo/Descanso: \nPasatiempos:`;
