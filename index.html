@@ -1471,13 +1471,46 @@ function leerDatosClinicos(){
     "dc_dx_preop","dc_procedimiento_qx","dc_anestesia","dc_abordaje","dc_ayuno","dc_asa","dc_riesgo_qx","dc_consentimiento_qx","dc_obs_preop",
     "dc_dx_preop_pos","dc_dx_posop","dc_op_planeada","dc_op_realizada","dc_hallazgos_qx","dc_tecnica_qx","dc_sangrado","dc_duracion_qx","dc_anestesia_real","dc_incidentes_qx","dc_estado_posop","dc_destino_posop","dc_plan_posop",
     "dc_dias_tx","dc_motivo_egreso","dc_condicion_egreso","dc_dx_finales","dc_resumen_tx","dc_instrucciones_alta","dc_cita_seguimiento","dc_pronostico_egreso",
-    "dc_receptor","dc_especialidad_ref","dc_motivo_ref","dc_resumen_ref","dc_cond_traslado","dc_medio_traslado","dc_estudios_ref"];
+    "dc_receptor","dc_especialidad_ref","dc_motivo_ref","dc_resumen_ref","dc_cond_traslado","dc_medio_traslado","dc_estudios_ref",
+    // Valoración preanestésica
+    "dc_mallampati","dc_apertura_bucal","dc_dist_tm","dc_movilidad_cerv","dc_denticion","dc_vad",
+    "dc_asa_anest","dc_rcri","dc_mets_anest","dc_alerg_anest","dc_meds_anest",
+    "dc_ayuno_sol","dc_ayuno_liq","dc_anest_prev","dc_anest_prev_det","dc_tecnica_anest","dc_monitoreo","dc_obs_preanest",
+    // Nota transoperatoria
+    "dc_hora_inicio_anest","dc_hora_fin_anest","dc_duracion_anest","dc_tecnica_anest_real",
+    "dc_inductor","dc_opioide_ind","dc_rnm","dc_va_manejo","dc_tubo",
+    "dc_inhalatorio","dc_infusion_mant","dc_analgesia_trans","dc_atb_profilactico","dc_otros_farmacos",
+    "dc_tas_rango","dc_fc_rango","dc_spo2_trans","dc_sol_trans","dc_sangrado_anest","dc_diuresis_trans",
+    "dc_incidentes_anest","dc_reversion_rnm","dc_cond_salida_qx","dc_destino_trans",
+    // Nota postanestésica
+    "dc_ta_ucpa","dc_fc_ucpa","dc_fr_ucpa","dc_spo2_ucpa","dc_temp_ucpa",
+    "dc_analgesia_ucpa","dc_antiemeticos_ucpa","dc_tiempo_ucpa","dc_nvpo","dc_eva_ucpa",
+    "dc_cond_egreso_ucpa","dc_destino_ucpa","dc_obs_postanest"];
   const obj={};
   CAMPOS.forEach(id=>{const v=gv2(id);if(v)obj[id.replace("dc_","").replace("gcs_","gcs_")]=v;});
   // GCS total
   const go=parseInt(gv2("gcs_o")||4),gv3=parseInt(gv2("gcs_v")||5),gm=parseInt(gv2("gcs_m")||6);
   if(gv2("gcs_o"))obj.gcs_total=go+gv3+gm;
+  // Aldrete — leer valores actuales de radios
+  const aldIds=["a_actividad","a_respiracion","a_circulacion","a_conciencia","a_color"];
+  const aldObj={};let hayAld=false;
+  aldIds.forEach(id=>{const el=document.querySelector(`input[name="ald_${id}"]:checked`);if(el){aldObj[id]=parseInt(el.value);hayAld=true;}});
+  if(hayAld){obj.aldrete=aldObj;obj.aldrete_total=Object.values(aldObj).reduce((a,b)=>a+b,0);}
   return Object.keys(obj).length?obj:null;
+}
+window.actualizarAldrete=function(campo,valor){
+  // Recalcular total Aldrete sin re-renderizar
+  const ids=["a_actividad","a_respiracion","a_circulacion","a_conciencia","a_color"];
+  let total=0;
+  ids.forEach(id=>{
+    const el=document.querySelector(`input[name="ald_${id}"]:checked`);
+    if(el)total+=parseInt(el.value);
+  });
+  const col=total>=9?"#2E7D32":total>=7?"#F9A825":"#C62828";
+  const lbl=total>=9?"Alta de UCPA":"Requiere valoración antes del alta";
+  // Actualizar el bloque de resultado directamente
+  const badge=document.querySelector("[data-aldrete-badge]");
+  if(badge)badge.innerHTML=`<b style="font-size:16px;color:${col}">Aldrete total: ${total}/10 — ${lbl}</b>`;
 }
 function renderSeccionEspecial(tipo,d){
   d=d||{};
@@ -1674,6 +1707,171 @@ function renderSeccionEspecial(tipo,d){
       <div>
         <p style="font-size:13px;font-weight:700;color:#00695C;margin-bottom:4px">Nota de interconsulta — usa la pestaña dedicada</p>
         <p style="font-size:13px;color:#004D40">Ve a la pestaña <b>Interconsultas</b> en el expediente del paciente para registrar la solicitud formal y recibir la respuesta conforme a la NOM-004 Art. 9.</p>
+      </div>
+    </div>`;
+  }
+
+  if(tipo==="Nota de valoración preanestésica"){
+    const MALLAMPATI=[["I","Clase I — Úvula, pilares y paladar blando visibles"],["II","Clase II — Úvula y paladar blando visibles"],["III","Clase III — Solo paladar blando visible"],["IV","Clase IV — Paladar blando no visible"]];
+    const maActual=d.mallampati||"";
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E3F2FD,#fff)">
+        <b style="font-size:14px;color:#004D99">🫁 Valoración Preanestésica (NOM-006-SSA3-2011 Art. 6)</b>
+      </div>
+      <div style="padding:14px">
+        ${H("Evaluación de la vía aérea","#004D99")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Clasificación Mallampati",SEL("dc_mallampati",MALLAMPATI.map(([v,l])=>[v,l]),maActual))}
+          ${fld("Apertura bucal",SEL("dc_apertura_bucal",[["Normal (>4cm)","Normal (>4 cm)"],["Limitada (2-4cm)","Limitada (2–4 cm)"],["Muy limitada (<2cm)","Muy limitada (<2 cm)"]],d.apertura_bucal||"Normal (>4cm)"))}
+          ${fld("Distancia tiromentoniana",SEL("dc_dist_tm",[["≥6.5cm","≥6.5 cm — Intubación fácil"],["6–6.5cm","6–6.5 cm — Intubación difícil posible"],["<6cm","<6 cm — Intubación difícil"]],d.dist_tm||"≥6.5cm"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Movilidad cervical",SEL("dc_movilidad_cerv",[["Normal","Normal (>90°)"],["Reducida","Reducida (30–90°)"],["Limitada","Limitada (<30°)"]],d.movilidad_cerv||"Normal"))}
+          ${fld("Dentición",SEL("dc_denticion",[["Completa","Completa"],["Incompleta","Incompleta"],["Prótesis removible","Prótesis removible (retirar)"],["Sin piezas","Sin piezas dentales"]],d.denticion||"Completa"))}
+          ${fld("Predicción de vía aérea difícil",SEL("dc_vad",[["No anticipada","No anticipada"],["Posible","Posible"],["Anticipada","Anticipada — plan alternativo requerido"]],d.vad||"No anticipada"))}
+        </div>
+        ${H("Evaluación cardiovascular y pulmonar","#004D99")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Clasificación ASA",SEL("dc_asa_anest",[["ASA I","ASA I — Paciente sano"],["ASA II","ASA II — Enfermedad sistémica leve"],["ASA III","ASA III — Enfermedad sistémica grave"],["ASA IV","ASA IV — Riesgo vital constante"],["ASA V","ASA V — No sobrevivirá sin cirugía"],["ASA VI","ASA VI — Donador"]],d.asa_anest||"ASA I"))}
+          ${fld("RCRI (Revised Cardiac Risk Index)",SEL("dc_rcri",[["0","0 — Riesgo muy bajo (<1%)"],["1","1 — Riesgo bajo (~1%)"],["2","2 — Riesgo moderado (~7%)"],["≥3","≥3 — Riesgo alto (>11%)"]],d.rcri||"0"))}
+          ${fld("Capacidad funcional (METs)",SEL("dc_mets_anest",[["≥10","≥10 METs — Excelente"],["7-9","7–9 METs — Buena"],["4-6","4–6 METs — Moderada"],["<4","<4 METs — Deficiente"]],d.mets_anest||"4-6"))}
+        </div>
+        ${H("Medicamentos y alergias de relevancia anestésica","#004D99")}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Alergias a fármacos anestésicos o látex",TA("dc_alerg_anest",d.alerg_anest,"Ninguna conocida / Especificar: látex, amidas, opioides, AINES, antibióticos...",2))}
+          ${fld("Medicamentos con impacto anestésico",TA("dc_meds_anest",d.meds_anest,"Anticoagulantes, antihipertensivos, psiquiátricos, antiepilépticos, fitoterápicos suspendidos...",2))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Ayuno sólidos (horas)",INP("dc_ayuno_sol",d.ayuno_sol,"6","number"))}
+          ${fld("Ayuno líquidos claros (horas)",INP("dc_ayuno_liq",d.ayuno_liq,"2","number"))}
+          ${fld("Anestesias previas",SEL("dc_anest_prev",[["Ninguna","Ninguna"],["Sin complicaciones","Sí — sin complicaciones"],["Con complicaciones","Sí — con complicaciones (especificar)"],["Desconoce","Desconoce"]],d.anest_prev||"Ninguna"))}
+        </div>
+        ${d.anest_prev==="Con complicaciones"?fld("Especificar complicaciones previas",TA("dc_anest_prev_det",d.anest_prev_det,"Describa la complicación anestésica previa...",2)):""}
+        ${H("Plan anestésico","#004D99")}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Técnica anestésica propuesta",SEL("dc_tecnica_anest",[["General balanceada","General balanceada (IV + inhalatoria)"],["General TIVA","General TIVA (solo IV)"],["Espinal","Espinal / Raquídea"],["Epidural","Epidural"],["Bloqueo nervioso periférico","Bloqueo nervioso periférico"],["Sedación consciente","Sedación + analgesia (consciente)"],["Local + sedación","Local + sedación"],["Local","Local — sin anestesiólogo"]],d.tecnica_anest||"General balanceada"))}
+          ${fld("Monitoreo propuesto",SEL("dc_monitoreo",[["Estándar (ECG/SpO2/NIBP)","Estándar: ECG, SpO₂, NIBP"],["Estándar + IBP","Estándar + presión arterial invasiva"],["Estándar + BIS","Estándar + BIS (índice biespectral)"],["Completo","Completo: IBP, BIS, PVC, TO₂"]],d.monitoreo||"Estándar (ECG/SpO2/NIBP)"))}
+        </div>
+        ${fld("Observaciones y consideraciones especiales",TA("dc_obs_preanest",d.obs_preanest,"Riesgos específicos identificados, plan alternativo de vía aérea, premedicación, acceso venoso, posición...",3))}
+      </div>
+    </div>`;
+  }
+
+  if(tipo==="Nota de anestesia transoperatoria"){
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E8EAF6,#fff)">
+        <b style="font-size:14px;color:#283593">⚕️ Nota de Anestesia Transoperatoria (NOM-006-SSA3-2011 Art. 7)</b>
+      </div>
+      <div style="padding:14px">
+        ${H("Registro del acto anestésico","#283593")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Hora de inicio",INP("dc_hora_inicio_anest",d.hora_inicio_anest,"HH:MM","time"))}
+          ${fld("Hora de fin",INP("dc_hora_fin_anest",d.hora_fin_anest,"HH:MM","time"))}
+          ${fld("Duración (min)",INP("dc_duracion_anest",d.duracion_anest,"","number"))}
+          ${fld("Técnica aplicada",SEL("dc_tecnica_anest_real",[["General balanceada","General balanceada"],["TIVA","TIVA"],["Espinal","Espinal"],["Epidural","Epidural"],["Bloqueo periférico","Bloqueo periférico"],["Sedación","Sedación"],["Local","Local"]],d.tecnica_anest_real||"General balanceada"))}
+        </div>
+        ${H("Inducción","#283593")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Agente inductor",INP("dc_inductor",d.inductor,"Ej: Propofol 2 mg/kg IV"))}
+          ${fld("Opiáceo de inducción",INP("dc_opioide_ind",d.opioide_ind,"Ej: Fentanilo 3 mcg/kg IV"))}
+          ${fld("Relajante neuromuscular",INP("dc_rnm",d.rnm,"Ej: Succinilcolina 1.5 mg/kg IV"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Manejo de vía aérea",SEL("dc_va_manejo",[["IOT","Intubación orotraqueal (IOT)"],["IOT nasal","Intubación nasotraqueal"],["Mascarilla laríngea","Mascarilla laríngea (LMA)"],["Mascarilla facial","Mascarilla facial"],["Sin dispositivo","Sin dispositivo — respiración espontánea"]],d.va_manejo||"IOT"))}
+          ${fld("Tamaño de tubo / dispositivo",INP("dc_tubo",d.tubo,"Ej: TET 7.5 con globo, fijado a 22 cm"))}
+        </div>
+        ${H("Mantenimiento","#283593")}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Agente inhalatorio",INP("dc_inhalatorio",d.inhalatorio,"Ej: Sevoflurano 2% en O₂/N₂O 50:50"))}
+          ${fld("Infusión IV de mantenimiento",INP("dc_infusion_mant",d.infusion_mant,"Ej: Propofol 75 mcg/kg/min + Remifentanilo 0.1 mcg/kg/min"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Analgesia transoperatoria",INP("dc_analgesia_trans",d.analgesia_trans,"Ej: Ketorolaco 30mg + Metamizol 1g IV"))}
+          ${fld("Antibiótico profiláctico",INP("dc_atb_profilactico",d.atb_profilactico,"Ej: Cefazolina 2g IV antes de incisión"))}
+          ${fld("Otros fármacos",INP("dc_otros_farmacos",d.otros_farmacos,"Dexametasona, Ondansetrón, heparina..."))}
+        </div>
+        ${H("Monitoreo y parámetros hemodinámicos","#283593")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("TA sistólica rango (mmHg)",INP("dc_tas_rango",d.tas_rango,"Ej: 100–140"))}
+          ${fld("FC rango (lpm)",INP("dc_fc_rango",d.fc_rango,"Ej: 55–90"))}
+          ${fld("SpO₂ mínima (%)",INP("dc_spo2_trans",d.spo2_trans,"Ej: 98","number"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Volumen de soluciones (ml)",INP("dc_sol_trans",d.sol_trans,"","number"))}
+          ${fld("Pérdida estimada de sangre (ml)",INP("dc_sangrado_anest",d.sangrado_anest,"","number"))}
+          ${fld("Diuresis (ml)",INP("dc_diuresis_trans",d.diuresis_trans,"","number"))}
+        </div>
+        ${H("Incidentes y eventos adversos","#283593")}
+        ${fld("Incidentes / complicaciones transoperatorias",TA("dc_incidentes_anest",d.incidentes_anest,"Ninguno / Descripción de laringoespasmo, broncoespasmo, hipotensión grave, reacciones alérgicas, dificultad de intubación...",3))}
+        ${H("Recuperación y egreso del quirófano","#283593")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          ${fld("Reversión de relajación neuromuscular",SEL("dc_reversion_rnm",[["No requerida","No requerida"],["Neostigmina","Neostigmina + Atropina"],["Sugammadex","Sugammadex"],["Espontánea","Espontánea"]],d.reversion_rnm||"No requerida"))}
+          ${fld("Condición al salir de quirófano",SEL("dc_cond_salida_qx",[["Estable extubado","Estable — extubado"],["Estable intubado","Estable — intubado"],["Con soporte vasopresor","Con soporte vasopresor"],["Complicado","Con complicaciones"]],d.cond_salida_qx||"Estable extubado"))}
+          ${fld("Destino inmediato",SEL("dc_destino_trans",[["UCPA","UCPA / Sala de recuperación"],["UTI","UTI / UCI"],["Hospitalización","Hospitalización directa"]],d.destino_trans||"UCPA"))}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if(tipo==="Nota postanestésica"){
+    const ald=d.aldrete||{};
+    const aldCampos=[["a_actividad","Actividad","Mueve 4 extremidades","Mueve 2 extremidades","No mueve extremidades"],["a_respiracion","Respiración","Respira profundo y tose","Disnea o respiración limitada","Apnea"],["a_circulacion","Circulación","TA ±20% del preanestésico","TA ±20–49%","TA >50% del preanestésico"],["a_conciencia","Conciencia","Completamente despierto","Despertable al llamado","No responde"],["a_color","Color / SpO₂","SpO₂>92% con aire","SpO₂>90% con O₂","SpO₂<90%"]];
+    const aldTotal=aldCampos.reduce((s,c)=>s+parseInt(ald[c[0]]||0),0);
+    const aldCol=aldTotal>=9?"#2E7D32":aldTotal>=7?"#F9A825":"#C62828";
+    const aldLbl=aldTotal>=9?"Alta de UCPA":"Requiere valoración antes del alta";
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E1F5FE,#fff)">
+        <b style="font-size:14px;color:#0277BD">🏥 Nota Postanestésica — Recuperación (NOM-006-SSA3-2011 Art. 8)</b>
+      </div>
+      <div style="padding:14px">
+        ${H("Escala de Aldrete (egreso de UCPA)","#0277BD")}
+        <div style="margin-bottom:12px;border:1px solid ${BR};border-radius:8px;overflow:hidden">
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="background:${PL}">
+              <th style="padding:8px 12px;text-align:left;font-size:13px;font-weight:700;color:${TX}">Parámetro</th>
+              <th style="padding:8px 12px;text-align:center;font-size:13px;font-weight:700;color:${TX}">2</th>
+              <th style="padding:8px 12px;text-align:center;font-size:13px;font-weight:700;color:${TX}">1</th>
+              <th style="padding:8px 12px;text-align:center;font-size:13px;font-weight:700;color:${TX}">0</th>
+            </tr></thead>
+            <tbody>${aldCampos.map(([id,label,d2,d1,d0],i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+              <td style="padding:8px 12px;font-size:13px;font-weight:600;color:${TX}">${label}</td>
+              ${[2,1,0].map(v=>`<td style="padding:8px 12px;text-align:center">
+                <label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:${MU}">
+                  <input type="radio" name="ald_${id}" value="${v}" ${parseInt(ald[id]||0)===v?"checked":""} onchange="actualizarAldrete('${id}',${v})" style="accent-color:${P};width:16px;height:16px">
+                  ${v===2?d2:v===1?d1:d0}
+                </label>
+              </td>`).join("")}
+            </tr>`).join("")}</tbody>
+          </table>
+        </div>
+        <div style="padding:10px 14px;border-radius:8px;background:${aldCol}14;border:1px solid ${aldCol}40;text-align:center;margin-bottom:14px">
+          <b style="font-size:16px;color:${aldCol}">Aldrete total: ${aldTotal}/10 — ${aldLbl}</b>
+          <p style="font-size:12px;color:${MU};margin-top:2px">Puntaje ≥9 requerido para alta de UCPA</p>
+        </div>
+        ${H("Signos vitales en UCPA","#0277BD")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          ${fld("TA (mmHg)",INP("dc_ta_ucpa",d.ta_ucpa,"120/80"))}
+          ${fld("FC (lpm)",INP("dc_fc_ucpa",d.fc_ucpa,"","number"))}
+          ${fld("FR (rpm)",INP("dc_fr_ucpa",d.fr_ucpa,"","number"))}
+          ${fld("SpO₂ (%)",INP("dc_spo2_ucpa",d.spo2_ucpa,"","number"))}
+          ${fld("T° (°C)",INP("dc_temp_ucpa",d.temp_ucpa,"","number"))}
+        </div>
+        ${H("Manejo en recuperación","#0277BD")}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Analgesia en UCPA",INP("dc_analgesia_ucpa",d.analgesia_ucpa,"Ej: Ketorolaco 30mg IV c/8h, Tramadol 50mg c/12h"))}
+          ${fld("Antieméticos",INP("dc_antiemeticos_ucpa",d.antiemeticos_ucpa,"Ej: Ondansetrón 4mg IV, Metoclopramida 10mg IV"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Tiempo en UCPA (min)",INP("dc_tiempo_ucpa",d.tiempo_ucpa,"","number"))}
+          ${fld("Náusea / vómito postoperatorio",SEL("dc_nvpo",[["Ninguno","Ninguno"],["Náusea leve","Náusea leve — sin vómito"],["Náusea moderada","Náusea moderada"],["Vómito","Vómito — tratado"],["Severo","NVPO severo / refractario"]],d.nvpo||"Ninguno"))}
+          ${fld("Dolor al alta UCPA (EVA 0–10)",INP("dc_eva_ucpa",d.eva_ucpa,"0–10","number"))}
+        </div>
+        ${H("Egreso de UCPA","#0277BD")}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Condición al egreso",SEL("dc_cond_egreso_ucpa",[["Satisfactoria","Satisfactoria — Aldrete ≥9"],["Con vigilancia","Satisfactoria con vigilancia"],["Extendida","Requirió estancia prolongada"],["Trasladado a UTI","Trasladado a UTI/UCI"]],d.cond_egreso_ucpa||"Satisfactoria"))}
+          ${fld("Destino al egreso de UCPA",SEL("dc_destino_ucpa",[["Hospitalización","Hospitalización — piso"],["Alta domiciliaria","Alta domiciliaria"],["UTI","UTI / UCI"],["Retorno a quirófano","Retorno a quirófano"]],d.destino_ucpa||"Hospitalización"))}
+        </div>
+        ${fld("Observaciones postanestésicas",TA("dc_obs_postanest",d.obs_postanest,"Incidencias en UCPA, manejo de dolor, complicaciones, indicaciones especiales al egreso...",3))}
       </div>
     </div>`;
   }
@@ -2124,7 +2322,7 @@ function pgExp(){
       {k:"ant",icon:"ti-clipboard-list",label:"Antecedentes"},
       {k:"inter",icon:"ti-stethoscope",label:"Interrogatorio"},
     ]},
-    {label:"Consultas",items:[
+    {label:"Consultas / Notas",items:[
       {k:"cons",icon:"ti-notes-medical",label:"Consultas"},
       {k:"interconsultas",icon:"ti-arrows-exchange",label:"Interconsultas"},
     ]},
@@ -3345,7 +3543,7 @@ async function cargarConsultas(){
   }
 
   // Colores por tipo de nota
-  const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C"};
+  const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C","Nota de valoración preanestésica":"#004D99","Nota de anestesia transoperatoria":"#283593","Nota postanestésica":"#0277BD"};
 
   // Construir filas de consultas
   const filaConsultas=(data||[]).map(c=>{
@@ -5050,7 +5248,7 @@ function pgConsulta(){
     <div style="background:#fff;border-bottom:1px solid ${BR};padding:7px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <!-- Tipo de nota -->
       <select id="cs_tipo_nota" onchange="actualizarTipoNota(this.value)" style="padding:5px 10px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;font-weight:700;color:${P};background:#fff;cursor:pointer;outline:none">
-        ${["Nota de evolución","Nota de primera vez (Historia clínica)","Nota de urgencias","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
+        ${["Nota de evolución","Nota de primera vez (Historia clínica)","Nota de urgencias","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
       </select>
       <div style="width:1px;height:24px;background:${BR}"></div>
       <button onclick="abrirModalIA()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">🤖 Generar nota con IA</button>
