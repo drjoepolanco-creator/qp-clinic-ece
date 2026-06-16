@@ -5109,18 +5109,26 @@ async function renderDocsAnexos(ab){
       </tr></thead>
       <tbody id="docs-tbody">
         ${docs.length===0?`<tr><td colspan="6" style="padding:28px;text-align:center;color:${MU}">No hay documentos subidos aún</td></tr>`:
-        docs.map((d,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-          <td style="padding:10px;text-align:center"><input type="checkbox" data-id="${d.id}" style="accent-color:${P};width:14px;height:14px;cursor:pointer"></td>
+        docs.map((d,i)=>{
+          const protegido=d.firmado||d.origen==="digital";
+          return`<tr style="border-top:1px solid ${BR};background:${protegido?(i%2?"#F1F8E9":"#F9FBF5"):(i%2?"#FAFAFA":"#fff")}">
+          <td style="padding:10px;text-align:center">${protegido
+            ?`<span title="Documento protegido — no puede eliminarse" style="font-size:16px;cursor:default">🔒</span>`
+            :`<input type="checkbox" data-id="${d.id}" style="accent-color:${P};width:14px;height:14px;cursor:pointer">`}</td>
           <td style="padding:10px;font-size:14px;color:${MU}">${d.fecha||"—"}</td>
           <td style="padding:10px"><div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:18px">📄</span>
             <div><p style="font-size:14px;font-weight:600">${d.titulo}</p>
-            ${d.firmado?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:14px;font-weight:700">✓ Firmado digitalmente</span>`:`<span style="background:#ECEFF1;color:${MU};padding:1px 7px;border-radius:20px;font-size:14px">Subido manualmente</span>`}
+            ${d.firmado
+              ?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:12px;font-weight:700">✓ Firmado digitalmente</span>`
+              :d.origen==="digital"
+                ?`<span style="background:#FFF9C4;color:#F57F17;padding:1px 7px;border-radius:20px;font-size:12px;font-weight:700">⏳ Pendiente firma</span>`
+                :`<span style="background:#ECEFF1;color:${MU};padding:1px 7px;border-radius:20px;font-size:12px">Subido manualmente</span>`}
             </div></div></td>
           <td style="padding:10px;text-align:center">${d.origen==="digital"?`<span style="background:${PL};color:${P};padding:2px 8px;border-radius:20px;font-size:14px;font-weight:600">📱 Digital</span>`:`<span style="background:#F3E5F5;color:#7B1FA2;padding:2px 8px;border-radius:20px;font-size:14px;font-weight:600">💻 Subido</span>`}</td>
-          <td style="padding:10px;text-align:center"><button onclick="verPDF('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:14px;font-weight:600">📄 PDF</button></td>
-          <td style="padding:10px;text-align:center"><button onclick="descargarDoc('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:14px">⬇️</button></td>
-        </tr>`).join("")}
+          <td style="padding:10px;text-align:center"><button onclick="verPDF('${d.id}')" style="background:${P};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:14px;font-weight:600">📄 PDF</button></td>
+          <td style="padding:10px;text-align:center"><button onclick="descargarDoc('${d.id}')" style="background:#546E7A;color:#fff;border:none;border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:14px">⬇️</button></td>
+        </tr>`}).join("")}
       </tbody>
     </table>
     <div id="modal-firma" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
@@ -5319,12 +5327,19 @@ window.subirDocumento=async function(){
   renderDocsAnexos(document.getElementById("anexo-body"));
 }
 window.eliminarDocsSel=async function(){
+  // Solo checkboxes visibles = documentos no protegidos
   const checks=document.querySelectorAll("#docs-tbody input[type=checkbox]:checked");
   if(checks.length===0){showToast("Selecciona al menos un documento",false);return;}
-  loading(true,"Eliminando...");
   const ids=Array.from(checks).map(c=>c.dataset.id);
+  const ok=await qpConfirm(
+    `¿Eliminar ${ids.length} documento(s) seleccionado(s)? Esta acción no se puede deshacer.`,
+    {title:"Eliminar documentos",okLabel:"Eliminar",danger:true}
+  );
+  if(!ok)return;
+  loading(true,"Eliminando...");
   await SB.from("anexos").delete().in("id",ids);
-  loading(false);showToast("✓ Documento(s) eliminado(s)");
+  loading(false);
+  showToast(`✓ ${ids.length} documento(s) eliminado(s)`);
   renderDocsAnexos(document.getElementById("anexo-body"));
 }
 window.verPDF=async function(docId){
