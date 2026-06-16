@@ -3158,7 +3158,7 @@ window.guardarInterrogatorio=async function(){
 function renderConsultas(b){
   b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">CONSULTAS Y REGISTROS MÉDICOS</b></div>
+      <div style="background:${PD};padding:8px 14px;display:flex;align-items:center;justify-content:space-between"><b style="color:#fff;font-size:14px">HISTORIAL DE REGISTROS MÉDICOS</b><span style="font-size:12px;color:rgba(255,255,255,.7)">Consultas · Referencia · Contrarreferencia</span></div>
       <div style="padding:14px">
         <div style="display:flex;gap:6px;margin-bottom:12px">
           ${btn("➕ Nueva consulta","go('consulta')","p",1)}
@@ -3172,19 +3172,44 @@ function renderConsultas(b){
 }
 async function cargarConsultas(){
   const pid=STATE.pat?.id;if(!pid)return;
-  const {data,error}=await SB.from("consultas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const cl=document.getElementById("consultas-lista");if(!cl)return;
-  if(error||!data||data.length===0){cl.innerHTML=`<div class="empty-state"><div class="empty-icon"><i class="ti ti-notes-medical" aria-hidden="true"></i></div><p>Sin consultas registradas</p><small>Crea la primera consulta con el botón de abajo</small><br><br>${btn("➕ Nueva consulta","go('consulta')","p",1)}</div>`;return;}
-  // Cargar nombres de médicos que falten
-  const uids=[...new Set(data.filter(c=>!c.medico_nombre&&c.medico_id).map(c=>c.medico_id))];
+
+  // Cargar consultas e interconsultas en paralelo
+  const [{data,error},{data:ics}]=await Promise.all([
+    SB.from("consultas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false}),
+    SB.from("interconsultas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false})
+  ]);
+
+  // Resolver nombres de médicos solicitantes de interconsultas (solo id disponible)
+  const icSolIds=[...new Set((ics||[]).filter(ic=>ic.medico_solicitante_id&&!ic.medico_solicitante_nombre).map(ic=>ic.medico_solicitante_id))];
+  const icMedMap={};
+  if(icSolIds.length>0){
+    const {data:solData}=await SB.from("usuarios").select("id,titulo,nombre,apellidos").in("id",icSolIds);
+    (solData||[]).forEach(u=>{icMedMap[u.id]=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();});
+  }
+  // Inyectar nombre del solicitante en cada interconsulta
+  (ics||[]).forEach(ic=>{
+    if(!ic.medico_solicitante_nombre&&ic.medico_solicitante_id)
+      ic._solNombre=icMedMap[ic.medico_solicitante_id]||"Médico QP Clinic";
+    else ic._solNombre=ic.medico_solicitante_nombre||"Médico QP Clinic";
+  });
+
+  if(error){cl.innerHTML=`<p style="color:${DA};padding:16px">Error al cargar: ${error.message}</p>`;return;}
+  if((!data||data.length===0)&&(!ics||ics.length===0)){
+    cl.innerHTML=`<div class="empty-state"><div class="empty-icon"><i class="ti ti-notes-medical" aria-hidden="true"></i></div><p>Sin consultas registradas</p><small>Crea la primera consulta con el botón de arriba</small></div>`;return;
+  }
+
+  // Cargar nombres de médicos que falten en consultas
+  const uids=[...new Set((data||[]).filter(c=>!c.medico_nombre&&c.medico_id).map(c=>c.medico_id))];
   const medMap={};
   if(uids.length>0){
     const {data:uData}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2").in("id",uids);
     (uData||[]).forEach(u=>{medMap[u.id]=`${u.titulo||"Dr."} ${u.nombre||""} ${u.apellidos||""}`.trim();});
   }
-  // Verificar cierre automático 24h - ya manejado arriba
+
+  // Verificar cierre automático 24h
   const now2=new Date();
-  for(const c of data){
+  for(const c of(data||[])){
     if(!c.bloqueada&&c.created_at){
       const hrs=(now2-new Date(c.created_at))/(1000*3600);
       if(hrs>24){
@@ -3193,42 +3218,117 @@ async function cargarConsultas(){
       }
     }
   }
+
+  // Colores por tipo de nota
+  const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C"};
+
+  // Construir filas de consultas
+  const filaConsultas=(data||[]).map(c=>{
+    const bloq=c.bloqueada;
+    const medNom=c.medico_nombre||(c.medico_id&&medMap[c.medico_id])||"Médico no registrado";
+    const esp=c.medico_especialidad?`<br><span style="font-size:11px;color:${MU}">${c.medico_especialidad}</span>`:"";
+    const tipoColor=TIPO_COLOR[c.tipo_nota]||MU;
+    const tipoLabel=(c.tipo_nota||"Nota de evolución").replace("Nota de ","").replace("Nota ","");
+    const fecha=c.fecha||c.created_at?.split("T")[0]||"";
+    const fechaSort=new Date(c.created_at||c.fecha||0);
+    return{sort:fechaSort,html:`<tr style="border-top:1px solid ${BR};background:#fff">
+      <td style="padding:9px 10px">
+        <span style="background:${tipoColor}20;color:${tipoColor};border:1px solid ${tipoColor}50;padding:3px 8px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap">${tipoLabel}</span>
+      </td>
+      <td style="padding:9px 10px">
+        <div style="font-size:13px;font-weight:700;color:${P}">${medNom}</div>${esp}
+      </td>
+      <td style="padding:9px 10px;font-size:13px;white-space:nowrap">
+        ${fecha}<br><span style="font-size:11px;color:${MU}">${c.hora_inicio||c.hora||""} ${c.hora_fin?" – "+c.hora_fin:""}</span>
+      </td>
+      <td style="padding:9px 10px;max-width:160px">
+        <span style="background:${PL};color:${P};padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.analisis?c.analisis.substring(0,50):"—"}</span>
+      </td>
+      <td style="padding:9px 10px">
+        ${bloq?`<span style="background:#FFEBEE;color:${DA};padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700">🔒 Cerrada</span>
+        <div style="font-size:11px;color:${MU};margin-top:2px">${c.firma_medico||""}</div>`
+        :`<span style="background:#C8E6C9;color:#1B5E20;padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700">✏️ Abierta</span>`}
+      </td>
+      <td style="padding:9px 10px">${btn("Ver nota","abrirConsulta('"+c.id+"')","p",1)}</td>
+    </tr>`};
+  });
+
+  // Construir filas de interconsultas (referencia + contrarreferencia si respondida)
+  const filasIC=[];
+  for(const ic of(ics||[])){
+    const fechaSort=new Date(ic.created_at||0);
+    const esResp=ic.estatus==="Respondida";
+    const prioCol={"Electiva (no urgente)":"#546E7A","Prioritaria (esta semana)":"#F9A825","Urgente (hoy)":"#EF6C00","Emergencia (inmediata)":"#C62828"};
+    const pCol=prioCol[ic.prioridad]||MU;
+    const prioCorta=(ic.prioridad||"").replace(" (no urgente)","").replace(" (esta semana)","").replace(" (hoy)","").replace(" (inmediata)","");
+
+    // Fila REFERENCIA (solicitud)
+    filasIC.push({sort:fechaSort,html:`<tr style="border-top:1px solid ${BR};background:#E3F4FB08">
+      <td style="padding:9px 10px">
+        <span style="background:#006BB620;color:#00695C;border:1px solid #00695C50;padding:3px 8px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap">↗ Referencia</span>
+        <div style="font-size:11px;color:${MU};margin-top:3px">${ic.especialidad||""}</div>
+      </td>
+      <td style="padding:9px 10px">
+        <div style="font-size:12px;color:${MU};font-weight:600">Solicitado por:</div>
+        <div style="font-size:13px;font-weight:700;color:${P}">${ic._solNombre}</div>
+        <div style="font-size:12px;color:${MU}">→ <b>${ic.medico_interconsultante?ic.medico_interconsultante.substring(0,35):"Sin asignar"}</b></div>
+      </td>
+      <td style="padding:9px 10px;font-size:13px;white-space:nowrap">
+        ${ic.fecha_solicitud||ic.created_at?.split("T")[0]||"—"}<br>
+        <span style="font-size:11px;color:${MU}">${ic.hora_solicitud||""}</span>
+      </td>
+      <td style="padding:9px 10px;max-width:160px">
+        <span style="background:${PL};color:${P};padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ic.diagnostico?ic.diagnostico.substring(0,50):"—"}</span>
+      </td>
+      <td style="padding:9px 10px">
+        <span style="background:${pCol}20;color:${pCol};padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700">${prioCorta}</span><br>
+        <span style="background:${esResp?"#C8E6C9":"#FFF3E0"};color:${esResp?"#1B5E20":"#E65100"};padding:2px 7px;border-radius:20px;font-size:11px;font-weight:700;margin-top:3px;display:inline-block">${ic.estatus||"Pendiente"}</span>
+      </td>
+      <td style="padding:9px 10px">${btn("Ver / Responder","verInterconsulta('"+ic.id+"')","p",1)}</td>
+    </tr>`});
+
+    // Fila CONTRARREFERENCIA (si ya fue respondida)
+    if(esResp){
+      const fechaRespSort=ic.fecha_respuesta?new Date(ic.fecha_respuesta):new Date(ic.updated_at||ic.created_at||0);
+      filasIC.push({sort:fechaRespSort,html:`<tr style="border-top:1px solid ${BR};background:#E8F5E908">
+        <td style="padding:9px 10px">
+          <span style="background:#2E7D3220;color:#1B5E20;border:1px solid #2E7D3250;padding:3px 8px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap">↙ Contrarreferencia</span>
+          <div style="font-size:11px;color:${MU};margin-top:3px">${ic.especialidad||""}</div>
+        </td>
+        <td style="padding:9px 10px">
+          <div style="font-size:12px;color:${MU};font-weight:600">Respondida por:</div>
+          <div style="font-size:13px;font-weight:700;color:#2E7D32">${ic.medico_responde||ic.medico_interconsultante||"—"}</div>
+          <div style="font-size:12px;color:${MU}">→ <b>${ic._solNombre}</b></div>
+        </td>
+        <td style="padding:9px 10px;font-size:13px;white-space:nowrap">
+          ${ic.fecha_respuesta||"—"}<br>
+          <span style="font-size:11px;color:${MU}">Respuesta registrada</span>
+        </td>
+        <td style="padding:9px 10px;max-width:160px">
+          <span style="background:#E8F5E9;color:#1B5E20;padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ic.diagnostico_interconsultante?ic.diagnostico_interconsultante.substring(0,50):"Ver detalle"}</span>
+        </td>
+        <td style="padding:9px 10px">
+          <span style="background:#C8E6C9;color:#1B5E20;padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700">✅ Respondida</span>
+        </td>
+        <td style="padding:9px 10px">${btn("Ver detalle","verInterconsulta('"+ic.id+"')","p",1)}</td>
+      </tr>`});
+    }
+  }
+
+  // Mezclar y ordenar cronológicamente (más reciente primero)
+  const todas=[...filaConsultas,...filasIC].sort((a,b)=>b.sort-a.sort);
+
+  if(todas.length===0){
+    cl.innerHTML=`<div class="empty-state"><div class="empty-icon"><i class="ti ti-notes-medical" aria-hidden="true"></i></div><p>Sin registros médicos</p></div>`;return;
+  }
+
   cl.innerHTML=`<table style="width:100%;border-collapse:collapse">
     <thead><tr style="background:${PL}">
-      ${["Tipo de nota","Especialista","Fecha / Hora","Diagnóstico","Estado",""].map(h=>`<th style="padding:9px 10px;text-align:left;font-size:12px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}
+      ${["Tipo de registro","Profesional","Fecha / Hora","Diagnóstico / Resumen","Estado",""].map(h=>`<th style="padding:9px 10px;text-align:left;font-size:12px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}
     </tr></thead>
-    <tbody>
-      ${data.map((c,i)=>{
-        const bloq=c.bloqueada;
-        const medNom=c.medico_nombre||(c.medico_id&&medMap[c.medico_id])||"Médico no registrado";
-        const esp=c.medico_especialidad?"<br><span style='font-size:11px;color:"+MU+"'>"+c.medico_especialidad+"</span>":"";
-        const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C"};
-        const tipoColor=TIPO_COLOR[c.tipo_nota]||MU;
-        const tipoLabel=(c.tipo_nota||"Nota de evolución").replace("Nota de ","").replace("Nota ","");
-        return `<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-          <td style="padding:9px 10px">
-            <span style="background:${tipoColor}20;color:${tipoColor};border:1px solid ${tipoColor}50;padding:3px 8px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap">${tipoLabel}</span>
-          </td>
-          <td style="padding:9px 10px">
-            <div style="font-size:13px;font-weight:700;color:${P}">${medNom}</div>${esp}
-          </td>
-          <td style="padding:9px 10px;font-size:13px;white-space:nowrap">
-            ${c.fecha||c.created_at?.split("T")[0]||"—"}
-            <br><span style="font-size:11px;color:${MU}">${c.hora_inicio||c.hora||""} ${c.hora_fin?" – "+c.hora_fin:""}</span>
-          </td>
-          <td style="padding:9px 10px;max-width:160px">
-            <span style="background:${PL};color:${P};padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.analisis?c.analisis.substring(0,50):"—"}</span>
-          </td>
-          <td style="padding:9px 10px">
-            ${bloq?`<span style="background:#FFEBEE;color:${DA};padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700">🔒 Cerrada</span>
-            <div style="font-size:11px;color:${MU};margin-top:2px">${c.firma_medico||""}</div>`
-            :`<span style="background:#C8E6C9;color:#1B5E20;padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700">✏️ Abierta</span>`}
-          </td>
-          <td style="padding:9px 10px">${btn("Ver nota","abrirConsulta('"+c.id+"')","p",1)}</td>
-        </tr>`;
-      }).join("")}
-    </tbody>
-  </table>`;
+    <tbody>${todas.map(f=>f.html).join("")}</tbody>
+  </table>
+  <p style="font-size:12px;color:${MU};padding:8px 12px">${filaConsultas.length} consulta(s) · ${(ics||[]).length} interconsulta(s) · ${filasIC.length} fila(s) de referencia/contrarreferencia</p>`;
 }
 window.abrirConsulta=async function(cid){
   loading(true,"Cargando consulta...");
