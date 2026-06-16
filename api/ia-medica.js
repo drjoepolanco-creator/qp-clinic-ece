@@ -13,186 +13,108 @@ module.exports = async function handler(req, res) {
 
   const { tipo, transcripcion, nota, paciente, antecedentes, imageBase64, mediaType } = req.body || {};
 
-  // ── MODO 3: Extracción automática InBody desde PDF/imagen ───────────────────
+  // ── MODO 3: Extracción InBody ────────────────────────────────────────────────
   if (tipo === "inbody") {
     if (!imageBase64) return res.status(400).json({ error: "Se requiere imageBase64" });
     const contentBlock = mediaType === "application/pdf"
       ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: imageBase64 } }
       : { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 } };
-    const prompt = `Eres un experto en análisis de reportes InBody de composición corporal.
-Extrae TODOS los valores numéricos de este reporte InBody y devuelve ÚNICAMENTE un objeto JSON con estos campos exactos (null si no está presente):
-
-{
-  "fecha": "YYYY-MM-DD o null",
-  "hora": "HH:MM o null",
-  "modelo": "nombre del modelo InBody",
-  "puntuacion": numero entero /100,
-  "peso": kg,
-  "altura": cm,
-  "masa_grasa": kg,
-  "masa_musculo": kg,
-  "agua_corporal": litros,
-  "proteina": kg,
-  "minerales": kg,
-  "imc": kg/m2,
-  "pgc": porcentaje grasa corporal,
-  "aec_act": ratio decimal,
-  "grasa_visceral": nivel entero,
-  "peso_ideal": kg,
-  "control_peso": kg,
-  "control_grasa": kg,
-  "control_musculo": kg,
-  "seg_brazo_der": kg,
-  "seg_brazo_izq": kg,
-  "seg_tronco": kg,
-  "seg_pierna_der": kg,
-  "seg_pierna_izq": kg,
-  "grasa_brazo_der": kg,
-  "grasa_brazo_izq": kg,
-  "grasa_tronco": kg,
-  "grasa_pierna_der": kg,
-  "grasa_pierna_izq": kg,
-  "tmb": kcal,
-  "rcl": ratio decimal,
-  "masa_celular": kg
-}
-
-Devuelve SOLO el JSON, sin backticks ni texto adicional.`;
+    const prompt = `Eres un experto en análisis de reportes InBody. Extrae los valores y devuelve SOLO un objeto JSON válido (sin backticks, sin texto adicional):
+{"fecha":null,"hora":null,"modelo":null,"puntuacion":null,"peso":null,"altura":null,"masa_grasa":null,"masa_musculo":null,"agua_corporal":null,"proteina":null,"minerales":null,"imc":null,"pgc":null,"aec_act":null,"grasa_visceral":null,"peso_ideal":null,"control_peso":null,"control_grasa":null,"control_musculo":null,"seg_brazo_der":null,"seg_brazo_izq":null,"seg_tronco":null,"seg_pierna_der":null,"seg_pierna_izq":null,"grasa_brazo_der":null,"grasa_brazo_izq":null,"grasa_tronco":null,"grasa_pierna_der":null,"grasa_pierna_izq":null,"tmb":null,"rcl":null,"masa_celular":null}
+Reemplaza null con los valores encontrados. Devuelve SOLO el JSON.`;
     try {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "pdfs-2024-09-25" },
-        body: JSON.stringify({
-          model: "claude-opus-4-6",
-          max_tokens: 1500,
-          messages: [
-            { role: "user", content: [contentBlock, { type: "text", text: prompt }] },
-            { role: "assistant", content: "{" }
-          ],
-        }),
+        body: JSON.stringify({ model: "claude-opus-4-6", max_tokens: 1500, messages: [{ role: "user", content: [contentBlock, { type: "text", text: prompt }] }] }),
       });
       if (!r.ok) { const t = await r.text(); return res.status(500).json({ error: `API ${r.status}: ${t.substring(0,300)}` }); }
       const d = await r.json();
-      const raw = "{" + (d?.content?.[0]?.text || "").trim();
+      const raw = (d?.content?.[0]?.text || "").trim();
       const parsed = parseJSON(raw);
       if (!parsed) return res.status(500).json({ error: "No se pudo parsear respuesta", raw: raw.substring(0,300) });
       return res.status(200).json({ inbody: parsed });
     } catch (e) { return res.status(500).json({ error: e.message }); }
   }
 
-  // ── MODO 4: Análisis de laboratorio desde PDF/imagen ────────────────────────
+  // ── MODO 4: Análisis de laboratorio ─────────────────────────────────────────
   if (tipo === "laboratorio") {
     if (!imageBase64) return res.status(400).json({ error: "Se requiere imageBase64" });
     const contentBlock = mediaType === "application/pdf"
       ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: imageBase64 } }
       : { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 } };
 
-    // PASO 1 — extraer datos estructurados (JSON puro, sin texto_nota para evitar newlines problemáticos)
-    const promptDatos = `Eres un médico clínico experto en interpretación de resultados de laboratorio.
-Analiza este reporte y extrae los datos. Devuelve SOLO este JSON, sin backticks ni texto adicional:
+    const prompt = `Eres un médico clínico experto en interpretación de laboratorios. Analiza el reporte y devuelve SOLO un objeto JSON válido, sin backticks, sin texto antes ni después del JSON.
 
-{
-  "fecha": "YYYY-MM-DD o null",
-  "laboratorio": "nombre del laboratorio o null",
-  "paciente": "nombre del paciente o null",
-  "resumen_clinico": "Interpretacion clinica en 2-3 oraciones. Menciona valores alterados y su significado clinico.",
-  "analitos": [
-    {"nombre": "Nombre analito", "valor": "valor como string", "unidad": "unidades", "referencia": "rango referencia", "interpretacion": "Normal"}
-  ]
-}
+Estructura exacta requerida:
+{"fecha":null,"laboratorio":null,"paciente":null,"resumen_clinico":"texto de interpretacion aqui","analitos":[{"nombre":"Glucosa","valor":"95","unidad":"mg/dL","referencia":"70-100","interpretacion":"Normal"}]}
 
-Para interpretacion usa EXACTAMENTE una de estas palabras: Normal, Alto, Bajo, Critico, NoInterpretable
-Incluye TODOS los analitos del documento.`;
+Reglas:
+- fecha: formato YYYY-MM-DD o null
+- resumen_clinico: 2-3 oraciones de interpretacion clinica en español, sin saltos de linea
+- analitos: incluye TODOS los analitos del documento
+- interpretacion: usa EXACTAMENTE una de estas: Normal, Alto, Bajo, Critico, NoInterpretable
+- SOLO devuelve el JSON, nada mas`;
 
     try {
       const r1 = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "pdfs-2024-09-25" },
-        body: JSON.stringify({
-          model: "claude-opus-4-6",
-          max_tokens: 4096,
-          messages: [
-            { role: "user", content: [contentBlock, { type: "text", text: promptDatos }] },
-            { role: "assistant", content: "{" }
-          ],
-        }),
+        body: JSON.stringify({ model: "claude-opus-4-6", max_tokens: 4096, messages: [{ role: "user", content: [contentBlock, { type: "text", text: prompt }] }] }),
       });
       if (!r1.ok) { const t = await r1.text(); return res.status(500).json({ error: `API ${r1.status}: ${t.substring(0,300)}` }); }
       const d1 = await r1.json();
-      const raw1 = "{" + (d1?.content?.[0]?.text || "").trim();
+      const raw1 = (d1?.content?.[0]?.text || "").trim();
       const parsed1 = parseJSON(raw1);
-      if (!parsed1) return res.status(500).json({ error: "No se pudo parsear respuesta IA", raw: raw1.substring(0,400) });
+      if (!parsed1) return res.status(500).json({ error: "No se pudo parsear respuesta IA", raw: raw1.substring(0,500) });
 
-      // PASO 2 — generar texto_nota a partir de los datos ya estructurados (sin documento, sin riesgo de newlines en JSON)
-      const analitosTexto = (parsed1.analitos || []).map(a => {
-        const interp = a.interpretacion === "Normal" ? "[Normal]"
-          : a.interpretacion === "Alto"   ? "[↑ Alto]"
-          : a.interpretacion === "Bajo"   ? "[↓ Bajo]"
-          : a.interpretacion === "Critico" ? "[⚠️ CRÍTICO]"
-          : "";
-        return `  ${a.nombre}: ${a.valor} ${a.unidad} ${interp}${a.referencia ? " (ref: " + a.referencia + ")" : ""}`;
-      }).join("\n");
-
-      const alterados = (parsed1.analitos || [])
-        .filter(a => a.interpretacion !== "Normal" && a.interpretacion !== "NoInterpretable")
-        .map(a => `  - ${a.nombre}: ${a.valor} ${a.unidad} (${a.interpretacion === "Alto" ? "↑ Alto" : a.interpretacion === "Bajo" ? "↓ Bajo" : "⚠️ Crítico"})`)
-        .join("\n");
-
+      // Construir texto_nota en Node.js (no en el JSON de Claude)
       const fechaStr = parsed1.fecha || new Date().toISOString().split("T")[0];
       const labStr   = parsed1.laboratorio ? ` — ${parsed1.laboratorio}` : "";
-
-      const texto_nota = [
-        `LABORATORIOS (${fechaStr}${labStr}):`,
-        analitosTexto || "  Sin analitos extraídos",
-        alterados ? `\nHALLAZGOS RELEVANTES:\n${alterados}` : "",
-        parsed1.resumen_clinico ? `\nINTERPRETACIÓN CLÍNICA:\n  ${parsed1.resumen_clinico}` : "",
-      ].filter(Boolean).join("\n");
-
-      return res.status(200).json({
-        laboratorio: {
-          ...parsed1,
-          texto_nota,
-        }
+      const lineasAnalitos = (parsed1.analitos || []).map(a => {
+        const tag = a.interpretacion === "Normal"  ? "[Normal]"
+                  : a.interpretacion === "Alto"    ? "[↑ Alto]"
+                  : a.interpretacion === "Bajo"    ? "[↓ Bajo]"
+                  : a.interpretacion === "Critico" ? "[⚠️ CRÍTICO]"
+                  : "";
+        const ref = a.referencia ? ` (ref: ${a.referencia})` : "";
+        return `  ${a.nombre}: ${a.valor} ${a.unidad} ${tag}${ref}`.trimEnd();
       });
+      const alterados = (parsed1.analitos || []).filter(a =>
+        a.interpretacion === "Alto" || a.interpretacion === "Bajo" || a.interpretacion === "Critico"
+      ).map(a => `  - ${a.nombre}: ${a.valor} ${a.unidad} (${
+        a.interpretacion === "Alto" ? "↑ Alto" : a.interpretacion === "Bajo" ? "↓ Bajo" : "⚠️ CRÍTICO"
+      })`);
 
+      const partes = [`LABORATORIOS (${fechaStr}${labStr}):`, ...lineasAnalitos];
+      if (alterados.length) partes.push("", "HALLAZGOS RELEVANTES:", ...alterados);
+      if (parsed1.resumen_clinico) partes.push("", "INTERPRETACIÓN CLÍNICA:", `  ${parsed1.resumen_clinico}`);
+      const texto_nota = partes.join("\n");
+
+      return res.status(200).json({ laboratorio: { ...parsed1, texto_nota } });
     } catch (e) { return res.status(500).json({ error: e.message }); }
   }
 
-  // ── MODO 1: Solo diagnósticos CIE-10 ────────────────────────────────────────
+  // ── MODO 1: Diagnósticos CIE-10 ─────────────────────────────────────────────
   if (tipo === "diagnosticos") {
     if (!nota) return res.status(400).json({ error: "Se requiere el contenido de la nota" });
-    const prompt = `Eres un médico experto en codificación diagnóstica CIE-10.
-Analiza el siguiente contenido clínico y proporciona los diagnósticos más probables.
+    const prompt = `Eres un médico experto en codificación diagnóstica CIE-10. Analiza el contenido clínico y devuelve SOLO un JSON válido, sin backticks ni texto adicional.
 
 DATOS DEL PACIENTE: ${paciente || "No especificado"}
+CONTENIDO CLÍNICO: ${nota}
 
-CONTENIDO CLÍNICO:
-${nota}
-
-Responde ÚNICAMENTE con este JSON sin texto adicional:
-{"diagnosticos":[{"codigo":"X00.0","nombre":"Nombre completo del diagnóstico","certeza":"Principal"}]}
-
-Reglas:
+Formato exacto: {"diagnosticos":[{"codigo":"X00.0","nombre":"Nombre completo","certeza":"Principal"}]}
 - Entre 1 y 6 diagnósticos, del más probable al menos probable
-- Código CIE-10 exacto y específico
-- certeza: Principal (el más probable), Secundario, o Diferencial
-- Incluye tanto diagnósticos etiológicos como sintomáticos si aplica`;
+- certeza: Principal, Secundario, o Diferencial`;
     try {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({
-          model: "claude-opus-4-6",
-          max_tokens: 1024,
-          messages: [
-            { role: "user", content: prompt },
-            { role: "assistant", content: "{" }
-          ]
-        }),
+        body: JSON.stringify({ model: "claude-opus-4-6", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
       });
       if (!r.ok) { const t = await r.text(); return res.status(500).json({ error: `API ${r.status}: ${t.substring(0,200)}` }); }
       const d = await r.json();
-      const raw = "{" + (d?.content?.[0]?.text || "").trim();
+      const raw = (d?.content?.[0]?.text || "").trim();
       const parsed = parseJSON(raw);
       if (!parsed) return res.status(500).json({ error: "No se pudo parsear respuesta", raw: raw.substring(0,400) });
       return res.status(200).json(parsed);
@@ -201,49 +123,27 @@ Reglas:
 
   // ── MODO 2: Nota SOAP completa ───────────────────────────────────────────────
   if (!transcripcion) return res.status(400).json({ error: "Se requiere la transcripción del interrogatorio" });
-  const prompt = `Eres un médico clínico experto. Genera una nota médica SOAP completa en formato JSON.
+  const prompt = `Eres un médico clínico experto. Genera una nota SOAP en JSON. Devuelve SOLO el JSON, sin backticks ni texto adicional.
 
-DATOS DEL PACIENTE:
-${paciente || "No especificado"}
+DATOS DEL PACIENTE: ${paciente || "No especificado"}
+ANTECEDENTES: ${antecedentes || "No especificados"}
+INTERROGATORIO: ${transcripcion}
 
-ANTECEDENTES:
-${antecedentes || "No especificados"}
+Formato exacto:
+{"subjetivo":"...","exploracion_sugerida":"...","diagnosticos":[{"cie10":"X00.0","nombre":"...","descripcion":"...","probabilidad":"alta"}],"tratamiento":"...","laboratorios":"...","gabinete":"...","plan":"...","pronostico_funcion":"Bueno","pronostico_vida":"Sin riesgo vital inmediato"}
 
-INTERROGATORIO:
-${transcripcion}
-
-Responde ÚNICAMENTE con este JSON, sin texto adicional, sin bloques de código:
-{
-  "subjetivo": "narrativa del motivo de consulta, síntomas, cronología y características",
-  "exploracion_sugerida": "exploración física detallada a realizar",
-  "diagnosticos": [
-    {"cie10": "código exacto", "nombre": "nombre del diagnóstico", "descripcion": "justificación clínica breve", "probabilidad": "alta"}
-  ],
-  "tratamiento": "medicamentos numerados: nombre genérico, presentación, dosis, vía, frecuencia, duración. Medidas generales.",
-  "laboratorios": "estudios de laboratorio relevantes, uno por línea",
-  "gabinete": "estudios de imagen o gabinete, uno por línea",
-  "plan": "seguimiento: próxima cita, indicaciones de alarma, restricciones, referencias si aplica",
-  "pronostico_funcion": "Rehabilitable|Bueno|Bueno a largo plazo|Favorable con tratamiento|Regular|Malo|Reservado|No rehabilitable",
-  "pronostico_vida": "Sin riesgo vital inmediato|Bueno|Favorable|Regular|Malo|Reservado|Grave"
-}
-
-Incluye 1-5 diagnósticos de mayor a menor probabilidad. Si es medicina del deporte incluye pruebas funcionales específicas.`;
+- 1 a 5 diagnósticos de mayor a menor probabilidad
+- Si es medicina del deporte incluye pruebas funcionales
+- Sin saltos de línea dentro de los valores del JSON`;
   try {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: "claude-opus-4-6",
-        max_tokens: 4096,
-        messages: [
-          { role: "user", content: prompt },
-          { role: "assistant", content: "{" }
-        ]
-      }),
+      body: JSON.stringify({ model: "claude-opus-4-6", max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),
     });
     if (!r.ok) { const t = await r.text(); return res.status(500).json({ error: `API ${r.status}: ${t.substring(0,300)}` }); }
     const d = await r.json();
-    const raw = "{" + (d?.content?.[0]?.text || "").trim();
+    const raw = (d?.content?.[0]?.text || "").trim();
     const parsed = parseJSON(raw);
     if (!parsed) return res.status(500).json({ error: "No se pudo parsear respuesta IA", raw: raw.substring(0,500) });
     return res.status(200).json(parsed);
@@ -254,17 +154,16 @@ function parseJSON(raw) {
   if (!raw) return null;
   let p = null;
   const try_ = (s) => { try { p = JSON.parse(s); return true; } catch { return false; } };
-  // 1. Intento directo
+  // 1. Directo
   if (try_(raw)) return p;
-  // 2. Quitar backticks markdown
-  const noMd = raw.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
+  // 2. Quitar backticks markdown ```json ... ```
+  const noMd = raw.replace(/^```(?:json)?\s*/im, "").replace(/\s*```\s*$/im, "").trim();
   if (try_(noMd)) return p;
-  // 3. Extraer primer objeto JSON completo
+  // 3. Extraer desde primer { hasta último }
   const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
   if (s !== -1 && e > s && try_(raw.substring(s, e + 1))) return p;
-  // 4. Intentar reparar JSON truncado añadiendo cierre
-  const incomplete = raw.substring(s !== -1 ? s : 0);
-  const repaired = incomplete + (incomplete.endsWith("}") ? "" : "}");
-  if (try_(repaired)) return p;
+  // 4. Mismo sobre noMd
+  const s2 = noMd.indexOf("{"), e2 = noMd.lastIndexOf("}");
+  if (s2 !== -1 && e2 > s2 && try_(noMd.substring(s2, e2 + 1))) return p;
   return null;
 }
