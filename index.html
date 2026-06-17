@@ -10322,15 +10322,19 @@ window.generarPDFFisio=async function(){
     return yPos+8;
   };
 
+  // ── helpers seguros ────────────────────────────────────────
+  const S=v=>String(v==null||v===""?"—":v);   // siempre string no vacío
+  const T=v=>String(v||"");                   // string, puede ser vacío
+
   const campo=(label,valor,xPos,yPos,w)=>{
     doc.setTextColor(...colorMu);
     doc.setFont("helvetica","normal");
     doc.setFontSize(7.5);
-    doc.text(label.toUpperCase(),xPos,yPos);
+    doc.text(String(label).toUpperCase(),xPos,yPos);
     doc.setTextColor(...colorD);
     doc.setFont("helvetica","bold");
     doc.setFontSize(9);
-    doc.text(valor||"—",xPos,yPos+4.5,{maxWidth:w-2});
+    doc.text(S(valor),xPos,yPos+4.5,{maxWidth:(w||20)-2});
     return yPos+10;
   };
 
@@ -10345,11 +10349,11 @@ window.generarPDFFisio=async function(){
     doc.setTextColor(...colorMu);
     doc.setFont("helvetica","normal");
     doc.setFontSize(7.5);
-    doc.text(label+":",ML,yPos);
+    doc.text(String(label)+":",ML,yPos);
     doc.setTextColor(...colorD);
     doc.setFont("helvetica","normal");
     doc.setFontSize(8.5);
-    const lines=doc.splitTextToSize(valor||"—",CW-30);
+    const lines=doc.splitTextToSize(S(valor),CW-30);
     doc.text(lines,ML+30,yPos);
     return yPos+lines.length*4.5+1;
   };
@@ -10359,11 +10363,11 @@ window.generarPDFFisio=async function(){
     doc.setTextColor(...colorMu);
     doc.setFont("helvetica","bold");
     doc.setFontSize(7.5);
-    doc.text(label.toUpperCase()+":",ML,yPos);
+    doc.text(String(label).toUpperCase()+":",ML,yPos);
     doc.setTextColor(...colorD);
     doc.setFont("helvetica","normal");
     doc.setFontSize(8.5);
-    const lines=doc.splitTextToSize(valor,maxW||CW);
+    const lines=doc.splitTextToSize(String(valor),maxW||CW);
     checkPage(lines.length*4.5+4);
     doc.text(lines,ML,yPos+5);
     return yPos+lines.length*4.5+7;
@@ -10502,11 +10506,11 @@ window.generarPDFFisio=async function(){
   doc.setTextColor(...colorD);
   doc.setFont("helvetica","bold");
   doc.setFontSize(8.5);
-  doc.text(datos.medico,ML,y+25);
+  doc.text(S(datos.medico),ML,y+25);
   if(datos.cedula){
     doc.setFont("helvetica","normal");
     doc.setFontSize(8);
-    doc.text("Cédula: "+datos.cedula,ML,y+29);
+    doc.text("Cédula: "+S(datos.cedula),ML,y+29);
   }
 
   // ── Footer ────────────────────────────────────────────────
