@@ -3331,6 +3331,11 @@ window.guardarNuevoPac=async function(){
     notas:d.fans||null,
   }:null;
 
+  // es_menor va dentro del objeto responsable (no es columna separada en DB)
+  const responsableConMenor=responsable
+    ?{...responsable,es_menor:esMenor}
+    :esMenor?{es_menor:true}:null;
+
   const payload={
     nombre:nom.toUpperCase(),
     apellido_paterno:apP.toUpperCase(),
@@ -3356,8 +3361,7 @@ window.guardarNuevoPac=async function(){
     referido_por:d.nref||null,
     firmo_privacidad:d.npriv||false,
     firmo_consentimiento:d.ncons||false,
-    es_menor:esMenor,
-    responsable:responsable,
+    responsable:responsableConMenor,
     seguro_medico:seguro,
     domicilio:domicilio,
     datos_laborales:laboral,
@@ -5417,7 +5421,7 @@ window.abrirModalFirmaGlobal=function(){
   const p=STATE.pat||{};
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
   // Menor de edad
-  let esMenor=p.es_menor||false;
+  let esMenor=(p.responsable?.es_menor)||false;
   if(!esMenor&&p.fecha_nacimiento){
     const hoy=new Date(),nac=new Date(p.fecha_nacimiento);
     const edad=hoy.getFullYear()-nac.getFullYear()-(hoy<new Date(hoy.getFullYear(),nac.getMonth(),nac.getDate())?1:0);
@@ -5520,7 +5524,7 @@ window.enviarFirmaWAGlobal=async function(){
 
   // Determinar si es menor de edad
   const p=STATE.pat||{};
-  let esMenor=p.es_menor||false;
+  let esMenor=(p.responsable?.es_menor)||false;
   if(!esMenor&&p.fecha_nacimiento){
     const hoy=new Date(),nac=new Date(p.fecha_nacimiento);
     const edad=hoy.getFullYear()-nac.getFullYear()-(hoy<new Date(hoy.getFullYear(),nac.getMonth(),nac.getDate())?1:0);
