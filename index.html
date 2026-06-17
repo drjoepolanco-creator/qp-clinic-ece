@@ -3515,6 +3515,7 @@ function renderFicha(b){
       <div id="fb" style="padding:20px"></div>
     </div>
   </div>`;renderFB();
+  if(STATE.ficTab==="gen")setTimeout(()=>sincronizarDocsFirmados(),400);
 }
 window.setFT=function(t){STATE.ficTab=t;const b=document.getElementById("eb");if(b)renderFicha(b);}
 function renderFB(){
@@ -3523,7 +3524,7 @@ function renderFB(){
   if(STATE.ficTab==="gen")fb.innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("No. Expediente",`<input value="${p.numero_expediente||'—'}" disabled style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;background:#F5F5F5">`)}
-      ${fld("CURP",`<div style="display:flex;gap:5px">${inp("fe_curp",p.curp||"","XXXX000000XXXXXXXX")}<button style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
+      ${fld("CURP",`<div style="display:flex;gap:5px">${inp("fe_curp",p.curp||"","XXXX000000XXXXXXXX")}<button onclick="validarCURP('fe_curp')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
       ${fld("Folio clínica",inp("fe_folio",p.folio_clinica||""))}
       ${fld("Fecha de Registro",`<input value="${p.created_at?p.created_at.split("T")[0]:""}" disabled style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;background:#F5F5F5">`)}
     </div>
@@ -3557,9 +3558,21 @@ function renderFB(){
       ${fld("Correo electrónico",inp("fe_mail",p.correo||"","correo@ejemplo.com","email"))}
       ${fld("Referido por",inp("fe_ref",p.referido_por||""))}
     </div>
-    <div style="display:flex;gap:20px;margin-top:14px;padding-top:14px;border-top:1px solid ${BR}">
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" id="fe_priv" ${p.firmo_privacidad?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Aviso de Privacidad</label>
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" id="fe_cons" ${p.firmo_consentimiento?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Consentimiento Informado</label>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid ${BR}">
+      <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Documentos firmados</p>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <label id="lbl_priv" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;padding:6px 10px;border-radius:8px;border:1.5px solid ${p.firmo_privacidad?"#81C784":"${BR}"};background:${p.firmo_privacidad?"#F1F8E9":"#fff"}">
+          <input type="checkbox" id="fe_priv" ${p.firmo_privacidad?"checked":""} style="accent-color:${P};width:15px;height:15px">
+          <span>${p.firmo_privacidad?"✅":"📄"} Aviso de Privacidad</span>
+          ${p.firmo_privacidad?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">Firmado</span>`:`<span style="background:#FFF9C4;color:#F57F17;padding:1px 7px;border-radius:20px;font-size:11px">Pendiente</span>`}
+        </label>
+        <label id="lbl_cons" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;padding:6px 10px;border-radius:8px;border:1.5px solid ${p.firmo_consentimiento?"#81C784":"${BR}"};background:${p.firmo_consentimiento?"#F1F8E9":"#fff"}">
+          <input type="checkbox" id="fe_cons" ${p.firmo_consentimiento?"checked":""} style="accent-color:${P};width:15px;height:15px">
+          <span>${p.firmo_consentimiento?"✅":"📄"} Consentimiento Informado</span>
+          ${p.firmo_consentimiento?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">Firmado</span>`:`<span style="background:#FFF9C4;color:#F57F17;padding:1px 7px;border-radius:20px;font-size:11px">Pendiente</span>`}
+        </label>
+      </div>
+      <p id="docs-sync-msg" style="font-size:11px;color:${MU};margin-top:6px">Sincronizando con documentos firmados...</p>
     </div>`;
   else if(STATE.ficTab==="dom"){
     const d=p.domicilio||{};
@@ -4058,6 +4071,63 @@ window.actualizarAdic=function(key,val){STATE.patData[key]=val;
   }
 }
 window.toggleAlerg=function(a){saveABTextareas();STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];}
+
+// ── CURP: validador oficial RENAPO ───────────────────────────────────────────
+window.validarCURP=function(fieldId){
+  const curp=(document.getElementById(fieldId)?.value||"").trim().toUpperCase();
+  if(curp.length===18){
+    window.open("https://www.renapo.gob.mx/tramites/consulta-curp","_blank","noopener");
+    showToast("Validador RENAPO abierto — ingresa la CURP: "+curp);
+  } else if(curp.length>0){
+    showToast("La CURP debe tener 18 caracteres (tiene "+curp.length+")",false);
+  } else {
+    window.open("https://www.renapo.gob.mx/tramites/consulta-curp","_blank","noopener");
+  }
+}
+
+// ── Sincronizar checkboxes con docs firmados en Supabase ─────────────────────
+window.sincronizarDocsFirmados=async function(){
+  const pid=STATE.pat?.id;
+  const msg=document.getElementById("docs-sync-msg");
+  if(!pid){if(msg)msg.textContent="";return;}
+  const {data:docs}=await SB.from("anexos")
+    .select("titulo,firmado,origen")
+    .eq("paciente_id",pid)
+    .eq("firmado",true)
+    .eq("origen","digital");
+  if(!docs||docs.length===0){
+    if(msg)msg.textContent="Sin documentos firmados digitalmente registrados.";
+    return;
+  }
+  const titulos=docs.map(d=>(d.titulo||"").toLowerCase());
+  const tienePriv=titulos.some(t=>t.includes("privacidad")||t.includes("privacy"));
+  const tieneCons=titulos.some(t=>t.includes("consentimiento")||t.includes("general")||t.includes("qpclinic")||t.includes("médico")||t.includes("medico")||t.includes("deportivo"));
+  let cambio=false;
+  const cbPriv=document.getElementById("fe_priv");
+  const cbCons=document.getElementById("fe_cons");
+  if(tienePriv&&cbPriv&&!cbPriv.checked){
+    cbPriv.checked=true;
+    const lbl=document.getElementById("lbl_priv");
+    if(lbl){lbl.style.borderColor="#81C784";lbl.style.background="#F1F8E9";}
+    cambio=true;
+  }
+  if(tieneCons&&cbCons&&!cbCons.checked){
+    cbCons.checked=true;
+    const lbl=document.getElementById("lbl_cons");
+    if(lbl){lbl.style.borderColor="#81C784";lbl.style.background="#F1F8E9";}
+    cambio=true;
+  }
+  if(cambio){
+    await SB.from("pacientes").update({
+      firmo_privacidad:cbPriv?.checked||false,
+      firmo_consentimiento:cbCons?.checked||false,
+    }).eq("id",pid);
+    if(msg)msg.innerHTML=`<span style="color:#2E7D32;font-weight:700">✅ Actualizado automáticamente desde documentos firmados</span>`;
+    if(STATE.pat){STATE.pat.firmo_privacidad=cbPriv?.checked;STATE.pat.firmo_consentimiento=cbCons?.checked;}
+  } else {
+    if(msg)msg.textContent=docs.length+" documento(s) firmado(s) verificado(s).";
+  }
+}
 window.agregarOtraAlergia=function(){
   const inp=document.getElementById("al-otra");
   if(!inp||!inp.value.trim()){showToast("Escribe el nombre de la alergia",false);return;}
