@@ -2965,7 +2965,7 @@ function renderNB(){
       <div id="prereg-status" style="margin-left:auto;font-size:13px;color:${MU}"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-      ${fld("CURP",`<div style="display:flex;gap:5px">${inp("nc","","XXXX000000XXXXXXXX")}<button style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
+      ${fld("CURP",`<div style="display:flex;gap:5px">${inp("nc","","XXXX000000XXXXXXXX")}<button onclick="validarCURP('nc')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
       ${fld("Folio clínica",inp("nfolio",""))}
       ${fld("Fecha de registro",inp("nfr",new Date().toLocaleDateString("es-MX")))}
     </div>
@@ -3348,6 +3348,8 @@ function renderFicha(b){
       <div id="fb" style="padding:20px"></div>
     </div>
   </div>`;renderFB();
+  // Auto-sincronizar documentos firmados al cargar ficha general
+  if(STATE.ficTab==="gen")setTimeout(()=>sincronizarDocsFirmados(),400);
 }
 window.setFT=function(t){STATE.ficTab=t;const b=document.getElementById("eb");if(b)renderFicha(b);}
 function renderFB(){
@@ -3356,7 +3358,7 @@ function renderFB(){
   if(STATE.ficTab==="gen")fb.innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("No. Expediente",`<input value="${p.numero_expediente||'—'}" disabled style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;background:#F5F5F5">`)}
-      ${fld("CURP",`<div style="display:flex;gap:5px">${inp("fe_curp",p.curp||"","XXXX000000XXXXXXXX")}<button style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
+      ${fld("CURP",`<div style="display:flex;gap:5px">${inp("fe_curp",p.curp||"","XXXX000000XXXXXXXX")}<button onclick="validarCURP('fe_curp')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
       ${fld("Folio clínica",inp("fe_folio",p.folio_clinica||""))}
       ${fld("Fecha de Registro",`<input value="${p.created_at?p.created_at.split("T")[0]:""}" disabled style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;background:#F5F5F5">`)}
     </div>
@@ -3390,9 +3392,21 @@ function renderFB(){
       ${fld("Correo electrónico",inp("fe_mail",p.correo||"","correo@ejemplo.com","email"))}
       ${fld("Referido por",inp("fe_ref",p.referido_por||""))}
     </div>
-    <div style="display:flex;gap:20px;margin-top:14px;padding-top:14px;border-top:1px solid ${BR}">
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" id="fe_priv" ${p.firmo_privacidad?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Aviso de Privacidad</label>
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" id="fe_cons" ${p.firmo_consentimiento?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Consentimiento Informado</label>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid ${BR}">
+      <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Documentos firmados</p>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <label id="lbl_priv" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;padding:6px 10px;border-radius:8px;border:1.5px solid ${p.firmo_privacidad?"#81C784":"${BR}"};background:${p.firmo_privacidad?"#F1F8E9":"#fff"}">
+          <input type="checkbox" id="fe_priv" ${p.firmo_privacidad?"checked":""} style="accent-color:${P};width:15px;height:15px">
+          <span>${p.firmo_privacidad?"✅":"📄"} Aviso de Privacidad</span>
+          ${p.firmo_privacidad?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">Firmado</span>`:`<span style="background:#FFF9C4;color:#F57F17;padding:1px 7px;border-radius:20px;font-size:11px">Pendiente</span>`}
+        </label>
+        <label id="lbl_cons" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;padding:6px 10px;border-radius:8px;border:1.5px solid ${p.firmo_consentimiento?"#81C784":"${BR}"};background:${p.firmo_consentimiento?"#F1F8E9":"#fff"}">
+          <input type="checkbox" id="fe_cons" ${p.firmo_consentimiento?"checked":""} style="accent-color:${P};width:15px;height:15px">
+          <span>${p.firmo_consentimiento?"✅":"📄"} Consentimiento Informado</span>
+          ${p.firmo_consentimiento?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">Firmado</span>`:`<span style="background:#FFF9C4;color:#F57F17;padding:1px 7px;border-radius:20px;font-size:11px">Pendiente</span>`}
+        </label>
+      </div>
+      <p id="docs-sync-msg" style="font-size:11px;color:${MU};margin-top:6px">Sincronizando con documentos firmados...</p>
     </div>`;
   else if(STATE.ficTab==="dom"){
     const d=p.domicilio||{};
@@ -3891,6 +3905,83 @@ window.actualizarAdic=function(key,val){STATE.patData[key]=val;
   }
 }
 window.toggleAlerg=function(a){saveABTextareas();STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];}
+
+// ── CURP: abrir validador oficial RENAPO ─────────────────────────────────────
+window.validarCURP=function(fieldId){
+  const curp=(document.getElementById(fieldId)?.value||"").trim().toUpperCase();
+  if(curp.length===18){
+    // RENAPO validador con CURP prellenada
+    window.open("https://www.renapo.gob.mx/tramites/consulta-curp","_blank","noopener");
+    showToast("Se abrió el validador oficial RENAPO — ingresa la CURP: "+curp);
+  } else if(curp.length>0){
+    showToast("La CURP debe tener 18 caracteres (tiene "+curp.length+")",false);
+  } else {
+    window.open("https://www.renapo.gob.mx/tramites/consulta-curp","_blank","noopener");
+  }
+}
+
+// ── Sincronizar checkboxes con documentos firmados en Supabase ───────────────
+window.sincronizarDocsFirmados=async function(){
+  const pid=STATE.pat?.id;
+  const msg=document.getElementById("docs-sync-msg");
+  if(!pid){if(msg)msg.textContent="";return;}
+
+  const {data:docs}=await SB.from("anexos")
+    .select("titulo,firmado,origen")
+    .eq("paciente_id",pid)
+    .eq("firmado",true)
+    .eq("origen","digital");
+
+  if(!docs||docs.length===0){
+    if(msg)msg.textContent="Sin documentos firmados digitalmente registrados.";
+    return;
+  }
+
+  const titulos=docs.map(d=>(d.titulo||"").toLowerCase());
+  const tienePrivacidad=titulos.some(t=>t.includes("privacidad")||t.includes("privacy"));
+  const tieneConsentimiento=titulos.some(t=>
+    t.includes("consentimiento") || t.includes("general") || t.includes("qpclinic") ||
+    t.includes("médico") || t.includes("medico") || t.includes("deportivo")
+  );
+
+  let cambio=false;
+  const cbPriv=document.getElementById("fe_priv");
+  const cbCons=document.getElementById("fe_cons");
+
+  if(tienePrivacidad&&cbPriv&&!cbPriv.checked){
+    cbPriv.checked=true;
+    // Actualizar UI del label
+    const lbl=document.getElementById("lbl_priv");
+    if(lbl){
+      lbl.style.borderColor="#81C784";lbl.style.background="#F1F8E9";
+      lbl.querySelector("span")&&(lbl.querySelectorAll("span")[0].textContent="✅ Aviso de Privacidad");
+    }
+    cambio=true;
+  }
+  if(tieneConsentimiento&&cbCons&&!cbCons.checked){
+    cbCons.checked=true;
+    const lbl=document.getElementById("lbl_cons");
+    if(lbl){
+      lbl.style.borderColor="#81C784";lbl.style.background="#F1F8E9";
+      lbl.querySelectorAll("span")[0]&&(lbl.querySelectorAll("span")[0].textContent="✅ Consentimiento Informado");
+    }
+    cambio=true;
+  }
+
+  // Si hubo cambio: guardar automáticamente en Supabase
+  if(cambio){
+    await SB.from("pacientes").update({
+      firmo_privacidad:cbPriv?.checked||false,
+      firmo_consentimiento:cbCons?.checked||false,
+    }).eq("id",pid);
+    if(msg)msg.innerHTML=`<span style="color:#2E7D32;font-weight:700">✅ Actualizado automáticamente desde documentos firmados</span>`;
+    // Actualizar STATE
+    if(STATE.pat){STATE.pat.firmo_privacidad=cbPriv?.checked;STATE.pat.firmo_consentimiento=cbCons?.checked;}
+  } else {
+    const firmadosCount=docs.length;
+    if(msg)msg.textContent=firmadosCount+" documento(s) firmado(s) verificado(s). Sin cambios pendientes.";
+  }
+}
 window.agregarOtraAlergia=function(){
   const inp=document.getElementById("al-otra");
   if(!inp||!inp.value.trim()){showToast("Escribe el nombre de la alergia",false);return;}
@@ -5109,26 +5200,18 @@ async function renderDocsAnexos(ab){
       </tr></thead>
       <tbody id="docs-tbody">
         ${docs.length===0?`<tr><td colspan="6" style="padding:28px;text-align:center;color:${MU}">No hay documentos subidos aún</td></tr>`:
-        docs.map((d,i)=>{
-          const protegido=d.firmado||d.origen==="digital";
-          return`<tr style="border-top:1px solid ${BR};background:${protegido?(i%2?"#F1F8E9":"#F9FBF5"):(i%2?"#FAFAFA":"#fff")}">
-          <td style="padding:10px;text-align:center">${protegido
-            ?`<span title="Documento protegido — no puede eliminarse" style="font-size:16px;cursor:default">🔒</span>`
-            :`<input type="checkbox" data-id="${d.id}" style="accent-color:${P};width:14px;height:14px;cursor:pointer">`}</td>
+        docs.map((d,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+          <td style="padding:10px;text-align:center"><input type="checkbox" data-id="${d.id}" style="accent-color:${P};width:14px;height:14px;cursor:pointer"></td>
           <td style="padding:10px;font-size:14px;color:${MU}">${d.fecha||"—"}</td>
           <td style="padding:10px"><div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:18px">📄</span>
             <div><p style="font-size:14px;font-weight:600">${d.titulo}</p>
-            ${d.firmado
-              ?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:12px;font-weight:700">✓ Firmado digitalmente</span>`
-              :d.origen==="digital"
-                ?`<span style="background:#FFF9C4;color:#F57F17;padding:1px 7px;border-radius:20px;font-size:12px;font-weight:700">⏳ Pendiente firma</span>`
-                :`<span style="background:#ECEFF1;color:${MU};padding:1px 7px;border-radius:20px;font-size:12px">Subido manualmente</span>`}
+            ${d.firmado?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:14px;font-weight:700">✓ Firmado digitalmente</span>`:`<span style="background:#ECEFF1;color:${MU};padding:1px 7px;border-radius:20px;font-size:14px">Subido manualmente</span>`}
             </div></div></td>
           <td style="padding:10px;text-align:center">${d.origen==="digital"?`<span style="background:${PL};color:${P};padding:2px 8px;border-radius:20px;font-size:14px;font-weight:600">📱 Digital</span>`:`<span style="background:#F3E5F5;color:#7B1FA2;padding:2px 8px;border-radius:20px;font-size:14px;font-weight:600">💻 Subido</span>`}</td>
-          <td style="padding:10px;text-align:center"><button onclick="verPDF('${d.id}')" style="background:${P};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:14px;font-weight:600">📄 PDF</button></td>
-          <td style="padding:10px;text-align:center"><button onclick="descargarDoc('${d.id}')" style="background:#546E7A;color:#fff;border:none;border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:14px">⬇️</button></td>
-        </tr>`}).join("")}
+          <td style="padding:10px;text-align:center"><button onclick="verPDF('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:14px;font-weight:600">📄 PDF</button></td>
+          <td style="padding:10px;text-align:center"><button onclick="descargarDoc('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:14px">⬇️</button></td>
+        </tr>`).join("")}
       </tbody>
     </table>
     <div id="modal-firma" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
@@ -5327,19 +5410,12 @@ window.subirDocumento=async function(){
   renderDocsAnexos(document.getElementById("anexo-body"));
 }
 window.eliminarDocsSel=async function(){
-  // Solo checkboxes visibles = documentos no protegidos
   const checks=document.querySelectorAll("#docs-tbody input[type=checkbox]:checked");
   if(checks.length===0){showToast("Selecciona al menos un documento",false);return;}
-  const ids=Array.from(checks).map(c=>c.dataset.id);
-  const ok=await qpConfirm(
-    `¿Eliminar ${ids.length} documento(s) seleccionado(s)? Esta acción no se puede deshacer.`,
-    {title:"Eliminar documentos",okLabel:"Eliminar",danger:true}
-  );
-  if(!ok)return;
   loading(true,"Eliminando...");
+  const ids=Array.from(checks).map(c=>c.dataset.id);
   await SB.from("anexos").delete().in("id",ids);
-  loading(false);
-  showToast(`✓ ${ids.length} documento(s) eliminado(s)`);
+  loading(false);showToast("✓ Documento(s) eliminado(s)");
   renderDocsAnexos(document.getElementById("anexo-body"));
 }
 window.verPDF=async function(docId){
@@ -5429,192 +5505,23 @@ async function renderGabinete(ab){
       </tr></thead>
       <tbody>
         ${docs.length===0?`<tr><td colspan="6" style="padding:28px;text-align:center;color:${MU}">Sin estudios subidos. Usa el botón "Subir estudio" para agregar.</td></tr>`
-        :docs.map((d,i)=>{
-          const iaGuardada=d.descripcion&&d.descripcion.startsWith("__IA__:");
-          const descVisible=iaGuardada?"":d.descripcion||"—";
-          return`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+        :docs.map((d,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
           <td style="padding:10px 12px;font-size:14px;color:${MU};white-space:nowrap">${d.fecha||"—"}</td>
-          <td style="padding:10px 12px"><div style="font-size:14px;font-weight:700;color:${TX}">${ICONS[d.tipo_documento]||"📋"} ${d.titulo}</div>
-            ${iaGuardada?`<span style="background:#EDE7F6;color:#6A1B9A;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">📊 Análisis IA guardado</span>`:""}
-          </td>
+          <td style="padding:10px 12px"><div style="font-size:14px;font-weight:700;color:${TX}">${ICONS[d.tipo_documento]||"📋"} ${d.titulo}</div></td>
           <td style="padding:10px 12px"><span style="background:${PL};color:${P};padding:2px 8px;border-radius:20px;font-size:13px">${d.tipo_documento}</span></td>
           <td style="padding:10px 12px;font-size:14px;color:${MU}">${d.nombre_firmante||"—"}</td>
-          <td style="padding:10px 12px;font-size:13px;color:${MU};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${descVisible}">${descVisible}</td>
-          <td style="padding:10px 12px;white-space:nowrap;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
-            ${d.storage_path?`<button onclick="verPDF('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">📄 Ver</button>`:
-            d.url_archivo?`<button onclick="window.open('${d.url_archivo}','_blank')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">📄 Ver</button>`:""}
+          <td style="padding:10px 12px;font-size:13px;color:${MU};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.descripcion||""}">${d.descripcion||"—"}</td>
+          <td style="padding:10px 12px;white-space:nowrap">
+            ${d.storage_path?`<button onclick="verPDF('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:
+            d.url_archivo?`<button onclick="window.open('${d.url_archivo}','_blank')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:""}
             ${d.storage_path?`<button onclick="descargarDoc('${d.id}')" style="background:#37474F;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">⬇️</button>`:""}
-            ${iaGuardada
-              ?`<button onclick="verAnalisisIAGuardado('${d.id}')" style="background:linear-gradient(135deg,#6A1B9A,#1565C0);color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;font-weight:700">📊 Ver análisis</button>`
-              :`<button onclick="analizarLaboratorioIA('${d.id}','${(d.titulo||"").replace(/'/g,"\'").replace(/"/g,"")}','${d.fecha||""}')" style="background:#546E7A;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px" title="Analizar con IA">🤖 IA</button>`}
           </td>
-        </tr>`}).join("")}
+        </tr>`).join("")}
       </tbody>
     </table>`;
 }
 window.mostrarFormGabinete=function(){document.getElementById("form-gabinete").style.display="block";}
 window.ocultarFormGabinete=function(){document.getElementById("form-gabinete").style.display="none";}
-
-// ── ANÁLISIS DE LABORATORIO CON IA ────────────────────────────────────────────
-window.analizarLaboratorioIA=async function(docId,titulo,fecha){
-  loading(true,"Obteniendo documento...");
-  const {data:doc}=await SB.from("anexos").select("storage_path,tipo_documento,titulo,fecha,descripcion").eq("id",docId).single();
-  if(!doc?.storage_path){loading(false);showToast("El documento no tiene archivo adjunto",false);return;}
-  const {data:urlData}=await SB.storage.from("expedientes").createSignedUrl(doc.storage_path,300);
-  if(!urlData?.signedUrl){loading(false);showToast("Error al obtener el archivo",false);return;}
-  let base64="",mediaType="application/pdf";
-  try{
-    const resp=await fetch(urlData.signedUrl);
-    if(!resp.ok)throw new Error("No se pudo descargar el archivo");
-    const blob=await resp.blob();
-    mediaType=blob.type||"application/pdf";
-    base64=await new Promise((res,rej)=>{
-      const reader=new FileReader();
-      reader.onload=()=>res(reader.result.split(",")[1]);
-      reader.onerror=rej;
-      reader.readAsDataURL(blob);
-    });
-  }catch(e){loading(false);showToast("Error al leer el archivo: "+e.message,false);return;}
-  loading(true,"Analizando laboratorio con IA... (15-25 seg)");
-  try{
-    const resp=await fetch("/api/ia-medica",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({tipo:"laboratorio",imageBase64:base64,mediaType})
-    });
-    const json=await resp.json();
-    loading(false);
-    if(!resp.ok||!json.laboratorio){showToast("Error IA: "+(json.error||"respuesta inválida"),false);return;}
-    const lab=json.laboratorio;
-    // Guardar en Supabase (descripcion con prefijo __IA__)
-    const iaPayload=JSON.stringify(lab);
-    await SB.from("anexos").update({descripcion:"__IA__:"+iaPayload}).eq("id",docId);
-    // Mostrar modal
-    mostrarModalLabIA(docId,doc,lab);
-    // Refrescar tabla para mostrar badge
-    renderGabinete(document.getElementById("anexo-body"));
-  }catch(e){loading(false);showToast("Error: "+e.message,false);}
-}
-
-window.verAnalisisIAGuardado=async function(docId){
-  loading(true,"Cargando análisis...");
-  const {data:doc}=await SB.from("anexos").select("*").eq("id",docId).single();
-  loading(false);
-  if(!doc?.descripcion?.startsWith("__IA__:")){showToast("No hay análisis guardado",false);return;}
-  try{
-    const lab=JSON.parse(doc.descripcion.substring(7));
-    mostrarModalLabIA(docId,doc,lab);
-  }catch(e){showToast("Error al leer el análisis guardado",false);}
-}
-
-function mostrarModalLabIA(docId,doc,lab){
-  document.getElementById("modal-lab-ia")?.remove();
-  const overlay=document.createElement("div");
-  overlay.id="modal-lab-ia";
-  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9990;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
-  const colI={"Normal":"#1B5E20","Alto":"#C62828","Bajo":"#1565C0","Critico":"#B71C1C","NoInterpretable":"#546E7A"};
-  const bgI={"Normal":"#E8F5E9","Alto":"#FFEBEE","Bajo":"#E3F2FD","Critico":"#FCE4EC","NoInterpretable":"#ECEFF1"};
-  const etI={"Normal":"✓ Normal","Alto":"↑ Alto","Bajo":"↓ Bajo","Critico":"⚠️ Crítico","NoInterpretable":"—"};
-  const rows=(lab.analitos||[]).map(a=>`
-    <tr style="border-top:1px solid #E0E0E0">
-      <td style="padding:7px 10px;font-size:13px;font-weight:600;color:#263238">${a.nombre||"—"}</td>
-      <td style="padding:7px 10px;font-size:14px;font-weight:800;color:${colI[a.interpretacion]||"#263238"}">${a.valor||"—"}</td>
-      <td style="padding:7px 10px;font-size:13px;color:#546E7A">${a.unidad||"—"}</td>
-      <td style="padding:7px 10px;font-size:13px;color:#546E7A">${a.referencia||"—"}</td>
-      <td style="padding:7px 10px">
-        <span style="background:${bgI[a.interpretacion]||"#F5F5F5"};color:${colI[a.interpretacion]||"#546E7A"};padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700">
-          ${etI[a.interpretacion]||"—"}
-        </span>
-      </td>
-    </tr>`).join("");
-  overlay.innerHTML=`
-  <div style="background:#fff;border-radius:14px;width:100%;max-width:860px;box-shadow:0 20px 60px rgba(0,0,0,.3);margin:auto">
-    <div style="background:linear-gradient(135deg,#6A1B9A,#1565C0);padding:14px 20px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <p style="color:rgba(255,255,255,.75);font-size:12px;font-weight:600;margin-bottom:2px">📊 ANÁLISIS IA — LABORATORIO</p>
-        <b style="color:#fff;font-size:15px">${doc.titulo||""}</b>
-        <span style="color:rgba(255,255,255,.8);font-size:13px;margin-left:10px">${lab.fecha||doc.fecha||""}</span>
-        ${lab.laboratorio?`<span style="background:rgba(255,255,255,.2);color:#fff;padding:1px 8px;border-radius:20px;font-size:12px;margin-left:8px">${lab.laboratorio}</span>`:""}
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="reAnalizarLab('${docId}','${(doc.titulo||"").replace(/'/g,"\'").replace(/"/g,"")}','${doc.fecha||""}')" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🔄 Re-analizar</button>
-        <button onclick="document.getElementById('modal-lab-ia').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:16px;font-weight:700">✕</button>
-      </div>
-    </div>
-    <div style="padding:16px 20px">
-      ${lab.resumen_clinico?`
-      <div style="background:#F3E5F5;border-left:4px solid #7B1FA2;border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:16px">
-        <p style="font-size:12px;font-weight:700;color:#6A1B9A;text-transform:uppercase;margin-bottom:6px">📋 Interpretación clínica</p>
-        <p style="font-size:14px;color:#263238;line-height:1.7">${lab.resumen_clinico}</p>
-      </div>`:""}
-      ${(lab.analitos||[]).length>0?`
-      <p style="font-size:13px;font-weight:700;color:#546E7A;text-transform:uppercase;margin-bottom:8px">Resultados por analito</p>
-      <div style="overflow-x:auto;margin-bottom:16px;border:1px solid #E0E0E0;border-radius:8px">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead><tr style="background:#F5F5F5">
-            ${["Analito","Valor","Unidad","Referencia","Interpretación"].map(h=>`<th style="padding:8px 10px;text-align:left;font-weight:700;color:#263238">${h}</th>`).join("")}
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>`:""}
-      <p style="font-size:13px;font-weight:700;color:#546E7A;text-transform:uppercase;margin-bottom:8px">Texto para la nota médica</p>
-      <textarea id="lab-ia-texto" rows="10" style="width:100%;padding:12px;border:1.5px solid #CFD8DC;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.6;resize:vertical;outline:none;background:#FAFAFA">${lab.texto_nota||""}</textarea>
-      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-        <button onclick="insertarLabEnNota()" style="flex:1;padding:11px;background:#2E7D32;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;min-width:160px">📋 Insertar en campo Laboratorios</button>
-        <button onclick="copiarLabClipboard()" style="flex:1;padding:11px;background:#37474F;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;min-width:140px">📋 Copiar al portapapeles</button>
-        <button onclick="document.getElementById('modal-lab-ia').remove()" style="padding:11px 18px;background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:9px;font-size:14px;cursor:pointer">Cerrar</button>
-      </div>
-      <p style="font-size:11px;color:#90A4AE;margin-top:10px">⚠️ Revisa siempre los resultados. La IA puede cometer errores de lectura. Análisis guardado en el expediente.</p>
-    </div>
-  </div>`;
-  document.body.appendChild(overlay);
-}
-
-window.reAnalizarLab=function(docId,titulo,fecha){
-  document.getElementById("modal-lab-ia")?.remove();
-  analizarLaboratorioIA(docId,titulo,fecha);
-}
-
-window.insertarLabEnNota=function(){
-  const texto=document.getElementById("lab-ia-texto")?.value||"";
-  if(!texto){showToast("Sin texto para insertar",false);return;}
-  const campoLab=document.getElementById("cs_lab");
-  if(campoLab){
-    campoLab.value=(campoLab.value?campoLab.value+"\n\n":"")+texto;
-    campoLab.focus();
-    campoLab.scrollIntoView({behavior:"smooth",block:"center"});
-    document.getElementById("modal-lab-ia")?.remove();
-    showToast("\u2713 Resultados insertados en el campo Laboratorios de la nota");
-    return;
-  }
-  STATE.labIAPendiente=texto;
-  document.getElementById("modal-lab-ia")?.remove();
-  showToast("\u{1F4CB} No hay consulta abierta. Abre una consulta para pegar el resultado.",false);
-}
-
-window.copiarLabClipboard=async function(){
-  const texto=document.getElementById("lab-ia-texto")?.value||"";
-  if(!texto)return;
-  try{
-    await navigator.clipboard.writeText(texto);
-    showToast("\u2713 Resultados copiados al portapapeles");
-  }catch(e){
-    const ta=document.createElement("textarea");ta.value=texto;
-    document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);
-    showToast("\u2713 Copiado al portapapeles");
-  }
-}
-
-window.pegarLabIAEnNota=function(){
-  const texto=STATE.labIAPendiente;
-  if(!texto){showToast("No hay resultados de Lab IA pendientes",false);return;}
-  const campoLab=document.getElementById("cs_lab");
-  if(!campoLab){showToast("Abre una consulta primero",false);return;}
-  campoLab.value=(campoLab.value?campoLab.value+"\n\n":"")+texto;
-  campoLab.focus();
-  campoLab.scrollIntoView({behavior:"smooth",block:"center"});
-  STATE.labIAPendiente=null;
-  showToast("\u2713 Resultados de laboratorio insertados en la nota");
-}
 window.subirGabinete=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
   const titulo=(document.getElementById("gab-titulo")?.value||"").trim();
@@ -6674,12 +6581,9 @@ function pgConsulta(){
           <div style="padding:12px">${ta("cs_trat",c.tratamiento||"","Medicamentos, dosis, medidas generales...",8)}</div>
         </div>
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
-          <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🔬 Laboratorio</b>
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-              <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
-              ${STATE.labIAPendiente?`<button onclick="pegarLabIAEnNota()" style="background:linear-gradient(135deg,#6A1B9A,#1565C0);color:#fff;border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px;font-weight:700">📋 Pegar Lab IA</button>`:""}
-            </div>
+            <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
           </div>
           <div style="padding:12px">${ta("cs_lab",c.laboratorio||"","BH, QS, EGO, PCR...",6)}</div>
         </div>
@@ -10220,296 +10124,7 @@ window.editarFisio=async function(id){
   // La renderFisioVer ya muestra el form con los datos
   renderFisio(document.getElementById("eb"));
 }
-window.generarPDFFisio=async function(){
-  const {jsPDF}=window.jspdf;
-  if(!jsPDF){showToast("jsPDF no disponible",false);return;}
-  try{
-  const gv=id=>(document.getElementById(id)?.value||"").trim();
-  const gc=id=>document.getElementById(id)?.checked||false;
-  const S2=v=>String(v==null||v===""?"—":v);
-
-  const pat=STATE.pat||{};
-  const med=STATE.medProfile||STATE.userProfile||{};
-  const shortInst=s=>s?s.split(" — ")[0].split(" · ")[0].trim():"";
-
-  const datos={
-    paciente:gv("ft_nom")||`${pat.nombre||""} ${pat.apellido_paterno||""} ${pat.apellido_materno||""}`.trim(),
-    fnac:gv("ft_fnac")||pat.fecha_nacimiento||"",
-    edad:gv("ft_edad")||"",
-    expediente:gv("ft_exp")||String(pat.numero_expediente||""),
-    fecha:gv("ft_fecha")||new Date().toISOString().split("T")[0],
-    medico:`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim(),
-    fisioterapeuta:gv("ft_fisio")||"",
-    diagnostico:gv("ft_dx")||"",
-    region:gv("ft_region")||"",
-    lateralidad:document.querySelector("input[name=ft_lat]:checked")?.value||"",
-    eva:String(gv("ft_eva")||"0"),
-    evolucion:gv("ft_evol")||"",
-    sintomas:gv("ft_sint")||"",
-    objetivo:gv("ft_obj")||"",
-    parametros:gv("ft_params")||"",
-    hep:gv("ft_hep")||"",
-    num_sesiones:String(gv("ft_nses")||""),
-    frecuencia:gv("ft_freq")||"",
-    fecha_inicio:gv("ft_finicio")||"",
-    fecha_alta:gv("ft_falta")||"",
-    contraindicaciones:gv("ft_contra")||"",
-    fecha_reev:gv("ft_reev")||"",
-    eva_alta:String(gv("ft_eva_alta")||""),
-    evol_nota:gv("ft_evol_nota")||"",
-  };
-
-  // Credenciales del médico (igual que recetas)
-  const credLines=[];
-  if(med.licenciatura||med.institucion_grado)
-    credLines.push([med.licenciatura,shortInst(med.institucion_grado)].filter(Boolean).join("  —  ").toUpperCase());
-  if(med.cedula_medico)
-    credLines.push("Céd. Prof.: "+med.cedula_medico);
-  if(med.especialidad_1)
-    credLines.push(("Especialidad en "+[med.especialidad_1,shortInst(med.institucion_esp_1)].filter(Boolean).join("  —  ")).toUpperCase());
-  if(med.cedula_esp_1)
-    credLines.push("Céd. Esp.: "+med.cedula_esp_1);
-  if(med.subespecialidad)
-    credLines.push(("Subespecialidad en "+[med.subespecialidad,shortInst(med.institucion_esp_2)].filter(Boolean).join("  —  ")).toUpperCase());
-  if(med.cedula_subesp)
-    credLines.push("Céd. Subesp.: "+med.cedula_subesp);
-
-  // Cargar firma digital
-  let firmaB64=null;
-  if(med.firma_digital){
-    try{
-      const r=await fetch(med.firma_digital);
-      const bl=await r.blob();
-      firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
-    }catch(e){}
-  }
-
-  // Tratamientos
-  const limCat=[["marcha","Marcha"],["laboral","Act. laboral"],["deportiva","Act. deportiva"],["avd_bas","AVD básicas"],["avd_ins","AVD instrumentales"]];
-  const lims=limCat.filter(([k])=>gc("ft_lim_"+k)).map(([,v])=>v);
-  const agentes=[["tens","TENS"],["ultrasonido","Ultrasonido"],["laser","Láser"],["radiofrecuencia","Radiofrecuencia"],["compresion","Compresión neumática"],["crioterapia","Crioterapia"],["termoterapia","Termoterapia"]];
-  const manual=[["masoterapia","Masoterapia"],["movilizacion","Movilización articular"],["manipulacion","Manipulación"],["miofascial","Téc. miofasciales"],["puncion","Punción seca"],["vendaje","Vendaje neuromuscular"],["drenaje","Drenaje linfático"]];
-  const ejercicio=[["estiramiento","Estiramiento"],["fortalecimiento","Fortalecimiento"],["propiocepcion","Propiocepción"],["postural","Reeducación postural"],["cadena","Cadena cinética"],["aerobico","Ejercicio aeróbico"],["pliometria","Pliometría"],["readaptacion","Readaptación deportiva"],["pilates","Pilates terapéutico"]];
-  const neuro=[["marcha","Reeducación marcha"],["sensoriomotriz","Estimulación sensoriomotriz"],["avd","AVD – independencia"],["cognitiva","Rehabilitación cognitiva"]];
-  const txAg=agentes.filter(([k])=>gc("ft_ag_"+k)).map(([,v])=>v);
-  const txMan=manual.filter(([k])=>gc("ft_man_"+k)).map(([,v])=>v);
-  const txEj=ejercicio.filter(([k])=>gc("ft_ej_"+k)).map(([,v])=>v);
-  const txNeu=neuro.filter(([k])=>gc("ft_neu_"+k)).map(([,v])=>v);
-  const sesiones=STATE.fisioSesiones||[];
-
-  // ── PDF ────────────────────────────────────────────────────
-  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
-  const W=215.9,H=279.4,ML=13,MR=W-13,CW=W-26;
-  let y=0;
-
-  const cP=[0,107,182],cD=[38,50,56],cMu=[84,110,122],cBr=[224,224,224],cG=[245,249,255];
-
-  // helpers
-  const campo=(lbl,val,x,yy,w)=>{
-    doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-    doc.text(String(lbl).toUpperCase(),x,yy);
-    doc.setTextColor(...cD);doc.setFont("helvetica","bold");doc.setFontSize(8.5);
-    doc.text(S2(val),x,yy+4,{maxWidth:(w||30)-1});
-  };
-  const seccion=(tit,yy)=>{
-    doc.setFillColor(...cP);doc.rect(ML,yy,CW,5.5,"F");
-    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
-    doc.text(tit.toUpperCase(),ML+2,yy+3.9);
-    return yy+7;
-  };
-  const chips=(lbl,items,yy)=>{
-    if(!items||!items.length)return yy;
-    doc.setTextColor(...cMu);doc.setFont("helvetica","bold");doc.setFontSize(7);
-    doc.text(lbl.toUpperCase()+":",ML,yy+3);
-    let cx=ML+doc.getTextWidth(lbl.toUpperCase()+":")+3,cy=yy;
-    items.forEach(item=>{
-      const tw=doc.getTextWidth(item)+3;
-      if(cx+tw>MR){cx=ML+doc.getTextWidth(lbl.toUpperCase()+":")+3;cy+=5;}
-      doc.setFillColor(...cP);doc.roundedRect(cx,cy,tw,4,1,1,"F");
-      doc.setTextColor(255,255,255);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-      doc.text(item,cx+1.5,cy+2.9);cx+=tw+1.5;
-    });
-    return cy+6;
-  };
-  const txtBloque=(lbl,val,yy)=>{
-    if(!val)return yy;
-    doc.setTextColor(...cMu);doc.setFont("helvetica","bold");doc.setFontSize(7);
-    doc.text(lbl.toUpperCase()+":",ML,yy);
-    doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(8);
-    const lines=doc.splitTextToSize(String(val),CW);
-    doc.text(lines,ML,yy+4.5);
-    return yy+lines.length*4+6;
-  };
-
-  // ── HEADER ────────────────────────────────────────────────
-  const HDR=24;
-  doc.setFillColor(...cP);doc.rect(0,0,W,HDR,"F");
-  doc.setTextColor(255,255,255);
-  doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text("QP CLINIC",ML,9);
-  doc.setFont("helvetica","normal");doc.setFontSize(7);
-  doc.text("Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX  |  55 6442-3702  |  qpclinic.org",ML,14);
-  doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(datos.medico.toUpperCase(),ML,20);
-  // Credenciales en header
-  let hcx=ML+doc.getTextWidth(datos.medico.toUpperCase())+4;
-  credLines.forEach(cl=>{
-    doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-    const tw=doc.getTextWidth(cl);
-    if(hcx+tw<W-40){doc.text(cl,hcx,20);hcx+=tw+5;}
-  });
-  // Título derecha
-  doc.setFillColor(255,255,255);doc.roundedRect(W-42,2,40,HDR-4,2,2,"F");
-  doc.setTextColor(...cP);doc.setFont("helvetica","bold");doc.setFontSize(8);
-  doc.text("PRESCRIPCIÓN DE",W-22,9.5,{align:"center"});
-  doc.text("FISIOTERAPIA",W-22,15,{align:"center"});
-  doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-  doc.text(datos.fecha,W-22,19.5,{align:"center"});
-  y=HDR+3;
-
-  // ── 1. DATOS PACIENTE ─────────────────────────────────────
-  y=seccion("1. Datos del paciente",y);
-  doc.setFillColor(...cG);doc.rect(ML,y,CW,14,"F");
-  campo("Paciente",datos.paciente,ML+1,y+4,100);
-  campo("Expediente",datos.expediente,ML+102,y+4,22);
-  campo("F. nacimiento",datos.fnac,ML+128,y+4,28);
-  campo("Edad",datos.edad?datos.edad+" años":"—",ML+160,y+4,28);
-  campo("Médico tratante",datos.medico,ML+1,y+11,85);
-  campo("Fisioterapeuta",datos.fisioterapeuta||"—",ML+88,y+11,70);
-  campo("F. prescripción",datos.fecha,ML+162,y+11,40);
-  y+=16;
-
-  // ── 2. DIAGNÓSTICO ────────────────────────────────────────
-  y=seccion("2. Diagnóstico y área afectada",y);
-  if(datos.diagnostico){
-    doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(8);
-    const dxLines=doc.splitTextToSize(datos.diagnostico,CW-2);
-    doc.text(dxLines,ML+1,y+1);
-    y+=dxLines.length*4+3;
-  }
-  if(datos.region||datos.lateralidad){
-    doc.setFillColor(...cG);doc.rect(ML,y,CW,7,"F");
-    campo("Región anatómica",datos.region,ML+1,y+4,90);
-    campo("Lateralidad",datos.lateralidad,ML+95,y+4,40);
-    y+=9;
-  }
-
-  // ── 3. EVALUACIÓN FUNCIONAL ───────────────────────────────
-  y=seccion("3. Evaluación funcional",y);
-  doc.setFillColor(...cG);doc.rect(ML,y,CW,7,"F");
-  campo("Dolor EVA",datos.eva+"/10",ML+1,y+4,20);
-  campo("Tiempo de evolución",datos.evolucion,ML+24,y+4,80);
-  y+=9;
-  if(datos.sintomas){y=txtBloque("Síntomas y signos",datos.sintomas,y);}
-  if(datos.objetivo){y=txtBloque("Objetivo del tratamiento",datos.objetivo,y);}
-  if(lims.length){y=chips("Limitación funcional",lims,y);}
-
-  // ── 4. PLAN DE TRATAMIENTO ────────────────────────────────
-  y=seccion("4. Plan de tratamiento",y);y+=1;
-  if(txAg.length){y=chips("Agentes físicos / Electroterapia",txAg,y);}
-  if(txMan.length){y=chips("Terapia manual",txMan,y);}
-  if(txEj.length){y=chips("Ejercicio terapéutico",txEj,y);}
-  if(txNeu.length){y=chips("Terapia neurológica / Ocupacional",txNeu,y);}
-  if(datos.parametros){y=txtBloque("Parámetros específicos",datos.parametros,y);}
-  if(datos.hep){y=txtBloque("Ejercicios en casa (HEP)",datos.hep,y);}
-
-  // ── 5. DOSIFICACIÓN ───────────────────────────────────────
-  y=seccion("5. Dosificación",y);
-  doc.setFillColor(...cG);doc.rect(ML,y,CW,7,"F");
-  campo("Sesiones",datos.num_sesiones,ML+1,y+4,22);
-  campo("Frecuencia",datos.frecuencia,ML+26,y+4,45);
-  campo("Inicio",datos.fecha_inicio,ML+74,y+4,28);
-  campo("Alta estimada",datos.fecha_alta,ML+106,y+4,35);
-  campo("Contraindicaciones",datos.contraindicaciones||"—",ML+145,y+4,45);
-  y+=9;
-
-  // ── 6. CONTROL DE SESIONES ────────────────────────────────
-  y=seccion("6. Control de sesiones",y);y+=1;
-  const bSz=8.5,bGap=2;let sx=ML;
-  for(let i=1;i<=20;i++){
-    const done=sesiones.includes(i);
-    if(done){doc.setFillColor(...cP);}else{doc.setFillColor(245,245,245);}
-    doc.setDrawColor(...cBr);doc.roundedRect(sx,y,bSz,bSz,1.5,1.5,done?"F":"S");
-    if(done){doc.setTextColor(255,255,255);}else{doc.setTextColor(...cMu);}
-    doc.setFont("helvetica",done?"bold":"normal");doc.setFontSize(6.5);
-    doc.text(String(i),sx+bSz/2,y+5.5,{align:"center"});
-    sx+=bSz+bGap;if(i===10){sx=ML;y+=bSz+bGap;}
-  }
-  y+=bSz+5;
-
-  // ── 7. EVOLUCIÓN (si hay datos) ───────────────────────────
-  if(datos.fecha_reev||datos.eva_alta||datos.evol_nota){
-    y=seccion("7. Evolución y reevaluación",y);
-    if(datos.fecha_reev||datos.eva_alta){
-      doc.setFillColor(...cG);doc.rect(ML,y,CW,7,"F");
-      campo("Fecha reevaluación",datos.fecha_reev,ML+1,y+4,45);
-      campo("EVA al alta",datos.eva_alta+"/10",ML+50,y+4,25);
-      y+=9;
-    }
-    if(datos.evol_nota){y=txtBloque("Notas de evolución",datos.evol_nota,y);}
-  }
-
-  // ── FIRMA ─────────────────────────────────────────────────
-  y+=3;
-  // Línea separadora
-  doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.line(ML,y,MR,y);y+=4;
-
-  // Bloque firma izquierda
-  const firmaX=ML,firmaW=80;
-  if(firmaB64){
-    try{doc.addImage(firmaB64,"PNG",firmaX,y,38,12);y+=13;}catch(e){}
-  }
-  doc.setDrawColor(...cBr);doc.setLineWidth(0.4);doc.line(firmaX,y,firmaX+firmaW,y);
-  doc.setTextColor(...cD);doc.setFont("helvetica","bold");doc.setFontSize(8.5);
-  doc.text(datos.medico,firmaX,y+4);
-  let cy2=y+8;
-  credLines.forEach(cl=>{
-    doc.setFont("helvetica","normal");doc.setFontSize(7);
-    doc.setTextColor(...cMu);
-    doc.text(cl,firmaX,cy2);cy2+=4;
-  });
-
-  // Sello derecho
-  const selloX=W-55;
-  doc.setDrawColor(...cBr);doc.setLineWidth(0.3);
-  doc.roundedRect(selloX,y-2,50,cy2-y+8,2,2,"S");
-  doc.setFillColor(...cP);doc.roundedRect(selloX,y-2,50,6,2,2,"F");
-  doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7);
-  doc.text("QP CLINIC",selloX+25,y+2.5,{align:"center"});
-  doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-  doc.text("Insurgentes Sur 933, Piso 12",selloX+25,y+9,{align:"center"});
-  doc.text("Col. Nápoles, CDMX",selloX+25,y+13,{align:"center"});
-  doc.text("Tel: (55) 6442-3702",selloX+25,y+17,{align:"center"});
-  doc.text("qpclinic.org",selloX+25,y+21,{align:"center"});
-
-  // ── FOOTER ────────────────────────────────────────────────
-  doc.setFillColor(240,244,248);doc.rect(0,H-8,W,8,"F");
-  doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-  doc.text(`QP Clinic — Prescripción de Fisioterapia  |  Generado: ${new Date().toLocaleDateString("es-MX")}  |  qpclinic.org`,W/2,H-3.5,{align:"center"});
-
-  // ── GUARDAR ───────────────────────────────────────────────
-  const nombre=(datos.paciente||"paciente").replace(/[^a-zA-Z0-9]/g,"_").substring(0,30);
-  const archivo=`Fisioterapia_${nombre}_${datos.fecha}.pdf`;
-  const pid=STATE.pat?.id;
-  if(pid){
-    try{
-      const pdfBlob=doc.output("blob");
-      const path=`${pid}/fisioterapia_${Date.now()}.pdf`;
-      const {error:upErr}=await SB.storage.from("expedientes").upload(path,pdfBlob,{contentType:"application/pdf",upsert:false});
-      if(!upErr){
-        await SB.from("anexos").insert({
-          paciente_id:pid,titulo:`PRESCRIPCIÓN FISIOTERAPIA — ${datos.paciente}`,
-          tipo_documento:"fisioterapia",origen:"generado",firmado:false,
-          storage_path:path,fecha:datos.fecha,
-        });
-      }
-    }catch(e){console.warn("No se pudo guardar en expediente:",e.message);}
-  }
-  doc.save(archivo);
-  showToast("✓ PDF de fisioterapia descargado");
-  }catch(err){
-    console.error("Error generarPDFFisio:",err);
-    showToast("Error al generar PDF: "+err.message,false);
-  }
-}
+window.generarPDFFisio=function(){showToast("PDF de fisioterapia — próximamente",false);}
 
 ;(async function init(){
   try{
