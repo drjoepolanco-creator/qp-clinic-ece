@@ -73,7 +73,7 @@ let STATE={
   user:null, userProfile:null,
   page:"login", pat:null,
   expTab:"ficha", ficTab:"gen", antTab:"pat", interTab:"solicitud",
-  nuevoTab:"gen",
+  nuevoTab:"gen",nuevoData:{},
   // datos en memoria (se sincronizan con Supabase)
   famData:{}, patData:{}, patOtrasNotes:"", alergs:["ALERGIAS NEGADAS"],
   discapacidades:[], interconsultas:[], anexos:[], anotaciones:[],
@@ -2943,17 +2943,83 @@ function pgNuevo(){
       <div style="display:flex;gap:6px">${btn("Cancelar","go('buscar')","s",1)}${btn("💾 Guardar en sistema","guardarNuevoPac()","ok",1)}</div>
     </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid ${BR};padding:0 12px">
-        ${[["gen","Datos generales"],["seg","Seguro médico"],["dom","Domicilio y contacto"],["resp","Persona responsable"],["lab","Datos laborales"],["fac","Facturación"]].map(([k,l])=>`<button onclick="setNT('${k}')" style="padding:9px 12px;border:none;background:transparent;cursor:pointer;font-weight:${STATE.nuevoTab===k?700:500};font-size:14px;color:${STATE.nuevoTab===k?P:MU};border-bottom:${STATE.nuevoTab===k?"3px solid "+P:"3px solid transparent"}">${l}</button>`).join("")}
+      <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid ${BR};background:#F8FAFB;padding:0 8px">
+        ${[["gen","Datos generales"],["seg","Seguro médico"],["dom","Domicilio y contacto"],["resp","Persona responsable"],["lab","Datos laborales"],["fac","Facturación"]].map(([k,l])=>{
+          const activo=STATE.nuevoTab===k;
+          const d=STATE.nuevoData||{};
+          // Determinar si la tab tiene datos
+          const tieneGen=d.nn||d.na||d.nfnac;
+          const tieneSeg=d.nseg_nom&&d.nseg_nom!=="No seleccionado";
+          const tieneDom=d.vm||d.vcp;
+          const tieneResp=d.rnom||d.rap;
+          const tieneLab=d.lemp||d.lss;
+          const tieneFac=d.frfc||d.frs;
+          const tiene={gen:tieneGen,seg:tieneSeg,dom:tieneDom,resp:tieneResp,lab:tieneLab,fac:tieneFac}[k];
+          return`<button onclick="setNT('${k}')" style="padding:9px 12px;border:none;cursor:pointer;font-weight:${activo?700:500};font-size:13px;color:${activo?P:MU};border-bottom:${activo?"3px solid "+P:"3px solid transparent"};background:${activo?"#fff":"transparent"};border-radius:${activo?"6px 6px 0 0":"0"};box-shadow:${activo?"0 -2px 6px rgba(0,0,0,.06)":"none"};display:flex;align-items:center;gap:4px;position:relative;top:${activo?"1px":"0"}">
+            ${l}
+            ${tiene&&!activo?`<span style="background:#4CAF50;color:#fff;border-radius:50%;width:7px;height:7px;display:inline-block;flex-shrink:0"></span>`:""}
+          </button>`;}).join("")}
       </div>
       <div id="nb" style="padding:20px"></div>
     </div>
   </div>`;renderNB();
 }
-window.setNT=function(t){STATE.nuevoTab=t;renderNB();}
+window.setNT=function(t){guardarDatosTabNuevo();STATE.nuevoTab=t;renderNB();}
+function guardarDatosTabNuevo(){
+  const d=STATE.nuevoData;
+  const gv2=id=>{const e=document.getElementById(id);return e?e.value:undefined;};
+  const gc=id=>{const e=document.getElementById(id);return e?e.checked:undefined;};
+  const t=STATE.nuevoTab;
+  if(t==="gen"){
+    ["nc","nfolio","nn","na","na2","nfnac","nsb","nscurp","ngen","nec","nts","npais","nef","nmig","nafro","nindig","noc","nesc","ncel","ntel","nmail","nref"]
+      .forEach(id=>{const v=gv2(id);if(v!==undefined)d[id]=v;});
+    const priv=document.getElementById("npriv");if(priv)d.npriv=priv.checked;
+    const cons=document.getElementById("ncons");if(cons)d.ncons=cons.checked;
+  } else if(t==="seg"){
+    ["nseg_tiene","nseg_nom","nseg_pol","nseg_folio","nseg_ini","nseg_fin","nseg_titular","nseg_suma"]
+      .forEach(id=>{const v=gv2(id);if(v!==undefined)d[id]=v;});
+    // SNS checkboxes
+    const sns=[];document.querySelectorAll("#nb input[type=checkbox][data-sns]").forEach(c=>{if(c.checked)sns.push(c.dataset.sns);});
+    d.sns=sns;
+  } else if(t==="dom"){
+    ["vt","vn","vne","vni","vasen","vasennom","vloc","vm","vef2","vcp","vpais"]
+      .forEach(id=>{const v=gv2(id);if(v!==undefined)d[id]=v;});
+  } else if(t==="resp"){
+    ["rnom","rap","ram","rvin","rcel","rtel","rmail"]
+      .forEach(id=>{const v=gv2(id);if(v!==undefined)d[id]=v;});
+  } else if(t==="lab"){
+    ["lss","lnom","lemp","larea","ldep","lpuesto","ltipo","lcont"]
+      .forEach(id=>{const v=gv2(id);if(v!==undefined)d[id]=v;});
+    const baja=document.getElementById("lbaja");if(baja)d.lbaja=baja.checked;
+    const fbaja=gv2("lfechbaja");if(fbaja!==undefined)d.lfechbaja=fbaja;
+  } else if(t==="fac"){
+    ["frfc","frs","fcp","freg","fmail","fans"]
+      .forEach(id=>{const v=gv2(id);if(v!==undefined)d[id]=v;});
+  }
+}
 function renderNB(){
   const nb=document.getElementById("nb");if(!nb)return;
-  if(STATE.nuevoTab==="gen")nb.innerHTML=`
+  const d=STATE.nuevoData||{};
+  const sv=(id,v)=>`value="${v||""}"`;  // helper para value
+  const R=(id,fallback="")=>d[id]!==undefined?d[id]:fallback;
+  // Helper: restaurar valor en campo tras render
+  const rst=()=>setTimeout(()=>{
+    Object.keys(d).forEach(id=>{
+      const el=document.getElementById(id);
+      if(!el)return;
+      if(el.type==="checkbox"){el.checked=!!d[id];}
+      else if(el.tagName==="SELECT"){el.value=d[id]||"";}
+      else{el.value=d[id]||"";}
+    });
+    // SNS checkboxes
+    if(STATE.nuevoTab==="seg"&&d.sns){
+      document.querySelectorAll("#nb input[data-sns]").forEach(c=>{c.checked=d.sns.includes(c.dataset.sns);});
+    }
+    // Menor de edad: bloque aviso
+    if(STATE.nuevoTab==="resp") actualizarAvisoMenor();
+  },0);
+
+  if(STATE.nuevoTab==="gen"){nb.innerHTML=`
     <div style="background:${PL};border-radius:8px;padding:9px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <button onclick="enviarPreregistro()" style="background:${P};color:#fff;border:none;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">
         <i class="ti ti-send" style="font-size:15px" aria-hidden="true"></i> <b>1</b> Enviar enlace de pre-registro
@@ -3002,25 +3068,11 @@ function renderNB(){
     <div style="display:flex;gap:20px;margin-top:14px;padding-top:14px;border-top:1px solid ${BR}">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" id="npriv" style="accent-color:${P};width:15px;height:15px"> Firmó Aviso de Privacidad</label>
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" id="ncons" style="accent-color:${P};width:15px;height:15px"> Firmó Consentimiento Informado</label>
-    </div>`;
-  else if(STATE.nuevoTab==="dom")nb.innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-      ${fld("Tipo de vialidad",sel("vt",["Calle","Avenida","Boulevard","Calzada","Carretera","Camino","Diagonal","Eje vial","Periférico","Retorno","Viaducto"]))}
-      ${fld("Nombre",inp("vn",""))}
-      ${fld("No. Exterior",inp("vne",""))}
-      ${fld("No. Interior",inp("vni","","(si aplica)"))}
-      ${fld("Tipo de asentamiento",sel("vasen",["Colonia","Barrio","Pueblo","Ejido","Fraccionamiento","Unidad habitacional","Residencial","Condominio","Rancho","Zona industrial"]))}
-      ${fld("Nombre del asentamiento",inp("vasennom",""))}
-      ${fld("Localidad",inp("vloc",""))}
-      ${fld("Municipio / Delegación *",inp("vm",""),1)}
-      ${fld("Entidad Federativa *",sel("vef2",ENTIDADES),1)}
-      ${fld("Código Postal *",inp("vcp","","00000"),1)}
-      ${fld("País",sel("vpais",PAISES,"MÉXICO"))}
-    </div>`;
-  else if(STATE.nuevoTab==="seg")nb.innerHTML=`
+    </div>`;rst();}
+  else if(STATE.nuevoTab==="seg"){nb.innerHTML=`
     <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Instituciones del Sistema Nacional de Salud (SNS)</p>
     <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px">
-      ${["0 – NO ESPECIFICADO","1 – NINGUNA","2 – IMSS","3 – ISSSTE","4 – PEMEX","5 – SEDENA","6 – SEMAR","8 – OTRA","10 – IMSS BIENESTAR","11 – ISSFAM","99 – SE IGNORA"].map(s=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px"><input type="checkbox" style="accent-color:${P};width:14px;height:14px"> ${s}</label>`).join("")}
+      ${["0 – NO ESPECIFICADO","1 – NINGUNA","2 – IMSS","3 – ISSSTE","4 – PEMEX","5 – SEDENA","6 – SEMAR","8 – OTRA","10 – IMSS BIENESTAR","11 – ISSFAM","99 – SE IGNORA"].map(s=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px"><input type="checkbox" data-sns="${s}" style="accent-color:${P};width:14px;height:14px"> ${s}</label>`).join("")}
     </div>
     <div style="border-top:1px solid ${BR};padding-top:16px">
       <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Seguro médico privado</p>
@@ -3034,8 +3086,8 @@ function renderNB(){
         ${fld("Nombre del titular",inp("nseg_titular",""))}
         ${fld("Suma asegurada (MXN)",inp("nseg_suma","","0.00"))}
       </div>
-    </div>`;
-  else if(STATE.nuevoTab==="dom")nb.innerHTML=`
+    </div>`;rst();}
+  else if(STATE.nuevoTab==="dom"){nb.innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("Tipo de vialidad",sel("vt",["Calle","Avenida","Boulevard","Calzada","Carretera","Camino","Diagonal","Eje vial","Periférico","Retorno","Viaducto"]))}
       ${fld("Nombre",inp("vn","","Nombre de calle, av, etc."))}
@@ -3048,19 +3100,19 @@ function renderNB(){
       ${fld("Entidad Federativa *",sel("vef2",ENTIDADES),1)}
       ${fld("Código Postal *",inp("vcp","","00000"),1)}
       ${fld("País",sel("vpais",PAISES,"MÉXICO"))}
-    </div>`;
-  else if(STATE.nuevoTab==="resp")nb.innerHTML=`
-    <p style="font-size:14px;background:${PL};border-radius:7px;padding:9px 13px;margin-bottom:14px;color:${P}">⚠️ Obligatorio para pacientes menores de 18 años</p>
+    </div>`;rst();}
+  else if(STATE.nuevoTab==="resp"){nb.innerHTML=`
+    <div id="aviso-menor"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("Nombre(s)",inp("rnom",""))}
       ${fld("Apellido paterno",inp("rap",""))}
       ${fld("Apellido materno",inp("ram",""))}
       ${fld("Vínculo con el paciente",sel("rvin",VINCULO,"Familiar"))}
-      ${fld("Celular",inp("rcel","","55XXXXXXXX","tel"))}
+      ${fld("Celular",`<input id="rcel" type="tel" placeholder="55XXXXXXXX" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none" oninput="onRcelInput(this.value)">`)}
       ${fld("Teléfono",inp("rtel","","55XXXXXXXX","tel"))}
       ${fld("Correo electrónico",inp("rmail","","","email"))}
-    </div>`;
-  else if(STATE.nuevoTab==="lab")nb.innerHTML=`
+    </div>`;rst();}
+  else if(STATE.nuevoTab==="lab"){nb.innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       ${fld("Número de Seguridad Social",inp("lss",""))}
       ${fld("Número de Nómina",inp("lnom",""))}
@@ -3076,8 +3128,8 @@ function renderNB(){
         <input type="checkbox" id="lbaja" style="accent-color:${P}"> Causó baja de la empresa
       </label>
       ${inp("lfechbaja","","Fecha de la baja","date")}
-    </div>`;
-  else if(STATE.nuevoTab==="fac")nb.innerHTML=`
+    </div>`;rst();}
+  else if(STATE.nuevoTab==="fac"){nb.innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       ${fld("RFC",inp("frfc","","XXXX000000XXX"))}
       ${fld("Razón social (Constancia Fiscal)",inp("frs",""))}
@@ -3085,8 +3137,41 @@ function renderNB(){
       ${fld("Régimen Fiscal",sel("freg",["Seleccione...","601 – General de Ley Personas Morales","605 – Sueldos y Salarios","612 – Personas Físicas con Actividades Empresariales","616 – Sin obligaciones fiscales","626 – Régimen Simplificado de Confianza (RESICO)"]))}
       ${fld("Correo para facturas",inp("fmail","","factura@ejemplo.com","email"))}
     </div>
-    <div style="margin-top:12px">${fld("Anotaciones generales",ta("fans","","Notas adicionales...",3))}</div>`;
+    <div style="margin-top:12px">${fld("Anotaciones generales",ta("fans","","Notas adicionales...",3))}</div>`;rst();}
 }
+// ── Menor de edad: aviso y propagación de celular del responsable ────────────
+function esMenorDeEdad(){
+  const fnac=STATE.nuevoData?.nfnac||document.getElementById("nfnac")?.value||"";
+  if(!fnac)return false;
+  const hoy=new Date();const nac=new Date(fnac);
+  const edad=hoy.getFullYear()-nac.getFullYear()-(hoy<new Date(hoy.getFullYear(),nac.getMonth(),nac.getDate())?1:0);
+  return edad<18;
+}
+function actualizarAvisoMenor(){
+  const menor=esMenorDeEdad();
+  const div=document.getElementById("aviso-menor");
+  if(!div)return;
+  if(menor){
+    div.innerHTML=`<div style="background:#FFF3E0;border:1.5px solid #FFB74D;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px">
+      <span style="font-size:20px">⚠️</span>
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#E65100;margin-bottom:3px">Paciente menor de edad</p>
+        <p style="font-size:13px;color:#BF360C">El celular del responsable se usará para enviar los consentimientos informados a su nombre. Los documentos de firma llevarán el nombre del padre/tutor.</p>
+      </div>
+    </div>`;
+  } else {
+    div.innerHTML=`<div style="background:${PL};border-radius:8px;padding:9px 13px;margin-bottom:14px;color:${P};font-size:13px">ℹ️ Obligatorio para pacientes menores de 18 años. Opcional para mayores.</div>`;
+  }
+}
+window.onRcelInput=function(val){
+  // Si es menor de edad: propagar al celular principal
+  if(!esMenorDeEdad())return;
+  State_nuevoData_set("ncel",val);
+  STATE.nuevoData.ncel=val;
+}
+function State_nuevoData_set(id,val){STATE.nuevoData=STATE.nuevoData||{};STATE.nuevoData[id]=val;}
+
+
 window.enviarPreregistro=async function(){
   const nom=gv("nn").trim();const ap=gv("na").trim();
   const cel=(gv("ncel")||gv("ntelmov")||"").trim();
@@ -3165,38 +3250,119 @@ function aplicarPreregistro(r){
   document.body.appendChild(overlay);
 }
 window.guardarNuevoPac=async function(){
-  const nom=gv("nn"),apP=gv("na");
-  if(!nom.trim()||!apP.trim()){showToast("Nombre y apellido paterno son requeridos",false);return;}
-  // Verificar sesión activa
+  // Guardar tab actual antes de procesar
+  guardarDatosTabNuevo();
+  const d=STATE.nuevoData||{};
+  const nom=(d.nn||"").trim(), apP=(d.na||"").trim();
+  if(!nom||!apP){showToast("Nombre y apellido paterno son requeridos",false);setNT("gen");return;}
   const {data:{session}}=await SB.auth.getSession();
   if(!session){showToast("Sesión expirada — vuelve a iniciar sesión",false);go("login");return;}
   loading(true,"Registrando paciente...");
+
+  // Menor de edad: celular principal = celular del responsable
+  const fnac=d.nfnac||"";
+  let esMenor=false;
+  if(fnac){
+    const hoy=new Date(),nac=new Date(fnac);
+    const edad=hoy.getFullYear()-nac.getFullYear()-(hoy<new Date(hoy.getFullYear(),nac.getMonth(),nac.getDate())?1:0);
+    esMenor=edad<18;
+  }
+  const celFinal=esMenor&&d.rcel?d.rcel:(d.ncel||null);
+
+  // Responsable
+  const responsable=(d.rnom||d.rap)?{
+    nombre:`${d.rnom||""} ${d.rap||""} ${d.ram||""}`.trim(),
+    vinculo:d.rvin||"Familiar",
+    celular:d.rcel||null,
+    telefono:d.rtel||null,
+    correo:d.rmail||null,
+    es_menor:esMenor,
+  }:null;
+
+  // Seguro médico
+  const seguro=d.nseg_nom&&d.nseg_nom!=="No seleccionado"?{
+    tiene:d.nseg_tiene==="Sí",
+    nombre:d.nseg_nom||null,
+    poliza:d.nseg_pol||null,
+    folio:d.nseg_folio||null,
+    inicio:d.nseg_ini||null,
+    fin:d.nseg_fin||null,
+    titular:d.nseg_titular||null,
+    suma:d.nseg_suma||null,
+    sns:d.sns||[],
+  }:d.sns?.length?{tiene:false,sns:d.sns}:null;
+
+  // Domicilio
+  const domicilio=(d.vm||d.vcp)?{
+    vialidad_tipo:d.vt||"Calle",
+    vialidad:d.vn||null,
+    num_exterior:d.vne||null,
+    num_interior:d.vni||null,
+    asentamiento_tipo:d.vasen||"Colonia",
+    asentamiento:d.vasennom||null,
+    localidad:d.vloc||null,
+    municipio:d.vm||null,
+    entidad:d.vef2||null,
+    cp:d.vcp||null,
+    pais:d.vpais||"MÉXICO",
+  }:null;
+
+  // Datos laborales
+  const laboral=(d.lemp||d.lss)?{
+    nss:d.lss||null,
+    nomina:d.lnom||null,
+    empresa:d.lemp||null,
+    area:d.larea||null,
+    departamento:d.ldep||null,
+    puesto:d.lpuesto||null,
+    tipo_trabajador:d.ltipo||null,
+    tipo_contrato:d.lcont||null,
+    baja:d.lbaja||false,
+    fecha_baja:d.lfechbaja||null,
+  }:null;
+
+  // Facturación
+  const facturacion=(d.frfc||d.frs)?{
+    rfc:d.frfc||null,
+    razon_social:d.frs||null,
+    cp_fiscal:d.fcp||null,
+    regimen:d.freg||null,
+    correo:d.fmail||null,
+    notas:d.fans||null,
+  }:null;
+
   const payload={
-    nombre:nom.trim().toUpperCase(),
-    apellido_paterno:apP.trim().toUpperCase(),
-    apellido_materno:gv("na2").trim().toUpperCase()||null,
-    curp:gv("nc").trim().toUpperCase()||null,
-    folio_clinica:gv("nfolio").trim()||null,
-    fecha_nacimiento:gv("nfnac")||null,
-    sexo_biologico:gv("nsb")||null,
-    sexo_curp:gv("nscurp")||null,
-    genero:gv("ngen")||null,
-    estado_civil:gv("nec")||null,
-    tipo_sangre:gv("nts")||null,
-    pais_nacimiento:gv("npais")||"MÉXICO",
-    entidad_federativa:gv("nef")||null,
-    migrante:gv("nmig")||null,
-    afromexicano:gv("nafro")||null,
-    indigena:gv("nindig")||null,
-    ocupacion:gv("noc")||null,
-    escolaridad:gv("nesc")||null,
-    celular:gv("ncel")||null,
-    telefono_principal:gv("ntel")||null,
-    correo:gv("nmail")||null,
-    referido_por:gv("nref")||null,
-    firmo_privacidad:document.getElementById("npriv")?.checked||false,
-    firmo_consentimiento:document.getElementById("ncons")?.checked||false,
-    created_by:session.user.id
+    nombre:nom.toUpperCase(),
+    apellido_paterno:apP.toUpperCase(),
+    apellido_materno:(d.na2||"").trim().toUpperCase()||null,
+    curp:(d.nc||"").trim().toUpperCase()||null,
+    folio_clinica:(d.nfolio||"").trim()||null,
+    fecha_nacimiento:fnac||null,
+    sexo_biologico:d.nsb||null,
+    sexo_curp:d.nscurp||null,
+    genero:d.ngen||null,
+    estado_civil:d.nec||null,
+    tipo_sangre:d.nts||null,
+    pais_nacimiento:d.npais||"MÉXICO",
+    entidad_federativa:d.nef||null,
+    migrante:d.nmig||null,
+    afromexicano:d.nafro||null,
+    indigena:d.nindig||null,
+    ocupacion:d.noc||null,
+    escolaridad:d.nesc||null,
+    celular:celFinal,
+    telefono_principal:d.ntel||null,
+    correo:d.nmail||null,
+    referido_por:d.nref||null,
+    firmo_privacidad:d.npriv||false,
+    firmo_consentimiento:d.ncons||false,
+    es_menor:esMenor,
+    responsable:responsable,
+    seguro_medico:seguro,
+    domicilio:domicilio,
+    datos_laborales:laboral,
+    facturacion:facturacion,
+    created_by:session.user.id,
   };
   const {data,error}=await SB.from("pacientes").insert(payload).select().single();
   loading(false);
@@ -3209,6 +3375,7 @@ window.guardarNuevoPac=async function(){
   STATE.expTab="ficha";
   STATE.ficTab="gen";
   // Limpiar TODOS los datos clínicos — nuevo paciente empieza en blanco
+  STATE.nuevoData={};STATE.nuevoTab="gen";
   STATE.famData={};STATE.famNotas="";
   STATE.patData={};STATE.patOtrasNotes="";
   STATE.alergs=["ALERGIAS NEGADAS"];
@@ -3348,8 +3515,6 @@ function renderFicha(b){
       <div id="fb" style="padding:20px"></div>
     </div>
   </div>`;renderFB();
-  // Auto-sincronizar documentos firmados al cargar ficha general
-  if(STATE.ficTab==="gen")setTimeout(()=>sincronizarDocsFirmados(),400);
 }
 window.setFT=function(t){STATE.ficTab=t;const b=document.getElementById("eb");if(b)renderFicha(b);}
 function renderFB(){
@@ -3358,7 +3523,7 @@ function renderFB(){
   if(STATE.ficTab==="gen")fb.innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       ${fld("No. Expediente",`<input value="${p.numero_expediente||'—'}" disabled style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;background:#F5F5F5">`)}
-      ${fld("CURP",`<div style="display:flex;gap:5px">${inp("fe_curp",p.curp||"","XXXX000000XXXXXXXX")}<button onclick="validarCURP('fe_curp')" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
+      ${fld("CURP",`<div style="display:flex;gap:5px">${inp("fe_curp",p.curp||"","XXXX000000XXXXXXXX")}<button style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:7px;padding:9px 11px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap">Validar</button></div>`)}
       ${fld("Folio clínica",inp("fe_folio",p.folio_clinica||""))}
       ${fld("Fecha de Registro",`<input value="${p.created_at?p.created_at.split("T")[0]:""}" disabled style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:7px;background:#F5F5F5">`)}
     </div>
@@ -3392,21 +3557,9 @@ function renderFB(){
       ${fld("Correo electrónico",inp("fe_mail",p.correo||"","correo@ejemplo.com","email"))}
       ${fld("Referido por",inp("fe_ref",p.referido_por||""))}
     </div>
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid ${BR}">
-      <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Documentos firmados</p>
-      <div style="display:flex;gap:14px;flex-wrap:wrap">
-        <label id="lbl_priv" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;padding:6px 10px;border-radius:8px;border:1.5px solid ${p.firmo_privacidad?"#81C784":"${BR}"};background:${p.firmo_privacidad?"#F1F8E9":"#fff"}">
-          <input type="checkbox" id="fe_priv" ${p.firmo_privacidad?"checked":""} style="accent-color:${P};width:15px;height:15px">
-          <span>${p.firmo_privacidad?"✅":"📄"} Aviso de Privacidad</span>
-          ${p.firmo_privacidad?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">Firmado</span>`:`<span style="background:#FFF9C4;color:#F57F17;padding:1px 7px;border-radius:20px;font-size:11px">Pendiente</span>`}
-        </label>
-        <label id="lbl_cons" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px;padding:6px 10px;border-radius:8px;border:1.5px solid ${p.firmo_consentimiento?"#81C784":"${BR}"};background:${p.firmo_consentimiento?"#F1F8E9":"#fff"}">
-          <input type="checkbox" id="fe_cons" ${p.firmo_consentimiento?"checked":""} style="accent-color:${P};width:15px;height:15px">
-          <span>${p.firmo_consentimiento?"✅":"📄"} Consentimiento Informado</span>
-          ${p.firmo_consentimiento?`<span style="background:#C8E6C9;color:#1B5E20;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">Firmado</span>`:`<span style="background:#FFF9C4;color:#F57F17;padding:1px 7px;border-radius:20px;font-size:11px">Pendiente</span>`}
-        </label>
-      </div>
-      <p id="docs-sync-msg" style="font-size:11px;color:${MU};margin-top:6px">Sincronizando con documentos firmados...</p>
+    <div style="display:flex;gap:20px;margin-top:14px;padding-top:14px;border-top:1px solid ${BR}">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" id="fe_priv" ${p.firmo_privacidad?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Aviso de Privacidad</label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:14px"><input type="checkbox" id="fe_cons" ${p.firmo_consentimiento?"checked":""} style="accent-color:${P};width:15px;height:15px"> Firmó Consentimiento Informado</label>
     </div>`;
   else if(STATE.ficTab==="dom"){
     const d=p.domicilio||{};
@@ -3905,83 +4058,6 @@ window.actualizarAdic=function(key,val){STATE.patData[key]=val;
   }
 }
 window.toggleAlerg=function(a){saveABTextareas();STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];}
-
-// ── CURP: abrir validador oficial RENAPO ─────────────────────────────────────
-window.validarCURP=function(fieldId){
-  const curp=(document.getElementById(fieldId)?.value||"").trim().toUpperCase();
-  if(curp.length===18){
-    // RENAPO validador con CURP prellenada
-    window.open("https://www.renapo.gob.mx/tramites/consulta-curp","_blank","noopener");
-    showToast("Se abrió el validador oficial RENAPO — ingresa la CURP: "+curp);
-  } else if(curp.length>0){
-    showToast("La CURP debe tener 18 caracteres (tiene "+curp.length+")",false);
-  } else {
-    window.open("https://www.renapo.gob.mx/tramites/consulta-curp","_blank","noopener");
-  }
-}
-
-// ── Sincronizar checkboxes con documentos firmados en Supabase ───────────────
-window.sincronizarDocsFirmados=async function(){
-  const pid=STATE.pat?.id;
-  const msg=document.getElementById("docs-sync-msg");
-  if(!pid){if(msg)msg.textContent="";return;}
-
-  const {data:docs}=await SB.from("anexos")
-    .select("titulo,firmado,origen")
-    .eq("paciente_id",pid)
-    .eq("firmado",true)
-    .eq("origen","digital");
-
-  if(!docs||docs.length===0){
-    if(msg)msg.textContent="Sin documentos firmados digitalmente registrados.";
-    return;
-  }
-
-  const titulos=docs.map(d=>(d.titulo||"").toLowerCase());
-  const tienePrivacidad=titulos.some(t=>t.includes("privacidad")||t.includes("privacy"));
-  const tieneConsentimiento=titulos.some(t=>
-    t.includes("consentimiento") || t.includes("general") || t.includes("qpclinic") ||
-    t.includes("médico") || t.includes("medico") || t.includes("deportivo")
-  );
-
-  let cambio=false;
-  const cbPriv=document.getElementById("fe_priv");
-  const cbCons=document.getElementById("fe_cons");
-
-  if(tienePrivacidad&&cbPriv&&!cbPriv.checked){
-    cbPriv.checked=true;
-    // Actualizar UI del label
-    const lbl=document.getElementById("lbl_priv");
-    if(lbl){
-      lbl.style.borderColor="#81C784";lbl.style.background="#F1F8E9";
-      lbl.querySelector("span")&&(lbl.querySelectorAll("span")[0].textContent="✅ Aviso de Privacidad");
-    }
-    cambio=true;
-  }
-  if(tieneConsentimiento&&cbCons&&!cbCons.checked){
-    cbCons.checked=true;
-    const lbl=document.getElementById("lbl_cons");
-    if(lbl){
-      lbl.style.borderColor="#81C784";lbl.style.background="#F1F8E9";
-      lbl.querySelectorAll("span")[0]&&(lbl.querySelectorAll("span")[0].textContent="✅ Consentimiento Informado");
-    }
-    cambio=true;
-  }
-
-  // Si hubo cambio: guardar automáticamente en Supabase
-  if(cambio){
-    await SB.from("pacientes").update({
-      firmo_privacidad:cbPriv?.checked||false,
-      firmo_consentimiento:cbCons?.checked||false,
-    }).eq("id",pid);
-    if(msg)msg.innerHTML=`<span style="color:#2E7D32;font-weight:700">✅ Actualizado automáticamente desde documentos firmados</span>`;
-    // Actualizar STATE
-    if(STATE.pat){STATE.pat.firmo_privacidad=cbPriv?.checked;STATE.pat.firmo_consentimiento=cbCons?.checked;}
-  } else {
-    const firmadosCount=docs.length;
-    if(msg)msg.textContent=firmadosCount+" documento(s) firmado(s) verificado(s). Sin cambios pendientes.";
-  }
-}
 window.agregarOtraAlergia=function(){
   const inp=document.getElementById("al-otra");
   if(!inp||!inp.value.trim()){showToast("Escribe el nombre de la alergia",false);return;}
@@ -5266,11 +5342,20 @@ window.mostrarFormSubida=function(){const f=document.getElementById("form-subida
 window.ocultarFormSubida=function(){const f=document.getElementById("form-subida");if(f)f.style.display="none";}
 window.mostrarModalFirma=function(){abrirModalFirmaGlobal();}
 window.abrirModalFirmaGlobal=function(){
-  // Eliminar modal previo si existe
   const prev=document.getElementById("modal-firma-global");
   if(prev)prev.remove();
   const p=STATE.pat||{};
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
+  // Menor de edad
+  let esMenor=p.es_menor||false;
+  if(!esMenor&&p.fecha_nacimiento){
+    const hoy=new Date(),nac=new Date(p.fecha_nacimiento);
+    const edad=hoy.getFullYear()-nac.getFullYear()-(hoy<new Date(hoy.getFullYear(),nac.getMonth(),nac.getDate())?1:0);
+    esMenor=edad<18;
+  }
+  const resp=p.responsable||null;
+  const celPrefill=esMenor&&resp?.celular?resp.celular:(p.celular||"");
+  const nomFirmante=esMenor&&resp?.nombre?resp.nombre:nomPac;
   const div=document.createElement("div");
   div.id="modal-firma-global";
   div.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
@@ -5280,14 +5365,16 @@ window.abrirModalFirmaGlobal=function(){
         <b style="font-size:14px;color:#003A5D">📱 Enviar para firma digital</b>
         <button onclick="document.getElementById('modal-firma-global').remove()" style="background:#C62828;color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-weight:700;font-size:14px">✕</button>
       </div>
-      <div style="background:#E3F4FB;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#003A5D">
+      ${esMenor?`<div style="background:#FFF3E0;border:1.5px solid #FFB74D;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#E65100">
+        ⚠️ <b>Paciente menor de edad.</b> Los documentos serán dirigidos al responsable: <b>${nomFirmante}</b>. El enlace se enviará al celular del tutor/padre.
+      </div>`:`<div style="background:#E3F4FB;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#003A5D">
         El paciente recibirá un enlace por WhatsApp para leer y firmar los documentos desde su celular. Los documentos firmados se guardan automáticamente en el expediente.
-      </div>
+      </div>`}
       <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#1B5E20">
         📱 <b>Se enviará desde:</b> WhatsApp QP Clinic <b>+52 5644237028</b><br>
         <span style="font-size:14px">Asegúrese de abrir desde el celular con ese número</span>
       </div>
-      <p style="font-size:14px;font-weight:700;color:#546E7A;margin-bottom:10px;text-transform:uppercase">Documentos para firma — ${nomPac}</p>
+      <p style="font-size:14px;font-weight:700;color:#546E7A;margin-bottom:10px;text-transform:uppercase">Documentos para firma — ${esMenor?`${nomPac} <span style="font-size:12px;font-weight:400">(firmará: ${nomFirmante})</span>`:nomPac}</p>
       <div style="background:#F8F9FA;border-radius:8px;padding:10px;margin-bottom:14px">
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:4px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px">Documentos generales</p>
         ${[
@@ -5345,8 +5432,8 @@ window.abrirModalFirmaGlobal=function(){
           <select id="gfps" style="width:100%;padding:9px 11px;border:1.5px solid #CFD8DC;border-radius:7px;outline:none;background:#fff;margin-top:3px"><option>🇲🇽 México</option><option>🇺🇸 USA</option></select>
         </div>
         <div style="flex:0.6">
-          <label style="font-size:14px;font-weight:700;color:#546E7A;text-transform:uppercase">Celular del paciente</label>
-          <input id="gfcel" value="${p.celular||""}" type="tel" style="width:100%;padding:9px 11px;border:1.5px solid #CFD8DC;border-radius:7px;outline:none;margin-top:3px">
+          <label style="font-size:14px;font-weight:700;color:#546E7A;text-transform:uppercase">${esMenor?"Celular del responsable / tutor":"Celular del paciente"}</label>
+          <input id="gfcel" value="${celPrefill}" type="tel" style="width:100%;padding:9px 11px;border:1.5px solid #CFD8DC;border-radius:7px;outline:none;margin-top:3px">
         </div>
       </div>
     </div>`;
@@ -5360,7 +5447,22 @@ window.enviarFirmaWAGlobal=async function(){
   if(checks.length===0){showToast("Selecciona al menos un documento",false);return;}
   const docs=Array.from(checks).map(c=>c.dataset.doc);
   const codigo=Math.random().toString(36).substring(2,8).toUpperCase();
-  // Guardar documentos pendientes con código de firma
+
+  // Determinar si es menor de edad
+  const p=STATE.pat||{};
+  let esMenor=p.es_menor||false;
+  if(!esMenor&&p.fecha_nacimiento){
+    const hoy=new Date(),nac=new Date(p.fecha_nacimiento);
+    const edad=hoy.getFullYear()-nac.getFullYear()-(hoy<new Date(hoy.getFullYear(),nac.getMonth(),nac.getDate())?1:0);
+    esMenor=edad<18;
+  }
+  const resp=p.responsable||null;
+  // Nombre que aparecerá en los documentos de firma
+  const nomFirmante=esMenor&&resp?.nombre
+    ? resp.nombre
+    : `${p.nombre||""} ${p.apellido_paterno||""}`.trim();
+  const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
+
   if(pid){
     await SB.from("anexos").insert(docs.map(d=>({
       paciente_id:pid,
@@ -5369,17 +5471,20 @@ window.enviarFirmaWAGlobal=async function(){
       origen:"digital",
       firmado:false,
       codigo_firma:codigo,
+      nombre_firmante:nomFirmante||null,
       fecha:new Date().toISOString().split("T")[0],
     })));
   }
   const celLimpio=cel.replace(/\D/g,"");
   const celFinal=celLimpio.length===10?"52"+celLimpio:celLimpio;
-  const nomPac=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno}`:"Paciente";
   const medId=STATE.user?.id||"";
   const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}&med=${medId}`;
-  const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\nSu información es tratada con absoluta confidencialidad.\n_QP Clinic — Especialistas en Salud Integral_`;
+  const saludo=esMenor&&resp?.nombre
+    ? `Estimado(a) ${resp.nombre}, le enviamos los documentos médicos de *${nomPac}* (su menor hijo/representado) para leer y firmar como tutor o responsable legal:`
+    : `Estimado(a) ${nomFirmante}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:`;
+  const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\n${saludo}\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\nSu información es tratada con absoluta confidencialidad.\n_QP Clinic — Especialistas en Salud Integral_`;
   window.open(`https://wa.me/${celFinal}?text=${encodeURIComponent(msg)}`,"_blank");
-  showToast("✓ Abre WhatsApp en +52 5644237028 y envía el mensaje");
+  showToast("✓ Abre WhatsApp y envía el mensaje"+(esMenor?" — dirigido al responsable del menor":""));
   document.getElementById("modal-firma-global")?.remove();
 }
 window.enviarFirmaEmailGlobal=function(){
