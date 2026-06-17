@@ -10220,9 +10220,10 @@ window.editarFisio=async function(id){
   // La renderFisioVer ya muestra el form con los datos
   renderFisio(document.getElementById("eb"));
 }
-window.generarPDFFisio=function(){
+window.generarPDFFisio=async function(){
   const {jsPDF}=window.jspdf;
   if(!jsPDF){showToast("jsPDF no disponible",false);return;}
+  try{
 
   // ── Leer campos del formulario activo ─────────────────────
   const gv=id=>(document.getElementById(id)?.value||"").trim();
@@ -10520,10 +10521,34 @@ window.generarPDFFisio=function(){
     doc.text(`QP Clinic — Prescripción de Fisioterapia | Generado: ${new Date().toLocaleDateString("es-MX")} | Página ${pg} de ${totalPages}`,W/2,H-4,{align:"center"});
   }
 
-  // ── Guardar ───────────────────────────────────────────────
-  const nombre=(datos.paciente||"paciente").replace(/[^a-zA-Z0-9À-ɏ]/g,"_").substring(0,30);
-  doc.save(`Fisioterapia_${nombre}_${datos.fecha}.pdf`);
-  showToast("✓ PDF de fisioterapia generado");
+  // ── Guardar en Supabase y descargar ──────────────────────
+  const nombre=(datos.paciente||"paciente").replace(/[^a-zA-Z0-9]/g,"_").substring(0,30);
+  const archivo=`Fisioterapia_${nombre}_${datos.fecha}.pdf`;
+  const pid=STATE.pat?.id;
+  if(pid){
+    try{
+      const pdfBlob=doc.output("blob");
+      const path=`${pid}/fisioterapia_${Date.now()}.pdf`;
+      const {error:upErr}=await SB.storage.from("expedientes").upload(path,pdfBlob,{contentType:"application/pdf",upsert:false});
+      if(!upErr){
+        await SB.from("anexos").insert({
+          paciente_id:pid,
+          titulo:`PRESCRIPCIÓN FISIOTERAPIA — ${datos.paciente}`,
+          tipo_documento:"fisioterapia",
+          origen:"generado",
+          firmado:false,
+          storage_path:path,
+          fecha:datos.fecha,
+        });
+      }
+    }catch(e){console.warn("No se pudo guardar en expediente:",e.message);}
+  }
+  doc.save(archivo);
+  showToast("✓ PDF de fisioterapia descargado");
+  }catch(err){
+    console.error("Error generarPDFFisio:",err);
+    showToast("Error al generar PDF: "+err.message,false);
+  }
 }
 
 ;(async function init(){
