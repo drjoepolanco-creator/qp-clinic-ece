@@ -383,7 +383,7 @@ function nav(){
     <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
-    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","🔬 Ultrasonido"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     ${STATE.userProfile?.rol==="admin"?`
     <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
@@ -10610,6 +10610,11 @@ window.usCargarPlantilla=function(){
   if(!plantilla){showToast("Plantilla no encontrada",false);return;}
 
   STATE.usActivo={cat,tipo,plantilla,imagenes:[],imagenesB64:[]};
+
+  // Módulo especial BI-RADS para Ultrasonido Mamario
+  if(tipo==="Ultrasonido Mamario"){
+    usBiradsBadge();
+  }
   const med=STATE.medProfile||STATE.userProfile||{};
   const p=STATE.pat||{};
   const hoy=new Date().toISOString().split("T")[0];
@@ -10766,19 +10771,27 @@ window.usEliminarImagen=function(idx){
 window.guardarBorradorUS=async function(){
   if(!STATE.pat?.id){showToast("Sin paciente activo — el borrador no puede guardarse",false);return;}
   const datos=usRecolectarDatos();
+  const tipo=STATE.usActivo?.tipo||"Ultrasonido";
   loading(true,"Guardando borrador...");
-  const {error}=await SB.from("ultrasonido_reportes").insert({
-    paciente_id:STATE.pat.id,
-    medico_id:STATE.user?.id||null,
-    tipo_estudio:STATE.usActivo?.tipo||"",
-    categoria:STATE.usActivo?.cat||"",
-    fecha:datos.fecha,
-    datos_clinicos:datos,
-    estado:"borrador",
-  });
-  loading(false);
-  if(error){showToast("Error al guardar: "+error.message,false);return;}
-  showToast("✓ Borrador guardado en el expediente");
+  try{
+    // Serializar datos como JSON y guardar en anexos (sin tabla separada)
+    const jsonBlob=new Blob([JSON.stringify({tipo,cat:STATE.usActivo?.cat,datos,imagenes:STATE.usActivo?.imagenes?.map(i=>({etiqueta:i.etiqueta,nombre:i.nombre}))||[]})],{type:"application/json"});
+    const path=`${STATE.pat.id}/ultrasonido/borrador_${Date.now()}.json`;
+    const {error:upErr}=await SB.storage.from("expedientes").upload(path,jsonBlob,{contentType:"application/json",upsert:false});
+    if(upErr)throw new Error(upErr.message);
+    const {error}=await SB.from("anexos").insert({
+      paciente_id:STATE.pat.id,
+      titulo:`BORRADOR US — ${tipo.toUpperCase()} — ${datos.fecha||new Date().toISOString().split("T")[0]}`,
+      tipo_documento:"Laboratorio (PDF)",
+      origen:"generado",
+      firmado:false,
+      storage_path:path,
+      fecha:datos.fecha||new Date().toISOString().split("T")[0],
+    });
+    if(error)throw new Error(error.message);
+    loading(false);
+    showToast("✓ Borrador guardado en Documentos y Anexos");
+  }catch(e){loading(false);showToast("Error al guardar: "+e.message,false);}
 }
 
 function usRecolectarDatos(){
@@ -10831,177 +10844,199 @@ window.generarPDFUltrasonido=async function(){
     const cP=[0,107,182],cD=[38,50,56],cMu=[84,110,122],cBr=[224,224,224],cG=[245,249,255],cV=[46,125,50];
 
     const S2=v=>String(v==null||v===""?"":v);
+    // safe(): remove chars unsupported by jsPDF helvetica (ASCII + latin-1 only)
+    const safe=t=>String(t||"").replace(/[^\x20-\xFF]/g,"").trim();
+
     const addPage=()=>{doc.addPage();y=14;};
-    const checkY=(need)=>{if(y+need>H-18)addPage();};
+    const checkY=(need)=>{if(y+need>H-16)addPage();};
 
     // ── HEADER ────────────────────────────────────────────────
-    doc.setFillColor(...cP);doc.rect(0,0,W,32,"F");
-    // Logo / nombre clínica
+    doc.setFillColor(...cP);doc.rect(0,0,W,30,"F");
     doc.setTextColor(255,255,255);
-    doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text("QP CLINIC",ML,10);
+    doc.setFont("helvetica","bold");doc.setFontSize(14);doc.text("QP CLINIC",ML,9);
     doc.setFont("helvetica","normal");doc.setFontSize(7);
-    doc.text("Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX  |  55 6442-3702  |  qpclinic.org",ML,15);
-    // Médico en header
-    const nomMed=S2(datos.medico)||"Dra. Martha N. Merino Sequeira";
-    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(nomMed.toUpperCase(),ML,21);
-    let hcx=ML+doc.getTextWidth(nomMed.toUpperCase())+4;
-    credLines.forEach(cl=>{
-      const tw=doc.getTextWidth(cl)+0;
-      if(hcx+tw<W-46){
-        doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.text(cl,hcx,21);hcx+=tw+5;
-      }
-    });
-    // Badge tipo de estudio (derecha)
-    doc.setFillColor(255,255,255);doc.roundedRect(W-48,3,46,26,2,2,"F");
-    doc.setTextColor(...cP);doc.setFont("helvetica","bold");doc.setFontSize(7);
-    const tipoLines=doc.splitTextToSize(tipo.toUpperCase(),42);
-    tipoLines.forEach((tl,ti)=>doc.text(tl,W-25,10+ti*5,{align:"center"}));
-    doc.setTextColor(255,255,255);
-    y=36;
+    doc.text("Insurgentes Sur 933, Piso 12, Col. Napoles, CDMX  |  (55) 6442-3702",ML,14);
+    const nomMed=safe(datos.medico)||"Dra. Martha N. Merino Sequeira";
+    doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.text(nomMed.toUpperCase(),ML,20);
+    const credLinesSafe=credLines.map(safe).filter(Boolean);
+    if(credLinesSafe.length){
+      doc.setFont("helvetica","normal");doc.setFontSize(6.5);
+      doc.text(credLinesSafe.join("  |  "),ML,25,{maxWidth:W-54});
+    }
+    // Badge tipo estudio
+    doc.setFillColor(255,255,255);doc.roundedRect(W-50,2,48,27,2,2,"F");
+    doc.setTextColor(...cP);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
+    const tipoLines=doc.splitTextToSize(tipo.toUpperCase(),44);
+    tipoLines.forEach((tl,ti)=>doc.text(tl,W-26,9+ti*5.5,{align:"center"}));
+    y=34;
 
     // ── DATOS DEL PACIENTE ────────────────────────────────────
-    const HDR_PAT=14;
+    const HDR_PAT=13;
     doc.setFillColor(...cG);doc.rect(ML,y,CW,HDR_PAT,"F");
-    doc.setDrawColor(...cBr);doc.rect(ML,y,CW,HDR_PAT,"S");
+    doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.rect(ML,y,CW,HDR_PAT,"S");
     const campoHdr=(lbl,val,x,yy,w)=>{
-      doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.text(lbl.toUpperCase(),x,yy);
-      doc.setTextColor(...cD);doc.setFont("helvetica","bold");doc.setFontSize(8.5);
-      doc.text(S2(val)||"—",x,yy+4,{maxWidth:w});
+      doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6);
+      doc.text(lbl.toUpperCase(),x,yy);
+      doc.setTextColor(...cD);doc.setFont("helvetica","bold");doc.setFontSize(8);
+      doc.text(safe(val)||"—",x,yy+4,{maxWidth:w-1});
     };
-    campoHdr("Paciente",datos.paciente,ML+2,y+4,85);
-    campoHdr("Exp.",datos.expediente,ML+95,y+4,25);
-    campoHdr("F. nacimiento",datos.fnac,ML+127,y+4,28);
-    campoHdr("Edad",datos.edad,ML+163,y+4,22);
-    campoHdr("Fecha del estudio",datos.fecha,ML+185,y+4,25);
+    campoHdr("Paciente",datos.paciente,ML+2,y+3.5,80);
+    campoHdr("Expediente",datos.expediente,ML+88,y+3.5,22);
+    campoHdr("F. Nacimiento",datos.fnac,ML+116,y+3.5,26);
+    campoHdr("Edad",datos.edad,ML+150,y+3.5,20);
+    campoHdr("Fecha del Estudio",datos.fecha,ML+175,y+3.5,30);
     y+=HDR_PAT+4;
 
-    // ── SECCIONES DEL REPORTE ─────────────────────────────────
+    // ── HELPERS ───────────────────────────────────────────────
     const seccion=(titulo,yy)=>{
+      checkY(12);
       doc.setFillColor(...cP);doc.rect(ML,yy,CW,5.5,"F");
       doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(8);
-      doc.text("◆ "+titulo.toUpperCase(),ML+2,yy+3.9);
+      doc.text(safe(titulo).toUpperCase(),ML+3,yy+3.9);
       return yy+7;
     };
     const parrafo=(texto,yy)=>{
-      if(!texto)return yy;
+      const txt=safe(texto);if(!txt)return yy;
       doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(8.5);
-      const lines=doc.splitTextToSize(String(texto),CW-4);
-      checkY(lines.length*4.5+2);
-      doc.text(lines,ML+2,yy);
-      return yy+lines.length*4.5+2;
+      const lines=doc.splitTextToSize(txt,CW-6);
+      const h=lines.length*4.5+2;checkY(h);
+      doc.text(lines,ML+3,yy);return yy+h;
     };
     const campo2=(lbl,val,yy)=>{
-      if(!val||val===lbl)return yy;
-      doc.setTextColor(...cMu);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
-      doc.text(lbl.toUpperCase()+":",ML+2,yy);
+      const valTxt=safe(val);if(!valTxt)return yy;
+      const lblTxt=safe(lbl).toUpperCase()+":";
+      const lblW=50;const valW=CW-lblW-8;
+      const valLines=doc.splitTextToSize(valTxt,valW);
+      const rowH=Math.max(valLines.length*4.2,5)+3;
+      checkY(rowH+1);
+      doc.setFillColor(248,250,252);doc.rect(ML,yy-3,CW,rowH,"F");
+      doc.setDrawColor(235,235,235);doc.setLineWidth(0.1);doc.line(ML,yy+rowH-3,MR,yy+rowH-3);
+      doc.setTextColor(...cMu);doc.setFont("helvetica","bold");doc.setFontSize(7);
+      doc.text(lblTxt,ML+2,yy);
       doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(8.5);
-      const lines=doc.splitTextToSize(String(val),CW-50);
-      doc.text(lines,ML+50,yy);
-      const h=Math.max(lines.length*4.5,5)+1;
-      checkY(h);
-      return yy+h;
+      doc.text(valLines,ML+lblW+2,yy);
+      return yy+rowH;
     };
 
-    // Técnica
-    y=seccion("Técnica",y);
-    const tecnica=`Se realizó ${tipo.toLowerCase()} utilizando transductor ${["Abdomen","Mama"].includes(STATE.usActivo?.cat)?"convexo":"lineal"}, en escala de grises y Doppler color.`;
-    y=parrafo(tecnica,y)+2;
+    // ── DATOS CLÍNICOS ────────────────────────────────────────
+    if(datos.us_motivo||datos.us_dc){
+      y=seccion("Datos Clinicos",y);
+      if(datos.us_motivo)y=campo2("Motivo",datos.us_motivo,y);
+      if(datos.us_dc)y=campo2("Datos clinicos",datos.us_dc,y);
+      y+=3;
+    }
 
-    // Hallazgos — campos de la plantilla (excepto impresion y recom)
+    // ── TÉCNICA ───────────────────────────────────────────────
+    y=seccion("Tecnica",y);
+    const transductor=(STATE.usActivo?.cat==="Abdomen"||STATE.usActivo?.cat==="Mama")?"convexo":"lineal";
+    const tecnicaTxt=`Se realizo ${safe(tipo).toLowerCase()} utilizando transductor ${transductor}, en escala de grises y Doppler color.`;
+    y=parrafo(tecnicaTxt,y)+3;
+
+    // ── HALLAZGOS ─────────────────────────────────────────────
     y=seccion("Hallazgos",y);
-    const camposHallazgo=(plantilla?.campos||[]).filter(c=>c.id!=="us_impresion"&&c.id!=="us_recom"&&c.id!=="us_motivo"&&c.id!=="us_dc"&&c.id!=="us_psa");
+    const camposHallazgo=(plantilla?.campos||[]).filter(c=>
+      !["us_impresion","us_recom","us_motivo","us_dc","us_psa"].includes(c.id)
+    );
     camposHallazgo.forEach(c=>{
       const val=datos[c.id];
-      if(val){y=campo2(c.label,val,y);}
+      if(val&&val!==c.label)y=campo2(c.label,val,y);
     });
-    if(datos.hallazgos_extra){
+    if(datos.hallazgos_extra&&datos.hallazgos_extra.trim()){
       y+=2;
+      doc.setTextColor(...cMu);doc.setFont("helvetica","bold");doc.setFontSize(7);
+      checkY(8);doc.text("NOTAS ADICIONALES:",ML+2,y);y+=5;
       y=parrafo(datos.hallazgos_extra,y);
     }
-    y+=3;
+    y+=4;
 
-    // Impresión diagnóstica
-    if(datos.us_impresion){
-      y=seccion("Impresión Diagnóstica",y);
+    // ── IMPRESIÓN DIAGNÓSTICA ─────────────────────────────────
+    if(datos.us_impresion&&datos.us_impresion.trim()){
+      y=seccion("Impresion Diagnostica",y);
       y=parrafo(datos.us_impresion,y)+3;
     }
 
-    // Recomendaciones
-    if(datos.us_recom||plantilla?.nota){
+    // ── RECOMENDACIONES ───────────────────────────────────────
+    if((datos.us_recom&&datos.us_recom.trim())||plantilla?.nota){
       y=seccion("Recomendaciones",y);
-      if(datos.us_recom)y=parrafo(datos.us_recom,y);
+      if(datos.us_recom&&datos.us_recom.trim())y=parrafo(datos.us_recom,y);
       if(plantilla?.nota){
-        y+=2;
-        doc.setFillColor(232,245,233);doc.rect(ML,y,CW,8,"F");
-        doc.setTextColor(...cV);doc.setFont("helvetica","italic");doc.setFontSize(7.5);
-        doc.text("📌 "+plantilla.nota,ML+2,y+5,{maxWidth:CW-4});
-        y+=10;
+        checkY(12);y+=2;
+        doc.setFillColor(232,245,233);doc.rect(ML,y,CW,9,"F");
+        doc.setDrawColor(165,214,167);doc.setLineWidth(0.3);doc.rect(ML,y,CW,9,"S");
+        doc.setTextColor(...cV);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
+        doc.text("NOTA: "+safe(plantilla.nota),ML+3,y+5.5,{maxWidth:CW-6});
+        y+=11;
       }
     }
 
     // ── IMÁGENES ──────────────────────────────────────────────
     if(imgs.length>0){
       doc.addPage();y=14;
-      y=seccion("Imágenes del Estudio",y);y+=3;
+      y=seccion("Imagenes del Estudio",y);y+=3;
       const COLS=imgs.length===1?1:imgs.length===2?2:3;
-      const IMG_W=(CW-(COLS-1)*4)/COLS;
-      const IMG_H=IMG_W*0.75;
-      let col=0;let rowY=y;
+      const GAP=4;
+      const IMG_W=(CW-(COLS-1)*GAP)/COLS;
+      const IMG_H=IMG_W*0.72;
+      let col=0,rowY=y;
       for(let i=0;i<imgs.length;i++){
-        if(col===COLS){col=0;rowY+=IMG_H+12;y=rowY;checkY(IMG_H+16);}
-        const x=ML+col*(IMG_W+4);
+        if(col===COLS){col=0;rowY+=IMG_H+GAP+8;checkY(IMG_H+GAP+8);}
+        const x=ML+col*(IMG_W+GAP);
         try{
-          doc.addImage(imgs[i].b64,"JPEG",x,rowY,IMG_W,IMG_H);
-          doc.setDrawColor(...cBr);doc.rect(x,rowY,IMG_W,IMG_H,"S");
-          // Etiqueta
-          doc.setFillColor(0,0,0,0.5);
-          const etq=imgs[i].etiqueta||`Imagen ${i+1}`;
+          const fmt=imgs[i].b64.includes("image/png")?"PNG":"JPEG";
+          doc.addImage(imgs[i].b64,fmt,x,rowY,IMG_W,IMG_H);
+          doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.rect(x,rowY,IMG_W,IMG_H,"S");
+          doc.setFillColor(...cP);doc.rect(x,rowY+IMG_H-5.5,IMG_W,5.5,"F");
+          const etq=safe(imgs[i].etiqueta)||("Imagen "+(i+1));
           doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7);
-          doc.setFillColor(0,76,130);doc.rect(x,rowY+IMG_H-5.5,IMG_W,5.5,"F");
           doc.text(etq,x+IMG_W/2,rowY+IMG_H-1.5,{align:"center",maxWidth:IMG_W-2});
         }catch(e){
           doc.setFillColor(240,240,240);doc.rect(x,rowY,IMG_W,IMG_H,"F");
-          doc.setTextColor(...cMu);doc.setFontSize(8);doc.text("Imagen no disponible",x+IMG_W/2,rowY+IMG_H/2,{align:"center"});
+          doc.setTextColor(...cMu);doc.setFontSize(7);
+          doc.text("Img. no disponible",x+IMG_W/2,rowY+IMG_H/2,{align:"center"});
         }
         col++;
       }
-      y=rowY+IMG_H+8;
+      y=rowY+IMG_H+10;
     }
 
     // ── FIRMA ─────────────────────────────────────────────────
-    checkY(35);
-    y+=4;
+    checkY(42);
+    y+=5;
     doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.line(ML,y,MR,y);y+=5;
-    if(firmaB64){
-      try{doc.addImage(firmaB64,"PNG",ML,y,35,11);y+=12;}catch(e){}
-    }
-    doc.setDrawColor(...cBr);doc.setLineWidth(0.4);doc.line(ML,y,ML+80,y);
+    if(firmaB64){try{doc.addImage(firmaB64,"PNG",ML,y,35,11);y+=13;}catch(e){}}
+    doc.setDrawColor(...cBr);doc.setLineWidth(0.4);doc.line(ML,y,ML+85,y);
     doc.setTextColor(...cD);doc.setFont("helvetica","bold");doc.setFontSize(9);
     doc.text(nomMed,ML,y+5);
     let cy2=y+10;
-    if(!credLines.length){
-      // Fallback con datos de la Dra. Merino
-      ["Médico Especialista en Radiología","Alta Especialidad en Radiología de Urgencias","Alta Especialidad en Radiología de la Mujer","C.P. 13524542 · C.E. 13705584"].forEach(cl=>{
-        doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(...cMu);doc.text(cl,ML,cy2);cy2+=3.8;
-      });
-    } else {
-      credLines.forEach(cl=>{doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(...cMu);doc.text(cl,ML,cy2);cy2+=3.8;});
-    }
+    const fallbackCreds=["Medico Especialista en Radiologia","Alta Especialidad en Radiologia de Urgencias","Alta Especialidad en Radiologia de la Mujer","C.P. 13524542  |  C.E. 13705584"];
+    const credsToShow=credLinesSafe.length?credLinesSafe:fallbackCreds;
+    credsToShow.forEach(cl=>{
+      doc.setFont("helvetica","normal");doc.setFontSize(7);
+      doc.setTextColor(...cMu);doc.text(cl,ML,cy2);cy2+=4;
+    });
     // Sello derecho
     const sx=W-55;
-    doc.setDrawColor(...cBr);doc.roundedRect(sx,y-2,50,cy2-y+8,2,2,"S");
+    const selloH=Math.max(cy2-y+6,26);
+    doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.roundedRect(sx,y-2,50,selloH,2,2,"S");
     doc.setFillColor(...cP);doc.roundedRect(sx,y-2,50,6,2,2,"F");
-    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7);doc.text("QP CLINIC",sx+25,y+2.5,{align:"center"});
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7);
+    doc.text("QP CLINIC",sx+25,y+2.5,{align:"center"});
     doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-    ["Insurgentes Sur 933, Piso 12","Col. Nápoles, CDMX","Tel: (55) 6442-3702","qpclinic.org"].forEach((l,i)=>doc.text(l,sx+25,y+9+i*3.8,{align:"center"}));
+    ["Insurgentes Sur 933, Piso 12","Col. Napoles, CDMX","Tel: (55) 6442-3702"].forEach((l,i)=>
+      doc.text(l,sx+25,y+9+i*4,{align:"center"})
+    );
 
-    // ── FOOTER ────────────────────────────────────────────────
+    // ── FOOTER EN TODAS LAS PÁGINAS ───────────────────────────
     const totalPgs=doc.getNumberOfPages();
     for(let pg=1;pg<=totalPgs;pg++){
       doc.setPage(pg);
-      doc.setFillColor(240,244,248);doc.rect(0,H-8,W,8,"F");
-      doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-      doc.text(`QP Clinic — ${tipo}  |  ${datos.paciente||"—"}  |  ${datos.fecha||""}  |  Generado: ${new Date().toLocaleDateString("es-MX")}  |  Página ${pg} de ${totalPgs}`,W/2,H-3.5,{align:"center"});
+      doc.setFillColor(240,244,248);doc.rect(0,H-10,W,10,"F");
+      doc.setDrawColor(...cBr);doc.setLineWidth(0.2);doc.line(0,H-10,W,H-10);
+      doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6);
+      doc.text(
+        `QP Clinic  |  Insurgentes Sur 933 Piso 12, Col. Napoles, CDMX  |  (55) 6442-3702  |  ${safe(tipo)}  |  ${safe(datos.paciente)||"—"}  |  ${datos.fecha||""}  |  Pagina ${pg} de ${totalPgs}`,
+        W/2,H-4,{align:"center",maxWidth:W-4}
+      );
     }
 
     // ── GUARDAR EN SUPABASE ───────────────────────────────────
@@ -11048,6 +11083,119 @@ window.verReportesUS=async function(){
   go("expediente");
   showToast("Mostrando documentos del expediente");
 }
+
+// ── BADGE BI-RADS ESPECIAL para Ultrasonido Mamario ──────────────────────────
+function usBiradsBadge(){
+  setTimeout(()=>{
+    const fb=document.getElementById("us-form-body");
+    if(!fb)return;
+    const banner=document.createElement("div");
+    banner.style.cssText="background:linear-gradient(135deg,#6A1B9A,#1565C0);color:#fff;border-radius:10px;padding:12px 16px;margin:16px 16px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap";
+    banner.innerHTML=`
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">🩺</span>
+        <div>
+          <p style="font-size:14px;font-weight:700;margin-bottom:2px">Modulo especial — Ultrasonido Mamario BI-RADS</p>
+          <p style="font-size:12px;opacity:.85">Genera el diagrama anatomico de mamas con marcado de lesiones en Canva</p>
+        </div>
+      </div>
+      <button onclick="abrirBiradsDiagrama()" style="background:#fff;color:#6A1B9A;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap">
+        Abrir diagrama en Canva
+      </button>`;
+    fb.insertBefore(banner,fb.firstChild);
+  },200);
+}
+
+window.abrirBiradsDiagrama=function(){
+  const overlay=document.createElement("div");
+  overlay.id="modal-birads";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9990;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  overlay.innerHTML=`
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:620px;box-shadow:0 20px 60px rgba(0,0,0,.35);margin:auto">
+    <div style="background:linear-gradient(135deg,#6A1B9A,#1565C0);padding:14px 20px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <p style="color:rgba(255,255,255,.75);font-size:12px;font-weight:600;margin-bottom:2px">MODULO ESPECIAL BI-RADS</p>
+        <b style="color:#fff;font-size:15px">Diagrama anatomico de mama</b>
+      </div>
+      <button onclick="document.getElementById('modal-birads').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:16px;font-weight:700">X</button>
+    </div>
+    <div style="padding:20px">
+      <p style="font-size:14px;color:#263238;margin-bottom:16px;line-height:1.6">
+        Diseña el diagrama de mamas con Canva: marca los nodulos, quistes y lesiones en el cuadrante correcto de cada mama para incluirlos en el reporte.
+      </p>
+      <div style="background:#F8FAFB;border:1.5px solid #E0E0E0;border-radius:10px;padding:16px;margin-bottom:16px;text-align:center">
+        <p style="font-size:12px;font-weight:700;color:#546E7A;text-transform:uppercase;margin-bottom:12px">Esquema BI-RADS — Vista anterior bilateral</p>
+        <svg viewBox="0 0 420 230" style="width:100%;max-width:400px" xmlns="http://www.w3.org/2000/svg">
+          <rect width="420" height="230" fill="#F0F7FF" rx="8"/>
+          <text x="14" y="115" font-family="Arial" font-size="10" fill="#546E7A" font-weight="bold">DERECHA</text>
+          <text x="320" y="115" font-family="Arial" font-size="10" fill="#546E7A" font-weight="bold">IZQUIERDA</text>
+          <!-- Mama derecha -->
+          <ellipse cx="138" cy="113" rx="78" ry="78" fill="white" stroke="#90CAF9" stroke-width="2"/>
+          <ellipse cx="138" cy="113" rx="19" ry="19" fill="#E3F2FD" stroke="#64B5F6" stroke-width="1.5"/>
+          <ellipse cx="138" cy="113" rx="7" ry="7" fill="#BBDEFB" stroke="#42A5F5" stroke-width="1"/>
+          <line x1="138" y1="35" x2="138" y2="191" stroke="#90CAF9" stroke-width="1" stroke-dasharray="4,3"/>
+          <line x1="60" y1="113" x2="216" y2="113" stroke="#90CAF9" stroke-width="1" stroke-dasharray="4,3"/>
+          <circle cx="138" cy="113" r="47" fill="none" stroke="#BBDEFB" stroke-width="1" stroke-dasharray="3,3"/>
+          <circle cx="138" cy="113" r="68" fill="none" stroke="#BBDEFB" stroke-width="1" stroke-dasharray="3,3"/>
+          <text x="100" y="73" font-family="Arial" font-size="9" fill="#7986CB">CSE</text>
+          <text x="152" y="73" font-family="Arial" font-size="9" fill="#7986CB">CSI</text>
+          <text x="100" y="163" font-family="Arial" font-size="9" fill="#7986CB">CIE</text>
+          <text x="152" y="163" font-family="Arial" font-size="9" fill="#7986CB">CII</text>
+          <ellipse cx="70" cy="62" rx="23" ry="14" fill="#E8EAF6" stroke="#9FA8DA" stroke-width="1.5"/>
+          <text x="58" y="66" font-family="Arial" font-size="7" fill="#5C6BC0">R.axilar</text>
+          <!-- Mama izquierda -->
+          <ellipse cx="282" cy="113" rx="78" ry="78" fill="white" stroke="#90CAF9" stroke-width="2"/>
+          <ellipse cx="282" cy="113" rx="19" ry="19" fill="#E3F2FD" stroke="#64B5F6" stroke-width="1.5"/>
+          <ellipse cx="282" cy="113" rx="7" ry="7" fill="#BBDEFB" stroke="#42A5F5" stroke-width="1"/>
+          <line x1="282" y1="35" x2="282" y2="191" stroke="#90CAF9" stroke-width="1" stroke-dasharray="4,3"/>
+          <line x1="204" y1="113" x2="360" y2="113" stroke="#90CAF9" stroke-width="1" stroke-dasharray="4,3"/>
+          <circle cx="282" cy="113" r="47" fill="none" stroke="#BBDEFB" stroke-width="1" stroke-dasharray="3,3"/>
+          <circle cx="282" cy="113" r="68" fill="none" stroke="#BBDEFB" stroke-width="1" stroke-dasharray="3,3"/>
+          <text x="244" y="73" font-family="Arial" font-size="9" fill="#7986CB">CSI</text>
+          <text x="296" y="73" font-family="Arial" font-size="9" fill="#7986CB">CSE</text>
+          <text x="244" y="163" font-family="Arial" font-size="9" fill="#7986CB">CII</text>
+          <text x="296" y="163" font-family="Arial" font-size="9" fill="#7986CB">CIE</text>
+          <ellipse cx="350" cy="62" rx="23" ry="14" fill="#E8EAF6" stroke="#9FA8DA" stroke-width="1.5"/>
+          <text x="338" y="66" font-family="Arial" font-size="7" fill="#5C6BC0">R.axilar</text>
+          <text x="138" y="215" font-family="Arial" font-size="10" fill="#1565C0" font-weight="bold" text-anchor="middle">SENO DERECHO</text>
+          <text x="282" y="215" font-family="Arial" font-size="10" fill="#1565C0" font-weight="bold" text-anchor="middle">SENO IZQUIERDO</text>
+        </svg>
+        <p style="font-size:11px;color:#90A4AE;margin-top:6px">CSE=Superexterno · CSI=Superointerno · CIE=Inferoexterno · CII=Inferointerno</p>
+      </div>
+      <div style="background:#EDE7F6;border-radius:8px;padding:12px 14px;margin-bottom:16px">
+        <p style="font-size:13px;font-weight:700;color:#6A1B9A;margin-bottom:6px">Como usar:</p>
+        <div style="font-size:13px;color:#4A148C;line-height:1.8">
+          1. Abre Canva con el boton de abajo<br>
+          2. Usa el diseño de mamas y marca las lesiones con puntos de color<br>
+          3. Descarga la imagen (PNG) del diagrama completado<br>
+          4. Cargala en el campo de imagenes con etiqueta "Diagrama BI-RADS"<br>
+          5. Se incluira automaticamente en el PDF del reporte
+        </div>
+      </div>
+      <div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#1565C0">
+        <b>Convencion de colores sugerida:</b><br>
+        Azul oscuro = Nodulo solido probable fibroadenoma &nbsp;|&nbsp; Rojo = Lesion sospechosa &nbsp;|&nbsp; Verde = Quiste simple &nbsp;|&nbsp; Amarillo = Quiste complicado
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button onclick="abrirCanvaBirads()" style="flex:1;background:linear-gradient(135deg,#6A1B9A,#1565C0);color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;min-width:180px">
+          Abrir en Canva para dibujar
+        </button>
+        <button onclick="document.getElementById('modal-birads').remove()" style="padding:12px 18px;background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:9px;font-size:14px;cursor:pointer">Cerrar</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+window.abrirCanvaBirads=function(){
+  document.getElementById("modal-birads")?.remove();
+  showToast("Abriendo Canva — disena el diagrama, descargalo y subelo como imagen al reporte");
+  // Aqui se llamaria Canva:generate-design con el diagrama de mamas
+  // Por ahora abre Canva directamente para que la Dra. use la plantilla
+  window.open("https://www.canva.com/create/medical-diagrams/","_blank","noopener");
+}
+
+
 
 
 ;(async function init(){
