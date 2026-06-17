@@ -10812,231 +10812,281 @@ function usRecolectarDatos(){
 }
 
 // ── PDF Generator ─────────────────────────────────────────────────────────────
+// ── PDF Generator — HTML→canvas layout engine ───────────────────────────────
 window.generarPDFUltrasonido=async function(){
   const {jsPDF}=window.jspdf;
   if(!jsPDF){showToast("jsPDF no disponible",false);return;}
+
+  // Verificar html2canvas
+  if(typeof html2canvas==="undefined"){
+    showToast("Cargando módulo de renderizado...",false);
+    await new Promise((res,rej)=>{
+      const s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);
+    });
+  }
+
   try{
     const datos=usRecolectarDatos();
     const tipo=STATE.usActivo?.tipo||"Ultrasonido";
     const plantilla=STATE.usActivo?.plantilla;
     const imgs=STATE.usActivo?.imagenes||[];
     const med=STATE.medProfile||STATE.userProfile||{};
+    const p=STATE.pat||{};
 
-    // Credenciales del médico
-    const shortInst=s=>s?s.split(" — ")[0].split(" · ")[0].trim():"";
+    // Credenciales
     const credLines=[];
-    if(med.licenciatura)credLines.push(med.licenciatura.toUpperCase()+(med.cedula_medico?" · Céd. Prof. "+med.cedula_medico:""));
-    if(med.especialidad_1)credLines.push(("ESPECIALIDAD EN "+med.especialidad_1).toUpperCase()+(med.cedula_esp_1?" · Céd. Esp. "+med.cedula_esp_1:""));
-    if(med.subespecialidad)credLines.push(("ALTA ESPECIALIDAD EN "+med.subespecialidad).toUpperCase()+(med.cedula_subesp?" · Céd. "+med.cedula_subesp:""));
-    if(med.especialidad_2)credLines.push(("ALTA ESPECIALIDAD EN "+med.especialidad_2).toUpperCase()+(med.cedula_esp_2?" · Céd. "+med.cedula_esp_2:""));
+    if(med.licenciatura)credLines.push(med.licenciatura+(med.cedula_medico?" · Céd. Prof. "+med.cedula_medico:""));
+    if(med.especialidad_1)credLines.push("Especialidad en "+med.especialidad_1+(med.cedula_esp_1?" · Céd. Esp. "+med.cedula_esp_1:""));
+    if(med.subespecialidad)credLines.push("Alta Especialidad en "+med.subespecialidad+(med.cedula_subesp?" · Céd. "+med.cedula_subesp:""));
+    if(med.especialidad_2)credLines.push("Alta Especialidad en "+med.especialidad_2+(med.cedula_esp_2?" · Céd. "+med.cedula_esp_2:""));
+    const fallbackCreds=["Médico Especialista en Radiología","Alta Especialidad en Radiología de Urgencias","Alta Especialidad en Radiología de la Mujer","C.P. 13524542 · C.E. 13705584"];
+    const credsToShow=credLines.length?credLines:fallbackCreds;
+    const nomMed=(datos.medico||"Dra. Martha N. Merino Sequeira").trim();
 
     // Firma digital
     let firmaB64=null;
-    if(med.firma_digital){
-      try{const r=await fetch(med.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}
-    }
+    if(med.firma_digital){try{const r=await fetch(med.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}}
 
     loading(true,"Generando PDF del reporte...");
 
-    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
-    const W=215.9,H=279.4,ML=13,MR=W-13,CW=W-26;
-    let y=0;
-    const cP=[0,107,182],cD=[38,50,56],cMu=[84,110,122],cBr=[224,224,224],cG=[245,249,255],cV=[46,125,50];
-
-    const S2=v=>String(v==null||v===""?"":v);
-    // safe(): remove chars unsupported by jsPDF helvetica (ASCII + latin-1 only)
-    const safe=t=>String(t||"").replace(/[^\x20-\xFF]/g,"").trim();
-
-    const addPage=()=>{doc.addPage();y=14;};
-    const checkY=(need)=>{if(y+need>H-16)addPage();};
-
-    // ── HEADER ────────────────────────────────────────────────
-    doc.setFillColor(...cP);doc.rect(0,0,W,30,"F");
-    doc.setTextColor(255,255,255);
-    doc.setFont("helvetica","bold");doc.setFontSize(14);doc.text("QP CLINIC",ML,9);
-    doc.setFont("helvetica","normal");doc.setFontSize(7);
-    doc.text("Insurgentes Sur 933, Piso 12, Col. Napoles, CDMX  |  (55) 6442-3702",ML,14);
-    const nomMed=safe(datos.medico)||"Dra. Martha N. Merino Sequeira";
-    doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.text(nomMed.toUpperCase(),ML,20);
-    const credLinesSafe=credLines.map(safe).filter(Boolean);
-    if(credLinesSafe.length){
-      doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-      doc.text(credLinesSafe.join("  |  "),ML,25,{maxWidth:W-54});
-    }
-    // Badge tipo estudio
-    doc.setFillColor(255,255,255);doc.roundedRect(W-50,2,48,27,2,2,"F");
-    doc.setTextColor(...cP);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
-    const tipoLines=doc.splitTextToSize(tipo.toUpperCase(),44);
-    tipoLines.forEach((tl,ti)=>doc.text(tl,W-26,9+ti*5.5,{align:"center"}));
-    y=34;
-
-    // ── DATOS DEL PACIENTE ────────────────────────────────────
-    const HDR_PAT=13;
-    doc.setFillColor(...cG);doc.rect(ML,y,CW,HDR_PAT,"F");
-    doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.rect(ML,y,CW,HDR_PAT,"S");
-    const campoHdr=(lbl,val,x,yy,w)=>{
-      doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6);
-      doc.text(lbl.toUpperCase(),x,yy);
-      doc.setTextColor(...cD);doc.setFont("helvetica","bold");doc.setFontSize(8);
-      doc.text(safe(val)||"—",x,yy+4,{maxWidth:w-1});
-    };
-    campoHdr("Paciente",datos.paciente,ML+2,y+3.5,80);
-    campoHdr("Expediente",datos.expediente,ML+88,y+3.5,22);
-    campoHdr("F. Nacimiento",datos.fnac,ML+116,y+3.5,26);
-    campoHdr("Edad",datos.edad,ML+150,y+3.5,20);
-    campoHdr("Fecha del Estudio",datos.fecha,ML+175,y+3.5,30);
-    y+=HDR_PAT+4;
-
-    // ── HELPERS ───────────────────────────────────────────────
-    const seccion=(titulo,yy)=>{
-      checkY(12);
-      doc.setFillColor(...cP);doc.rect(ML,yy,CW,5.5,"F");
-      doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(8);
-      doc.text(safe(titulo).toUpperCase(),ML+3,yy+3.9);
-      return yy+7;
-    };
-    const parrafo=(texto,yy)=>{
-      const txt=safe(texto);if(!txt)return yy;
-      doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(8.5);
-      const lines=doc.splitTextToSize(txt,CW-6);
-      const h=lines.length*4.5+2;checkY(h);
-      doc.text(lines,ML+3,yy);return yy+h;
-    };
-    const campo2=(lbl,val,yy)=>{
-      const valTxt=safe(val);if(!valTxt)return yy;
-      const lblTxt=safe(lbl).toUpperCase()+":";
-      const lblW=50;const valW=CW-lblW-8;
-      const valLines=doc.splitTextToSize(valTxt,valW);
-      const rowH=Math.max(valLines.length*4.2,5)+3;
-      checkY(rowH+1);
-      doc.setFillColor(248,250,252);doc.rect(ML,yy-3,CW,rowH,"F");
-      doc.setDrawColor(235,235,235);doc.setLineWidth(0.1);doc.line(ML,yy+rowH-3,MR,yy+rowH-3);
-      doc.setTextColor(...cMu);doc.setFont("helvetica","bold");doc.setFontSize(7);
-      doc.text(lblTxt,ML+2,yy);
-      doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(8.5);
-      doc.text(valLines,ML+lblW+2,yy);
-      return yy+rowH;
-    };
-
-    // ── DATOS CLÍNICOS ────────────────────────────────────────
-    if(datos.us_motivo||datos.us_dc){
-      y=seccion("Datos Clinicos",y);
-      if(datos.us_motivo)y=campo2("Motivo",datos.us_motivo,y);
-      if(datos.us_dc)y=campo2("Datos clinicos",datos.us_dc,y);
-      y+=3;
-    }
-
-    // ── TÉCNICA ───────────────────────────────────────────────
-    y=seccion("Tecnica",y);
-    const transductor=(STATE.usActivo?.cat==="Abdomen"||STATE.usActivo?.cat==="Mama")?"convexo":"lineal";
-    const tecnicaTxt=`Se realizo ${safe(tipo).toLowerCase()} utilizando transductor ${transductor}, en escala de grises y Doppler color.`;
-    y=parrafo(tecnicaTxt,y)+3;
-
-    // ── HALLAZGOS ─────────────────────────────────────────────
-    y=seccion("Hallazgos",y);
+    // ── Construir hallazgos desde campos de la plantilla ─────
     const camposHallazgo=(plantilla?.campos||[]).filter(c=>
       !["us_impresion","us_recom","us_motivo","us_dc","us_psa"].includes(c.id)
     );
-    camposHallazgo.forEach(c=>{
-      const val=datos[c.id];
-      if(val&&val!==c.label)y=campo2(c.label,val,y);
-    });
+    const hallazgosFilas=camposHallazgo
+      .filter(c=>datos[c.id]&&datos[c.id]!==c.label)
+      .map(c=>({estructura:c.label,hallazgo:datos[c.id]}));
     if(datos.hallazgos_extra&&datos.hallazgos_extra.trim()){
-      y+=2;
-      doc.setTextColor(...cMu);doc.setFont("helvetica","bold");doc.setFontSize(7);
-      checkY(8);doc.text("NOTAS ADICIONALES:",ML+2,y);y+=5;
-      y=parrafo(datos.hallazgos_extra,y);
+      hallazgosFilas.push({estructura:"Notas adicionales",hallazgo:datos.hallazgos_extra});
     }
-    y+=4;
+
+    // ── COLORES ───────────────────────────────────────────────
+    const C={
+      azul:"#0077B6",azulOsc:"#023E8A",azulCla:"#EAF6FB",
+      bg:"#FFFFFF",bgSec:"#F4F8FB",border:"#D9E4EC",
+      txt:"#1F2933",txtSec:"#5F6B73",footer:"#6B7280",footerBg:"#EEF4F8"
+    };
+
+    // ── Helper: renderizar un div HTML a canvas y añadir al PDF ─
+    const PW=215.9,PH=279.4; // Letter mm
+    const SCALE=3;           // px por mm de calidad
+    const FOOTER_H=10;       // mm reservados para footer
+
+    const htmlToCanvas=async(html,widthMm)=>{
+      const div=document.createElement("div");
+      div.style.cssText=`position:fixed;left:-9999px;top:0;width:${widthMm*SCALE}px;background:#fff;font-family:Helvetica,Arial,sans-serif;font-size:${9.5*SCALE/3.78}px;color:${C.txt};line-height:1.25`;
+      div.innerHTML=html;
+      document.body.appendChild(div);
+      await new Promise(r=>setTimeout(r,30));
+      const canvas=await html2canvas(div,{scale:1,useCORS:true,backgroundColor:"#fff",logging:false});
+      document.body.removeChild(div);
+      return{canvas,widthPx:canvas.width,heightPx:canvas.height,heightMm:canvas.height/SCALE};
+    };
+
+    // ── HEADER HTML ───────────────────────────────────────────
+    const headerHTML=`
+    <div style="background:${C.azul};padding:${5*SCALE}px;display:flex;gap:${4*SCALE}px;align-items:stretch;min-height:${26*SCALE}px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:${14*SCALE/3.78}px;font-weight:bold;color:#fff;margin-bottom:${1*SCALE}px">QP CLINIC</div>
+        <div style="font-size:${7*SCALE/3.78}px;color:rgba(255,255,255,0.82);margin-bottom:${2*SCALE}px">Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX &nbsp;|&nbsp; (55) 6442-3702</div>
+        <div style="font-size:${9*SCALE/3.78}px;font-weight:bold;color:#fff;margin-bottom:${1*SCALE}px">${nomMed.toUpperCase()}</div>
+        <div style="font-size:${7*SCALE/3.78}px;color:rgba(255,255,255,0.85);line-height:1.5">${credsToShow.join(" &nbsp;·&nbsp; ")}</div>
+      </div>
+      <div style="background:#fff;border-radius:${3*SCALE}px;padding:${4*SCALE}px ${5*SCALE}px;min-width:${42*SCALE}px;max-width:${50*SCALE}px;display:flex;align-items:center;justify-content:center;text-align:center">
+        <div style="font-size:${8*SCALE/3.78}px;font-weight:bold;color:${C.azul};line-height:1.4">${tipo.toUpperCase()}</div>
+      </div>
+    </div>`;
+
+    // ── DATOS PACIENTE HTML ───────────────────────────────────
+    const pacHTML=`
+    <div style="background:${C.bgSec};border:1px solid ${C.border};border-radius:${2*SCALE}px;padding:${3*SCALE}px ${4*SCALE}px;display:flex;gap:${3*SCALE}px;flex-wrap:wrap;margin-top:${4*SCALE}px">
+      ${[
+        ["Paciente",datos.paciente||"—"],
+        ["Expediente",datos.expediente||"—"],
+        ["F. Nacimiento",datos.fnac||"—"],
+        ["Edad",datos.edad||"—"],
+        ["Fecha del Estudio",datos.fecha||"—"]
+      ].map(([l,v])=>`
+      <div style="flex:1;min-width:${30*SCALE}px">
+        <div style="font-size:${6.5*SCALE/3.78}px;color:${C.txtSec};text-transform:uppercase;margin-bottom:${0.5*SCALE}px;font-weight:bold">${l}</div>
+        <div style="font-size:${8.5*SCALE/3.78}px;font-weight:bold;color:${C.txt}">${v}</div>
+      </div>`).join("")}
+    </div>`;
+
+    // ── SECCIÓN helper ─────────────────────────────────────────
+    const secTitulo=(titulo)=>`
+    <div style="background:${C.azul};border-radius:${2*SCALE}px ${2*SCALE}px 0 0;padding:${2.5*SCALE}px ${4*SCALE}px;margin-top:${5*SCALE}px">
+      <span style="font-size:${9*SCALE/3.78}px;font-weight:bold;color:#fff">${titulo}</span>
+    </div>`;
+
+    const secCuerpo=(contenido)=>`
+    <div style="background:#fff;border:1px solid ${C.border};border-top:none;border-radius:0 0 ${2*SCALE}px ${2*SCALE}px;padding:${4*SCALE}px">
+      <div style="font-size:${9*SCALE/3.78}px;color:${C.txt};line-height:1.5">${contenido}</div>
+    </div>`;
+
+    // ── TÉCNICA ───────────────────────────────────────────────
+    const transductor=(STATE.usActivo?.cat==="Abdomen"||STATE.usActivo?.cat==="Mama")?"convexo":"lineal";
+    const tecnicaTxt=`Se realizó ${tipo.toLowerCase()} utilizando transductor ${transductor}, en escala de grises y Doppler color.`;
+    const tecnicaHTML=secTitulo("TÉCNICA")+secCuerpo(tecnicaTxt+(datos.us_motivo?` <em>Motivo: ${datos.us_motivo}</em>`:"")+(datos.us_dc?` <em>Datos clínicos: ${datos.us_dc}</em>`:""));
+
+    // ── HALLAZGOS tabla ────────────────────────────────────────
+    const hallazgosTabla=hallazgosFilas.length?`
+    ${secTitulo("HALLAZGOS")}
+    <table style="width:100%;border-collapse:collapse;border:1px solid ${C.border};border-top:none;border-radius:0 0 ${2*SCALE}px ${2*SCALE}px;overflow:hidden">
+      ${hallazgosFilas.map((h,i)=>`
+      <tr style="background:${i%2===0?C.bgSec:"#fff"}">
+        <td style="padding:${3*SCALE}px ${4*SCALE}px;width:38%;font-weight:bold;font-size:${8.5*SCALE/3.78}px;color:${C.txtSec};vertical-align:top;border-bottom:1px solid ${C.border};word-break:break-word">${h.estructura}</td>
+        <td style="padding:${3*SCALE}px ${4*SCALE}px;font-size:${9*SCALE/3.78}px;color:${C.txt};vertical-align:top;border-bottom:1px solid ${C.border};word-break:break-word">${h.hallazgo}</td>
+      </tr>`).join("")}
+    </table>`:"";
 
     // ── IMPRESIÓN DIAGNÓSTICA ─────────────────────────────────
-    if(datos.us_impresion&&datos.us_impresion.trim()){
-      y=seccion("Impresion Diagnostica",y);
-      y=parrafo(datos.us_impresion,y)+3;
-    }
+    const impHTML=datos.us_impresion&&datos.us_impresion.trim()?
+      secTitulo("IMPRESIÓN DIAGNÓSTICA")+secCuerpo(datos.us_impresion.split("\n").map(l=>`<div style="margin-bottom:${1.5*SCALE}px">• ${l}</div>`).join("")):"";
 
     // ── RECOMENDACIONES ───────────────────────────────────────
-    if((datos.us_recom&&datos.us_recom.trim())||plantilla?.nota){
-      y=seccion("Recomendaciones",y);
-      if(datos.us_recom&&datos.us_recom.trim())y=parrafo(datos.us_recom,y);
-      if(plantilla?.nota){
-        checkY(12);y+=2;
-        doc.setFillColor(232,245,233);doc.rect(ML,y,CW,9,"F");
-        doc.setDrawColor(165,214,167);doc.setLineWidth(0.3);doc.rect(ML,y,CW,9,"S");
-        doc.setTextColor(...cV);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
-        doc.text("NOTA: "+safe(plantilla.nota),ML+3,y+5.5,{maxWidth:CW-6});
-        y+=11;
-      }
+    const recomContenido=[datos.us_recom,plantilla?.nota].filter(Boolean).join("<br>");
+    const recomHTML=recomContenido?
+      secTitulo("RECOMENDACIONES")+secCuerpo(recomContenido):"";
+
+    // ── PÁGINA 1: todo el contenido clínico ───────────────────
+    const pag1HTML=headerHTML+pacHTML+tecnicaHTML+hallazgosTabla+impHTML+recomHTML;
+
+    // ── FIRMA HTML ────────────────────────────────────────────
+    const firmaHTML=`
+    <div style="margin-top:${8*SCALE}px;display:flex;gap:${8*SCALE}px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:${80*SCALE}px;background:#fff;border:1px solid ${C.border};border-radius:${3*SCALE}px;padding:${8*SCALE}px;text-align:center">
+        ${firmaB64?`<img src="${firmaB64}" style="height:${14*SCALE}px;object-fit:contain;margin-bottom:${3*SCALE}px"><br>`:"<div style='height:"+16*SCALE+"px'></div>"}
+        <div style="border-top:1.5px solid ${C.txt};width:${55*SCALE}px;margin:0 auto ${3*SCALE}px"></div>
+        <div style="font-size:${10*SCALE/3.78}px;font-weight:bold;color:${C.txt};margin-bottom:${2*SCALE}px">${nomMed}</div>
+        ${credsToShow.map(c=>`<div style="font-size:${7.5*SCALE/3.78}px;color:${C.txtSec};margin-bottom:${1*SCALE}px">${c}</div>`).join("")}
+      </div>
+      <div style="background:${C.azulCla};border-radius:${3*SCALE}px;padding:${6*SCALE}px;min-width:${55*SCALE}px;text-align:center">
+        <div style="font-size:${9*SCALE/3.78}px;font-weight:bold;color:${C.azul};margin-bottom:${3*SCALE}px">QP CLINIC</div>
+        <div style="font-size:${7.5*SCALE/3.78}px;color:${C.txtSec};margin-bottom:${1.5*SCALE}px">Insurgentes Sur 933, Piso 12</div>
+        <div style="font-size:${7.5*SCALE/3.78}px;color:${C.txtSec};margin-bottom:${1.5*SCALE}px">Col. Nápoles, CDMX</div>
+        <div style="font-size:${7.5*SCALE/3.78}px;color:${C.txtSec}">(55) 6442-3702</div>
+      </div>
+    </div>
+    <div style="margin-top:${4*SCALE}px;background:#F8FAFC;border:1px solid ${C.border};border-radius:${2*SCALE}px;padding:${3*SCALE}px ${4*SCALE}px">
+      <div style="font-size:${7*SCALE/3.78}px;color:${C.txtSec};line-height:1.5;font-style:italic">Este reporte debe interpretarse en conjunto con la historia clínica, exploración física y evolución del paciente.</div>
+    </div>`;
+
+    // ── FOOTER HTML ───────────────────────────────────────────
+    const footerTxt=(pg,total)=>`QP Clinic  |  Insurgentes Sur 933 Piso 12, Col. Nápoles, CDMX  |  (55) 6442-3702  |  ${tipo}  |  ${datos.paciente||"—"}  |  ${datos.fecha||""}  |  Página ${pg} de ${total}`;
+
+    // ── RENDER FUNCIÓN ────────────────────────────────────────
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+    const CW=PW-26; // content width mm (margins 13 each side)
+    let pageNum=1;
+
+    const addFooter=(pg,total)=>{
+      doc.setFillColor(238,244,248);doc.rect(0,PH-FOOTER_H,PW,FOOTER_H,"F");
+      doc.setDrawColor(217,228,236);doc.setLineWidth(0.2);doc.line(0,PH-FOOTER_H,PW,PH-FOOTER_H);
+      doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(6);
+      doc.text(footerTxt(pg,total),PW/2,PH-3.5,{align:"center",maxWidth:PW-8});
+    };
+
+    // ── Renderizar sección a la página actual ─────────────────
+    // Página 1: contenido clínico
+    const r1=await htmlToCanvas(pag1HTML,CW);
+    const availH=PH-FOOTER_H-13; // mm disponibles por página
+    const r1Hpx=r1.heightPx;
+    const mmPerPx=1/SCALE;
+
+    // Dividir por páginas si el contenido excede
+    let srcY=0;
+    let curPage=1;
+    const pages=[];
+
+    while(srcY<r1Hpx){
+      const sliceH=Math.min(availH*SCALE,r1Hpx-srcY);
+      // Crear canvas del slice
+      const sliceCanvas=document.createElement("canvas");
+      sliceCanvas.width=r1.canvas.width;
+      sliceCanvas.height=sliceH;
+      const ctx=sliceCanvas.getContext("2d");
+      ctx.drawImage(r1.canvas,0,-srcY);
+      pages.push({canvas:sliceCanvas,isFirma:false});
+      srcY+=sliceH;
     }
 
-    // ── IMÁGENES ──────────────────────────────────────────────
+    // Páginas de imágenes
     if(imgs.length>0){
-      doc.addPage();y=14;
-      y=seccion("Imagenes del Estudio",y);y+=3;
-      const COLS=imgs.length===1?1:imgs.length===2?2:3;
-      const GAP=4;
-      const IMG_W=(CW-(COLS-1)*GAP)/COLS;
-      const IMG_H=IMG_W*0.72;
-      let col=0,rowY=y;
-      for(let i=0;i<imgs.length;i++){
-        if(col===COLS){col=0;rowY+=IMG_H+GAP+8;checkY(IMG_H+GAP+8);}
-        const x=ML+col*(IMG_W+GAP);
-        try{
-          const fmt=imgs[i].b64.includes("image/png")?"PNG":"JPEG";
-          doc.addImage(imgs[i].b64,fmt,x,rowY,IMG_W,IMG_H);
-          doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.rect(x,rowY,IMG_W,IMG_H,"S");
-          doc.setFillColor(...cP);doc.rect(x,rowY+IMG_H-5.5,IMG_W,5.5,"F");
-          const etq=safe(imgs[i].etiqueta)||("Imagen "+(i+1));
-          doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7);
-          doc.text(etq,x+IMG_W/2,rowY+IMG_H-1.5,{align:"center",maxWidth:IMG_W-2});
-        }catch(e){
-          doc.setFillColor(240,240,240);doc.rect(x,rowY,IMG_W,IMG_H,"F");
-          doc.setTextColor(...cMu);doc.setFontSize(7);
-          doc.text("Img. no disponible",x+IMG_W/2,rowY+IMG_H/2,{align:"center"});
+      const IMGS_PER_PAGE=9;
+      for(let i=0;i<imgs.length;i+=IMGS_PER_PAGE){
+        const batch=imgs.slice(i,i+IMGS_PER_PAGE);
+        const COLS=3;
+        const GAP=4*SCALE;
+        const IMG_W=Math.floor((CW*SCALE-(COLS-1)*GAP)/COLS);
+        const IMG_H=Math.floor(IMG_W*0.72);
+        const CAPTION_H=6*SCALE;
+        const CARD_H=IMG_H+CAPTION_H+2;
+        const ROWS=Math.ceil(batch.length/COLS);
+        const galH=((ROWS*(CARD_H+GAP))+8*SCALE+availH*SCALE*0.08);
+
+        const galCanvas=document.createElement("canvas");
+        galCanvas.width=CW*SCALE;
+        galCanvas.height=galH;
+        const gCtx=galCanvas.getContext("2d");
+
+        // Título de sección
+        gCtx.fillStyle=C.azul;
+        gCtx.fillRect(0,0,CW*SCALE,6*SCALE);
+        gCtx.fillStyle="#fff";
+        gCtx.font=`bold ${9*SCALE/3.78}px Arial`;
+        gCtx.fillText("IMÁGENES DEL ESTUDIO"+(i>0?" (continuación)":""),4*SCALE,4.2*SCALE);
+        let gy=8*SCALE;
+
+        for(let j=0;j<batch.length;j++){
+          const col=j%COLS;
+          const row=Math.floor(j/COLS);
+          const x=col*(IMG_W+GAP);
+          const y=gy+row*(CARD_H+GAP);
+          // Fondo de tarjeta
+          gCtx.fillStyle="#fff";
+          gCtx.strokeStyle=C.border;
+          gCtx.lineWidth=1;
+          gCtx.beginPath();gCtx.roundRect(x,y,IMG_W,CARD_H,2*SCALE);gCtx.fill();gCtx.stroke();
+          // Imagen
+          try{
+            const img=new Image();
+            await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=batch[j].b64;});
+            const aspect=img.naturalWidth/img.naturalHeight;
+            let dw=IMG_W,dh=IMG_H,dx=x,dy=y;
+            if(aspect>IMG_W/IMG_H){dh=IMG_W/aspect;dy=y+(IMG_H-dh)/2;}
+            else{dw=IMG_H*aspect;dx=x+(IMG_W-dw)/2;}
+            gCtx.drawImage(img,dx,dy,dw,dh);
+          }catch(e){
+            gCtx.fillStyle="#e0e0e0";
+            gCtx.fillRect(x,y,IMG_W,IMG_H);
+          }
+          // Caption
+          gCtx.fillStyle=C.azul;
+          gCtx.fillRect(x,y+IMG_H,IMG_W,CAPTION_H);
+          gCtx.fillStyle="#fff";
+          gCtx.font=`bold ${7.5*SCALE/3.78}px Arial`;
+          gCtx.textAlign="center";
+          gCtx.fillText(batch[j].etiqueta||("Imagen "+(i+j+1)),x+IMG_W/2,y+IMG_H+CAPTION_H/2+2);
+          gCtx.textAlign="left";
         }
-        col++;
+        pages.push({canvas:galCanvas,isFirma:false});
       }
-      y=rowY+IMG_H+10;
     }
 
-    // ── FIRMA ─────────────────────────────────────────────────
-    checkY(42);
-    y+=5;
-    doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.line(ML,y,MR,y);y+=5;
-    if(firmaB64){try{doc.addImage(firmaB64,"PNG",ML,y,35,11);y+=13;}catch(e){}}
-    doc.setDrawColor(...cBr);doc.setLineWidth(0.4);doc.line(ML,y,ML+85,y);
-    doc.setTextColor(...cD);doc.setFont("helvetica","bold");doc.setFontSize(9);
-    doc.text(nomMed,ML,y+5);
-    let cy2=y+10;
-    const fallbackCreds=["Medico Especialista en Radiologia","Alta Especialidad en Radiologia de Urgencias","Alta Especialidad en Radiologia de la Mujer","C.P. 13524542  |  C.E. 13705584"];
-    const credsToShow=credLinesSafe.length?credLinesSafe:fallbackCreds;
-    credsToShow.forEach(cl=>{
-      doc.setFont("helvetica","normal");doc.setFontSize(7);
-      doc.setTextColor(...cMu);doc.text(cl,ML,cy2);cy2+=4;
-    });
-    // Sello derecho
-    const sx=W-55;
-    const selloH=Math.max(cy2-y+6,26);
-    doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.roundedRect(sx,y-2,50,selloH,2,2,"S");
-    doc.setFillColor(...cP);doc.roundedRect(sx,y-2,50,6,2,2,"F");
-    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7);
-    doc.text("QP CLINIC",sx+25,y+2.5,{align:"center"});
-    doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-    ["Insurgentes Sur 933, Piso 12","Col. Napoles, CDMX","Tel: (55) 6442-3702"].forEach((l,i)=>
-      doc.text(l,sx+25,y+9+i*4,{align:"center"})
-    );
+    // Página de firma
+    const rFirma=await htmlToCanvas(firmaHTML,CW);
+    pages.push({canvas:rFirma.canvas,isFirma:true});
 
-    // ── FOOTER EN TODAS LAS PÁGINAS ───────────────────────────
-    const totalPgs=doc.getNumberOfPages();
-    for(let pg=1;pg<=totalPgs;pg++){
-      doc.setPage(pg);
-      doc.setFillColor(240,244,248);doc.rect(0,H-10,W,10,"F");
-      doc.setDrawColor(...cBr);doc.setLineWidth(0.2);doc.line(0,H-10,W,H-10);
-      doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6);
-      doc.text(
-        `QP Clinic  |  Insurgentes Sur 933 Piso 12, Col. Napoles, CDMX  |  (55) 6442-3702  |  ${safe(tipo)}  |  ${safe(datos.paciente)||"—"}  |  ${datos.fecha||""}  |  Pagina ${pg} de ${totalPgs}`,
-        W/2,H-4,{align:"center",maxWidth:W-4}
-      );
+    const totalPages=pages.length;
+    let pgN=1;
+    for(const pg of pages){
+      if(pgN>1)doc.addPage();
+      doc.addImage(pg.canvas,"PNG",13,13,CW,pg.canvas.height/SCALE);
+      addFooter(pgN,totalPages);
+      pgN++;
     }
 
     // ── GUARDAR EN SUPABASE ───────────────────────────────────
@@ -11049,9 +11099,8 @@ window.generarPDFUltrasonido=async function(){
           await SB.from("anexos").insert({
             paciente_id:STATE.pat.id,
             titulo:`ULTRASONIDO — ${tipo.toUpperCase()} — ${datos.fecha||""}`,
-            tipo_documento:"ultrasonido",
-            origen:"generado",
-            firmado:false,
+            tipo_documento:"Laboratorio (PDF)",
+            origen:"generado",firmado:false,
             storage_path:path,
             fecha:datos.fecha||new Date().toISOString().split("T")[0],
           });
@@ -11062,7 +11111,7 @@ window.generarPDFUltrasonido=async function(){
     loading(false);
     const nombre=(datos.paciente||"reporte").replace(/[^a-zA-Z0-9]/g,"_").substring(0,25);
     doc.save(`US_${tipo.replace(/[^a-zA-Z0-9]/g,"_").substring(0,20)}_${nombre}_${datos.fecha||""}.pdf`);
-    showToast("✓ Reporte de ultrasonido generado y guardado");
+    showToast("✓ Reporte de ultrasonido generado");
 
   }catch(err){
     loading(false);
