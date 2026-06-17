@@ -10981,6 +10981,7 @@ window.generarPDFUltrasonido=async function(){
 
     // ── RENDER FUNCIÓN ────────────────────────────────────────
     const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+    const PW=215.9,PH=279.4,FOOTER_H=10; // Letter mm
     const CW=PW-26; // content width mm (margins 13 each side)
     let pageNum=1;
 
