@@ -11226,8 +11226,8 @@ window.abrirBiradsDiagrama=function(){
         Azul oscuro = Nodulo solido probable fibroadenoma &nbsp;|&nbsp; Rojo = Lesion sospechosa &nbsp;|&nbsp; Verde = Quiste simple &nbsp;|&nbsp; Amarillo = Quiste complicado
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button onclick="abrirCanvaBirads()" style="flex:1;background:linear-gradient(135deg,#6A1B9A,#1565C0);color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;min-width:180px">
-          Abrir en Canva para dibujar
+        <button onclick="abrirEditorBirads()" style="flex:1;background:linear-gradient(135deg,#6A1B9A,#1565C0);color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;min-width:180px">
+          ✏️ Abrir editor de diagrama
         </button>
         <button onclick="document.getElementById('modal-birads').remove()" style="padding:12px 18px;background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:9px;font-size:14px;cursor:pointer">Cerrar</button>
       </div>
@@ -11236,13 +11236,307 @@ window.abrirBiradsDiagrama=function(){
   document.body.appendChild(overlay);
 }
 
-window.abrirCanvaBirads=function(){
+window.abrirCanvaBirads=function(){} // legacy stub
+
+// ── Editor interactivo BI-RADS ────────────────────────────────────────────────
+window.abrirEditorBirads=function(){
   document.getElementById("modal-birads")?.remove();
-  showToast("Abriendo Canva — disena el diagrama, descargalo y subelo como imagen al reporte");
-  // Aqui se llamaria Canva:generate-design con el diagrama de mamas
-  // Por ahora abre Canva directamente para que la Dra. use la plantilla
-  window.open("https://www.canva.com/create/medical-diagrams/","_blank","noopener");
+
+  // Estado del editor
+  const ED={
+    lesiones:[],  // [{x,y,lado,tipo,radio,etiqueta}]
+    modoActivo:"nodulo_solido",
+    lado:"derecho",
+  };
+
+  const TIPOS={
+    nodulo_solido:   {color:"#0D47A1",label:"Nódulo sólido",r:7},
+    quiste_simple:   {color:"#2E7D32",label:"Quiste simple",r:7},
+    quiste_complic:  {color:"#F9A825",label:"Quiste complicado",r:7},
+    sospechoso:      {color:"#C62828",label:"Lesión sospechosa",r:8},
+    ganglio_axilar:  {color:"#6A1B9A",label:"Ganglio axilar",r:6},
+  };
+
+  // SVG viewBox: 520 x 260
+  const VW=520,VH=260;
+  // Centros de mama en el SVG
+  const MAMAS={
+    derecho: {cx:145,cy:130,rx:85,ry:82},
+    izquierdo:{cx:375,cy:130,rx:85,ry:82},
+  };
+
+  const renderSVG=()=>{
+    const svg=document.getElementById("birads-svg");if(!svg)return;
+    // Limpiar lesiones anteriores (mantener estructura base)
+    svg.querySelectorAll(".lesion-mark").forEach(e=>e.remove());
+    // Dibujar cada lesión
+    ED.lesiones.forEach((l,i)=>{
+      const t=TIPOS[l.tipo]||TIPOS.nodulo_solido;
+      const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+      g.classList.add("lesion-mark");
+      g.style.cursor="pointer";
+      g.setAttribute("title",l.etiqueta||t.label);
+
+      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx",l.x);c.setAttribute("cy",l.y);
+      c.setAttribute("r",t.r);c.setAttribute("fill",t.color);
+      c.setAttribute("stroke","#fff");c.setAttribute("stroke-width","1.5");
+      c.setAttribute("opacity","0.92");
+      g.appendChild(c);
+
+      // Número
+      const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
+      txt.setAttribute("x",l.x);txt.setAttribute("y",l.y+3.5);
+      txt.setAttribute("text-anchor","middle");txt.setAttribute("fill","#fff");
+      txt.setAttribute("font-size","7.5");txt.setAttribute("font-family","Arial");
+      txt.setAttribute("font-weight","bold");txt.textContent=i+1;
+      g.appendChild(txt);
+
+      // Eliminar al hacer doble click
+      g.addEventListener("dblclick",()=>{
+        ED.lesiones.splice(i,1);renderSVG();renderLista();
+      });
+      svg.appendChild(g);
+    });
+  };
+
+  const renderLista=()=>{
+    const ul=document.getElementById("birads-lista");if(!ul)return;
+    if(!ED.lesiones.length){
+      ul.innerHTML=`<p style="font-size:12px;color:#90A4AE;text-align:center;padding:8px">Sin lesiones marcadas</p>`;
+      return;
+    }
+    ul.innerHTML=ED.lesiones.map((l,i)=>{
+      const t=TIPOS[l.tipo]||TIPOS.nodulo_solido;
+      return`<div style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-bottom:1px solid #F0F0F0;font-size:12px">
+        <span style="background:${t.color};color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;font-size:11px">${i+1}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;color:#263238">${t.label}</div>
+          <input value="${l.etiqueta||""}" onchange="biradsCambiarEtiqueta(${i},this.value)" placeholder="Ej: Radio 10, 3.2 cm" style="width:100%;border:1px solid #E0E0E0;border-radius:5px;padding:2px 6px;font-size:11px;outline:none;margin-top:2px">
+        </div>
+        <button onclick="biradsBorrarLesion(${i})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:11px;flex-shrink:0">✕</button>
+      </div>`;
+    }).join("");
+  };
+
+  const overlay=document.createElement("div");
+  overlay.id="modal-birads-editor";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9995;display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow-y:auto";
+
+  overlay.innerHTML=`
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:820px;box-shadow:0 24px 60px rgba(0,0,0,.4);margin:auto">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#6A1B9A,#1565C0);padding:12px 18px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <p style="color:rgba(255,255,255,.75);font-size:11px;font-weight:600;margin-bottom:2px">DIAGRAMA BI-RADS — EDITOR INTERACTIVO</p>
+        <b style="color:#fff;font-size:14px">Ultrasonido Mamario · Marcado de lesiones</b>
+      </div>
+      <button onclick="document.getElementById('modal-birads-editor').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:15px;font-weight:700">✕</button>
+    </div>
+
+    <div style="padding:16px;display:grid;grid-template-columns:1fr 240px;gap:14px">
+      <!-- Columna izquierda: diagrama -->
+      <div>
+        <!-- Herramientas -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+          <span style="font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase">Tipo de lesión:</span>
+          ${Object.entries(TIPOS).map(([k,v])=>`
+          <button id="btn-tipo-${k}" onclick="biradsModo('${k}')" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1.5px solid ${v.color};background:${k==="nodulo_solido"?v.color:"#fff"};color:${k==="nodulo_solido"?"#fff":v.color};cursor:pointer;font-size:11px;font-weight:600;transition:all .15s">
+            <span style="width:9px;height:9px;background:${v.color};border-radius:50%;display:inline-block;flex-shrink:0"></span>${v.label}
+          </button>`).join("")}
+          <button onclick="biradsBorrarTodo()" style="margin-left:auto;padding:4px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:20px;cursor:pointer;font-size:11px;font-weight:700">🗑 Limpiar todo</button>
+        </div>
+        <p style="font-size:11px;color:#90A4AE;margin-bottom:8px">Haz clic sobre la mama para marcar una lesión. Doble clic sobre un punto para eliminarlo.</p>
+
+        <!-- SVG Diagrama -->
+        <div style="border:1.5px solid #E0E0E0;border-radius:10px;overflow:hidden;background:#F0F7FF;cursor:crosshair">
+          <svg id="birads-svg" viewBox="0 0 ${VW} ${VH}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+            <!-- Fondo -->
+            <rect width="${VW}" height="${VH}" fill="#EEF6FB" rx="6"/>
+
+            <!-- Etiqueta DERECHO / IZQUIERDO -->
+            <text x="30" y="18" font-family="Arial" font-size="11" fill="#1565C0" font-weight="bold">SENO DERECHO</text>
+            <text x="310" y="18" font-family="Arial" font-size="11" fill="#1565C0" font-weight="bold">SENO IZQUIERDO</text>
+
+            <!-- Mama DERECHA -->
+            <ellipse cx="145" cy="135" rx="88" ry="85" fill="white" stroke="#90CAF9" stroke-width="2.5"/>
+            <!-- Areola/pezón derecha -->
+            <ellipse cx="145" cy="135" rx="20" ry="19" fill="#E3F2FD" stroke="#64B5F6" stroke-width="1.5"/>
+            <ellipse cx="145" cy="135" rx="7" ry="7" fill="#BBDEFB" stroke="#42A5F5" stroke-width="1.2"/>
+            <!-- Radios guía derecha (12 radios) -->
+            ${Array.from({length:12},(_,i)=>{const a=i*30*Math.PI/180;const x1=145+22*Math.sin(a),y1=135-22*Math.cos(a),x2=145+86*Math.sin(a),y2=135-86*Math.cos(a);return`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#B3D9F0" stroke-width="0.7" stroke-dasharray="3,3"/>`;}).join("")}
+            <!-- Círculos concéntricos derecha -->
+            <circle cx="145" cy="135" r="44" fill="none" stroke="#B3D9F0" stroke-width="0.8" stroke-dasharray="4,3"/>
+            <circle cx="145" cy="135" r="66" fill="none" stroke="#B3D9F0" stroke-width="0.8" stroke-dasharray="4,3"/>
+            <!-- Ejes cuadrantes derecha -->
+            <line x1="145" y1="50" x2="145" y2="220" stroke="#90CAF9" stroke-width="1.2" stroke-dasharray="5,3"/>
+            <line x1="57" y1="135" x2="233" y2="135" stroke="#90CAF9" stroke-width="1.2" stroke-dasharray="5,3"/>
+            <!-- Etiquetas cuadrantes -->
+            <text x="88" y="84" font-family="Arial" font-size="8.5" fill="#5C6BC0" font-weight="bold">CSE</text>
+            <text x="158" y="84" font-family="Arial" font-size="8.5" fill="#5C6BC0" font-weight="bold">CSI</text>
+            <text x="88" y="195" font-family="Arial" font-size="8.5" fill="#5C6BC0" font-weight="bold">CIE</text>
+            <text x="158" y="195" font-family="Arial" font-size="8.5" fill="#5C6BC0" font-weight="bold">CII</text>
+            <!-- Numeración de radios -->
+            ${[12,1,2,3,4,5,6,7,8,9,10,11].map((n,i)=>{const a=i*30*Math.PI/180;const x=145+97*Math.sin(a),y=135-97*Math.cos(a)+3;return`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-family="Arial" font-size="7.5" fill="#42A5F5" font-weight="bold">${n}</text>`;}).join("")}
+            <!-- Región axilar derecha -->
+            <ellipse cx="75" cy="65" rx="24" ry="14" fill="#E8EAF6" stroke="#9FA8DA" stroke-width="1.5"/>
+            <text x="63" y="68" font-family="Arial" font-size="7" fill="#5C6BC0">R. axilar</text>
+
+            <!-- Mama IZQUIERDA -->
+            <ellipse cx="375" cy="135" rx="88" ry="85" fill="white" stroke="#90CAF9" stroke-width="2.5"/>
+            <ellipse cx="375" cy="135" rx="20" ry="19" fill="#E3F2FD" stroke="#64B5F6" stroke-width="1.5"/>
+            <ellipse cx="375" cy="135" rx="7" ry="7" fill="#BBDEFB" stroke="#42A5F5" stroke-width="1.2"/>
+            ${Array.from({length:12},(_,i)=>{const a=i*30*Math.PI/180;const x1=375+22*Math.sin(a),y1=135-22*Math.cos(a),x2=375+86*Math.sin(a),y2=135-86*Math.cos(a);return`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#B3D9F0" stroke-width="0.7" stroke-dasharray="3,3"/>`;}).join("")}
+            <circle cx="375" cy="135" r="44" fill="none" stroke="#B3D9F0" stroke-width="0.8" stroke-dasharray="4,3"/>
+            <circle cx="375" cy="135" r="66" fill="none" stroke="#B3D9F0" stroke-width="0.8" stroke-dasharray="4,3"/>
+            <line x1="375" y1="50" x2="375" y2="220" stroke="#90CAF9" stroke-width="1.2" stroke-dasharray="5,3"/>
+            <line x1="287" y1="135" x2="463" y2="135" stroke="#90CAF9" stroke-width="1.2" stroke-dasharray="5,3"/>
+            <text x="317" y="84" font-family="Arial" font-size="8.5" fill="#5C6BC0" font-weight="bold">CSI</text>
+            <text x="387" y="84" font-family="Arial" font-size="8.5" fill="#5C6BC0" font-weight="bold">CSE</text>
+            <text x="317" y="195" font-family="Arial" font-size="8.5" fill="#5C6BC0" font-weight="bold">CII</text>
+            <text x="387" y="195" font-family="Arial" font-size="8.5" fill="#5C6BC0" font-weight="bold">CIE</text>
+            ${[12,1,2,3,4,5,6,7,8,9,10,11].map((n,i)=>{const a=i*30*Math.PI/180;const x=375+97*Math.sin(a),y=135-97*Math.cos(a)+3;return`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-family="Arial" font-size="7.5" fill="#42A5F5" font-weight="bold">${n}</text>`;}).join("")}
+            <ellipse cx="445" cy="65" rx="24" ry="14" fill="#E8EAF6" stroke="#9FA8DA" stroke-width="1.5"/>
+            <text x="433" y="68" font-family="Arial" font-size="7" fill="#5C6BC0">R. axilar</text>
+
+            <!-- Zona entre mamas -->
+            <text x="${VW/2}" y="255" text-anchor="middle" font-family="Arial" font-size="9" fill="#546E7A">CSE=Superexterno · CSI=Superointerno · CIE=Inferoexterno · CII=Inferointerno</text>
+          </svg>
+        </div>
+        <!-- Leyenda colores -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+          ${Object.entries(TIPOS).map(([k,v])=>`
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#546E7A">
+            <span style="width:10px;height:10px;border-radius:50%;background:${v.color};display:inline-block;flex-shrink:0"></span>${v.label}
+          </div>`).join("")}
+        </div>
+      </div>
+
+      <!-- Columna derecha: lista de lesiones -->
+      <div>
+        <p style="font-size:12px;font-weight:700;color:#263238;text-transform:uppercase;margin-bottom:8px">📋 Lesiones marcadas</p>
+        <div id="birads-lista" style="border:1px solid #E0E0E0;border-radius:8px;min-height:60px;max-height:320px;overflow-y:auto"></div>
+        <p style="font-size:10px;color:#90A4AE;margin-top:6px">Haz clic en cada etiqueta para agregar descripción (Radio, medidas, etc.)</p>
+
+        <!-- Botones de acción -->
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+          <button onclick="biradsCopiarComoImagen()" style="background:linear-gradient(135deg,#6A1B9A,#1565C0);color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+            📋 Agregar al reporte
+          </button>
+          <button onclick="biradsDescargarPNG()" style="background:#37474F;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+            ⬇️ Descargar PNG
+          </button>
+          <button onclick="document.getElementById('modal-birads-editor').remove()" style="background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:9px;padding:8px;font-size:13px;cursor:pointer">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  document.body.appendChild(overlay);
+
+  // ── Click en SVG para agregar lesión ───────────────────────
+  const svg=document.getElementById("birads-svg");
+  svg.addEventListener("click",(e)=>{
+    if(e.target.closest(".lesion-mark"))return;
+    const rect=svg.getBoundingClientRect();
+    const scaleX=VW/rect.width;
+    const scaleY=VH/rect.height;
+    const x=((e.clientX-rect.left)*scaleX);
+    const y=((e.clientY-rect.top)*scaleY);
+
+    // Verificar que esté dentro de una mama
+    const enMama=(cx,cy,rx,ry)=>Math.pow((x-cx)/rx,2)+Math.pow((y-cy)/ry,2)<=1;
+    const enD=enMama(145,135,88,85);
+    const enI=enMama(375,135,88,85);
+    // También permite axila
+    const enAxD=enMama(75,65,24,14);
+    const enAxI=enMama(445,65,24,14);
+    if(!enD&&!enI&&!enAxD&&!enAxI){
+      showToast("Haz clic dentro de la mama para marcar una lesión",false);
+      return;
+    }
+    const lado=enD||enAxD?"derecho":"izquierdo";
+    ED.lesiones.push({x:Math.round(x),y:Math.round(y),lado,tipo:ED.modoActivo,etiqueta:""});
+    renderSVG();renderLista();
+  });
+
+  // Render inicial
+  renderSVG();renderLista();
+
+  // Exponer funciones al scope global
+  window.biradsModo=function(tipo){
+    ED.modoActivo=tipo;
+    Object.keys(TIPOS).forEach(k=>{
+      const btn=document.getElementById("btn-tipo-"+k);
+      if(!btn)return;
+      const t=TIPOS[k];
+      btn.style.background=k===tipo?t.color:"#fff";
+      btn.style.color=k===tipo?"#fff":t.color;
+    });
+  };
+  window.biradsBorrarLesion=function(i){ED.lesiones.splice(i,1);renderSVG();renderLista();};
+  window.biradsBorrarTodo=function(){
+    if(!ED.lesiones.length)return;
+    qpConfirm("¿Eliminar todas las lesiones marcadas?",{title:"Limpiar diagrama",okLabel:"Limpiar",danger:true})
+      .then(ok=>{if(ok){ED.lesiones=[];renderSVG();renderLista();}});
+  };
+  window.biradsCambiarEtiqueta=function(i,val){
+    if(ED.lesiones[i])ED.lesiones[i].etiqueta=val;
+  };
+
+  window.biradsCopiarComoImagen=async function(){
+    const svg=document.getElementById("birads-svg");
+    if(!svg){showToast("Diagrama no disponible",false);return;}
+    // Serializar SVG y convertir a PNG via canvas
+    const svgData=new XMLSerializer().serializeToString(svg);
+    const svgBlob=new Blob([svgData],{type:"image/svg+xml;charset=utf-8"});
+    const url=URL.createObjectURL(svgBlob);
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement("canvas");
+      canvas.width=svg.clientWidth*2;canvas.height=svg.clientHeight*2;
+      const ctx=canvas.getContext("2d");
+      ctx.scale(2,2);ctx.drawImage(img,0,0,svg.clientWidth,svg.clientHeight);
+      URL.revokeObjectURL(url);
+      const b64=canvas.toDataURL("image/png");
+      // Agregar al reporte como primera imagen con etiqueta especial
+      if(!STATE.usActivo)STATE.usActivo={imagenes:[]};
+      if(!STATE.usActivo.imagenes)STATE.usActivo.imagenes=[];
+      // Insertar al inicio
+      STATE.usActivo.imagenes.unshift({id:"birads_"+Date.now(),nombre:"Diagrama_BIRADS.png",b64,etiqueta:"Diagrama BI-RADS"});
+      STATE.usActivo.imagenesB64=STATE.usActivo.imagenes.map(i=>i.b64);
+      usRenderImageGrid();
+      document.getElementById("modal-birads-editor")?.remove();
+      showToast("✓ Diagrama BI-RADS agregado al reporte como primera imagen");
+    };
+    img.src=url;
+  };
+
+  window.biradsDescargarPNG=async function(){
+    const svg=document.getElementById("birads-svg");
+    if(!svg)return;
+    const svgData=new XMLSerializer().serializeToString(svg);
+    const svgBlob=new Blob([svgData],{type:"image/svg+xml"});
+    const url=URL.createObjectURL(svgBlob);
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement("canvas");
+      canvas.width=svg.clientWidth*3;canvas.height=svg.clientHeight*3;
+      const ctx=canvas.getContext("2d");ctx.scale(3,3);
+      ctx.drawImage(img,0,0,svg.clientWidth,svg.clientHeight);
+      URL.revokeObjectURL(url);
+      const a=document.createElement("a");
+      a.href=canvas.toDataURL("image/png");
+      a.download="Diagrama_BIRADS_QPClinic.png";
+      a.click();
+      showToast("✓ Diagrama descargado");
+    };
+    img.src=url;
+  };
 }
+
 
 
 
