@@ -195,7 +195,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -375,7 +375,7 @@ async function guardarConsultaSilencioso(){
 function nav(){
   // Título dinámico del tab
   const patNombre=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""} — `:"";
-  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",perfil:"Mi perfil — "};
+  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",perfil:"Mi perfil — "};
   document.title=`${pageTitles[STATE.page]||""}${patNombre}QP Clinic`;
   const u=STATE.userProfile;const p=STATE.pat;
   const online=navigator.onLine;
@@ -383,7 +383,7 @@ function nav(){
     <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
-    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","🔬 Ultrasonido"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     ${STATE.userProfile?.rol==="admin"?`
     <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
@@ -10230,6 +10230,825 @@ window.editarFisio=async function(id){
   renderFisio(document.getElementById("eb"));
 }
 window.generarPDFFisio=function(){showToast("PDF de fisioterapia — próximamente",false);}
+
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MÓDULO ULTRASONIDO — QP Clinic                                  ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+const US_PLANTILLAS = {
+  "Mama":{
+    "Ultrasonido Mamario":{
+      campos:[
+        {id:"us_motivo",label:"Motivo de estudio",tipo:"text"},
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_hf",label:"Antecedente heredofamiliar de Ca de mama",tipo:"select",ops:["No","Sí","Se desconoce"]},
+        {id:"us_previos",label:"Estudios previos para comparar",tipo:"select",ops:["No contamos con estudios previos","Sí, se adjuntan"]},
+        {id:"us_tejido",label:"El tejido mamario es",tipo:"text",ph:"fibroadiposo, fibroglandular, denso..."},
+        {id:"us_nodulos",label:"Hallazgos nodulares",tipo:"textarea",ph:"Nódulos sólidos o quísticos identificados..."},
+        {id:"us_piel",label:"Piel",tipo:"select",ops:["de grosor y ecogenicidad normal","engrosada","con edema"]},
+        {id:"us_axilas",label:"Axilas",tipo:"text",ph:"ganglios de características morfológicas benignas"},
+        {id:"us_birads",label:"BI-RADS",tipo:"select",ops:["1 – Negativo","2 – Hallazgos benignos","3 – Hallazgos probablemente benignos","4A – Baja sospecha de malignidad","4B – Sospecha intermedia","4C – Alta sospecha moderada","5 – Altamente sugestivo de malignidad","6 – Malignidad conocida"]},
+        {id:"us_recom",label:"Recomendación",tipo:"textarea",ph:"Control anual / seguimiento en 6 meses / biopsia..."},
+      ],
+      nota:"Este estudio deberá conservarse y presentarse en su próxima cita para análisis radiológico comparativo."
+    },
+    "Biopsia por Aguja Fina Guiada por Ultrasonido":{
+      campos:[
+        {id:"us_lesion_loc",label:"Localización de la lesión",tipo:"text",ph:"lóbulo derecho / izquierdo, cuadrante..."},
+        {id:"us_lesion_desc",label:"Descripción de la lesión",tipo:"text",ph:"sólida / quística / mixta"},
+        {id:"us_lesion_med",label:"Medidas",tipo:"text",ph:"mm x mm x mm"},
+        {id:"us_doppler",label:"Al Doppler color",tipo:"text",ph:"hipervascular / avascular / flujo periférico"},
+        {id:"us_aguja",label:"Aguja utilizada",tipo:"select",ops:["21G x 32mm","22G x 25mm","18G x 38mm"]},
+        {id:"us_muestras",label:"Número de pases",tipo:"text",ph:"3"},
+        {id:"us_material",label:"Material obtenido",tipo:"text",ph:"celular escaso / adecuado para estudio"},
+        {id:"us_complic",label:"Complicaciones",tipo:"select",ops:["Sin complicaciones","Hematoma leve","Dolor moderado"]},
+        {id:"us_indicaciones",label:"Indicaciones post-procedimiento",tipo:"textarea",ph:"Reposo, compresas frías, analgésico..."},
+      ],
+      nota:"A la espera de los resultados, se dan las indicaciones indicadas."
+    }
+  },
+  "Abdomen":{
+    "Ultrasonido de Abdomen Superior":{
+      campos:[
+        {id:"us_motivo",label:"Motivo del estudio",tipo:"text"},
+        {id:"us_higado",label:"Hígado",tipo:"select",ops:["tamaño y forma normal, contornos regulares, ecogenicidad normal, sin lesión focal","aumentado de tamaño","disminuido de tamaño","esteatosis leve","esteatosis moderada","esteatosis severa","lesión focal (especificar en hallazgos)"]},
+        {id:"us_via_biliar",label:"Vía biliar",tipo:"select",ops:["intra y extra hepática de calibre normal","dilatación de vía biliar intrahepática","dilatación del colédoco"]},
+        {id:"us_vesicula",label:"Vesícula",tipo:"textarea",ph:"bien distendida, paredes delgadas, sin cálculos / litiasis vesicular / colecistitis..."},
+        {id:"us_pancreas",label:"Páncreas",tipo:"select",ops:["tamaño y forma normal, ecogenicidad homogénea","hiperecogénico","con lesión quística","no visualizado adecuadamente"]},
+        {id:"us_bazo",label:"Bazo",tipo:"text",ph:"morfológicamente normal, mide __ mm en el eje mayor"},
+        {id:"us_rinon_d",label:"Riñón derecho",tipo:"text",ph:"__ mm, volumen __ ml, parénquima __ mm"},
+        {id:"us_rinon_i",label:"Riñón izquierdo",tipo:"text",ph:"__ mm, volumen __ ml, parénquima __ mm"},
+        {id:"us_liquido",label:"Líquido libre",tipo:"select",ops:["No se observó líquido libre","Mínimo líquido libre en fondo de saco","Moderada cantidad de líquido libre"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido de Abdomen Completo Femenino":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_higado",label:"Hígado",tipo:"select",ops:["tamaño, forma y ecogenicidad normal, sin lesión focal","esteatosis leve","esteatosis moderada","esteatosis severa","lesión focal"]},
+        {id:"us_vesicula",label:"Vesícula",tipo:"textarea",ph:"bien distendida, paredes delgadas, sin cálculos..."},
+        {id:"us_via_biliar",label:"Vía biliar",tipo:"select",ops:["intra y extra hepática de calibre normal","dilatada"]},
+        {id:"us_pancreas",label:"Páncreas",tipo:"select",ops:["de tamaño normal, sin nódulos","hiperecogénico","lesión quística"]},
+        {id:"us_bazo",label:"Bazo",tipo:"select",ops:["normal","esplenomegalia leve","esplenomegalia moderada"]},
+        {id:"us_rinon_d",label:"Riñón derecho",tipo:"text",ph:"__ mm, parénquima __ mm"},
+        {id:"us_rinon_i",label:"Riñón izquierdo",tipo:"text",ph:"__ mm, parénquima __ mm"},
+        {id:"us_vejiga",label:"Vejiga",tipo:"select",ops:["expandida, contenido anecoico, pared fina","con sedimento","con lesión en pared"]},
+        {id:"us_utero",label:"Útero",tipo:"text",ph:"tamaño, forma y contornos normales, endometrio __ mm, dimensiones __ mm"},
+        {id:"us_ovario_d",label:"Ovario derecho",tipo:"text",ph:"__ mm, volumen __ ml"},
+        {id:"us_ovario_i",label:"Ovario izquierdo",tipo:"text",ph:"__ mm, volumen __ ml"},
+        {id:"us_liquido",label:"Líquido libre",tipo:"select",ops:["No se observó","Mínimo en fondo de saco","Moderado en cavidad"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido de Abdomen Completo Masculino":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_higado",label:"Hígado",tipo:"select",ops:["tamaño, forma y ecogenicidad normal, sin lesión focal","esteatosis leve","esteatosis moderada","esteatosis severa"]},
+        {id:"us_vesicula",label:"Vesícula",tipo:"textarea",ph:"bien distendida, sin cálculos..."},
+        {id:"us_pancreas",label:"Páncreas",tipo:"select",ops:["de tamaño normal","hiperecogénico","con lesión"]},
+        {id:"us_bazo",label:"Bazo",tipo:"select",ops:["normal","esplenomegalia leve","esplenomegalia moderada"]},
+        {id:"us_rinon_d",label:"Riñón derecho",tipo:"text",ph:"__ mm, parénquima __ mm"},
+        {id:"us_rinon_i",label:"Riñón izquierdo",tipo:"text",ph:"__ mm, parénquima __ mm"},
+        {id:"us_vejiga",label:"Vejiga",tipo:"text",ph:"expandida, volumen premicción: __ ml, postmicción: __ ml"},
+        {id:"us_prostata",label:"Próstata",tipo:"text",ph:"__ mm, volumen __ ml, forma y ecogenicidad normal"},
+        {id:"us_vesiculas",label:"Vesículas seminales",tipo:"select",ops:["morfológicamente normales","asimétricas","con calcificaciones"]},
+        {id:"us_liquido",label:"Líquido libre",tipo:"select",ops:["No se observó","Mínimo","Moderado"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido Renal y Vesical":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_rinon_d",label:"Riñón derecho",tipo:"text",ph:"__ mm, volumen __ ml, parénquima __ mm"},
+        {id:"us_rinon_i",label:"Riñón izquierdo",tipo:"text",ph:"__ mm, volumen __ ml, parénquima __ mm"},
+        {id:"us_hallazgos_r",label:"Hallazgos renales",tipo:"select",ops:["Sin masa, cálculo, hidronefrosis ni lesión quística","Litiasis renal derecha","Litiasis renal izquierda","Litiasis bilateral","Hidronefrosis leve","Hidronefrosis moderada","Quiste renal simple"]},
+        {id:"us_doppler_r",label:"Vascularidad Doppler",tipo:"select",ops:["Adecuada en ambos riñones","Disminuida","Asimétrica"]},
+        {id:"us_ureteres",label:"Uréteres",tipo:"select",ops:["Segmentos visibles de calibre normal","Dilatación ureteral derecha","Dilatación ureteral izquierda"]},
+        {id:"us_jets",label:"Jets ureterales",tipo:"select",ops:["Se visualizaron ambos","Solo derecho","Solo izquierdo","No visualizados"]},
+        {id:"us_vejiga",label:"Vejiga",tipo:"text",ph:"volumen premicción __ ml, postmicción __ ml, paredes normales"},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido Vesicoprostatico":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_vejiga",label:"Vejiga",tipo:"text",ph:"expandida, premicción __ ml, postmicción __ ml"},
+        {id:"us_prostata",label:"Próstata",tipo:"text",ph:"__ mm, volumen __ ml"},
+        {id:"us_prostata_eco",label:"Ecogenicidad prostática",tipo:"select",ops:["normal","heterogénea","con nódulo hipoecoico","con calcificaciones"]},
+        {id:"us_vesiculas",label:"Vesículas seminales",tipo:"select",ops:["morfológicamente normales","asimétricas"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+        {id:"us_psa",label:"Correlacionar con PSA",tipo:"select",ops:["Sí, se sugiere","Ya fue realizado"]},
+      ]
+    },
+    "Ultrasonido Pélvico":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_vejiga",label:"Vejiga",tipo:"select",ops:["expandida, contenido anecoico, pared fina","no adecuadamente distendida"]},
+        {id:"us_utero",label:"Útero",tipo:"text",ph:"tamaño, forma y contornos normales, endometrio __ mm"},
+        {id:"us_dim_utero",label:"Dimensiones uterinas",tipo:"text",ph:"__ mm longitudinal, __ AP, __ transverso"},
+        {id:"us_ovario_d",label:"Ovario derecho",tipo:"text",ph:"__ mm, volumen __ ml"},
+        {id:"us_ovario_i",label:"Ovario izquierdo",tipo:"text",ph:"__ mm, volumen __ ml"},
+        {id:"us_masa",label:"Masa pélvica",tipo:"select",ops:["No identificada","Lesión quística derecha","Lesión quística izquierda","Lesión sólida","Endometrioma"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido Transvaginal":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_utero",label:"Útero",tipo:"text",ph:"tamaño, forma y contornos normales, endometrio __ mm"},
+        {id:"us_miometrio",label:"Miometrio",tipo:"select",ops:["sin lesión focal","con leiomioma subseroso","con leiomioma intramural","con leiomioma submucoso","adenomiosis"]},
+        {id:"us_dim_utero",label:"Dimensiones uterinas",tipo:"text",ph:"__ mm longitudinal, __ AP, __ transverso"},
+        {id:"us_cervix",label:"Cérvix",tipo:"select",ops:["morfología ecográfica normal","con quiste de Naboth","con lesión"]},
+        {id:"us_ovario_d",label:"Ovario derecho",tipo:"text",ph:"__ mm, volumen __ ml"},
+        {id:"us_ovario_i",label:"Ovario izquierdo",tipo:"text",ph:"__ mm, volumen __ ml"},
+        {id:"us_foliculos",label:"Folículos",tipo:"text",ph:"crecimiento folicular normal / folículo dominante __ mm lado __"},
+        {id:"us_liquido",label:"Líquido en fondo de saco",tipo:"select",ops:["No identificado","Mínimo fisiológico","Moderado"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido Hepatobiliar con Elastografía":{
+      campos:[
+        {id:"us_motivo",label:"Motivo del estudio",tipo:"text"},
+        {id:"us_higado",label:"Hígado",tipo:"select",ops:["tamaño y forma normal, ecogenicidad normal, sin lesión focal","esteatosis leve","esteatosis moderada","esteatosis severa","cirrosis"]},
+        {id:"us_via_biliar",label:"Vía biliar",tipo:"select",ops:["intra y extra hepática de calibre normal","dilatada"]},
+        {id:"us_elastografia_kpa",label:"Elastografía — kPa medido",tipo:"text",ph:"ej. 5.2"},
+        {id:"us_elastografia_ms",label:"Elastografía — m/s medido",tipo:"text",ph:"ej. 1.31"},
+        {id:"us_metavir",label:"Estadio Metavir",tipo:"select",ops:["Normal (F0–F1): < 6.48 kPa","Leve-Moderada (F2): 6.48–8.07 kPa","Moderada-Severa (F3): 8.07–9.31 kPa","Cirrosis (F4): > 9.31 kPa"]},
+        {id:"us_vesicula",label:"Vesícula",tipo:"textarea",ph:"bien distendida, sin cálculos..."},
+        {id:"us_pancreas",label:"Páncreas",tipo:"select",ops:["de tamaño y forma normal, ecogenicidad homogénea","con cambios"]},
+        {id:"us_bazo",label:"Bazo",tipo:"text",ph:"morfológicamente normal, mide __ mm"},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    }
+  },
+  "Pequeñas Partes":{
+    "Ultrasonido de Cuello / Tiroides":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_tiroides",label:"Tiroides",tipo:"select",ops:["localización habitual, tamaño, forma y ecogenicidad normal","aumentada de tamaño","disminuida de tamaño","con nódulo dominante","bocio difuso","tiroiditis"]},
+        {id:"us_lobulo_d",label:"Lóbulo derecho",tipo:"text",ph:"__ mm longitudinal, __ AP, __ transverso"},
+        {id:"us_lobulo_i",label:"Lóbulo izquierdo",tipo:"text",ph:"__ mm longitudinal, __ AP, __ transverso"},
+        {id:"us_istmo",label:"Istmo",tipo:"text",ph:"__ mm"},
+        {id:"us_doppler_t",label:"Vascularidad Doppler",tipo:"select",ops:["normal","aumentada","disminuida"]},
+        {id:"us_nodulos_t",label:"Nódulos tiroideos",tipo:"textarea",ph:"No se identificaron / descripción de nódulos con TIRADS..."},
+        {id:"us_glandulas",label:"Parótidas y submandibulares",tipo:"select",ops:["morfología y ecogenicidad normal","con lesión"]},
+        {id:"us_adenopatias",label:"Adenopatías",tipo:"select",ops:["No hay adenopatías patológicas","Pequeños ganglios reactivos nivel IIA-IIB < 6mm","Adenopatía sospechosa (especificar)"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ],
+      nota:"Recuerde llevar el presente estudio en su siguiente cita y estudios de control."
+    },
+    "Ultrasonido Testicular":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_testiculo_d",label:"Testículo derecho",tipo:"text",ph:"__ mm longitudinal, __ AP, __ transverso"},
+        {id:"us_testiculo_i",label:"Testículo izquierdo",tipo:"text",ph:"__ mm longitudinal, __ AP, __ transverso"},
+        {id:"us_eco_testi",label:"Ecogenicidad testicular",tipo:"select",ops:["conservada y simétrica","heterogénea derecha","heterogénea izquierda","con nódulo hipoecoico"]},
+        {id:"us_epididimo",label:"Epidídimos",tipo:"textarea",ph:"cabeza derecha __ mm, izquierda __ mm. Quiste epididimario derecho __ mm..."},
+        {id:"us_venas",label:"Plexo pampiniforme",tipo:"textarea",ph:"calibre normal bilateral / varicocele izquierdo en reposo __ mm, Valsalva __ mm"},
+        {id:"us_hidrocele",label:"Hidrocele",tipo:"select",ops:["No hay","Mínimo derecho","Mínimo izquierdo","Moderado bilateral"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido de Pared Abdominal / Región Inguinal":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_region_d",label:"Región inguinal derecha",tipo:"textarea",ph:"Defecto de pared medial/lateral a vasos epigástricos, __ mm. Saco herniario contiene __, mide __ mm. Reduce con compresión."},
+        {id:"us_region_i",label:"Región inguinal izquierda",tipo:"textarea",ph:"Sin defecto identificado / Defecto __ mm..."},
+        {id:"us_musculos",label:"Planos musculares",tipo:"select",ops:["patrón fibrilar habitual, simétricos y de grosor normal","asimétricos","con lesión focal"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    }
+  },
+  "MSK":{
+    "Ultrasonido de Hombro":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_lado",label:"Lado evaluado",tipo:"select",ops:["Derecho","Izquierdo","Bilateral"]},
+        {id:"us_biceps",label:"Tendón del bíceps braquial",tipo:"select",ops:["trayecto y grosor normal, patrón fibrilar habitual","tenosinovitis","ruptura parcial","ruptura completa","subluxación"]},
+        {id:"us_subescapular",label:"Tendón subescapular",tipo:"select",ops:["conservado","con cambios degenerativos","ruptura parcial","ruptura completa"]},
+        {id:"us_supraespinoso",label:"Tendón supraespinoso",tipo:"select",ops:["conservado, patrón fibrilar habitual","con cambios degenerativos","ruptura parcial","ruptura completa","calcificación"]},
+        {id:"us_infraespinoso",label:"Tendón infraespinoso",tipo:"select",ops:["conservado","con cambios degenerativos","ruptura parcial"]},
+        {id:"us_corredera",label:"Corredera bicipital",tipo:"select",ops:["forma normal, sin líquido","con líquido","con osteofito"]},
+        {id:"us_bursas",label:"Bursas subdeltoidea/subacromial",tipo:"select",ops:["sin aumento de volumen","con bursitis leve","con bursitis moderada","con cuerpos libres"]},
+        {id:"us_acromio",label:"Articulación acromioclavicular",tipo:"select",ops:["congruente","con artrosis","con efusión"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido de Rodilla":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_lado",label:"Lado evaluado",tipo:"select",ops:["Derecho","Izquierdo","Bilateral"]},
+        {id:"us_cuadriceps",label:"Tendón del cuádriceps",tipo:"select",ops:["trayecto y patrón fibrilar normal","con cambios degenerativos","ruptura parcial","ruptura completa"]},
+        {id:"us_infrapatelar",label:"Tendón infrapatelar",tipo:"select",ops:["trayecto y patrón fibrilar normal","tendinopatía","ruptura parcial"]},
+        {id:"us_lcl",label:"Ligamento colateral lateral",tipo:"select",ops:["trayecto y patrón fibrilar normal","engrosado","con desgarro"]},
+        {id:"us_lcm",label:"Ligamento colateral medial",tipo:"select",ops:["trayecto y patrón fibrilar normal","engrosado","con desgarro"]},
+        {id:"us_bursa_post",label:"Bursa gastrocnemio medial (Baker)",tipo:"select",ops:["sin aumento de volumen","quiste de Baker __ mm","bursitis"]},
+        {id:"us_derrame",label:"Derrame articular",tipo:"select",ops:["No identificado","Mínimo","Moderado","Moderado-severo"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido de Tobillo":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_lado",label:"Lado evaluado",tipo:"select",ops:["Derecho","Izquierdo","Bilateral"]},
+        {id:"us_aquiles",label:"Tendón de Aquiles",tipo:"select",ops:["Normal","Tendinopatía","Ruptura parcial","Ruptura completa","Bursitis retroaquílea"]},
+        {id:"us_tibial_post",label:"Tendón tibial posterior",tipo:"select",ops:["Normal","Tenosinovitis","Ruptura parcial","Ruptura completa"]},
+        {id:"us_peroneos",label:"Tendones peroneos",tipo:"select",ops:["Normal bilateral","Tenosinovitis peroneo largo","Tenosinovitis peroneo corto","Subluxación peronea"]},
+        {id:"us_ltfa",label:"Ligamento talofibular anterior (LTFA)",tipo:"select",ops:["Normal","Engrosado","Con desgarro"]},
+        {id:"us_lcf",label:"Ligamento calcáneo-peroneo (LCF)",tipo:"select",ops:["Normal","Engrosado","Con desgarro"]},
+        {id:"us_deltoides",label:"Complejo ligamento deltoides",tipo:"select",ops:["Normal","Con lesión superficial","Con lesión profunda"]},
+        {id:"us_derrame_t",label:"Derrame articular",tipo:"select",ops:["No identificado","Mínimo","Moderado"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido de Muñeca":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_lado",label:"Lado evaluado",tipo:"select",ops:["Derecho","Izquierdo","Bilateral"]},
+        {id:"us_extensores",label:"Compartimento posterior (extensores)",tipo:"select",ops:["Normal — del 1° al 6° compartimento","Tenosinovitis de De Quervain (1er comp.)","Tenosinovitis 2° compartimento","Tenosinovitis 3° compartimento","Tenosinovitis 4° compartimento","Tenosinovitis ECU (6° comp.)"]},
+        {id:"us_tunel",label:"Túnel del carpo — retináculo",tipo:"text",ph:"__ mm de grosor"},
+        {id:"us_nervio_mediano",label:"Nervio mediano",tipo:"text",ph:"área __ mm², ecogenicidad y forma normales"},
+        {id:"us_flexores",label:"Tendones flexores",tipo:"select",ops:["Características habituales","Tenosinovitis flexora"]},
+        {id:"us_guyon",label:"Canal de Guyón",tipo:"select",ops:["Normal","Con compresión del nervio cubital"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido de Manos":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_lado",label:"Lado evaluado",tipo:"select",ops:["Derecho","Izquierdo","Bilateral"]},
+        {id:"us_extensores_m",label:"Tendones extensores",tipo:"select",ops:["Normal","Tenosinovitis","Ruptura parcial"]},
+        {id:"us_flexores_m",label:"Tendones flexores",tipo:"select",ops:["Normal","Tenosinovitis","Ruptura parcial","Nódulo en polea A1 (dedo en gatillo)"]},
+        {id:"us_articulaciones",label:"Articulaciones MCF / IFP",tipo:"select",ops:["Sin alteraciones","Con sinovitis","Con erosiones"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido de Rodilla / Codo":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_lado",label:"Lado evaluado",tipo:"select",ops:["Derecho","Izquierdo","Bilateral"]},
+        {id:"us_articulacion",label:"Articulaciones",tipo:"select",ops:["Sin alteraciones significativas","Con derrame articular","Con sinovitis"]},
+        {id:"us_tendones",label:"Tendones",tipo:"textarea",ph:"Tendón distal del bíceps / tendón extensor común / tendón flexor común — descripción..."},
+        {id:"us_nervios",label:"Nervios",tipo:"select",ops:["Nervio mediano, cubital y radial dentro de normalidad","Con engrosamiento del nervio cubital","Con síndrome del túnel cubital"]},
+        {id:"us_bursas_c",label:"Bursas",tipo:"select",ops:["Sin distensión","Bursitis olecraneana","Bursitis antehumeral"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido MSK General / Músculo":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_region",label:"Región / músculo evaluado",tipo:"text"},
+        {id:"us_lado",label:"Lado evaluado",tipo:"select",ops:["Derecho","Izquierdo","Bilateral"]},
+        {id:"us_patron",label:"Patrón fibrilar",tipo:"select",ops:["Conservado con adecuado volumen y ecogenicidad","Alterado (especificar)"]},
+        {id:"us_ruptura",label:"Lesión muscular",tipo:"select",ops:["Sin signos de ruptura","Distensión muscular (Grado I)","Desgarro parcial (Grado II)","Ruptura completa (Grado III)"]},
+        {id:"us_hematoma",label:"Hematoma",tipo:"select",ops:["No identificado","Hematoma intramuscular __ ml","Hematoma intermuscular"]},
+        {id:"us_elastografia",label:"Elastografía cualitativa",tipo:"select",ops:["Sin alteración","Aumento de rigidez focal","Aumento de rigidez difusa"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido MSK Región Inguinofemoral":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_lado",label:"Lado evaluado",tipo:"select",ops:["Derecho","Izquierdo","Bilateral"]},
+        {id:"us_tendones_if",label:"Tendones inguinofemorales",tipo:"textarea",ph:"Tendón del aductor largo, iliopsoas, recto femoral — hallazgos..."},
+        {id:"us_bursas_if",label:"Bursas",tipo:"select",ops:["Sin aumento de volumen","Bursitis del iliopsoas","Bursitis del trocánter mayor"]},
+        {id:"us_vasos",label:"Estructuras vasculares",tipo:"select",ops:["permeables","con trombosis"]},
+        {id:"us_ganglios",label:"Ganglios inguinofemorales",tipo:"select",ops:["morfología benigna","adenopatía sospechosa"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    }
+  },
+  "Vascular":{
+    "Ultrasonido Doppler Venoso":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_lado",label:"Extremidades evaluadas",tipo:"select",ops:["Miembro inferior derecho","Miembro inferior izquierdo","Ambos miembros inferiores","Miembro superior derecho","Miembro superior izquierdo"]},
+        {id:"us_sistema_profundo",label:"Sistema venoso profundo",tipo:"select",ops:["trayecto y calibre normal, llenado completo al Doppler color, colapsan a la compresión, flujo monofásico, sin signos de insuficiencia","con trombo en vena femoral común","con trombo en vena femoral superficial","con trombo en vena poplítea","con trombo en venas tibiales"]},
+        {id:"us_safena_m",label:"Vena safena mayor",tipo:"select",ops:["Normal y permeable, válvulas competentes","Insuficiencia safenofemoral","Varices del cayado"]},
+        {id:"us_safena_men",label:"Vena safena menor",tipo:"select",ops:["Normal","Insuficiencia safenopoplítea"]},
+        {id:"us_perforantes",label:"Venas perforantes",tipo:"select",ops:["No identificadas con insuficiencia","Perforante insuficiente identificada"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    },
+    "Ultrasonido Doppler Arterial":{
+      campos:[
+        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_lado",label:"Extremidades evaluadas",tipo:"select",ops:["Miembro inferior derecho","Miembro inferior izquierdo","Ambos miembros inferiores"]},
+        {id:"us_arterias",label:"Arterias evaluadas",tipo:"select",ops:["Femoral común, femoral superficial, profunda, poplítea, tibioperoneo, peroné, tibial anterior y posterior, dorsal del pie — flujo trifásico normal en todas","Con placa ateromatosa sin estenosis significativa","Con estenosis moderada (50-70%)","Con estenosis severa (>70%)","Con oclusión"]},
+        {id:"us_ips",label:"Índice tobillo-brazo (ITB)",tipo:"text",ph:"Derecho: __ / Izquierdo: __"},
+        {id:"us_aneurisma",label:"Aneurismas",tipo:"select",ops:["No identificados","Aneurisma aórtico abdominal __ mm","Aneurisma poplíteo"]},
+        {id:"us_impresion",label:"Impresión diagnóstica",tipo:"textarea"},
+      ]
+    }
+  }
+};
+
+// ── Render página principal Ultrasonido ──────────────────────────────────────
+async function pgUltrasonido(){
+  const b=RR();
+  const rol=STATE.userProfile?.rol||"";
+  if(!["medico","admin"].includes(rol)){
+    b.innerHTML=`<div style="padding:40px;text-align:center;color:${MU}">⛔ Acceso restringido a médicos y administradores.</div>`;
+    return;
+  }
+  b.innerHTML=`
+  <div style="max-width:1100px;margin:0 auto;padding:16px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX};margin-bottom:2px">🔬 Ultrasonido — Reportes</h2>
+        <p style="font-size:13px;color:${MU}">QP Clinic · Radiología e Imagen · Dra. Martha N. Merino Sequeira</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${STATE.pat?`<span style="background:${PL};color:${P};padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700">👤 ${STATE.pat.nombre} ${STATE.pat.apellido_paterno}</span>`:""}
+        ${btn("➕ Nuevo reporte","abrirNuevoReporteUS()","ok",1)}
+        ${STATE.pat?btn("📋 Reportes del paciente","verReportesUS()","s",1):""}
+      </div>
+    </div>
+
+    ${!STATE.pat?`<div style="background:#FFF8E1;border:1.5px solid #FFD54F;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:14px;color:#E65100">
+      ⚠️ <b>Sin paciente activo.</b> Abre un expediente primero para asociar el reporte, o genera uno sin paciente para impresión directa.
+      <button onclick="go('buscar')" style="background:#E65100;color:#fff;border:none;border-radius:6px;padding:4px 12px;margin-left:12px;cursor:pointer;font-size:13px;font-weight:700">Ir a Pacientes →</button>
+    </div>`:""}
+
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 6px #00000012;overflow:hidden">
+      <div style="background:linear-gradient(135deg,${P},#004c82);padding:14px 20px">
+        <p style="color:rgba(255,255,255,.8);font-size:12px;font-weight:600;text-transform:uppercase;margin-bottom:4px">Selecciona el tipo de estudio</p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <select id="us-cat" onchange="usUpdatePlantillas()" style="padding:9px 13px;border:none;border-radius:8px;font-size:14px;font-weight:700;min-width:200px;outline:none">
+            <option value="">-- Categoría --</option>
+            ${Object.keys(US_PLANTILLAS).map(c=>`<option>${c}</option>`).join("")}
+          </select>
+          <select id="us-tipo" onchange="usCargarPlantilla()" style="padding:9px 13px;border:none;border-radius:8px;font-size:14px;font-weight:700;min-width:240px;outline:none">
+            <option value="">-- Tipo de ultrasonido --</option>
+          </select>
+          <button onclick="usCargarPlantilla()" style="background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:14px;font-weight:700">Cargar plantilla →</button>
+        </div>
+      </div>
+      <div id="us-form-body" style="padding:0"></div>
+    </div>
+  </div>`;
+}
+
+window.usUpdatePlantillas=function(){
+  const cat=document.getElementById("us-cat")?.value;
+  const sel=document.getElementById("us-tipo");
+  if(!sel)return;
+  sel.innerHTML=`<option value="">-- Tipo de ultrasonido --</option>`;
+  if(cat&&US_PLANTILLAS[cat]){
+    Object.keys(US_PLANTILLAS[cat]).forEach(k=>{
+      const opt=document.createElement("option");opt.value=k;opt.textContent=k;sel.appendChild(opt);
+    });
+  }
+}
+
+window.usCargarPlantilla=function(){
+  const cat=document.getElementById("us-cat")?.value;
+  const tipo=document.getElementById("us-tipo")?.value;
+  if(!cat||!tipo){showToast("Selecciona categoría y tipo de estudio",false);return;}
+  const plantilla=US_PLANTILLAS[cat]?.[tipo];
+  if(!plantilla){showToast("Plantilla no encontrada",false);return;}
+
+  STATE.usActivo={cat,tipo,plantilla,imagenes:[],imagenesB64:[]};
+  const med=STATE.medProfile||STATE.userProfile||{};
+  const p=STATE.pat||{};
+  const hoy=new Date().toISOString().split("T")[0];
+
+  const fb=document.getElementById("us-form-body");
+  if(!fb)return;
+
+  const camposHTML=plantilla.campos.map(c=>{
+    if(c.tipo==="select")return`
+      <div>
+        <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">${c.label}</label>
+        <select id="${c.id}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">
+          ${(c.ops||[]).map(o=>`<option>${o}</option>`).join("")}
+        </select>
+      </div>`;
+    if(c.tipo==="textarea")return`
+      <div style="grid-column:1/-1">
+        <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">${c.label}</label>
+        <textarea id="${c.id}" rows="3" placeholder="${c.ph||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;resize:vertical;font-family:inherit"></textarea>
+      </div>`;
+    return`
+      <div>
+        <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">${c.label}</label>
+        <input id="${c.id}" type="text" placeholder="${c.ph||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+      </div>`;
+  }).join("");
+
+  fb.innerHTML=`
+  <div style="padding:20px">
+    <!-- Datos del reporte -->
+    <div style="background:#F8FAFB;border-radius:10px;padding:14px;margin-bottom:16px">
+      <p style="font-size:12px;font-weight:700;color:${P};text-transform:uppercase;margin-bottom:10px">📋 ${tipo.toUpperCase()}</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">Paciente</label>
+          <input id="us_pac_nom" value="${p.nombre?`${p.nombre} ${p.apellido_paterno} ${p.apellido_materno||""}`.trim():""}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">Fecha de nacimiento</label>
+          <input id="us_pac_fnac" type="date" value="${p.fecha_nacimiento||""}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">Edad</label>
+          <input id="us_pac_edad" value="${p.fecha_nacimiento?calcEdad(p.fecha_nacimiento):""}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">No. Expediente</label>
+          <input id="us_pac_exp" value="${p.numero_expediente||""}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">Fecha del estudio</label>
+          <input id="us_fecha" type="date" value="${hoy}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">Médico radiólogo</label>
+          <input id="us_medico" value="${med.titulo||"Dra."} ${med.nombre||""} ${med.apellidos||""}".trim()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+        </div>
+      </div>
+    </div>
+
+    <!-- Campos de la plantilla -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px">
+      ${camposHTML}
+    </div>
+
+    <!-- Subir imágenes del ultrasonido -->
+    <div style="background:#F0F7FF;border:2px dashed #90CAF9;border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:2px">📷 Imágenes del ultrasonido</p>
+          <p style="font-size:12px;color:${MU}">Hasta 30 imágenes. Agrega etiqueta a cada una (región, radio, proyección).</p>
+        </div>
+        <label style="background:${P};color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:14px;font-weight:700;display:inline-block">
+          + Agregar imágenes <input id="us-img-input" type="file" accept="image/*,.jpg,.JPG,.jpeg,.png" multiple style="display:none" onchange="usAgregarImagenes(this)">
+        </label>
+      </div>
+      <div id="us-img-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;min-height:60px">
+        <div style="border:2px dashed #B0BEC5;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:80px;color:#90A4AE;font-size:13px">Sin imágenes</div>
+      </div>
+      <p id="us-img-count" style="font-size:12px;color:${MU};margin-top:8px">0 imágenes cargadas</p>
+    </div>
+
+    <!-- Hallazgos adicionales texto libre -->
+    <div style="margin-bottom:16px">
+      <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">Hallazgos adicionales (texto libre)</label>
+      <textarea id="us_hallazgos_extra" rows="4" placeholder="Descripción adicional de hallazgos, medidas complementarias, correlación clínica..." style="width:100%;padding:12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;resize:vertical;font-family:inherit"></textarea>
+    </div>
+
+    ${plantilla.nota?`<div style="background:#E8F5E9;border-left:4px solid #4CAF50;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#2E7D32">📌 ${plantilla.nota}</div>`:""}
+
+    <!-- Botones -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;padding-top:12px;border-top:1px solid ${BR}">
+      <button onclick="generarPDFUltrasonido()" style="background:linear-gradient(135deg,${P},#004c82);color:#fff;border:none;border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer">📄 Generar PDF</button>
+      <button onclick="guardarBorradorUS()" style="background:#fff;color:${P};border:1.5px solid ${P};border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer">💾 Guardar borrador</button>
+      <button onclick="pgUltrasonido()" style="background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:9px;padding:11px 16px;font-size:14px;cursor:pointer">← Cambiar plantilla</button>
+    </div>
+  </div>`;
+}
+
+window.usAgregarImagenes=function(input){
+  const files=Array.from(input.files);
+  const max=30;
+  const actual=STATE.usActivo?.imagenes?.length||0;
+  const disponible=max-actual;
+  if(files.length>disponible){showToast(`Máximo ${max} imágenes. Solo se agregarán ${disponible}.`,false);}
+  const batch=files.slice(0,disponible);
+  batch.forEach((file,idx)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const b64=e.target.result;
+      const idImg=Date.now()+"_"+idx;
+      STATE.usActivo.imagenes.push({id:idImg,nombre:file.name,b64,etiqueta:""});
+      STATE.usActivo.imagenesB64=STATE.usActivo.imagenes.map(i=>i.b64);
+      usRenderImageGrid();
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value="";
+}
+
+function usRenderImageGrid(){
+  const grid=document.getElementById("us-img-grid");
+  const cnt=document.getElementById("us-img-count");
+  if(!grid)return;
+  const imgs=STATE.usActivo?.imagenes||[];
+  if(imgs.length===0){
+    grid.innerHTML=`<div style="border:2px dashed #B0BEC5;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:80px;color:#90A4AE;font-size:13px">Sin imágenes</div>`;
+    if(cnt)cnt.textContent="0 imágenes cargadas";
+    return;
+  }
+  grid.innerHTML=imgs.map((img,i)=>`
+    <div style="position:relative;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #00000020">
+      <img src="${img.b64}" style="width:100%;height:120px;object-fit:cover;display:block">
+      <div style="padding:5px 6px;background:#fff">
+        <input value="${img.etiqueta}" onchange="usSetEtiqueta(${i},this.value)" placeholder="Región / Radio / Proyección" style="width:100%;border:1px solid ${BR};border-radius:5px;padding:3px 6px;font-size:11px;outline:none">
+        <div style="display:flex;justify-content:space-between;margin-top:4px;align-items:center">
+          <span style="font-size:10px;color:${MU}">#${i+1}</span>
+          <button onclick="usEliminarImagen(${i})" style="background:#FFEBEE;color:${DA};border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✕</button>
+        </div>
+      </div>
+    </div>`).join("");
+  if(cnt)cnt.textContent=`${imgs.length} imagen${imgs.length!==1?"es":""} cargada${imgs.length!==1?"s":""}`;
+}
+
+window.usSetEtiqueta=function(idx,val){
+  if(STATE.usActivo?.imagenes?.[idx])STATE.usActivo.imagenes[idx].etiqueta=val;
+}
+window.usEliminarImagen=function(idx){
+  STATE.usActivo?.imagenes?.splice(idx,1);
+  STATE.usActivo.imagenesB64=STATE.usActivo.imagenes.map(i=>i.b64);
+  usRenderImageGrid();
+}
+
+window.guardarBorradorUS=async function(){
+  if(!STATE.pat?.id){showToast("Sin paciente activo — el borrador no puede guardarse",false);return;}
+  const datos=usRecolectarDatos();
+  loading(true,"Guardando borrador...");
+  const {error}=await SB.from("ultrasonido_reportes").insert({
+    paciente_id:STATE.pat.id,
+    medico_id:STATE.user?.id||null,
+    tipo_estudio:STATE.usActivo?.tipo||"",
+    categoria:STATE.usActivo?.cat||"",
+    fecha:datos.fecha,
+    datos_clinicos:datos,
+    estado:"borrador",
+  });
+  loading(false);
+  if(error){showToast("Error al guardar: "+error.message,false);return;}
+  showToast("✓ Borrador guardado en el expediente");
+}
+
+function usRecolectarDatos(){
+  const gv=id=>(document.getElementById(id)?.value||"").trim();
+  const plantilla=STATE.usActivo?.plantilla;
+  const campos={};
+  (plantilla?.campos||[]).forEach(c=>{campos[c.id]=gv(c.id);});
+  return{
+    paciente:gv("us_pac_nom"),
+    fnac:gv("us_pac_fnac"),
+    edad:gv("us_pac_edad"),
+    expediente:gv("us_pac_exp"),
+    fecha:gv("us_fecha"),
+    medico:gv("us_medico"),
+    hallazgos_extra:gv("us_hallazgos_extra"),
+    ...campos,
+  };
+}
+
+// ── PDF Generator ─────────────────────────────────────────────────────────────
+window.generarPDFUltrasonido=async function(){
+  const {jsPDF}=window.jspdf;
+  if(!jsPDF){showToast("jsPDF no disponible",false);return;}
+  try{
+    const datos=usRecolectarDatos();
+    const tipo=STATE.usActivo?.tipo||"Ultrasonido";
+    const plantilla=STATE.usActivo?.plantilla;
+    const imgs=STATE.usActivo?.imagenes||[];
+    const med=STATE.medProfile||STATE.userProfile||{};
+
+    // Credenciales del médico
+    const shortInst=s=>s?s.split(" — ")[0].split(" · ")[0].trim():"";
+    const credLines=[];
+    if(med.licenciatura)credLines.push(med.licenciatura.toUpperCase()+(med.cedula_medico?" · Céd. Prof. "+med.cedula_medico:""));
+    if(med.especialidad_1)credLines.push(("ESPECIALIDAD EN "+med.especialidad_1).toUpperCase()+(med.cedula_esp_1?" · Céd. Esp. "+med.cedula_esp_1:""));
+    if(med.subespecialidad)credLines.push(("ALTA ESPECIALIDAD EN "+med.subespecialidad).toUpperCase()+(med.cedula_subesp?" · Céd. "+med.cedula_subesp:""));
+    if(med.especialidad_2)credLines.push(("ALTA ESPECIALIDAD EN "+med.especialidad_2).toUpperCase()+(med.cedula_esp_2?" · Céd. "+med.cedula_esp_2:""));
+
+    // Firma digital
+    let firmaB64=null;
+    if(med.firma_digital){
+      try{const r=await fetch(med.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}
+    }
+
+    loading(true,"Generando PDF del reporte...");
+
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+    const W=215.9,H=279.4,ML=13,MR=W-13,CW=W-26;
+    let y=0;
+    const cP=[0,107,182],cD=[38,50,56],cMu=[84,110,122],cBr=[224,224,224],cG=[245,249,255],cV=[46,125,50];
+
+    const S2=v=>String(v==null||v===""?"":v);
+    const addPage=()=>{doc.addPage();y=14;};
+    const checkY=(need)=>{if(y+need>H-18)addPage();};
+
+    // ── HEADER ────────────────────────────────────────────────
+    doc.setFillColor(...cP);doc.rect(0,0,W,32,"F");
+    // Logo / nombre clínica
+    doc.setTextColor(255,255,255);
+    doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text("QP CLINIC",ML,10);
+    doc.setFont("helvetica","normal");doc.setFontSize(7);
+    doc.text("Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX  |  55 6442-3702  |  qpclinic.org",ML,15);
+    // Médico en header
+    const nomMed=S2(datos.medico)||"Dra. Martha N. Merino Sequeira";
+    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(nomMed.toUpperCase(),ML,21);
+    let hcx=ML+doc.getTextWidth(nomMed.toUpperCase())+4;
+    credLines.forEach(cl=>{
+      const tw=doc.getTextWidth(cl)+0;
+      if(hcx+tw<W-46){
+        doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.text(cl,hcx,21);hcx+=tw+5;
+      }
+    });
+    // Badge tipo de estudio (derecha)
+    doc.setFillColor(255,255,255);doc.roundedRect(W-48,3,46,26,2,2,"F");
+    doc.setTextColor(...cP);doc.setFont("helvetica","bold");doc.setFontSize(7);
+    const tipoLines=doc.splitTextToSize(tipo.toUpperCase(),42);
+    tipoLines.forEach((tl,ti)=>doc.text(tl,W-25,10+ti*5,{align:"center"}));
+    doc.setTextColor(255,255,255);
+    y=36;
+
+    // ── DATOS DEL PACIENTE ────────────────────────────────────
+    const HDR_PAT=14;
+    doc.setFillColor(...cG);doc.rect(ML,y,CW,HDR_PAT,"F");
+    doc.setDrawColor(...cBr);doc.rect(ML,y,CW,HDR_PAT,"S");
+    const campoHdr=(lbl,val,x,yy,w)=>{
+      doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.text(lbl.toUpperCase(),x,yy);
+      doc.setTextColor(...cD);doc.setFont("helvetica","bold");doc.setFontSize(8.5);
+      doc.text(S2(val)||"—",x,yy+4,{maxWidth:w});
+    };
+    campoHdr("Paciente",datos.paciente,ML+2,y+4,85);
+    campoHdr("Exp.",datos.expediente,ML+95,y+4,25);
+    campoHdr("F. nacimiento",datos.fnac,ML+127,y+4,28);
+    campoHdr("Edad",datos.edad,ML+163,y+4,22);
+    campoHdr("Fecha del estudio",datos.fecha,ML+185,y+4,25);
+    y+=HDR_PAT+4;
+
+    // ── SECCIONES DEL REPORTE ─────────────────────────────────
+    const seccion=(titulo,yy)=>{
+      doc.setFillColor(...cP);doc.rect(ML,yy,CW,5.5,"F");
+      doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(8);
+      doc.text("◆ "+titulo.toUpperCase(),ML+2,yy+3.9);
+      return yy+7;
+    };
+    const parrafo=(texto,yy)=>{
+      if(!texto)return yy;
+      doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(8.5);
+      const lines=doc.splitTextToSize(String(texto),CW-4);
+      checkY(lines.length*4.5+2);
+      doc.text(lines,ML+2,yy);
+      return yy+lines.length*4.5+2;
+    };
+    const campo2=(lbl,val,yy)=>{
+      if(!val||val===lbl)return yy;
+      doc.setTextColor(...cMu);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
+      doc.text(lbl.toUpperCase()+":",ML+2,yy);
+      doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(8.5);
+      const lines=doc.splitTextToSize(String(val),CW-50);
+      doc.text(lines,ML+50,yy);
+      const h=Math.max(lines.length*4.5,5)+1;
+      checkY(h);
+      return yy+h;
+    };
+
+    // Técnica
+    y=seccion("Técnica",y);
+    const tecnica=`Se realizó ${tipo.toLowerCase()} utilizando transductor ${["Abdomen","Mama"].includes(STATE.usActivo?.cat)?"convexo":"lineal"}, en escala de grises y Doppler color.`;
+    y=parrafo(tecnica,y)+2;
+
+    // Hallazgos — campos de la plantilla (excepto impresion y recom)
+    y=seccion("Hallazgos",y);
+    const camposHallazgo=(plantilla?.campos||[]).filter(c=>c.id!=="us_impresion"&&c.id!=="us_recom"&&c.id!=="us_motivo"&&c.id!=="us_dc"&&c.id!=="us_psa");
+    camposHallazgo.forEach(c=>{
+      const val=datos[c.id];
+      if(val){y=campo2(c.label,val,y);}
+    });
+    if(datos.hallazgos_extra){
+      y+=2;
+      y=parrafo(datos.hallazgos_extra,y);
+    }
+    y+=3;
+
+    // Impresión diagnóstica
+    if(datos.us_impresion){
+      y=seccion("Impresión Diagnóstica",y);
+      y=parrafo(datos.us_impresion,y)+3;
+    }
+
+    // Recomendaciones
+    if(datos.us_recom||plantilla?.nota){
+      y=seccion("Recomendaciones",y);
+      if(datos.us_recom)y=parrafo(datos.us_recom,y);
+      if(plantilla?.nota){
+        y+=2;
+        doc.setFillColor(232,245,233);doc.rect(ML,y,CW,8,"F");
+        doc.setTextColor(...cV);doc.setFont("helvetica","italic");doc.setFontSize(7.5);
+        doc.text("📌 "+plantilla.nota,ML+2,y+5,{maxWidth:CW-4});
+        y+=10;
+      }
+    }
+
+    // ── IMÁGENES ──────────────────────────────────────────────
+    if(imgs.length>0){
+      doc.addPage();y=14;
+      y=seccion("Imágenes del Estudio",y);y+=3;
+      const COLS=imgs.length===1?1:imgs.length===2?2:3;
+      const IMG_W=(CW-(COLS-1)*4)/COLS;
+      const IMG_H=IMG_W*0.75;
+      let col=0;let rowY=y;
+      for(let i=0;i<imgs.length;i++){
+        if(col===COLS){col=0;rowY+=IMG_H+12;y=rowY;checkY(IMG_H+16);}
+        const x=ML+col*(IMG_W+4);
+        try{
+          doc.addImage(imgs[i].b64,"JPEG",x,rowY,IMG_W,IMG_H);
+          doc.setDrawColor(...cBr);doc.rect(x,rowY,IMG_W,IMG_H,"S");
+          // Etiqueta
+          doc.setFillColor(0,0,0,0.5);
+          const etq=imgs[i].etiqueta||`Imagen ${i+1}`;
+          doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7);
+          doc.setFillColor(0,76,130);doc.rect(x,rowY+IMG_H-5.5,IMG_W,5.5,"F");
+          doc.text(etq,x+IMG_W/2,rowY+IMG_H-1.5,{align:"center",maxWidth:IMG_W-2});
+        }catch(e){
+          doc.setFillColor(240,240,240);doc.rect(x,rowY,IMG_W,IMG_H,"F");
+          doc.setTextColor(...cMu);doc.setFontSize(8);doc.text("Imagen no disponible",x+IMG_W/2,rowY+IMG_H/2,{align:"center"});
+        }
+        col++;
+      }
+      y=rowY+IMG_H+8;
+    }
+
+    // ── FIRMA ─────────────────────────────────────────────────
+    checkY(35);
+    y+=4;
+    doc.setDrawColor(...cBr);doc.setLineWidth(0.3);doc.line(ML,y,MR,y);y+=5;
+    if(firmaB64){
+      try{doc.addImage(firmaB64,"PNG",ML,y,35,11);y+=12;}catch(e){}
+    }
+    doc.setDrawColor(...cBr);doc.setLineWidth(0.4);doc.line(ML,y,ML+80,y);
+    doc.setTextColor(...cD);doc.setFont("helvetica","bold");doc.setFontSize(9);
+    doc.text(nomMed,ML,y+5);
+    let cy2=y+10;
+    if(!credLines.length){
+      // Fallback con datos de la Dra. Merino
+      ["Médico Especialista en Radiología","Alta Especialidad en Radiología de Urgencias","Alta Especialidad en Radiología de la Mujer","C.P. 13524542 · C.E. 13705584"].forEach(cl=>{
+        doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(...cMu);doc.text(cl,ML,cy2);cy2+=3.8;
+      });
+    } else {
+      credLines.forEach(cl=>{doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(...cMu);doc.text(cl,ML,cy2);cy2+=3.8;});
+    }
+    // Sello derecho
+    const sx=W-55;
+    doc.setDrawColor(...cBr);doc.roundedRect(sx,y-2,50,cy2-y+8,2,2,"S");
+    doc.setFillColor(...cP);doc.roundedRect(sx,y-2,50,6,2,2,"F");
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7);doc.text("QP CLINIC",sx+25,y+2.5,{align:"center"});
+    doc.setTextColor(...cD);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
+    ["Insurgentes Sur 933, Piso 12","Col. Nápoles, CDMX","Tel: (55) 6442-3702","qpclinic.org"].forEach((l,i)=>doc.text(l,sx+25,y+9+i*3.8,{align:"center"}));
+
+    // ── FOOTER ────────────────────────────────────────────────
+    const totalPgs=doc.getNumberOfPages();
+    for(let pg=1;pg<=totalPgs;pg++){
+      doc.setPage(pg);
+      doc.setFillColor(240,244,248);doc.rect(0,H-8,W,8,"F");
+      doc.setTextColor(...cMu);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
+      doc.text(`QP Clinic — ${tipo}  |  ${datos.paciente||"—"}  |  ${datos.fecha||""}  |  Generado: ${new Date().toLocaleDateString("es-MX")}  |  Página ${pg} de ${totalPgs}`,W/2,H-3.5,{align:"center"});
+    }
+
+    // ── GUARDAR EN SUPABASE ───────────────────────────────────
+    if(STATE.pat?.id){
+      try{
+        const pdfBlob=doc.output("blob");
+        const path=`${STATE.pat.id}/ultrasonido/${Date.now()}.pdf`;
+        const {error:upErr}=await SB.storage.from("expedientes").upload(path,pdfBlob,{contentType:"application/pdf",upsert:false});
+        if(!upErr){
+          await SB.from("anexos").insert({
+            paciente_id:STATE.pat.id,
+            titulo:`ULTRASONIDO — ${tipo.toUpperCase()} — ${datos.fecha||""}`,
+            tipo_documento:"ultrasonido",
+            origen:"generado",
+            firmado:false,
+            storage_path:path,
+            fecha:datos.fecha||new Date().toISOString().split("T")[0],
+          });
+        }
+      }catch(e){console.warn("No se pudo guardar en expediente:",e.message);}
+    }
+
+    loading(false);
+    const nombre=(datos.paciente||"reporte").replace(/[^a-zA-Z0-9]/g,"_").substring(0,25);
+    doc.save(`US_${tipo.replace(/[^a-zA-Z0-9]/g,"_").substring(0,20)}_${nombre}_${datos.fecha||""}.pdf`);
+    showToast("✓ Reporte de ultrasonido generado y guardado");
+
+  }catch(err){
+    loading(false);
+    console.error("Error PDF US:",err);
+    showToast("Error al generar PDF: "+err.message,false);
+  }
+}
+
+window.abrirNuevoReporteUS=function(){
+  document.getElementById("us-cat")?.scrollIntoView({behavior:"smooth",block:"start"});
+  showToast("Selecciona categoría y tipo de estudio");
+}
+
+window.verReportesUS=async function(){
+  if(!STATE.pat?.id)return;
+  // Navegar a Documentos del expediente filtrado por ultrasonido
+  STATE.expTab="anexos";STATE.anexoTab="docs";
+  go("expediente");
+  showToast("Mostrando documentos del expediente");
+}
+
 
 ;(async function init(){
   try{
