@@ -3336,6 +3336,7 @@ window.guardarNuevoPac=async function(){
     ?{...responsable,es_menor:esMenor}
     :esMenor?{es_menor:true}:null;
 
+  // Solo columnas que existen en la tabla pacientes
   const payload={
     nombre:nom.toUpperCase(),
     apellido_paterno:apP.toUpperCase(),
@@ -3361,11 +3362,6 @@ window.guardarNuevoPac=async function(){
     referido_por:d.nref||null,
     firmo_privacidad:d.npriv||false,
     firmo_consentimiento:d.ncons||false,
-    responsable:responsableConMenor,
-    seguro_medico:seguro,
-    domicilio:domicilio,
-    datos_laborales:laboral,
-    facturacion:facturacion,
     created_by:session.user.id,
   };
   const {data,error}=await SB.from("pacientes").insert(payload).select().single();
@@ -3375,6 +3371,16 @@ window.guardarNuevoPac=async function(){
     showToast("Error: "+error.message,false);
     return;
   }
+
+  // Guardar datos extra en columnas JSONB separadas (igual que guardarFicha por tab)
+  const newId=data.id;
+  const extras=[];
+  if(responsableConMenor)extras.push(SB.from("pacientes").update({responsable:responsableConMenor}).eq("id",newId));
+  if(seguro)extras.push(SB.from("pacientes").update({seguro_medico:seguro}).eq("id",newId));
+  if(domicilio)extras.push(SB.from("pacientes").update({domicilio:domicilio}).eq("id",newId));
+  if(laboral)extras.push(SB.from("pacientes").update({datos_laborales:laboral}).eq("id",newId));
+  if(facturacion)extras.push(SB.from("pacientes").update({facturacion:facturacion}).eq("id",newId));
+  if(extras.length)await Promise.all(extras);
   STATE.pat=data;
   STATE.expTab="ficha";
   STATE.ficTab="gen";
