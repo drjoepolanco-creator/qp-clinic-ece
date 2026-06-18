@@ -10635,11 +10635,14 @@ async function pgUltrasonido(){
   b.innerHTML=`
   <div style="max-width:1100px;margin:0 auto;padding:16px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-      <div>
-        <h2 style="font-size:18px;font-weight:800;color:${TX};margin-bottom:2px">🔬 Ultrasonido — Reportes</h2>
-        <p style="font-size:13px;color:${MU}">QP Clinic · Radiología e Imagen · Dra. Martha N. Merino Sequeira</p>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${STATE.pat?`<button onclick="go('expediente')" style="background:${PL};color:${P};border:1.5px solid #B3E5FC;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:700">← Expediente</button>`:""}
+        <div>
+          <h2 style="font-size:18px;font-weight:800;color:${TX};margin-bottom:2px">Ultrasonido — Reportes</h2>
+          <p style="font-size:13px;color:${MU}">QP Clinic · Radiología e Imagen · Dra. Martha N. Merino Sequeira</p>
+        </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         ${STATE.pat?`<span style="background:${PL};color:${P};padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700">👤 ${STATE.pat.nombre} ${STATE.pat.apellido_paterno}</span>`:""}
         ${btn("➕ Nuevo reporte","abrirNuevoReporteUS()","ok",1)}
         ${STATE.pat?btn("📋 Reportes del paciente","verReportesUS()","s",1):""}
@@ -10783,10 +10786,70 @@ window.usCargarPlantilla=function(){
       <p id="us-img-count" style="font-size:12px;color:${MU};margin-top:8px">0 imágenes cargadas</p>
     </div>
 
-    <!-- Hallazgos adicionales texto libre -->
+    <!-- Descripción del ultrasonido con selector de plantillas de texto -->
     <div style="margin-bottom:16px">
-      <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">Hallazgos adicionales (texto libre)</label>
-      <textarea id="us_hallazgos_extra" rows="4" placeholder="Descripción adicional de hallazgos, medidas complementarias, correlación clínica..." style="width:100%;padding:12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;resize:vertical;font-family:inherit"></textarea>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+        <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase">Descripción del ultrasonido</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="us-plantilla-texto" style="padding:6px 10px;border:1.5px solid ${BR};border-radius:7px;font-size:12px;outline:none;background:#fff;max-width:240px">
+            <option value="">— Cargar plantilla de texto —</option>
+            <optgroup label="Mama / Biopsia">
+              <option value="biopsia_aguja_fina">Biopsia por Aguja Fina Guiada por US</option>
+              <option value="ultrasonido_mamario">Ultrasonido Mamario</option>
+              <option value="estudio_integral_mamario">Estudio Integral Mamario (Mastografía + US)</option>
+              <option value="mastografia_bilateral">Mastografía Bilateral Digitalizada</option>
+            </optgroup>
+            <optgroup label="Abdomen">
+              <option value="renal_vesical">Ultrasonido Renal y Vesical</option>
+              <option value="abdomen_superior">Ultrasonido Abdomen Superior</option>
+              <option value="abdomen_completo_femenino">Ultrasonido Abdomen Completo Femenino</option>
+              <option value="abdomen_completo_masculino">Ultrasonido Abdomen Completo Masculino</option>
+              <option value="vesicoprostatico">Ultrasonido Vesicoprostatico</option>
+              <option value="pelvico">Ultrasonido Pélvico</option>
+              <option value="transvaginal">Ultrasonido Transvaginal</option>
+              <option value="hepatobiliar_elastografia">Ultrasonido Hepatobiliar con Elastografía</option>
+            </optgroup>
+            <optgroup label="Pequeñas Partes">
+              <option value="cuello">Ultrasonido de Cuello / Tiroides</option>
+              <option value="testicular">Ultrasonido Testicular</option>
+              <option value="pared_abdominal_inguinal">Ultrasonido Pared Abdominal / Región Inguinal</option>
+            </optgroup>
+            <optgroup label="MSK">
+              <option value="musculo">Ultrasonido MSK Dirigido al Músculo</option>
+              <option value="hombro">Ultrasonido del Hombro</option>
+              <option value="rodilla">Ultrasonido de Rodilla</option>
+              <option value="codo">Ecografía de Codo</option>
+              <option value="inguinofemoral">Ultrasonido MSK Región Inguinofemoral</option>
+              <option value="muneca">Ultrasonido de Muñeca</option>
+              <option value="manos">Ultrasonido de Manos</option>
+              <option value="tobillo">Ultrasonido del Tobillo</option>
+            </optgroup>
+            <optgroup label="Vascular">
+              <option value="doppler_venoso">Ultrasonido Doppler Venoso</option>
+              <option value="doppler_arterial">Ultrasonido Doppler Arterial</option>
+              <option value="doppler_arterial_venoso">Doppler Arterial y Venoso</option>
+              <option value="doppler_carotideo">Ultrasonido Doppler Carotídeo</option>
+              <option value="doppler_renal">Ultrasonido Doppler Renal</option>
+            </optgroup>
+            <optgroup label="Obstétrico">
+              <option value="obstetrico_temprano">Ultrasonido Obstétrico Temprano</option>
+              <option value="obstetrico">Ultrasonido Obstétrico</option>
+              <option value="obstetrico_primer_trimestre">Obstétrico Estructural 1er Trimestre</option>
+              <option value="obstetrico_segundo_trimestre">Obstétrico Estructural 2do Trimestre</option>
+              <option value="obstetrico_tercer_trimestre">Obstétrico Estructural 3er Trimestre</option>
+            </optgroup>
+            <optgroup label="Pediátrico">
+              <option value="abdomen_superior_pediatrico">Abdomen Superior Pediátrico</option>
+              <option value="transfontanelar">Ultrasonido Transfontanelar</option>
+              <option value="piloro">Ultrasonido de Píloro</option>
+              <option value="cadera">Ultrasonido de Cadera</option>
+            </optgroup>
+          </select>
+          <button onclick="usCargarPlantillaTexto()" style="background:${P};color:#fff;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">Cargar →</button>
+          <button onclick="document.getElementById('us_hallazgos_extra').value=''" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;cursor:pointer;font-size:12px" title="Limpiar">✕</button>
+        </div>
+      </div>
+      <textarea id="us_hallazgos_extra" rows="10" placeholder="Selecciona una plantilla de texto arriba, o escribe directamente la descripción del ultrasonido..." style="width:100%;padding:12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px;resize:vertical;font-family:inherit;line-height:1.6"></textarea>
     </div>
 
     ${plantilla.nota?`<div style="background:#E8F5E9;border-left:4px solid #4CAF50;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#2E7D32">📌 ${plantilla.nota}</div>`:""}
@@ -11151,6 +11214,537 @@ window.generarPDFUltrasonido=async function(){
     showToast("Error al generar PDF: "+err.message,false);
   }
 }
+
+window.usCargarPlantillaTexto=function(){
+  const sel=document.getElementById("us-plantilla-texto");
+  const ta=document.getElementById("us_hallazgos_extra");
+  if(!sel||!ta){showToast("Campo no encontrado",false);return;}
+  const key=sel.value;if(!key){showToast("Selecciona una plantilla",false);return;}
+  const t=US_TEXTOS[key];if(!t){showToast("Plantilla no disponible",false);return;}
+  if(ta.value.trim()){
+    if(!confirm("¿Reemplazar el texto actual?\n\nAcepta = Reemplazar | Cancela = Agregar al final")){
+      ta.value=(ta.value.trim()+"\n\n"+t).trim();ta.focus();
+      showToast("\u2713 Plantilla agregada al final");return;
+    }
+  }
+  ta.value=t;ta.focus();
+  const idx=t.indexOf("____");if(idx!==-1)ta.setSelectionRange(idx,idx+4);
+  showToast("\u2713 Plantilla cargada \u2014 edita los campos marcados con ____");sel.value="";
+}
+
+const US_TEXTOS={
+biopsia_aguja_fina:`Previo consentimiento informado, se realizó antisepsia y asepsia, posteriormente se administró lidocaína subcutánea al 1%, 1 ml.
+
+Bajo guía ecográfica se introdujo aguja fina 21 G x 32 mm en la porción más sólida de la lesión, la cual se localiza en el lóbulo ____, es ____, mide ____ mm, al Doppler color ____. Con maniobras de corte-aspiración, se retira aguja y se realiza compresión externa para hemostasia y se coloca curita.
+
+Se coloca el material celular en laminillas y se hace el barrido del frotis, posteriormente se colocan en frasco con alcohol etílico al 70%. Adicionalmente, se realizó bloque celular a relación 1:1 cc.
+
+Se hizo revisión de la zona post biopsia, sin complicaciones.
+
+A la espera de los resultados, se dan las siguientes indicaciones:
+Reposo relativo.
+Compresas frías en el sitio de punción.
+Analgésicos (Ibuprofen 400 mg, dosis única).
+Vigilar sitio de punción, en caso de cambio de coloración de la piel, aumento de volumen, dolor o calor local acudir nuevamente.`,
+
+renal_vesical:`Datos clínicos: ____
+Técnica: Se realizó estudio utilizando transductor convexo.
+Hallazgos:
+Ambos riñones de tamaño, forma, contornos y ecogenicidad normal; hay relación normal entre corteza, médula y seno renal. Adecuada vascularidad al Doppler color. No hay imagen de masa, cálculo, hidronefrosis ni lesión quística en los riñones.
+
+Riñón derecho mide ____ mm, volumen de ____ ml, parénquima ____ mm de grosor; el izquierdo mide ____ mm, volumen ____ ml, parénquima de ____ mm de grosor.
+
+Los segmentos visibles de los uréteres son de calibre normal. Espacios peri y para renales sin lesiones ocupativas.
+
+Vejiga está expandida sin imagen de masa ni cálculos en su interior, con paredes de grosor normal. Volumen premicción: ____ ml; volumen postmicción: ____ ml. Se visualizaron ambos jets ureterales.
+
+No se observó líquido libre en el espacio hepatorrenal, esplenorrenal ni en hueco pélvico.
+
+Impresión diagnóstica:`,
+
+abdomen_superior:`Motivo del estudio: ____
+Técnica: Se realizó estudio utilizando transductor convexo.
+Hallazgos:
+Hígado es de tamaño y forma normal, contornos regulares, ecogenicidad normal, sin evidenciar lesión ocupante de espacio. Imágenes vasculares hepáticas se observan normales. La vía biliar intra y extra hepática es de calibre normal.
+
+Vesícula ____.
+
+Páncreas es de tamaño y forma normal, ecogenicidad homogénea. Bazo es morfológicamente normal, mide ____ mm en el eje mayor.
+
+Ambos riñones de tamaño, forma, contornos y ecogenicidad normal; hay relación normal entre corteza, médula y seno renal. Adecuada vascularidad al Doppler color. No hay imagen de masa, cálculo, hidronefrosis ni lesión quística en los riñones.
+
+Riñón derecho mide ____ mm, volumen de ____ ml, parénquima ____ mm de grosor; el izquierdo mide ____ mm, volumen ____ ml, parénquima de ____ mm de grosor.
+
+Espacios peri y para renales sin lesiones ocupativas.
+
+No se observaron adenopatías retroperitoneales ni líquido libre en espacios subdiafragmáticos, hepatorrenal ni en el espacio esplenorrenal.
+
+Impresión diagnóstica:`,
+
+abdomen_completo_femenino:`Datos clínicos: ____
+Técnica: Se realizó estudio utilizando transductor convexo.
+Hallazgos:
+Hígado es de tamaño, forma y ecogenicidad normal, contornos regulares, sin imagen de lesión focal en el parénquima hepático. Imágenes vasculares hepáticas se observan normales. La vía biliar intra y extra hepática es de calibre normal.
+
+Vesícula ____.
+
+Páncreas de tamaño normal, sin evidenciar nódulos. Bazo es normal.
+
+Ambos riñones de tamaño, forma, contornos y ecogenicidad normal; hay relación normal entre corteza, médula y seno renal. No hay imagen de masa, litos, hidronefrosis ni lesión quística en los riñones.
+
+Riñón derecho mide ____ mm, el parénquima mide ____ mm de grosor; el riñón izquierdo mide ____ mm, parénquima ____ mm de grosor.
+
+Los segmentos visibles de los uréteres son de calibre normal. Espacios peri y para renales sin lesiones ocupativas.
+
+Vejiga está expandida, contenido anecoico, pared fina. El útero es de tamaño, forma y contornos normales, con endometrio de grosor normal (____ mm). No se identificó imagen de lesión focal en el miometrio. Cérvix de morfología ecográfica normal. Las dimensiones uterinas son de ____ mm. Ambos ovarios son de tamaño y morfología normal. El ovario derecho mide ____ mm, volumen ____ ml; el izquierdo mide ____ mm, volumen ____ ml. No se identificó masa sólida ni quística en hueco pélvico.
+
+No se observaron adenopatías retroperitoneales ni líquido libre en cavidad abdominal.
+
+Impresión diagnóstica:`,
+
+abdomen_completo_masculino:`Datos clínicos: ____
+Técnica: Se realizó estudio utilizando transductor convexo.
+Hallazgos:
+Hígado es de tamaño, forma y ecogenicidad normal, contornos regulares, sin imagen de lesión focal en el parénquima hepático. Imágenes vasculares hepáticas se observan normales. La vía biliar intra y extra hepática es de calibre normal. Vesícula ____. Páncreas de tamaño normal. Bazo es normal.
+
+Ambos riñones de tamaño, forma, contornos y ecogenicidad normal. No hay imagen de masa, litos, hidronefrosis ni lesión quística.
+
+Riñón derecho mide ____ mm, parénquima ____ mm; el riñón izquierdo mide ____ mm, parénquima ____ mm. Los segmentos visibles de los uréteres son de calibre normal. Espacios peri y para renales sin lesiones.
+
+Vejiga expandida, contenido anecoico, pared fina. Volumen premicción: ____ ml; postmicción: ____ ml. Se visualizaron ambos jets ureterales.
+
+Próstata midió ____ mm, volumen ____ ml, conserva forma y ecogenicidad normal. Vesículas seminales morfológicamente normales.
+
+No se observaron adenopatías retroperitoneales ni líquido libre en cavidad abdominal.
+
+Impresión diagnóstica:
+
+- Se sugiere correlacionar con PSA.`,
+
+vesicoprostatico:`Datos clínicos: ____
+Técnica: Se realizó estudio utilizando transductor convexo.
+Hallazgos:
+Vejiga expandida, contenido anecoico, pared fina. Volumen premicción: ____ ml; postmicción: ____ ml. Se visualizaron ambos jets ureterales.
+
+Próstata midió ____ mm, volumen ____ ml, conserva forma y ecogenicidad normal. Vesículas seminales morfológicamente normales.
+
+No se observó líquido libre en cavidad abdominal.
+
+Impresión diagnóstica:
+Próstata con peso de ____ gramos. Orina residual del ____% del volumen inicial.
+- Se sugiere correlacionar con PSA.`,
+
+pelvico:`Datos clínicos: ____
+Técnica: Se realizó estudio por vía suprapúbica, utilizando transductor convexo.
+Hallazgos:
+Vejiga está expandida, contenido anecoico, pared fina.
+
+El útero es de tamaño, forma y contornos normales, con endometrio de grosor normal (____ mm). No se identificó imagen de lesión focal en el miometrio. Cérvix de morfología ecográfica normal. Las dimensiones uterinas son de ____ mm.
+
+Ambos ovarios son de tamaño y morfología normal. El ovario derecho mide ____ mm, volumen ____ ml; el izquierdo mide ____ mm, volumen ____ ml.
+
+No se identificó masa sólida ni quística en hueco pélvico.
+
+Impresión diagnóstica:`,
+
+transvaginal:`Datos clínicos: ____
+Técnica: Se realizó estudio por vía transvaginal, utilizando sonda endocavitaria con cubierta estéril.
+Hallazgos:
+El útero es de tamaño, forma y contornos normales, con endometrio de grosor normal (____ mm). No se identificó imagen de lesión focal en el miometrio. Cérvix de morfología ecográfica normal. Las dimensiones uterinas son de ____ mm.
+
+Ambos ovarios son de tamaño y morfología normal. El ovario derecho mide ____ mm, volumen ____ ml; el izquierdo mide ____ mm, volumen ____ ml.
+
+No se identificó masa sólida ni quística en hueco pélvico.
+
+Impresión diagnóstica:`,
+
+hepatobiliar_elastografia:`Motivo del estudio: ____
+Técnica: Se realizó estudio utilizando transductor convexo. Evaluación en escala de grises, Doppler color, y elastografía hepática con el paciente a 45° decúbito lateral izquierdo durante cortos períodos de apnea.
+Hallazgos:
+Hígado es de tamaño y forma normal, contornos regulares, ecogenicidad normal, sin evidenciar lesión ocupante de espacio. Imágenes vasculares hepáticas se observan normales. La vía biliar intra y extra hepática es de calibre normal.
+
+Elastografía hepática - Estadio de fibrosis (Metavir):
+F1 Normal-Leve: 6.48-6.60 kPa / 1.47-1.48 m/s
+F2 Leve-Moderada: 6.60-8.07 kPa / 1.48-1.64 m/s
+F3 Moderada-Severa: 8.07-9.31 kPa / 1.64-1.76 m/s
+F4 Cirrosis: > 9.31 kPa / > 1.76 m/s
+
+Resultado obtenido: ____ kPa / ____ m/s — Estadio: ____
+
+Vesícula ____. Páncreas es de tamaño y forma normal, ecogenicidad homogénea. Bazo es morfológicamente normal, mide ____ mm en el eje mayor.
+
+No se observaron adenopatías retroperitoneales ni líquido libre.
+
+Impresión diagnóstica:`,
+
+cuello:`Datos clínicos: ____
+Técnica: Se realizó estudio utilizando transductor lineal, en escala de grises y Doppler color.
+Hallazgos:
+La glándula tiroides es de localización habitual, tamaño, forma y ecogenicidad normal, contornos regulares, vascularidad normal al Doppler color. El lóbulo derecho mide ____ mm; el izquierdo mide ____ mm, istmo ____ mm.
+
+Las glándulas parótidas y submandibulares se aprecian de morfología y ecogenicidad normal. Las estructuras vasculares tienen trayecto y calibre normal. No hay adenopatías cervicales, únicamente pequeños ganglios de aspecto reactivo en el nivel IIA y IIB bilateral, menores de 6 mm en el eje corto. Los planos musculares, el tejido celular subcutáneo y la piel son de características normales.
+
+Impresión diagnóstica:
+
+Recuerde: Llevar el presente estudio en su siguiente cita y estudios de control.`,
+
+ultrasonido_mamario:`Motivo de estudio: ____
+Datos clínicos: ____
+Antecedente heredofamiliar de Ca de mama: ____. No contamos con estudios previos para comparar.
+Técnica: Se realizó ultrasonido mamario utilizando transductor lineal.
+Hallazgos:
+El tejido mamario es ____. No se identificaron nódulos sólidos ni quísticos, tampoco distorsión de la arquitectura mamaria. Las regiones retroareolares y retromamarias sin alteraciones. La piel es de grosor y ecogenicidad normal. Axilas: se visualizaron ganglios de características morfológicas benignas.
+
+Impresión diagnóstica:
+Tejido mamario BIRADS ____ (____)
+Recomendación: En ausencia de sintomatología se sugiere control anual.
+Nota: Este estudio deberá conservarse y presentarse en su próxima cita para análisis radiológico comparativo.`,
+
+testicular:`Datos clínicos: ____
+Técnica: Se realizó estudio utilizando transductor lineal, en escala de grises y Doppler color.
+Hallazgos:
+Los testículos están en la bolsa escrotal, ambos conservan forma y ecogenicidad normal, contornos regulares, sin evidenciar nódulos sólidos ni quísticos. Al Doppler color la vascularidad es normal.
+
+El testículo derecho mide ____ mm; el izquierdo mide ____ mm, en el eje longitudinal, anteroposterior y transverso respectivamente.
+
+Los epidídimos son de tamaño, forma y ecogenicidad normal. La cabeza del epidídimo derecho mide ____ mm; el izquierdo mide ____ mm.
+
+Las venas del plexo pampiniforme de lado derecho muestran calibre normal en reposo y en Valsalva. De lado izquierdo en reposo muestran calibre de ____ mm, y en Valsalva de hasta ____ mm.
+
+No hay hidrocele. El escroto muestra grosor normal, sin zonas de enfisema ni colecciones.
+
+Impresión diagnóstica:`,
+
+pared_abdominal_inguinal:`Datos clínicos: ____
+Técnica: Se realizó ultrasonido de ____, utilizando transductor lineal.
+Hallazgos:
+En región inguinal derecha: ____ defecto de la pared de ____ mm, saco herniario contiene ____, mide ____ mm, reduce con la compresión externa.
+En región inguinal izquierda: ____ defecto de la pared de ____ mm, contiene ____, el saco herniario mide ____ mm.
+
+Planos musculares muestran patrón fibrilar habitual, simétricos y de grosor normal. Tejido celular subcutáneo y piel sin alteraciones.
+
+Impresión diagnóstica:`,
+
+musculo:`Datos clínicos: ____
+Técnica: Se realizó estudio utilizando transductor lineal, se evaluó sitio de interés en escala de grises, Doppler color y elastografía cualitativa.
+Hallazgos:
+El patrón fibrilar habitual está conservado, hay adecuado volumen y ecogenicidad en la evaluación comparativa con el miembro contralateral.
+
+No se observaron lesiones ocupantes de espacio, signos de ruptura ni líquido perivaina.
+
+Impresión diagnóstica:`,
+
+hombro:`Técnica: Se realiza estudio dinámico del hombro, utilizando transductor lineal, con evaluación comparativa del lado contralateral.
+Hallazgos:
+El tendón del bíceps braquial, el tendón subescapular, supraespinoso, infraespinoso y redondo menor conservan trayecto y grosor normal, con patrón fibrilar habitual.
+
+La corredera bicipital conserva forma normal, sin evidenciar líquido.
+
+No se evidenció aumento de volumen de las bursas subdeltoideas ni subacromial.
+
+La articulación acromioclavicular es congruente. Las superficies óseas conservan bordes regulares.
+
+Impresión diagnóstica:`,
+
+rodilla:`Datos clínicos: ____
+Técnica: Se realizó ultrasonido de rodilla, utilizando transductor lineal.
+Hallazgos:
+Compartimento anterior: El tendón del cuádriceps femoral, tendón infrapatelar conservan trayecto y patrón fibrilar normal, sin líquido perivaina.
+
+Compartimento lateral: El ligamento colateral lateral, la cintilla iliotibial conservan trayecto y patrón fibrilar normal, sin líquido perivaina.
+
+Compartimento medial: El ligamento colateral medial, las pes anserinas, conservan trayecto y patrón fibrilar normal, sin líquido perivaina.
+
+Compartimento posterior: No hay aumento de volumen de la Bursa del gastrocnemio medial.
+
+Lo valorable de las estructuras vasculares a dicho nivel están permeables.
+
+Impresión diagnóstica:`,
+
+codo:`Datos clínicos: ____
+Hallazgos:
+Articulaciones humerorradial, humerocubital y radiocubital proximal sin alteraciones significativas. Ausencia de derrame articular valorable. No se aprecian alteraciones en la cabeza del radio.
+
+Tendón distal del bíceps conservado, sin alteraciones en su patrón fibrilar ni distensión de la bursa bicipitorradial. Banda anterior y posterior del LLI íntegros.
+
+Tendón flexor común avascular de ecoestructura conservada. Tendón extensor común sin alteraciones ecográficas significativas, simétrico con el contralateral, ausencia de señal vascular al Doppler.
+
+Tendón del tríceps sin alteraciones. No se observa distensión de la bursa olecraneana ni antehumeral.
+
+Paquete vasculonervioso anterior sin alteraciones. Nervio mediano, nervio cubital y radial de ecoestructura dentro de la normalidad.
+
+Grupos musculares sin alteraciones significativas.
+
+Conclusión: Estudio del codo sin alteraciones patológicas significativas.`,
+
+inguinofemoral:`Datos clínicos: ____. Motivo del estudio: ____
+Técnica: Se realizó ultrasonido del sitio de interés entre la región inguinal y compartimento anteromedial del muslo proximal ____, utilizando transductor lineal en escala de grises, con Doppler color y elastografía cualitativa. Se realizó evaluación comparativa con el lado contralateral.
+Hallazgos:
+____
+
+No hay aumento de volumen de las Bursas del compartimento anterior de la cadera. Lo valorable de las estructuras vasculares a dicho nivel están permeables.
+
+Ganglios inguinofemorales de morfología benigna. Tejido celular subcutáneo y piel sin alteraciones.
+
+Impresión diagnóstica:`,
+
+muneca:`Datos clínicos: ____
+Técnica: Se realizó ultrasonido de muñeca, utilizando transductor lineal. Estudio dinámico en flexión y extensión, pronación y posición neutra.
+Hallazgos:
+En el compartimento posterior (extensores, del primer al sexto compartimento) muestra localización, movilización, ecogenicidad y grosor normal, sin evidencia de líquido perivaina, ni engrosamiento del retináculo correspondiente.
+
+En el compartimento anterior (flexor) el túnel del carpo es de características habituales, el retináculo del túnel del carpo mide ____ mm, el nervio mediano muestra ecogenicidad y forma normal, con un área de ____ mm². Los tendones flexores superficiales y profundos muestran características habituales. El canal de Guyón se aprecia normal.
+
+Tejido celular subcutáneo y piel sin alteraciones.
+
+Impresión diagnóstica:`,
+
+manos:`Datos clínicos: ____
+Técnica: Se realizó ultrasonido de la mano, utilizando transductor lineal. Estudio dinámico en flexión, extensión, y posición neutra.
+Hallazgos:
+En el compartimento posterior (extensores) muestra localización, movilización, ecogenicidad y grosor normal, sin evidencia de líquido perivaina.
+
+En el compartimento anterior (flexor) los tendones flexores superficiales y profundos muestran características habituales. Las poleas no se visualizan engrosadas.
+
+Tejido celular subcutáneo y piel sin alteraciones.
+
+Impresión diagnóstica:`,
+
+tobillo:`Información clínica: ____
+Técnica: Se realizó estudio en escala de grises, utilizando transductor lineal de alta frecuencia.
+Hallazgos:
+Compartimento medial: Tendón tibial posterior: Normal. Tendón flexor largo de los dedos: Normal. Complejo del ligamento deltoides (superficial y profundo): Normal.
+Compartimento lateral: Tendón largo del peroneo: Normal. Tendón corto del peroneo: Normal. Retináculo peroneo: Normal. Ligamento tibiofibular anteroinferior: Normal. Ligamento talofibular anterior: Normal. Ligamento calcáneo-peroneo: Normal.
+Compartimento posterior: Grasa de Kager: ecogenicidad normal. Tendón de Aquiles: Normal.
+Compartimento anterior: Tendón tibial anterior: Normal. Extensor largo del primer dedo: Normal. Extensor largo común de los dedos: Normal.
+Hallazgos generales: Superficie ósea: Normal. Músculos: Normal. Tejido celular subcutáneo y piel sin alteraciones.
+
+Impresión diagnóstica:`,
+
+doppler_venoso:`Datos clínicos: ____
+Técnica: Se realizó estudio en escala de grises, Doppler color y espectral, utilizando transductor lineal.
+Hallazgos:
+Las venas del sistema venoso profundo (vena femoral común, femoral superficial, femoral profunda, poplítea, tibiales anteriores, tibial posterior, vena peronea), y del sistema venoso superficial (vena safena mayor y menor), venas de los gastrocnemios muestran trayecto y calibre normal, al Doppler color muestran llenado completo, a la compresión externa colapsan, al evaluarlas con Doppler espectral en reposo y con maniobra de Valsalva el flujo es monofásico, y no hubo signos de insuficiencia venosa.
+
+La confluencia safeno-femoral y la confluencia de la safena menor con la vena poplítea muestran características normales, permeables y válvulas competentes.
+
+No se identificaron venas colaterales ni perforantes.
+
+Impresión diagnóstica:`,
+
+doppler_arterial:`Técnica: Se realizó estudio en escala de grises, Doppler color, y Doppler espectral.
+Hallazgos:
+En ambos miembros la arteria femoral común, femoral superficial, femoral profunda, poplítea, tronco tibioperoneo, arteria peronea, arteria tibial anterior y posterior, y arteria dorsal del pie muestran trayecto y calibre normal, sin ecos adheridos a la pared, al Doppler color muestran repleción completa, al Doppler espectral todas muestran flujo trifásico, con velocidad pico sistólica e índice de resistencia normal en cada una.
+
+No se identificaron signos de malformaciones vasculares, ni aneurismas. Los tejidos blandos adyacentes muestran características normales.
+
+Impresión diagnóstica:`,
+
+doppler_arterial_venoso:`Datos clínicos: ____
+Técnica: Se realizó ultrasonido Doppler arterial y venoso del miembro inferior, en escala de grises, Doppler color y espectral, utilizando transductor lineal.
+Hallazgos:
+
+VENOSO
+Las venas del sistema venoso profundo y superficial muestran trayecto y calibre normal, al Doppler color muestran llenado completo, a la compresión externa colapsan, flujo monofásico en reposo y Valsalva, sin signos de insuficiencia venosa. Confluencias safenas normales, permeables y válvulas competentes. No se identificaron venas colaterales ni perforantes.
+
+ARTERIAL
+La arteria femoral común, femoral superficial, femoral profunda, poplítea, tronco tibioperoneo, arteria peronea, arteria tibial anterior y posterior, y arteria dorsal del pie muestran trayecto y calibre normal, sin ecos adheridos a la pared, al Doppler espectral todas muestran flujo trifásico con velocidad pico sistólica e índice de resistencia normal en cada una. No se identificaron malformaciones vasculares ni aneurismas.
+
+Impresión diagnóstica:`,
+
+doppler_carotideo:`Datos clínicos: ____
+Técnica: Se realizó estudio en escala de grises, Doppler color y Doppler espectral, utilizando transductor lineal.
+Hallazgos:
+Las arterias carótidas comunes, bulbos carotídeos, carótidas internas, carótidas externas y vertebrales tienen calibre normal, trayecto habitual, paredes bien definidas, sin evidenciar placas de ateroma, con grosor de la íntima media de 0.____ mm en ACC derecha y 0.____ mm en izquierda. Al Doppler color presentan buen llenado completo.
+
+Al Doppler espectral el patrón de flujo es el habitual, con velocidad pico sistólica e índice de resistencia en rangos normales.
+
+Cociente VPS ACI/ACC derecha = ____ | izquierda = ____
+ACC der: VPS ____ cm/s, IR ____ | ACC izq: ____ cm/s, IR ____
+ACI der: VPS ____ cm/s, IR ____ | ACI izq: ____ cm/s, IR ____
+ACE der: VPS ____ cm/s, IR ____ | ACE izq: ____ cm/s, IR ____
+Vertebral der: ____ cm/s, IR ____ | Vertebral izq: ____ cm/s, IR ____
+
+De forma incidental se observó: ____
+
+Impresión diagnóstica:`,
+
+doppler_renal:`Datos clínicos: ____
+Técnica: Se realizó estudio utilizando transductor convexo.
+Hallazgos:
+Ambos riñones son de situación anatómica, tamaño, forma y ecogenicidad normal, con adecuada relación seno-parénquima. No se identifican lesiones sólidas ni quísticas, no se observaron litos ni hidronefrosis.
+
+Riñón derecho mide ____ mm, volumen de ____ ml; el izquierdo mide ____ mm, volumen de ____ ml.
+
+Al Doppler color y espectral la arteria aorta abdominal presenta VPS de ____ cm/sg. La emergencia de ambas arterias renales es adecuada, sin datos de estenosis.
+
+Arteria renal derecha VPS ____ cm/s, IR ____. Segmentaria ____ cm/s, IR ____. Interlobar ____ cm/s, IR ____. Arcuata ____ cm/s, IR ____.
+Arteria renal izquierda VPS ____ cm/s, IR ____. Segmentaria ____ cm/s, IR ____. Interlobar ____ cm/s, IR ____. Arcuata ____ cm/s, IR ____.
+
+Impresión diagnóstica:`,
+
+obstetrico_temprano:`Datos clínicos: ____
+Técnica: Se realizó estudio utilizando transductor convexo.
+Hallazgos:
+El útero está en anteroversión, es de tamaño y forma normal. En el fondo de la cavidad endometrial se observa un saco gestacional de forma regular, mide ____ mm, en su interior se identifica un saco vitelino de ____ mm, y un polo embrionario, longitud craneocaudal de ____ mm, para ____ semanas y ____ días, con actividad cardíaca visible en escala de grises y al evaluar con Doppler pulsado, con frecuencia cardíaca de ____ latidos por minuto. Hay adecuada reacción decidual.
+
+Fecha probable de parto: ____
+Los ovarios son de tamaño y forma normal, en el derecho se ve un cuerpo lúteo de ____ mm.
+
+Impresión diagnóstica:`,
+
+obstetrico:`Datos clínicos: ____
+Técnica: Se realizó ultrasonido obstétrico, utilizando transductor convexo.
+Hallazgos:
+El útero está aumentado de tamaño, en su interior se observa saco gestacional, con producto único, en situación longitudinal, presentación cefálica, dorso ____. Frecuencia cardíaca de ____ latidos por minuto. Movimientos toracoabdominales y de extremidades. Se observó el corazón en cuatro cámaras. Llenado fisiológico de la vejiga.
+
+Fetometría: DBP: ____ mm (____ sem ____ días). CC: ____ mm (____ sem ____ días). CA: ____ mm (____ sem ____ días). LF: ____ mm (____ sem ____ días).
+Peso aproximado de ____ gramos ± ____ gramos.
+Fecha probable de parto: ____
+Placenta: corporal ____, grado de maduración ____.
+Líquido amniótico anecoico, ILA: ____ cm.
+Cérvix cerrado. Longitud cervical: ____ mm.
+Ovarios de tamaño y forma normal.
+
+Impresión diagnóstica:
+Embarazo único de ____ semanas y ____ días por fetometría, con adecuada vitalidad.`,
+
+obstetrico_primer_trimestre:`Datos clínicos: ____
+Técnica: Se realizó ultrasonido obstétrico del primer trimestre, utilizando transductor convexo.
+Hallazgos:
+El útero está en anteroversión, de tamaño y forma normal. Saco gestacional de ____ mm, saco vitelino de ____ mm, longitud craneocaudal de ____ mm, para ____ semanas y ____ días, FCF ____ lpm. Adecuada reacción decidual.
+
+Neurosonografía fetal: Morfología del cráneo, línea media, ventrículos laterales y plexos coroideos: ____
+Translucencia nucal (TN): ____ mm
+Hueso nasal: ____
+Se identifican las cuatro extremidades.
+Ductus venoso: VPS ____ VPD ____ IP ____
+IP arterias uterinas: Derecha ____, izquierda ____, promedio ____
+Fecha probable de parto: ____
+
+Impresión diagnóstica:
+Embarazo único de ____ semanas y ____ días por LCC, con ____ vitalidad.`,
+
+obstetrico_segundo_trimestre:`Datos clínicos: ____
+Técnica: Se realizó ultrasonido obstétrico de tamizaje estructural básico del segundo trimestre, utilizando transductor convexo.
+Calidad de la exploración: ____
+Hallazgos:
+Producto único, presentación cefálica, dorso ____. FCF ____ lpm. Movimientos toracoabdominales y de extremidades.
+
+Fetometría: DBP ____ mm (____ sem ____d). CC ____ mm (____ sem ____d). CA ____ mm (____ sem ____d). LF ____ mm (____ sem ____d).
+Peso aproximado ____ g ± ____g. FPP: ____
+
+Anatomía fetal:
+Neurosonografía: Cavum septum pelúcido, tálamos, ventrículos laterales ____. Cerebelo normal. DTC ____. Cisterna magna ____ mm.
+Cara: Eje orbitario, surco naso-labial, hueso nasal ____.
+Cuello: Normal. Sin circular de cordón.
+Tórax: Corazón en 4 cámaras. Plano 3 vasos-tráquea ____. Línea diafragmática presente.
+Abdomen: Llenado fisiológico estómago y vejiga. Riñones presentes. Inserción del cordón: Normal.
+Columna: Normal. Extremidades con simetría. Genitales externos: ____
+Placenta: corporal ____, grado ____. ILA ____ cm. Cérvix cerrado, longitud cervical ____ mm.
+IP arteria uterina derecha ____, izquierda ____, promedio ____.
+
+Impresión diagnóstica:
+Embarazo único de ____ semanas y ____ días por fetometría, con adecuada vitalidad. Crecimiento fetal dentro de la normalidad.`,
+
+obstetrico_tercer_trimestre:`Datos clínicos: ____
+Técnica: Se realizó ultrasonido obstétrico de tamizaje estructural básico del tercer trimestre, utilizando transductor convexo.
+Hallazgos:
+Producto único, presentación cefálica, dorso ____. FCF ____ lpm.
+
+Fetometría: DBP ____ mm. CC ____ mm. CA ____ mm. LF ____ mm.
+Peso aproximado ____ g ± ____g. FPP: ____
+
+Neurosonografía: Cavum septum pelúcido, tálamos, ventrículos laterales. Cerebelo normal. Cisterna magna ____ mm.
+Cara: Surco naso-labial. Hueso nasal. Cuello: Normal.
+Tórax: Corazón en 4 cámaras. Plano 3 vasos-tráquea: ____.
+Abdomen: Llenado fisiológico. Riñones. Inserción del cordón: ____
+Extremidades con simetría. Genitales externos: ____
+Placenta: corporal ____, grado ____. ILA ____ cm. Cérvix cerrado, longitud cervical ____ mm.
+IP arteria uterina derecha ____, izquierda ____, promedio ____.
+
+Impresión diagnóstica:
+Embarazo único de ____ semanas y ____ días por fetometría, con adecuada vitalidad.`,
+
+abdomen_superior_pediatrico:`Técnica: Se realizó estudio utilizando transductor convexo y lineal.
+Hallazgos:
+Hígado de tamaño normal, mide ____ mm a nivel de línea media clavicular, bordes lisos, ecogenicidad normal, sin lesión ocupante de espacio. Estructuras vasculares hepáticas normales. La vía biliar intra y extra hepática de calibre normal.
+
+Vesícula expandida, mide ____ mm, volumen de ____ ml, contenido anecoico, pared fina.
+
+Páncreas de tamaño normal, sin nódulos. Bazo normal, mide ____ mm en el eje mayor.
+
+Ambos riñones de tamaño, forma, contornos y ecogenicidad normal. No hay imagen de masa, cálculo, hidronefrosis ni lesión quística.
+Riñón derecho mide ____ mm, volumen de ____ ml; el izquierdo mide ____ mm, volumen ____ ml.
+
+Los segmentos visibles de los uréteres son de calibre normal. Espacios peri y para renales y músculos psoas sin lesiones.
+
+Vejiga expandida sin masa ni cálculos, paredes de grosor normal.
+
+No se observaron adenopatías retroperitoneales ni líquido libre en cavidad abdominal.
+
+Impresión diagnóstica:`,
+
+transfontanelar:`Datos clínicos: ____
+Técnica: Se realizó rastreo ecográfico con transductor lineal y convexo.
+Hallazgos:
+La morfología, ecogenicidad y volumen del parénquima cerebral, cerebelo y tronco encefálico es de características habituales, con adecuada vascularidad al Doppler color.
+
+El cuerpo calloso es de forma, grosor y ecogenicidad normal. Núcleos de la base conservan características habituales.
+
+No hay desviación de la línea media interhemisférica, no se identifican lesiones sólidas, quísticas ni cálcicas.
+
+El sistema ventricular es de amplitud y ecogenicidad normal, los ventrículos laterales son simétricos. Los plexos coroideos tienen morfología normal.
+
+No se observan signos de hemorragia intracraneal y/o hematoma. El espacio extra axial es de amplitud normal.
+
+Impresión diagnóstica: Estudio dentro de parámetros normales.`,
+
+piloro:`Técnica: Se realiza estudio con transductor lineal, con paciente en ayuno.
+Hallazgos:
+Píloro: Grosor ≤ 3 mm, diámetro anteroposterior ≤ 14 mm, longitud del canal pilórico ≤ 17 mm.
+
+Se visualizó paso del líquido desde el estómago a través del píloro hasta el duodeno.
+
+Lo visualizado del hígado, vías biliares y vesícula biliar es morfológicamente normal.
+
+Impresión diagnóstica:`,
+
+cadera:`Técnica: Se realiza estudio con transductor lineal.
+Hallazgos:
+Cadera derecha: Ángulo alfa ____ ° (normal ≥ 60°). Ángulo beta ____ ° (normal < 77°).
+Cadera izquierda: Ángulo alfa ____ °. Ángulo beta ____ °.
+Cobertura acetabular epífisis femoral derecha: ____ %. Izquierda: ____ %.
+Tipo de cadera derecha: ____ | Tipo de cadera izquierda: ____
+
+Impresión diagnóstica:`,
+
+estudio_integral_mamario:`Motivo de estudio: ____
+Datos clínicos: ____. Antecedente heredofamiliar de Ca de mama: ____. No contamos con estudios previos para comparar.
+Técnica: Se realizó mastografía convencional digitalizada de ambas mamas, proyecciones CC y OML. Se realizó ultrasonido mamario utilizando transductor lineal.
+Hallazgos:
+Mamas simétricas en volumen, con densidad similar. Patrón mamario es fibroglandular disperso, tipo B (ACR). No se identificaron asimetrías, distorsión de la arquitectura mamaria ni nódulos.
+
+En el rastreo ultrasonográfico: ____
+
+Calcificaciones típicamente benignas, tipo redondas bilaterales. Las regiones retroareolares y retromamarias sin alteraciones. La piel es de grosor y densidad normal. Axilas: ganglios de características morfológicas benignas.
+
+Impresión diagnóstica:
+Patrón mamario tipo B. Calcificaciones típicamente benignas bilaterales. BIRADS 2 (Hallazgos benignos).
+Recomendación: En ausencia de sintomatología se sugiere control anual.
+Nota: Este estudio deberá conservarse y presentarse en su próxima cita para análisis radiológico comparativo.`,
+
+mastografia_bilateral:`Motivo de estudio: ____
+Datos clínicos: ____. Antecedente heredofamiliar de Ca de mama: ____. No contamos con estudios previos para comparar.
+Técnica: Se realizó mastografía convencional digitalizada de ambas mamas, proyecciones CC y OML.
+Hallazgos:
+Mamas simétricas en volumen, con densidad similar. Patrón mamario es fibroglandular disperso, tipo B (ACR). No se identificaron asimetrías, distorsión de la arquitectura mamaria ni nódulos. Calcificaciones típicamente benignas, tipo redondas bilaterales. Las regiones retroareolares y retromamarias sin alteraciones. La piel es de grosor y densidad normal. Axilas: ganglios de características morfológicas benignas.
+
+Impresión diagnóstica:
+Patrón mamario tipo B. Calcificaciones típicamente benignas bilaterales. BIRADS 2 (Hallazgos benignos).
+Recomendación: En ausencia de sintomatología se sugiere control anual.
+Nota: Este estudio deberá conservarse y presentarse en su próxima cita para análisis radiológico comparativo.`,
+};
 
 window.abrirNuevoReporteUS=function(){
   document.getElementById("us-cat")?.scrollIntoView({behavior:"smooth",block:"start"});
