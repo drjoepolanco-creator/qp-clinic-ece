@@ -5007,8 +5007,27 @@ async function renderInterconsultas(b){
   </div>`;
   cargarInterconsultas();
 }
+// ── Helper: refrescar sesión antes de queries críticas ───────────────────────
+async function sbRefresh(){
+  try{
+    const {data:{session},error}=await SB.auth.refreshSession();
+    if(error||!session){
+      showToast("Sesión expirada. Por favor vuelve a iniciar sesión.",false);
+      await new Promise(r=>setTimeout(r,1500));
+      cerrarSesion();
+      return false;
+    }
+    STATE.user=session.user;
+    return true;
+  }catch(e){
+    console.warn("sbRefresh error:",e.message);
+    return false;
+  }
+}
+
 async function cargarInterconsultas(){
   const pid=STATE.pat?.id;if(!pid)return;
+  await sbRefresh();
   const {data}=await SB.from("interconsultas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const il=document.getElementById("inter-lista");if(!il)return;
   if(!data||data.length===0){il.innerHTML=`<div style="background:${PL};border-radius:8px;padding:20px;text-align:center;color:${MU};font-size:14px">No hay interconsultas registradas</div>`;return;}
@@ -5016,6 +5035,7 @@ async function cargarInterconsultas(){
 }
 window.verInterconsulta=async function(id){
   loading(true,"Cargando interconsulta...");
+  const ok=await sbRefresh();if(!ok){loading(false);return;}
   const [{data:ic},{data:medSol}] = await Promise.all([
     SB.from("interconsultas").select("*").eq("id",id).single(),
     SB.from("interconsultas").select("medico_solicitante_id").eq("id",id).single()
@@ -5117,6 +5137,7 @@ window.guardarRespuestaInterconsulta=async function(id,medNom){
   const recom=document.getElementById("ic_recom")?.value||"";
   if(!hall&&!diag&&!recom){showToast("Escribe al menos los hallazgos o recomendaciones",false);return;}
   loading(true,"Guardando respuesta...");
+  const ok2=await sbRefresh();if(!ok2){loading(false);return;}
   const {error}=await SB.from("interconsultas").update({
     hallazgos:hall,
     diagnostico_interconsultante:diag,
@@ -5135,6 +5156,7 @@ window.guardarRespuestaInterconsulta=async function(id,medNom){
 window.imprimirInterconsulta=async function(id){
   const {jsPDF}=window.jspdf;if(!jsPDF){showToast("jsPDF no disponible",false);return;}
   loading(true,"Generando PDF...");
+  await sbRefresh();
   // Cargar interconsulta si no está en STATE
   let ic=STATE._icActual?.ic;
   let medSolData=STATE._icActual?.medSol;
@@ -5361,6 +5383,7 @@ window.abrirNuevaInter=function(){const f=document.getElementById("inter-form");
 window.cerrarFormInter=function(){const f=document.getElementById("inter-form");if(f)f.style.display="none";}
 window.guardarInterconsulta=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
+  await sbRefresh();
   const sel=document.getElementById("ic_med_sel")?.value;
   const medInter=sel==="__externo__"?(document.getElementById("ic_med")?.value||gv("ic_med")):gv("ic_med");
   if(!medInter){showToast("Selecciona o escribe el médico interconsultante",false);return;}
