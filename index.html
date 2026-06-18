@@ -5121,7 +5121,7 @@ window.guardarRespuestaInterconsulta=async function(id,medNom){
     hallazgos:hall,
     diagnostico_interconsultante:diag,
     recomendaciones:recom,
-    fecha_respuesta:new Date().toLocaleDateString("es-MX"),
+    fecha_respuesta:new Date().toISOString().split("T")[0],
     medico_responde:medNom,
     estatus:"Respondida",
   }).eq("id",id);
