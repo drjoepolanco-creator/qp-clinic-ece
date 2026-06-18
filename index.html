@@ -12622,13 +12622,63 @@ window.abrirEditorBirads=function(){
     try{await SB.auth.signOut();}catch(e2){}
     go("login");
   }
+
+  // ── Escuchar cambios de sesión ────────────────────────────
   SB.auth.onAuthStateChange((event,session)=>{
-    if(event==="SIGNED_OUT"){STATE.user=null;STATE.userProfile=null;detenerTimerInactividad();go("login");}
+    if(event==="SIGNED_OUT"){
+      STATE.user=null;STATE.userProfile=null;
+      detenerTimerInactividad();go("login");
+    }
+    if(event==="TOKEN_REFRESHED"&&session){
+      // Token renovado automáticamente — actualizar STATE
+      STATE.user=session.user;
+    }
     if(event==="SIGNED_IN"&&STATE.user&&session?.user?.id!==STATE.user.id){
-      console.warn("Supabase signIn detectado para otro usuario — ignorando cambio de sesión");
+      console.warn("Supabase signIn detectado para otro usuario — ignorando");
     }
   });
+
+  // ── Auto-refresh preventivo cada 10 minutos ───────────────
+  // Supabase renueva el JWT cada hora, pero si el tab queda en background
+  // a veces falla. Este ping forzado evita el InvalidJWT.
+  setInterval(async()=>{
+    if(!STATE.user)return;
+    try{
+      const {data:{session},error}=await SB.auth.getSession();
+      if(error||!session){
+        console.warn("Sesión expirada en refresh periódico");
+        showToast("Sesión expirada — por favor vuelve a iniciar sesión",false);
+        await new Promise(r=>setTimeout(r,2000));
+        cerrarSesion();
+      }
+    }catch(e){console.warn("Refresh periódico error:",e.message);}
+  },10*60*1000); // cada 10 minutos
 })();
+
+// ── Interceptor global de errores JWT ─────────────────────────────────────────
+// Captura cualquier error 400/InvalidJWT de Supabase y redirige al login
+const _origFetch=window.fetch.bind(window);
+window.fetch=async function(...args){
+  const res=await _origFetch(...args);
+  if(!res.ok&&res.status===400&&STATE.user){
+    try{
+      const clone=res.clone();
+      const body=await clone.json().catch(()=>({}));
+      if(body?.error==="InvalidJWT"||body?.message?.includes("InvalidJWT")||body?.message?.includes("Invalid Compact JWS")){
+        console.warn("JWT inválido detectado — refrescando sesión");
+        const {data:{session}}=await SB.auth.refreshSession();
+        if(!session){
+          showToast("Sesión expirada. Vuelve a iniciar sesión.",false);
+          await new Promise(r=>setTimeout(r,1500));
+          cerrarSesion();
+        } else {
+          showToast("Sesión renovada automáticamente — repite la acción",false);
+        }
+      }
+    }catch(e){}
+  }
+  return res;
+};
 
 // ══════════════════════════════════════════════════════════════
 // FASE 1 — NOM-024-SSA3-2012
