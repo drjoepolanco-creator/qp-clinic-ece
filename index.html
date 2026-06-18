@@ -5339,22 +5339,121 @@ window.guardarInterconsulta=async function(){
   const medInter=sel==="__externo__"?(document.getElementById("ic_med")?.value||gv("ic_med")):gv("ic_med");
   if(!medInter){showToast("Selecciona o escribe el médico interconsultante",false);return;}
   loading(true,"Guardando interconsulta...");
+
+  const prioridad=gv("ic_pri")||"Normal";
+  const especialidad=gv("ic_esp")||"";
+  const diagnostico=gv("ic_diag")||"";
+  const motivos=gv("ic_mot")||"";
+
   const {error}=await SB.from("interconsultas").insert({
     paciente_id:pid,
     medico_solicitante_id:STATE.user?.id||null,
     medico_interconsultante:medInter,
-    especialidad:gv("ic_esp"),
-    diagnostico:gv("ic_diag"),
+    especialidad,
+    diagnostico,
     tratamiento:gv("ic_trat"),
-    motivos:gv("ic_mot"),
-    prioridad:gv("ic_pri"),
+    motivos,
+    prioridad,
     estatus:"Pendiente de respuesta"
   });
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
+
+  // Buscar celular del médico interconsultante si está en el sistema
+  let celMedInter=null;
+  if(sel&&sel!=="__externo__"){
+    const {data:medData}=await SB.from("usuarios").select("celular,nombre,apellidos").eq("id",sel).maybeSingle();
+    if(medData?.celular)celMedInter=medData.celular;
+  }
+
   showToast("✓ Interconsulta guardada");
   cerrarFormInter();
   cargarInterconsultas();
+
+  // Mostrar modal de notificación WA
+  const p=STATE.pat;
+  const nomPac=p?`${p.nombre||""} ${p.apellido_paterno||""}`.trim():"Paciente";
+  const solicitante=STATE.userProfile?`${STATE.userProfile.titulo||"Dr."} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():"El médico solicitante";
+  const urgente=prioridad==="Urgente"||prioridad==="Inmediata";
+
+  const overlay=document.createElement("div");
+  overlay.id="modal-wa-inter";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:flex;align-items:center;justify-content:center;padding:16px";
+  overlay.innerHTML=`
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:480px;box-shadow:0 16px 40px #00000040">
+    <div style="background:${urgente?"#C62828":"#00695C"};padding:14px 18px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <p style="color:rgba(255,255,255,.8);font-size:11px;font-weight:600;margin-bottom:2px">${urgente?"⚠️ INTERCONSULTA URGENTE":"📋 INTERCONSULTA GUARDADA"}</p>
+        <b style="color:#fff;font-size:14px">Notificar al especialista</b>
+      </div>
+      <button onclick="document.getElementById('modal-wa-inter').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700">✕</button>
+    </div>
+    <div style="padding:18px">
+      <p style="font-size:13px;color:#546E7A;margin-bottom:14px">Envía la notificación de interconsulta por WhatsApp al Dr./Dra. <b>${medInter}</b></p>
+      <div style="background:#F5F5F5;border-radius:8px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:#37474F;line-height:1.7">
+        <b>Paciente:</b> ${nomPac}<br>
+        ${especialidad?`<b>Especialidad:</b> ${especialidad}<br>`:""}
+        ${diagnostico?`<b>Diagnóstico:</b> ${diagnostico.substring(0,80)}${diagnostico.length>80?"...":""}<br>`:""}
+        ${motivos?`<b>Motivo:</b> ${motivos.substring(0,80)}${motivos.length>80?"...":""}<br>`:""}
+        <b>Prioridad:</b> <span style="color:${urgente?"#C62828":"#2E7D32"};font-weight:700">${prioridad}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div style="flex:0.4">
+          <label style="font-size:11px;font-weight:700;color:#546E7A;display:block;margin-bottom:4px">PAÍS</label>
+          <select id="wa-inter-pais" style="width:100%;padding:8px;border:1.5px solid #CFD8DC;border-radius:7px;font-size:13px;outline:none">
+            <option value="52">🇲🇽 México +52</option>
+            <option value="1">🇺🇸 USA +1</option>
+          </select>
+        </div>
+        <div style="flex:0.6">
+          <label style="font-size:11px;font-weight:700;color:#546E7A;display:block;margin-bottom:4px">CELULAR DEL ESPECIALISTA</label>
+          <input id="wa-inter-cel" value="${celMedInter||""}" type="tel" placeholder="55XXXXXXXX" style="width:100%;padding:8px;border:1.5px solid #CFD8DC;border-radius:7px;font-size:14px;outline:none">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="enviarWAInterconsulta('${nomPac.replace(/'/g,"\\'")}','${medInter.replace(/'/g,"\\'")}','${solicitante.replace(/'/g,"\\'")}','${especialidad.replace(/'/g,"\\'")}','${diagnostico.substring(0,60).replace(/'/g,"\\'")}','${motivos.substring(0,60).replace(/'/g,"\\'")}','${prioridad}')" 
+          style="flex:1;padding:10px;background:#25D366;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;min-width:140px">
+          💬 Enviar por WhatsApp
+        </button>
+        <button onclick="document.getElementById('modal-wa-inter').remove()" style="padding:10px 16px;background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:8px;font-size:13px;cursor:pointer">
+          Omitir
+        </button>
+      </div>
+      <p style="font-size:11px;color:#90A4AE;margin-top:8px;text-align:center">Se abrirá WhatsApp con el mensaje listo para enviar</p>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+window.enviarWAInterconsulta=function(nomPac,medInter,solicitante,especialidad,diagnostico,motivos,prioridad){
+  const cel=(document.getElementById("wa-inter-cel")?.value||"").replace(/\D/g,"");
+  const pais=document.getElementById("wa-inter-pais")?.value||"52";
+  if(!cel){showToast("Ingresa el celular del especialista",false);return;}
+  const urgente=prioridad==="Urgente"||prioridad==="Inmediata";
+  const celFinal=cel.length===10?pais+cel:cel;
+  const fecha=new Date().toLocaleDateString("es-MX",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  const msg=`${urgente?"⚠️ *INTERCONSULTA URGENTE*":"📋 *SOLICITUD DE INTERCONSULTA*"}
+
+*QP Clinic — Sistema de Interconsultas*
+
+Estimado(a) *${medInter}*,
+
+${solicitante} le solicita una interconsulta${especialidad?" de *"+especialidad+"*":""} para el siguiente paciente:
+
+👤 *Paciente:* ${nomPac}
+📅 *Fecha:* ${fecha}
+🔴 *Prioridad:* ${prioridad}
+${diagnostico?"🏥 *Diagnóstico de envío:* "+diagnostico:""}
+${motivos?"📋 *Motivo de interconsulta:* "+motivos:""}
+
+Por favor confirme su disponibilidad respondiendo este mensaje.
+
+_QP Clinic — Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX_
+_Tel: (55) 6442-3702 | qpclinic.org_`;
+
+  window.open(`https://wa.me/${celFinal}?text=${encodeURIComponent(msg)}`,"_blank");
+  document.getElementById("modal-wa-inter")?.remove();
+  showToast("✓ Abre WhatsApp y envía el mensaje al especialista");
 }
 // ── ANEXOS ────────────────────────────────────────────────
 function renderAnexos(b){
