@@ -2843,25 +2843,68 @@ async function pgBuscar(){
   await cargarPacientes();
 }
 async function cargarPacientes(q=""){
-  let query=SB.from("pacientes").select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico").eq("activo",true).order("apellido_paterno");
-  if(q){
-    // Normalizar: quitar acentos para búsqueda tolerante
-    const norm=t=>t.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
-    const qNorm=norm(q);
-    // Buscar con el término original Y el normalizado (sin acentos)
-    const terminos=[q];
-    if(qNorm!==q.toLowerCase())terminos.push(qNorm);
-    const filtros=terminos.flatMap(t=>[
-      `nombre.ilike.%${t}%`,
-      `apellido_paterno.ilike.%${t}%`,
-      `apellido_materno.ilike.%${t}%`,
-      `curp.ilike.%${t}%`
-    ]);
-    query=query.or(filtros.join(","));
+  const COLS="id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico";
+  const base=()=>SB.from("pacientes").select(COLS).eq("activo",true).order("apellido_paterno");
+
+  let data=[], error=null;
+
+  if(!q){
+    const r=await base();
+    data=r.data||[]; error=r.error;
+  } else {
+    // Normalizar: quitar tildes/diacríticos
+    const sinTilde=t=>t.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    const qOrig=q.trim();
+    const qNorm=sinTilde(qOrig);  // sin acentos: "aaron", "gonzales"
+
+    // Query 1: término tal como fue escrito
+    const filtros1=[
+      `nombre.ilike.%${qOrig}%`,
+      `apellido_paterno.ilike.%${qOrig}%`,
+      `apellido_materno.ilike.%${qOrig}%`,
+      `curp.ilike.%${qOrig}%`,
+    ].join(",");
+
+    // Query 2: término sin acentos (busca "gonzales" → encuentra "Gonzáles" si BD guarda sin acento)
+    // También: sustituir vocales con variantes acentuadas para búsqueda invertida
+    // "aaron" → buscar también "aarón" etc.
+    const agregarAcentos=t=>t
+      .replace(/a/gi,s=>s==="A"?"[AÁ]":"[aá]")
+      .replace(/e/gi,s=>s==="E"?"[EÉ]":"[eé]")
+      .replace(/i/gi,s=>s==="I"?"[IÍ]":"[ií]")
+      .replace(/o/gi,s=>s==="O"?"[OÓ]":"[oó]")
+      .replace(/u/gi,s=>s==="U"?"[UÚ]":"[uú]")
+      .replace(/n/gi,s=>s==="N"?"[NÑ]":"[nñ]");
+
+    // Supabase no soporta regex en ilike, así que hacemos dos queries separadas
+    // y combinamos los resultados en JS
+    const promises=[base().or(filtros1)];
+
+    // Solo agregar segunda query si el término normalizado es diferente al original
+    if(qNorm.toLowerCase()!==qOrig.toLowerCase()){
+      const filtros2=[
+        `nombre.ilike.%${qNorm}%`,
+        `apellido_paterno.ilike.%${qNorm}%`,
+        `apellido_materno.ilike.%${qNorm}%`,
+      ].join(",");
+      promises.push(base().or(filtros2));
+    }
+
+    const results=await Promise.all(promises);
+    error=results.find(r=>r.error)?.error||null;
+
+    // Combinar y deduplicar por id
+    const seen=new Set();
+    for(const r of results){
+      for(const p of (r.data||[])){
+        if(!seen.has(p.id)){seen.add(p.id);data.push(p);}
+      }
+    }
+    // Ordenar por apellido_paterno
+    data.sort((a,b)=>(a.apellido_paterno||"").localeCompare(b.apellido_paterno||"","es"));
   }
-  // Sin límite para mostrar todos los pacientes
-  const [{data,error},{count:total}]=await Promise.all([
-    query,
+
+  const [{count:total}]=await Promise.all([
     SB.from("pacientes").select("*",{count:"exact",head:true}).eq("activo",true)
   ]);
   const t=document.getElementById("tbl");if(!t)return;
@@ -2957,7 +3000,7 @@ function pgNuevo(){
       <div style="display:flex;gap:6px">${btn("Cancelar","go('buscar')","s",1)}${btn("💾 Guardar en sistema","guardarNuevoPac()","ok",1)}</div>
     </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid ${BR};background:#F8FAFB;padding:0 8px">
+      <div id="nuevo-tabs" style="display:flex;flex-wrap:wrap;border-bottom:2px solid ${BR};background:#F8FAFB;padding:0 8px">
         ${[["gen","Datos generales"],["seg","Seguro médico"],["dom","Domicilio y contacto"],["resp","Persona responsable"],["lab","Datos laborales"],["fac","Facturación"]].map(([k,l])=>{
           const activo=STATE.nuevoTab===k;
           const d=STATE.nuevoData||{};
@@ -3016,6 +3059,25 @@ function renderNB(){
   const d=STATE.nuevoData||{};
   const sv=(id,v)=>`value="${v||""}"`;  // helper para value
   const R=(id,fallback="")=>d[id]!==undefined?d[id]:fallback;
+
+  // Re-renderizar tabs para reflejar tab activa correctamente
+  const tabsDiv=document.getElementById("nuevo-tabs");
+  if(tabsDiv){
+    const tieneGen=d.nn||d.na||d.nfnac;
+    const tieneSeg=d.nseg_nom&&d.nseg_nom!=="No seleccionado";
+    const tieneDom=d.vm||d.vcp;
+    const tieneResp=d.rnom||d.rap;
+    const tieneLab=d.lemp||d.lss;
+    const tieneFac=d.frfc||d.frs;
+    const tieneMap={gen:tieneGen,seg:tieneSeg,dom:tieneDom,resp:tieneResp,lab:tieneLab,fac:tieneFac};
+    tabsDiv.innerHTML=[["gen","Datos generales"],["seg","Seguro médico"],["dom","Domicilio y contacto"],["resp","Persona responsable"],["lab","Datos laborales"],["fac","Facturación"]].map(([k,l])=>{
+      const activo=STATE.nuevoTab===k;
+      const tiene=tieneMap[k];
+      return`<button onclick="setNT('${k}')" style="padding:9px 12px;border:none;cursor:pointer;font-weight:${activo?700:500};font-size:13px;color:${activo?"#006BB6":"#546E7A"};border-bottom:${activo?"3px solid #006BB6":"3px solid transparent"};background:${activo?"#fff":"transparent"};border-radius:${activo?"6px 6px 0 0":"0"};box-shadow:${activo?"0 -2px 6px rgba(0,0,0,.06)":"none"};display:flex;align-items:center;gap:4px;position:relative;top:${activo?"1px":"0"}">
+        ${l}
+        ${tiene&&!activo?`<span style="background:#4CAF50;color:#fff;border-radius:50%;width:7px;height:7px;display:inline-block;flex-shrink:0"></span>`:""}
+      </button>`;}).join("");
+  }
   // Helper: restaurar valor en campo tras render
   const rst=()=>setTimeout(()=>{
     Object.keys(d).forEach(id=>{
