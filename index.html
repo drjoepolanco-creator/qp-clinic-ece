@@ -2844,7 +2844,21 @@ async function pgBuscar(){
 }
 async function cargarPacientes(q=""){
   let query=SB.from("pacientes").select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico").eq("activo",true).order("apellido_paterno");
-  if(q)query=query.or(`nombre.ilike.%${q}%,apellido_paterno.ilike.%${q}%,apellido_materno.ilike.%${q}%,curp.ilike.%${q}%`);
+  if(q){
+    // Normalizar: quitar acentos para búsqueda tolerante
+    const norm=t=>t.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    const qNorm=norm(q);
+    // Buscar con el término original Y el normalizado (sin acentos)
+    const terminos=[q];
+    if(qNorm!==q.toLowerCase())terminos.push(qNorm);
+    const filtros=terminos.flatMap(t=>[
+      `nombre.ilike.%${t}%`,
+      `apellido_paterno.ilike.%${t}%`,
+      `apellido_materno.ilike.%${t}%`,
+      `curp.ilike.%${t}%`
+    ]);
+    query=query.or(filtros.join(","));
+  }
   // Sin límite para mostrar todos los pacientes
   const [{data,error},{count:total}]=await Promise.all([
     query,
@@ -2935,7 +2949,7 @@ function pgNuevo(){
   STATE.medText="";STATE.medOtrosText="";
   STATE.signosHoy=null;STATE.consultaActual=null;
   STATE.antTab="fam";STATE.anexoTab="docs";
-  STATE.nuevoTab=STATE.nuevoTab||"gen";
+  STATE.nuevoTab="gen"; // Siempre iniciar en Datos Generales
   RR().innerHTML=nav()+`
   <div style="max-width:980px;margin:0 auto;padding:16px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
