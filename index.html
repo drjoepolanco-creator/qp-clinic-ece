@@ -12371,19 +12371,20 @@ window.abrirEditorBirads=function(){
 // FASE 1 — NOM-024-SSA3-2012
 // ══════════════════════════════════════════════════════════════
 
-// ── 1. TIMER DE INACTIVIDAD (15 min) ─────────────────────────
+// ── 1. TIMER DE INACTIVIDAD (30 min) ─────────────────────────
 let _timerInact=null,_timerWarn=null,_timerCd=null;
-const INACT_WARN=14*60*1000,INACT_OUT=15*60*1000;
+const INACT_WARN=29*60*1000;   // advertencia a los 29 min
+const INACT_OUT =30*60*1000;   // logout a los 30 min
+
+const _eventosInact=["click","mousedown","mousemove","keydown","keypress","touchstart","touchmove","scroll","wheel","pointerdown"];
 
 function iniciarTimerInactividad(){
-  ["click","mousemove","keydown","touchstart","scroll"].forEach(e=>
-    document.addEventListener(e,resetTimerInactividad,{passive:true}));
+  _eventosInact.forEach(e=>document.addEventListener(e,resetTimerInactividad,{passive:true}));
   resetTimerInactividad();
 }
 function detenerTimerInactividad(){
   clearTimeout(_timerInact);clearTimeout(_timerWarn);clearInterval(_timerCd);
-  ["click","mousemove","keydown","touchstart","scroll"].forEach(e=>
-    document.removeEventListener(e,resetTimerInactividad));
+  _eventosInact.forEach(e=>document.removeEventListener(e,resetTimerInactividad));
   document.getElementById("modal-inactividad")?.remove();
 }
 function resetTimerInactividad(){
@@ -12391,6 +12392,16 @@ function resetTimerInactividad(){
   clearTimeout(_timerInact);clearTimeout(_timerWarn);clearInterval(_timerCd);
   document.getElementById("modal-inactividad")?.remove();
   _timerWarn=setTimeout(()=>{
+    // No mostrar si hay otro modal de mayor prioridad abierto (firma, análisis, etc.)
+    const hayModalCritico=document.getElementById("modal-lab-ia")||
+      document.getElementById("modal-birads-editor")||
+      document.getElementById("modal-wa-inter")||
+      document.getElementById("modal-firma-global");
+    if(hayModalCritico){
+      // Posponer la advertencia 5 minutos más
+      _timerWarn=setTimeout(arguments.callee,5*60*1000);
+      return;
+    }
     const div=document.createElement("div");
     div.id="modal-inactividad";
     div.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center";
@@ -12403,7 +12414,8 @@ function resetTimerInactividad(){
     </div>`;
     document.body.appendChild(div);
     _timerCd=setInterval(()=>{
-      sec--;const el=document.getElementById("inact-cd");
+      sec--;
+      const el=document.getElementById("inact-cd");
       if(el)el.textContent=sec;
       if(sec<=0)clearInterval(_timerCd);
     },1000);
