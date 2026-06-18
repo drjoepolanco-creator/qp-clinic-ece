@@ -2834,7 +2834,7 @@ async function pgBuscar(){
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <div style="flex:2;min-width:160px">${fld("Nombre, apellido o CURP",`<input id="bq" oninput="buscarPacs()" placeholder="Escriba para buscar..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>
-        <div style="flex:1;min-width:100px">${fld("No. Expediente",`<input id="bexp" placeholder="377223" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>
+        <div style="flex:1;min-width:100px">${fld("No. Expediente",`<input id="bexp" placeholder="377223" onkeypress="if(event.key==='Enter')buscarPacs()" oninput="buscarPacs()" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>
         <div style="display:flex;align-items:flex-end">${btn("🔍 Buscar","buscarPacs()","p",1)}</div>
       </div>
     </div>
@@ -2930,8 +2930,34 @@ async function cargarPacientes(q=""){
 }
 window.buscarPacs=debounce(function(){
   const q=(document.getElementById("bq")||{value:""}).value.trim();
-  cargarPacientes(q);
+  const exp=(document.getElementById("bexp")||{value:""}).value.trim();
+  if(exp){
+    // Buscar por número de expediente exacto
+    buscarPorExpediente(exp);
+  } else {
+    cargarPacientes(q);
+  }
 },300);
+
+async function buscarPorExpediente(exp){
+  const tbl=document.getElementById("tbl");
+  if(tbl)tbl.innerHTML=`<div style="text-align:center;padding:24px;color:#546E7A">🔍 Buscando expediente ${exp}...</div>`;
+  const {data,error}=await SB.from("pacientes")
+    .select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico")
+    .eq("activo",true)
+    .eq("numero_expediente",parseInt(exp)||0);
+  if(error||!data?.length){
+    if(tbl)tbl.innerHTML=`<div style="text-align:center;padding:32px;color:#546E7A">No se encontró el expediente <b>${exp}</b>.</div>`;
+    return;
+  }
+  // Si hay un único resultado, abrir directamente
+  if(data.length===1){
+    showToast("✓ Expediente "+exp+" encontrado");
+    abrirExpediente(data[0].id);
+    return;
+  }
+  renderTabla(data,data.length);
+}
 window.abrirExpediente=async function(id){
   // Limpiar TODOS los datos del paciente previo antes de cargar el nuevo
   STATE.pat=null;
@@ -5425,13 +5451,91 @@ window.guardarInterconsulta=async function(){
   document.body.appendChild(overlay);
 }
 
-window.enviarWAInterconsulta=function(nomPac,medInter,solicitante,especialidad,diagnostico,motivos,prioridad){
+window.enviarWAInterconsulta=async function(nomPac,medInter,solicitante,especialidad,diagnostico,motivos,prioridad){
   const cel=(document.getElementById("wa-inter-cel")?.value||"").replace(/\D/g,"");
   const pais=document.getElementById("wa-inter-pais")?.value||"52";
   if(!cel){showToast("Ingresa el celular del especialista",false);return;}
+
   const urgente=prioridad==="Urgente"||prioridad==="Inmediata";
   const celFinal=cel.length===10?pais+cel:cel;
   const fecha=new Date().toLocaleDateString("es-MX",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+
+  // Generar PDF de la interconsulta
+  let pdfUrl=null;
+  const {jsPDF}=window.jspdf;
+  if(jsPDF){
+    try{
+      const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+      const W=215.9,ML=14,CW=W-28,P1=[0,107,182],GR=[38,50,56],MU2=[84,110,122],BR2=[224,224,224];
+      // Header
+      doc.setFillColor(...P1);doc.rect(0,0,W,28,"F");
+      doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text("QP CLINIC",ML,9);
+      doc.setFont("helvetica","normal");doc.setFontSize(7);doc.text("Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX  |  (55) 6442-3702  |  qpclinic.org",ML,14);
+      doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(solicitante.toUpperCase(),ML,21);
+      // Badge
+      doc.setFillColor(255,255,255);doc.roundedRect(W-52,3,50,23,2,2,"F");
+      doc.setTextColor(...P1);doc.setFont("helvetica","bold");doc.setFontSize(8);
+      doc.text(urgente?"INTERCONSULTA":"HOJA DE",W-27,10,{align:"center"});
+      doc.text(urgente?"URGENTE":"INTERCONSULTA",W-27,16,{align:"center"});
+      let y=34;
+      // Datos
+      const campo=(l,v,x,yy,w)=>{
+        doc.setTextColor(...MU2);doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.text(l.toUpperCase(),x,yy);
+        doc.setTextColor(...GR);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(String(v||"—"),x,yy+4.5,{maxWidth:w-2});
+      };
+      doc.setFillColor(245,249,255);doc.rect(ML,y,CW,12,"F");doc.setDrawColor(...BR2);doc.rect(ML,y,CW,12,"S");
+      campo("Paciente",nomPac,ML+2,y+3.5,90);
+      campo("Fecha",fecha,ML+100,y+3.5,55);
+      campo("Prioridad",prioridad,ML+160,y+3.5,35);
+      y+=15;
+      const seccion=(t,yy)=>{doc.setFillColor(...P1);doc.rect(ML,yy,CW,5.5,"F");doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text(t.toUpperCase(),ML+2,yy+3.9);return yy+7;};
+      const parr=(txt,yy)=>{if(!txt)return yy;doc.setTextColor(...GR);doc.setFont("helvetica","normal");doc.setFontSize(9);const ls=doc.splitTextToSize(String(txt),CW-4);doc.text(ls,ML+2,yy);return yy+ls.length*4.5+3;};
+      y=seccion("Médico interconsultante",y);
+      doc.setFillColor(255,255,255);doc.rect(ML,y,CW,10,"F");doc.setDrawColor(...BR2);doc.rect(ML,y,CW,10,"S");
+      campo("Nombre",medInter,ML+2,y+3.5,100);
+      if(especialidad)campo("Especialidad",especialidad,ML+110,y+3.5,85);
+      y+=13;
+      if(diagnostico){y=seccion("Diagnóstico de envío",y);y=parr(diagnostico,y);}
+      if(motivos){y=seccion("Motivo de interconsulta",y);y=parr(motivos,y);}
+      // Tratamiento actual si existe
+      const trat=document.getElementById("ic_trat")?.value;
+      if(trat){y=seccion("Tratamiento actual",y);y=parr(trat,y);}
+      // Firma
+      y+=8;doc.setDrawColor(...BR2);doc.line(ML,y,ML+70,y);
+      doc.setTextColor(...GR);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(solicitante,ML,y+5);
+      doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(...MU2);
+      doc.text("Médico solicitante — QP Clinic",ML,y+9);
+      // Footer
+      doc.setFillColor(240,244,248);doc.rect(0,279.4-10,W,10,"F");
+      doc.setTextColor(...MU2);doc.setFont("helvetica","normal");doc.setFontSize(6);
+      doc.text(`QP Clinic  |  Interconsulta  |  ${nomPac}  |  ${new Date().toLocaleDateString("es-MX")}`,W/2,279.4-4,{align:"center"});
+
+      // Subir a Supabase si hay paciente activo
+      const pid=STATE.pat?.id;
+      if(pid){
+        const blob=doc.output("blob");
+        const path=`${pid}/interconsultas/IC_${Date.now()}.pdf`;
+        const {data:upData,error:upErr}=await SB.storage.from("expedientes").upload(path,blob,{contentType:"application/pdf",upsert:false});
+        if(!upErr){
+          const {data:urlD}=await SB.storage.from("expedientes").createSignedUrl(path,60*60*24*7); // 7 días
+          if(urlD?.signedUrl)pdfUrl=urlD.signedUrl;
+          // Guardar en anexos
+          await SB.from("anexos").insert({
+            paciente_id:pid,
+            titulo:`INTERCONSULTA — ${especialidad||medInter} — ${new Date().toISOString().split("T")[0]}`,
+            tipo_documento:"Laboratorio (PDF)",
+            origen:"generado",firmado:false,
+            storage_path:path,
+            fecha:new Date().toISOString().split("T")[0],
+          });
+        }
+      } else {
+        // Sin paciente: descarga directa
+        doc.save(`Interconsulta_${nomPac.replace(/\s+/g,"_")}.pdf`);
+      }
+    }catch(e){console.warn("PDF interconsulta:",e.message);}
+  }
+
   const msg=`${urgente?"⚠️ *INTERCONSULTA URGENTE*":"📋 *SOLICITUD DE INTERCONSULTA*"}
 
 *QP Clinic — Sistema de Interconsultas*
@@ -5445,6 +5549,7 @@ ${solicitante} le solicita una interconsulta${especialidad?" de *"+especialidad+
 🔴 *Prioridad:* ${prioridad}
 ${diagnostico?"🏥 *Diagnóstico de envío:* "+diagnostico:""}
 ${motivos?"📋 *Motivo de interconsulta:* "+motivos:""}
+${pdfUrl?"\n📎 *PDF de interconsulta:* "+pdfUrl:""}
 
 Por favor confirme su disponibilidad respondiendo este mensaje.
 
@@ -5453,7 +5558,7 @@ _Tel: (55) 6442-3702 | qpclinic.org_`;
 
   window.open(`https://wa.me/${celFinal}?text=${encodeURIComponent(msg)}`,"_blank");
   document.getElementById("modal-wa-inter")?.remove();
-  showToast("✓ Abre WhatsApp y envía el mensaje al especialista");
+  showToast(pdfUrl?"✓ PDF generado y guardado — abre WhatsApp y envía":"✓ Abre WhatsApp y envía el mensaje al especialista");
 }
 // ── ANEXOS ────────────────────────────────────────────────
 function renderAnexos(b){
@@ -9186,8 +9291,8 @@ const HERR_CATALOGO=[
     {k:"barthel",icon:"🛏️",nombre:"Índice de Barthel — Discapacidad",desc:"Independencia en actividades básicas de la vida diaria (0–100)"}
   ]},
   {grupo:"🧠 Salud Mental",color:"#5D4037",tools:[
-    {k:"phq9",icon:"💭",nombre:"PHQ-9 — Depresión",desc:"Cribado y severidad de depresión (dominio público, validado en español)"},
-    {k:"gad7",icon:"😰",nombre:"GAD-7 — Ansiedad",desc:"Cribado y severidad de ansiedad generalizada (dominio público)"}
+    {k:"phq9",icon:"💭",nombre:"PHQ-9 — Depresión",desc:"Escala validada · Kroenke K et al. J Gen Intern Med. 2001;16:606-613"},
+    {k:"gad7",icon:"😰",nombre:"GAD-7 — Ansiedad",desc:"Escala validada · Spitzer RL et al. Arch Intern Med. 2006;166:1092-1097"}
   ]},
   {grupo:"🥗 Nutrición / Antropometría",color:"#2E7D32",tools:[
     {k:"nutricion",icon:"⚖️",nombre:"IMC y Gasto Energético",desc:"IMC (OMS), TMB y requerimiento calórico (Mifflin-St Jeor)"},
@@ -9625,7 +9730,7 @@ const PHQ9_ITEMS=[
 ];
 const ESCALA4=[["Nunca",0],["Varios días",1],["Más de la mitad de los días",2],["Casi todos los días",3]];
 function toolPhq9(){
-  return herrHeader("💭 PHQ-9 — Depresión","Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas? (dominio público)")+
+  return herrHeader("💭 PHQ-9 — Depresión","Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas? Escala validada · Kroenke K, Spitzer RL, Williams JBW. J Gen Intern Med. 2001;16(9):606-613. Validación en español: Diez-Quevedo C et al. Med Clin (Barc). 2001.")+
   `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
     ${PHQ9_ITEMS.map((it,i)=>`<div style="padding:11px 0;border-bottom:1px solid #F0F4F8">
       <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:7px">${i+1}. ${it}</p>
@@ -9670,7 +9775,7 @@ const GAD7_ITEMS=[
   "Sentir miedo como si algo terrible fuera a suceder"
 ];
 function toolGad7(){
-  return herrHeader("😰 GAD-7 — Ansiedad","Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas? (dominio público)")+
+  return herrHeader("😰 GAD-7 — Ansiedad","Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas? Escala validada · Spitzer RL et al. Arch Intern Med. 2006;166(10):1092-1097. Validación en español: García-Campayo J et al. Health Qual Life Outcomes. 2010.")+
   `<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:18px">
     ${GAD7_ITEMS.map((it,i)=>`<div style="padding:11px 0;border-bottom:1px solid #F0F4F8">
       <p style="font-size:14px;font-weight:600;color:${TX};margin-bottom:7px">${i+1}. ${it}</p>
@@ -12531,8 +12636,8 @@ window.abrirEditorBirads=function(){
 
 // ── 1. TIMER DE INACTIVIDAD (30 min) ─────────────────────────
 let _timerInact=null,_timerWarn=null,_timerCd=null;
-const INACT_WARN=29*60*1000;   // advertencia a los 29 min
-const INACT_OUT =30*60*1000;   // logout a los 30 min
+const INACT_WARN=14*60*1000;   // advertencia a los 14 min (NOM-024-SSA3-2012)
+const INACT_OUT =15*60*1000;   // logout a los 15 min de inactividad real
 
 const _eventosInact=["click","mousedown","mousemove","keydown","keypress","touchstart","touchmove","scroll","wheel","pointerdown"];
 
