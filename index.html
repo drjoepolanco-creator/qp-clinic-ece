@@ -5757,109 +5757,34 @@ window.enviarWAInterconsulta=async function(nomPac,medInter,solicitante,especial
   const pais=document.getElementById("wa-inter-pais")?.value||"52";
   if(!cel){showToast("Ingresa el celular del especialista",false);return;}
 
-  const urgente=prioridad==="Urgente"||prioridad==="Inmediata";
+  const urgente=prioridad==="Urgente"||prioridad==="Inmediata"||prioridad==="Emergencia (inmediata)";
   const celFinal=cel.length===10?pais+cel:cel;
   const fecha=new Date().toLocaleDateString("es-MX",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
 
-  // Generar PDF de la interconsulta
-  let pdfUrl=null;
-  const {jsPDF}=window.jspdf;
-  if(jsPDF){
-    try{
-      const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
-      const W=215.9,ML=14,CW=W-28,P1=[0,107,182],GR=[38,50,56],MU2=[84,110,122],BR2=[224,224,224];
-      // Header
-      doc.setFillColor(...P1);doc.rect(0,0,W,28,"F");
-      doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text("QP CLINIC",ML,9);
-      doc.setFont("helvetica","normal");doc.setFontSize(7);doc.text("Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX  |  (55) 6442-3702  |  qpclinic.org",ML,14);
-      doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(solicitante.toUpperCase(),ML,21);
-      // Badge
-      doc.setFillColor(255,255,255);doc.roundedRect(W-52,3,50,23,2,2,"F");
-      doc.setTextColor(...P1);doc.setFont("helvetica","bold");doc.setFontSize(8);
-      doc.text(urgente?"INTERCONSULTA":"HOJA DE",W-27,10,{align:"center"});
-      doc.text(urgente?"URGENTE":"INTERCONSULTA",W-27,16,{align:"center"});
-      let y=34;
-      // Datos
-      const campo=(l,v,x,yy,w)=>{
-        doc.setTextColor(...MU2);doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.text(l.toUpperCase(),x,yy);
-        doc.setTextColor(...GR);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(String(v||"—"),x,yy+4.5,{maxWidth:w-2});
-      };
-      doc.setFillColor(245,249,255);doc.rect(ML,y,CW,12,"F");doc.setDrawColor(...BR2);doc.rect(ML,y,CW,12,"S");
-      campo("Paciente",nomPac,ML+2,y+3.5,90);
-      campo("Fecha",fecha,ML+100,y+3.5,55);
-      campo("Prioridad",prioridad,ML+160,y+3.5,35);
-      y+=15;
-      const seccion=(t,yy)=>{doc.setFillColor(...P1);doc.rect(ML,yy,CW,5.5,"F");doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text(t.toUpperCase(),ML+2,yy+3.9);return yy+7;};
-      const parr=(txt,yy)=>{if(!txt)return yy;doc.setTextColor(...GR);doc.setFont("helvetica","normal");doc.setFontSize(9);const ls=doc.splitTextToSize(String(txt),CW-4);doc.text(ls,ML+2,yy);return yy+ls.length*4.5+3;};
-      y=seccion("Médico interconsultante",y);
-      doc.setFillColor(255,255,255);doc.rect(ML,y,CW,10,"F");doc.setDrawColor(...BR2);doc.rect(ML,y,CW,10,"S");
-      campo("Nombre",medInter,ML+2,y+3.5,100);
-      if(especialidad)campo("Especialidad",especialidad,ML+110,y+3.5,85);
-      y+=13;
-      if(diagnostico){y=seccion("Diagnóstico de envío",y);y=parr(diagnostico,y);}
-      if(motivos){y=seccion("Motivo de interconsulta",y);y=parr(motivos,y);}
-      // Tratamiento actual si existe
-      const trat=document.getElementById("ic_trat")?.value;
-      if(trat){y=seccion("Tratamiento actual",y);y=parr(trat,y);}
-      // Firma
-      y+=8;doc.setDrawColor(...BR2);doc.line(ML,y,ML+70,y);
-      doc.setTextColor(...GR);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(solicitante,ML,y+5);
-      doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(...MU2);
-      doc.text("Médico solicitante — QP Clinic",ML,y+9);
-      // Footer
-      doc.setFillColor(240,244,248);doc.rect(0,279.4-10,W,10,"F");
-      doc.setTextColor(...MU2);doc.setFont("helvetica","normal");doc.setFontSize(6);
-      doc.text(`QP Clinic  |  Interconsulta  |  ${nomPac}  |  ${new Date().toLocaleDateString("es-MX")}`,W/2,279.4-4,{align:"center"});
+  // Limpiar nombre del médico: quitar especialidad pegada con "|" si viene incluida
+  const medNombreLimpio=(medInter||"").split("|")[0].trim();
 
-      // Subir a Supabase si hay paciente activo
-      const pid=STATE.pat?.id;
-      if(pid){
-        const blob=doc.output("blob");
-        const path=`${pid}/interconsultas/IC_${Date.now()}.pdf`;
-        const {data:upData,error:upErr}=await SB.storage.from("expedientes").upload(path,blob,{contentType:"application/pdf",upsert:false});
-        if(!upErr){
-          const {data:urlD}=await SB.storage.from("expedientes").createSignedUrl(path,60*60*24*7); // 7 días
-          if(urlD?.signedUrl)pdfUrl=urlD.signedUrl;
-          // Guardar en anexos
-          await SB.from("anexos").insert({
-            paciente_id:pid,
-            titulo:`INTERCONSULTA — ${especialidad||medInter} — ${new Date().toISOString().split("T")[0]}`,
-            tipo_documento:"Laboratorio (PDF)",
-            origen:"generado",firmado:false,
-            storage_path:path,
-            fecha:new Date().toISOString().split("T")[0],
-          });
-        }
-      } else {
-        // Sin paciente: descarga directa
-        doc.save(`Interconsulta_${nomPac.replace(/\s+/g,"_")}.pdf`);
-      }
-    }catch(e){console.warn("PDF interconsulta:",e.message);}
-  }
+  const msg=`${urgente?"INTERCONSULTA URGENTE":"SOLICITUD DE INTERCONSULTA"}
+QP Clinic - Sistema de Interconsultas
 
-  const msg=`${urgente?"⚠️ *INTERCONSULTA URGENTE*":"📋 *SOLICITUD DE INTERCONSULTA*"}
+Estimado(a) Dr(a). ${medNombreLimpio},
 
-*QP Clinic — Sistema de Interconsultas*
+${solicitante} le solicita una interconsulta${especialidad?" de "+especialidad:""} para el siguiente paciente:
 
-Estimado(a) *${medInter}*,
+Paciente: ${nomPac}
+Fecha: ${fecha}
+Prioridad: ${prioridad}
+${diagnostico?"Diagnostico de envio: "+diagnostico:""}
+${motivos?"Motivo de interconsulta: "+motivos:""}
 
-${solicitante} le solicita una interconsulta${especialidad?" de *"+especialidad+"*":""} para el siguiente paciente:
+Por favor revise el expediente en QP Clinic para mas detalles.
 
-👤 *Paciente:* ${nomPac}
-📅 *Fecha:* ${fecha}
-🔴 *Prioridad:* ${prioridad}
-${diagnostico?"🏥 *Diagnóstico de envío:* "+diagnostico:""}
-${motivos?"📋 *Motivo de interconsulta:* "+motivos:""}
-${pdfUrl?"\n📎 *PDF de interconsulta:* "+pdfUrl:""}
-
-Por favor confirme su disponibilidad respondiendo este mensaje.
-
-_QP Clinic — Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX_
-_Tel: (55) 6442-3702 | qpclinic.org_`;
+QP Clinic - Insurgentes Sur 933, Piso 12, Col. Napoles, CDMX
+Tel: (55) 6442-3702`;
 
   window.open(`https://wa.me/${celFinal}?text=${encodeURIComponent(msg)}`,"_blank");
   document.getElementById("modal-wa-inter")?.remove();
-  showToast(pdfUrl?"✓ PDF generado y guardado — abre WhatsApp y envía":"✓ Abre WhatsApp y envía el mensaje al especialista");
+  showToast("✓ Abre WhatsApp y envía el mensaje al especialista");
 }
 // ── ANEXOS ────────────────────────────────────────────────
 function renderAnexos(b){
