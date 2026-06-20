@@ -66,6 +66,47 @@ const SB = createClient(
   'https://ebukjdxeekhzeurmhgkj.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidWtqZHhlZWtoemV1cm1oZ2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDI3NDAsImV4cCI6MjA5NDM3ODc0MH0.eXaNf2lXjU8_q0CeYz8CHUBZJftp9_JZY153uZFWYVQ'
 );
+
+// ── RED DE SEGURIDAD GLOBAL: token JWT corrupto ───────────────────────────────
+// Se ejecuta ANTES de cualquier otra cosa, cubre cualquier punto del código
+// (incluso antes de que arranque init()) donde pueda aparecer InvalidJWT.
+const _SB_PROJECT="ebukjdxeekhzeurmhgkj";
+function _esJWTCorrupto(msg){
+  const m=String(msg||"").toLowerCase();
+  return m.includes("invalid compact jws")||m.includes("invalidjwt")||
+         m.includes("malformed")||m.includes("jws")||
+         (m.includes("jwt")&&m.includes("invalid"));
+}
+function _limpiarYRecargar(){
+  try{
+    Object.keys(localStorage).forEach(k=>{if(k.startsWith("sb-")||k.includes(_SB_PROJECT))localStorage.removeItem(k);});
+    Object.keys(sessionStorage).forEach(k=>{if(k.startsWith("sb-")||k.includes(_SB_PROJECT))sessionStorage.removeItem(k);});
+  }catch(e){}
+  // Pequeño aviso visual aunque la UI normal aún no haya cargado
+  try{
+    const n=document.createElement("div");
+    n.style.cssText="position:fixed;top:0;left:0;right:0;background:#C62828;color:#fff;text-align:center;padding:10px;font-family:sans-serif;font-size:14px;z-index:999999";
+    n.textContent="Sesión dañada detectada — reiniciando de forma segura...";
+    document.body?.appendChild(n);
+  }catch(e){}
+  setTimeout(()=>{window.location.href=window.location.origin+window.location.pathname;},900);
+}
+// Captura cualquier excepción JS no manejada (promesas rechazadas) en toda la app
+window.addEventListener("unhandledrejection",(ev)=>{
+  const msg=ev?.reason?.message||ev?.reason?.error||ev?.reason;
+  if(_esJWTCorrupto(msg)){
+    console.warn("[Red de seguridad] JWT corrupto detectado vía unhandledrejection");
+    ev.preventDefault();
+    _limpiarYRecargar();
+  }
+});
+window.addEventListener("error",(ev)=>{
+  if(_esJWTCorrupto(ev?.message)){
+    console.warn("[Red de seguridad] JWT corrupto detectado vía window.error");
+    _limpiarYRecargar();
+  }
+});
+
 // ── ESTADO GLOBAL ─────────────────────────────────────────
 const P="#006BB6",PD="#005089",PL="#E3F4FB",AC="#24B1DA",SU="#2E7D32",DA="#C62828",BR="#CFD8DC",TX="#003A5D",MU="#546E7A",WA="#25D366";
 const WA_CLINICA="525644237028"; // WhatsApp oficial QP Clinic
@@ -12880,31 +12921,41 @@ window.abrirEditorBirads=function(){
 
 
 ;(async function init(){
+  // Helper de detección amplia de token corrupto
+  const esTokenCorrupto=(msg)=>{
+    const m=String(msg||"").toLowerCase();
+    return m.includes("invalid compact jws")||m.includes("invalidjwt")||
+           m.includes("malformed")||(m.includes("jwt")&&m.includes("invalid"))||
+           m.includes("jws");
+  };
   try{
     const {data:{session},error:sessErr}=await SB.auth.getSession();
-    // Detectar JWT corrupto desde el arranque
-    if(sessErr){
-      const msg=String(sessErr.message||"");
-      if(msg.includes("Invalid Compact JWS")||msg.includes("InvalidJWT")||msg.includes("malformed")){
-        console.warn("Token corrupto detectado al iniciar — limpiando");
+    if(sessErr&&esTokenCorrupto(sessErr.message)){
+      console.warn("Token corrupto detectado al iniciar — limpiando");
+      limpiarSesionCorrupta();
+      await SB.auth.signOut({scope:"local"}).catch(()=>{});
+      go("login");
+      return;
+    }
+    if(session){
+      // Validar que el token funcione haciendo una query de prueba
+      // (envuelta en su propio try/catch — supabase-js puede lanzar excepción
+      //  en vez de devolver {error} cuando el JWT está corrupto)
+      let testOk=true;
+      try{
+        const testQuery=await SB.from("usuarios").select("id").eq("id",session.user.id).maybeSingle();
+        if(testQuery.error&&esTokenCorrupto(testQuery.error.message)){
+          testOk=false;
+        }
+      }catch(testErr){
+        if(esTokenCorrupto(testErr?.message))testOk=false;
+      }
+      if(!testOk){
+        console.warn("Token corrupto detectado en query de prueba — limpiando");
         limpiarSesionCorrupta();
         await SB.auth.signOut({scope:"local"}).catch(()=>{});
         go("login");
         return;
-      }
-    }
-    if(session){
-      // Validar que el token funcione haciendo una query de prueba
-      const testQuery=await SB.from("usuarios").select("id").eq("id",session.user.id).maybeSingle();
-      if(testQuery.error){
-        const msg=String(testQuery.error.message||"");
-        if(msg.includes("Invalid Compact JWS")||msg.includes("InvalidJWT")||msg.includes("JWT")){
-          console.warn("Token corrupto detectado en query de prueba — limpiando");
-          limpiarSesionCorrupta();
-          await SB.auth.signOut({scope:"local"}).catch(()=>{});
-          go("login");
-          return;
-        }
       }
       STATE.user=session.user;
       const {data:prof}=await SB.from("usuarios").select("*").eq("id",session.user.id).single();
@@ -12916,10 +12967,7 @@ window.abrirEditorBirads=function(){
     }
   }catch(e){
     console.warn("Session error:",e.message);
-    const msg=String(e.message||"");
-    if(msg.includes("Invalid Compact JWS")||msg.includes("InvalidJWT")||msg.includes("malformed")){
-      limpiarSesionCorrupta();
-    }
+    if(esTokenCorrupto(e.message))limpiarSesionCorrupta();
     try{await SB.auth.signOut({scope:"local"});}catch(e2){}
     go("login");
   }
