@@ -403,6 +403,7 @@ function nav(){
         <span style="font-size:16px">👤</span>
         <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u?u.titulo+" "+u.nombre+" "+u.apellidos:"Mi perfil"}</span>
       </button>
+      <button onclick="reiniciarSesionEmergencia()" title="Usar si la sesión muestra errores InvalidJWT" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:5px;padding:3px 8px;color:rgba(255,255,255,.65);cursor:pointer;font-size:12px" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.65)'">🔄</button>
       <button onclick="cerrarSesion()" title="Cerrar sesión" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:3px 9px;color:#fff;cursor:pointer;font-size:14px">Salir</button>
     </div>
   </div>
@@ -5008,20 +5009,84 @@ async function renderInterconsultas(b){
   cargarInterconsultas();
 }
 // ── Helper: refrescar sesión antes de queries críticas ───────────────────────
+const SB_PROJECT_REF="ebukjdxeekhzeurmhgkj";
+function limpiarSesionCorrupta(){
+  // Borra TODAS las llaves de Supabase en localStorage (token corrupto/inválido)
+  try{
+    Object.keys(localStorage).forEach(k=>{
+      if(k.startsWith("sb-")||k.includes(SB_PROJECT_REF)){
+        localStorage.removeItem(k);
+      }
+    });
+  }catch(e){}
+  try{
+    Object.keys(sessionStorage).forEach(k=>{
+      if(k.startsWith("sb-")||k.includes(SB_PROJECT_REF))sessionStorage.removeItem(k);
+    });
+  }catch(e){}
+}
+
+window.reiniciarSesionEmergencia=async function(){
+  const conf=await qpConfirm(
+    "Esto cerrará tu sesión actual y limpiará los datos guardados del navegador. Úsalo solo si ves errores 'InvalidJWT' repetidos.",
+    {title:"¿Reiniciar sesión?",okLabel:"Sí, reiniciar",danger:true}
+  );
+  if(!conf)return;
+  showToast("Limpiando sesión...");
+  limpiarSesionCorrupta();
+  try{await SB.auth.signOut({scope:"local"});}catch(e){}
+  await new Promise(r=>setTimeout(r,800));
+  window.location.reload();
+}
+
 async function sbRefresh(){
   try{
     const {data:{session},error}=await SB.auth.refreshSession();
     if(error||!session){
-      showToast("Sesión expirada. Por favor vuelve a iniciar sesión.",false);
-      await new Promise(r=>setTimeout(r,1500));
-      cerrarSesion();
-      return false;
+      throw error||new Error("Sin sesión");
     }
     STATE.user=session.user;
     return true;
   }catch(e){
-    console.warn("sbRefresh error:",e.message);
+    console.warn("sbRefresh falló:",e?.message||e);
+    // Detectar token corrupto/inválido — JWT malformado no se arregla con refresh
+    const msg=String(e?.message||e||"");
+    const esJWTInvalido=msg.includes("Invalid Compact JWS")||msg.includes("InvalidJWT")||
+      msg.includes("JWT")||msg.includes("malformed")||msg.includes("invalid_grant");
+    if(esJWTInvalido){
+      showToast("La sesión está dañada — cerrando para reiniciar limpio...",false);
+      limpiarSesionCorrupta();
+      try{await SB.auth.signOut({scope:"local"});}catch(e2){}
+      await new Promise(r=>setTimeout(r,1200));
+      window.location.reload();
+      return false;
+    }
+    showToast("Sesión expirada. Por favor vuelve a iniciar sesión.",false);
+    await new Promise(r=>setTimeout(r,1500));
+    cerrarSesion();
     return false;
+  }
+}
+
+// ── Wrapper seguro: ejecuta una query de Supabase y auto-recupera si el JWT es inválido
+async function sbSafe(queryFn){
+  try{
+    const result=await queryFn();
+    if(result?.error){
+      const msg=String(result.error.message||result.error.error||"");
+      if(msg.includes("Invalid Compact JWS")||msg.includes("InvalidJWT")||result.error.statusCode==="400"&&msg.includes("JWT")){
+        const refreshed=await sbRefresh();
+        if(refreshed){
+          // Reintentar UNA vez tras refrescar
+          return await queryFn();
+        }
+        return result; // sbRefresh ya manejó el reload/logout
+      }
+    }
+    return result;
+  }catch(e){
+    console.warn("sbSafe error:",e.message);
+    return {data:null,error:e};
   }
 }
 
@@ -5035,15 +5100,19 @@ async function cargarInterconsultas(){
 }
 window.verInterconsulta=async function(id){
   loading(true,"Cargando interconsulta...");
-  const ok=await sbRefresh();if(!ok){loading(false);return;}
-  const [{data:ic},{data:medSol}] = await Promise.all([
-    SB.from("interconsultas").select("*").eq("id",id).single(),
-    SB.from("interconsultas").select("medico_solicitante_id").eq("id",id).single()
-      .then(async r=>{
-        if(!r.data?.medico_solicitante_id) return {data:null};
-        return SB.from("usuarios").select("titulo,nombre,apellidos,especialidad_1,cedula_medico,cedula_esp_1,firma_digital").eq("id",r.data.medico_solicitante_id).maybeSingle();
-      })
-  ]);
+  const r1=await sbSafe(()=>SB.from("interconsultas").select("*").eq("id",id).single());
+  if(r1.error){
+    loading(false);
+    showToast("Error al cargar interconsulta: "+(r1.error.message||"ver consola"),false);
+    console.error("verInterconsulta error:",r1.error);
+    return;
+  }
+  const ic=r1.data;
+  let medSol=null;
+  if(ic?.medico_solicitante_id){
+    const r2=await sbSafe(()=>SB.from("usuarios").select("titulo,nombre,apellidos,especialidad_1,cedula_medico,cedula_esp_1,firma_digital").eq("id",ic.medico_solicitante_id).maybeSingle());
+    medSol=r2.data;
+  }
   loading(false);
   if(!ic)return;
   const medSolNom = medSol
@@ -12630,8 +12699,31 @@ window.abrirEditorBirads=function(){
 
 ;(async function init(){
   try{
-    const {data:{session}}=await SB.auth.getSession();
+    const {data:{session},error:sessErr}=await SB.auth.getSession();
+    // Detectar JWT corrupto desde el arranque
+    if(sessErr){
+      const msg=String(sessErr.message||"");
+      if(msg.includes("Invalid Compact JWS")||msg.includes("InvalidJWT")||msg.includes("malformed")){
+        console.warn("Token corrupto detectado al iniciar — limpiando");
+        limpiarSesionCorrupta();
+        await SB.auth.signOut({scope:"local"}).catch(()=>{});
+        go("login");
+        return;
+      }
+    }
     if(session){
+      // Validar que el token funcione haciendo una query de prueba
+      const testQuery=await SB.from("usuarios").select("id").eq("id",session.user.id).maybeSingle();
+      if(testQuery.error){
+        const msg=String(testQuery.error.message||"");
+        if(msg.includes("Invalid Compact JWS")||msg.includes("InvalidJWT")||msg.includes("JWT")){
+          console.warn("Token corrupto detectado en query de prueba — limpiando");
+          limpiarSesionCorrupta();
+          await SB.auth.signOut({scope:"local"}).catch(()=>{});
+          go("login");
+          return;
+        }
+      }
       STATE.user=session.user;
       const {data:prof}=await SB.from("usuarios").select("*").eq("id",session.user.id).single();
       STATE.userProfile=prof;STATE.medProfile=prof;
@@ -12642,7 +12734,11 @@ window.abrirEditorBirads=function(){
     }
   }catch(e){
     console.warn("Session error:",e.message);
-    try{await SB.auth.signOut();}catch(e2){}
+    const msg=String(e.message||"");
+    if(msg.includes("Invalid Compact JWS")||msg.includes("InvalidJWT")||msg.includes("malformed")){
+      limpiarSesionCorrupta();
+    }
+    try{await SB.auth.signOut({scope:"local"});}catch(e2){}
     go("login");
   }
 
