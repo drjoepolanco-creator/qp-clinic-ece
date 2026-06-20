@@ -3331,7 +3331,7 @@ window.enviarPreregistro=async function(){
   const link=`https://qpclinic.org/prereg.html?token=${token}`;
   const celWA=cel.replace(/\D/g,"");const celFmt=celWA.length===10?"52"+celWA:celWA;
   const msg=`🏥 *QP Clinic — Pre-registro*\n\nHola ${nom}, te saludamos de QP Clinic.\n\nPor favor llena tu información antes de tu consulta:\n\n👉 ${link}\n\nToma solo 3 minutos desde tu celular.\n\n_QP Clinic • Insurgentes Sur 933, CDMX_`;
-  window.open(`https://wa.me/${celFmt}?text=${encodeURIComponent(msg)}`,"_blank");
+  window.open(`https://web.whatsapp.com/send?phone=${celFmt}&text=${encodeURIComponent(msg)}`,"_blank");
   const st=document.getElementById("prereg-status");
   if(st)st.innerHTML=`<span style="background:#C8E6C9;color:#1B5E20;padding:3px 10px;border-radius:20px;font-weight:600">✓ Enlace enviado por WhatsApp</span>`;
   showToast("✓ Enlace de pre-registro enviado");
@@ -5782,7 +5782,7 @@ Por favor revise el expediente en QP Clinic para mas detalles.
 QP Clinic - Insurgentes Sur 933, Piso 12, Col. Napoles, CDMX
 Tel: +52 5644237028`;
 
-  window.open(`https://wa.me/${celFinal}?text=${encodeURIComponent(msg)}`,"_blank");
+  window.open(`https://web.whatsapp.com/send?phone=${celFinal}&text=${encodeURIComponent(msg)}`,"_blank");
   document.getElementById("modal-wa-inter")?.remove();
   showToast("✓ Abre WhatsApp y envía el mensaje al especialista");
 }
@@ -6069,7 +6069,7 @@ window.enviarFirmaWAGlobal=async function(){
     ? `Estimado(a) ${resp.nombre}, le enviamos los documentos médicos de *${nomPac}* (su menor hijo/representado) para leer y firmar como tutor o responsable legal:`
     : `Estimado(a) ${nomFirmante}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:`;
   const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\n${saludo}\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\nSu información es tratada con absoluta confidencialidad.\n_QP Clinic — Especialistas en Salud Integral_`;
-  window.open(`https://wa.me/${celFinal}?text=${encodeURIComponent(msg)}`,"_blank");
+  window.open(`https://web.whatsapp.com/send?phone=${celFinal}&text=${encodeURIComponent(msg)}`,"_blank");
   showToast("✓ Abre WhatsApp y envía el mensaje"+(esMenor?" — dirigido al responsable del menor":""));
   document.getElementById("modal-firma-global")?.remove();
 }
@@ -6146,7 +6146,7 @@ window.enviarFirmaWA=async function(){
   const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\n_Su información es tratada con absoluta confidencialidad._\n_QP Clinic — Especialistas en Salud Integral_`;
   // Abrir WhatsApp desde el número de la clínica
   // El enlace se abre en el dispositivo donde está logueado +52 5644237028
-  const waUrl=`https://wa.me/${celLimpio.length===10?"52"+celLimpio:celLimpio}?text=${encodeURIComponent(msg)}`;
+  const waUrl=`https://web.whatsapp.com/send?phone=${celLimpio.length===10?"52"+celLimpio:celLimpio}&text=${encodeURIComponent(msg)}`;
   window.open(waUrl,"_blank");
   showToast("✓ Abre WhatsApp en el celular de QP Clinic (+52 5644237028) para enviar");
   ocultarModalFirma();
@@ -8617,14 +8617,14 @@ window.enviarRecetaWA=async function(tipo){
     const pdfUrl=urlData.publicUrl;
     loading(false);
     const msg=`🏥 *QP Clinic — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\n📄 Descarga tu documento aquí:\n${pdfUrl}\n\n_Insurgentes Sur 933, Nápoles, CDMX_\n_qpclinic.org_`;
-    window.open(`https://wa.me/${cel}?text=${encodeURIComponent(msg)}`,"_blank");
+    window.open(`https://web.whatsapp.com/send?phone=${cel}&text=${encodeURIComponent(msg)}`,"_blank");
     showToast("✓ Abriendo WhatsApp con enlace al PDF");
   }catch(e){
     loading(false);
     // Fallback: descarga local + abrir WhatsApp
     await generarPDFReceta(tipo);
     const msg=`🏥 *QP Clinic — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\nEl PDF se descargó en tu dispositivo. Adjúntalo en WhatsApp.\n\n_qpclinic.org_`;
-    setTimeout(()=>window.open(`https://wa.me/${cel}?text=${encodeURIComponent(msg)}`,"_blank"),1500);
+    setTimeout(()=>window.open(`https://web.whatsapp.com/send?phone=${cel}&text=${encodeURIComponent(msg)}`,"_blank"),1500);
     showToast("PDF descargado — adjúntalo en WhatsApp");
   }
 }
