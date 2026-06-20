@@ -4988,7 +4988,7 @@ window.abrirConsulta=async function(cid){
 // ── INTERCONSULTAS ────────────────────────────────────────
 async function renderInterconsultas(b){
   // Cargar médicos del sistema
-  const {data:medicos}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2,rol").eq("activo",true).order("apellidos");
+  const {data:medicos}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2,telefono,rol").eq("activo",true).order("apellidos");
   STATE._medicosIC=medicos||[]; // guardar para búsqueda en JS
   const med=STATE.userProfile||{};
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
@@ -5028,6 +5028,7 @@ async function renderInterconsultas(b){
                 </div>
                 <input type="hidden" id="ic_med" value="">
                 <input type="hidden" id="ic_med_id" value="">
+                <input type="hidden" id="ic_med_tel" value="">
               </div>
             `)}
           </div>
@@ -5133,7 +5134,7 @@ async function cargarInterconsultas(){
   const {data}=await SB.from("interconsultas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const il=document.getElementById("inter-lista");if(!il)return;
   if(!data||data.length===0){il.innerHTML=`<div style="background:${PL};border-radius:8px;padding:20px;text-align:center;color:${MU};font-size:14px">No hay interconsultas registradas</div>`;return;}
-  il.innerHTML=`<table style="width:100%;border-collapse:collapse"><thead><tr style="background:${PL}">${["Fecha","Especialidad","Médico interconsultante","Diagnóstico","Prioridad","Estatus",""].map(h=>`<th style="padding:10px 12px;font-size:14px;font-weight:700;color:${TX};text-transform:uppercase;text-align:left">${h}</th>`).join("")}</tr></thead><tbody>${data.map((ic,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:9px 10px;font-size:14px">${ic.fecha_solicitud||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.especialidad||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.medico_interconsultante?ic.medico_interconsultante.substring(0,40):"—"}</td><td style="padding:9px 10px;font-size:14px;max-width:150px">${ic.diagnostico?ic.diagnostico.substring(0,50):"—"}</td><td style="padding:9px 10px"><span style="background:#FFF8E1;color:#E65100;padding:2px 7px;border-radius:20px;font-size:14px;font-weight:600">${ic.prioridad||"—"}</span></td><td style="padding:9px 10px"><span style="background:${ic.estatus==="Respondida"?"#C8E6C9":"#FFF3E0"};color:${ic.estatus==="Respondida"?"#1B5E20":"#E65100"};padding:2px 8px;border-radius:20px;font-size:14px;font-weight:700">${ic.estatus||"Pendiente"}</span></td><td style="padding:9px 10px">${btn("📄 Ver / Responder","verInterconsulta('"+ic.id+"')","p",1)}</td></tr>`).join("")}</tbody></table>`;
+  il.innerHTML=`<table style="width:100%;border-collapse:collapse"><thead><tr style="background:${PL}">${["Fecha","Especialidad","Médico interconsultante","Diagnóstico","Prioridad","Estatus",""].map(h=>`<th style="padding:10px 12px;font-size:14px;font-weight:700;color:${TX};text-transform:uppercase;text-align:left">${h}</th>`).join("")}</tr></thead><tbody>${data.map((ic,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}"><td style="padding:9px 10px;font-size:14px">${ic.fecha_solicitud||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.especialidad||"—"}</td><td style="padding:9px 10px;font-size:14px">${ic.medico_interconsultante?ic.medico_interconsultante.substring(0,40):"—"}</td><td style="padding:9px 10px;font-size:14px;max-width:150px">${ic.diagnostico?ic.diagnostico.substring(0,50):"—"}</td><td style="padding:9px 10px"><span style="background:#FFF8E1;color:#E65100;padding:2px 7px;border-radius:20px;font-size:14px;font-weight:600">${ic.prioridad||"—"}</span></td><td style="padding:9px 10px"><span style="background:${ic.estatus==="Respondida"?"#C8E6C9":"#FFF3E0"};color:${ic.estatus==="Respondida"?"#1B5E20":"#E65100"};padding:2px 8px;border-radius:20px;font-size:14px;font-weight:700">${ic.estatus||"Pendiente"}</span></td><td style="padding:9px 10px;white-space:nowrap;display:flex;gap:4px">${btn("📄 Ver","verInterconsulta('"+ic.id+"')","p",1)}${ic.estatus!=="Respondida"?`<button onclick="reenviarWAInterconsulta('${ic.id}')" title="Reenviar recordatorio por WhatsApp" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:6px 9px;cursor:pointer;font-size:13px">📲</button>`:""}</td></tr>`).join("")}</tbody></table>`;
 }
 window.verInterconsulta=async function(id){
   loading(true,"Cargando interconsulta...");
@@ -5167,6 +5168,7 @@ window.verInterconsulta=async function(id){
       <div style="background:${PD};padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;position:sticky;top:0">
         <b style="color:#fff;font-size:15px">📋 Interconsulta — ${ic.especialidad||"Sin especialidad"}</b>
         <div style="display:flex;gap:8px;align-items:center">
+          ${!esRespondida?`<button onclick="reenviarWAInterconsulta('${id}')" style="background:#25D366;border:none;color:#fff;border-radius:7px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:600">📲 Reenviar por WhatsApp</button>`:""}
           <button onclick="imprimirInterconsulta('${id}')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:7px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:600">📄 Imprimir PDF</button>
           <button onclick="document.getElementById('modal-inter-ver').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-weight:700">✕</button>
         </div>
@@ -5623,6 +5625,7 @@ window.elegirMedInter=function(medId){
   document.getElementById("ic_med_buscar").value=nombre+(esp?" — "+esp:"");
   document.getElementById("ic_med").value=nombre+(esp?" | "+esp:"");
   document.getElementById("ic_med_id").value=medId;
+  document.getElementById("ic_med_tel").value=m.telefono||"";
   document.getElementById("ic_med_externo").style.display="none";
   document.getElementById("ic_med_dropdown").style.display="none";
   // Auto-rellenar Especialidad solicitada con la especialidad del médico elegido
@@ -5662,6 +5665,7 @@ window.guardarInterconsulta=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
   await sbRefresh();
   const medIdSel=document.getElementById("ic_med_id")?.value||"";
+  const medTelSel=document.getElementById("ic_med_tel")?.value||"";
   const esExterno=document.getElementById("ic_med_externo")?.style.display==="block";
   const medInter=esExterno?(document.getElementById("ic_med")?.value||gv("ic_med")):gv("ic_med");
   if(!medInter){showToast("Selecciona o escribe el médico interconsultante",false);return;}
@@ -5672,25 +5676,26 @@ window.guardarInterconsulta=async function(){
   const diagnostico=gv("ic_diag")||"";
   const motivos=gv("ic_mot")||"";
 
-  const {error}=await SB.from("interconsultas").insert({
+  const {data:icData,error}=await SB.from("interconsultas").insert({
     paciente_id:pid,
     medico_solicitante_id:STATE.user?.id||null,
     medico_interconsultante:medInter,
+    medico_interconsultante_id:medIdSel||null,
     especialidad,
     diagnostico,
     tratamiento:gv("ic_trat"),
     motivos,
     prioridad,
     estatus:"Pendiente de respuesta"
-  });
+  }).select().single();
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
 
-  // Buscar celular del médico interconsultante si está en el sistema
-  let celMedInter=null;
-  if(medIdSel){
-    const {data:medData}=await SB.from("usuarios").select("celular,nombre,apellidos").eq("id",medIdSel).maybeSingle();
-    if(medData?.celular)celMedInter=medData.celular;
+  // Celular del médico interconsultante: ya viene cargado del selector (campo "telefono" en usuarios)
+  let celMedInter=medTelSel||null;
+  if(!celMedInter&&medIdSel){
+    const {data:medData}=await SB.from("usuarios").select("telefono").eq("id",medIdSel).maybeSingle();
+    if(medData?.telefono)celMedInter=medData.telefono;
   }
 
   showToast("✓ Interconsulta guardada");
@@ -5752,7 +5757,84 @@ window.guardarInterconsulta=async function(){
   document.body.appendChild(overlay);
 }
 
-window.enviarWAInterconsulta=async function(nomPac,medInter,solicitante,especialidad,diagnostico,motivos,prioridad){
+// ── Reenviar recordatorio de una interconsulta ya guardada ───────────────────
+window.reenviarWAInterconsulta=async function(icId){
+  loading(true,"Cargando interconsulta...");
+  const r=await sbSafe(()=>SB.from("interconsultas").select("*").eq("id",icId).single());
+  if(r.error||!r.data){loading(false);showToast("No se pudo cargar la interconsulta",false);return;}
+  const ic=r.data;
+
+  let medSol=null;
+  if(ic.medico_solicitante_id){
+    const rs=await sbSafe(()=>SB.from("usuarios").select("titulo,nombre,apellidos").eq("id",ic.medico_solicitante_id).maybeSingle());
+    medSol=rs.data;
+  }
+  // Celular: primero buscar por medico_interconsultante_id si está vinculado
+  let celPrefill="";
+  if(ic.medico_interconsultante_id){
+    const rt=await sbSafe(()=>SB.from("usuarios").select("telefono").eq("id",ic.medico_interconsultante_id).maybeSingle());
+    celPrefill=rt.data?.telefono||"";
+  }
+  loading(false);
+
+  const p=STATE.pat||{};
+  const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
+  const solicitante=medSol?`${medSol.titulo||"Dr."} ${medSol.nombre||""} ${medSol.apellidos||""}`.trim():(STATE.userProfile?`${STATE.userProfile.titulo||"Dr."} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():"El médico solicitante");
+  const urgente=ic.prioridad==="Urgente (hoy)"||ic.prioridad==="Emergencia (inmediata)";
+
+  document.getElementById("modal-inter-ver")?.remove();
+  document.getElementById("modal-wa-inter")?.remove();
+
+  const overlay=document.createElement("div");
+  overlay.id="modal-wa-inter";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:flex;align-items:center;justify-content:center;padding:16px";
+  overlay.innerHTML=`
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:480px;box-shadow:0 16px 40px #00000040">
+    <div style="background:#F57C00;padding:14px 18px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <p style="color:rgba(255,255,255,.8);font-size:11px;font-weight:600;margin-bottom:2px">🔁 RECORDATORIO</p>
+        <b style="color:#fff;font-size:14px">Reenviar notificación al especialista</b>
+      </div>
+      <button onclick="document.getElementById('modal-wa-inter').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700">✕</button>
+    </div>
+    <div style="padding:18px">
+      <p style="font-size:13px;color:#546E7A;margin-bottom:14px">Reenvía un recordatorio de esta interconsulta pendiente al Dr./Dra. <b>${ic.medico_interconsultante||"—"}</b></p>
+      <div style="background:#F5F5F5;border-radius:8px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:#37474F;line-height:1.7">
+        <b>Paciente:</b> ${nomPac}<br>
+        ${ic.especialidad?`<b>Especialidad:</b> ${ic.especialidad}<br>`:""}
+        ${ic.diagnostico?`<b>Diagnóstico:</b> ${ic.diagnostico.substring(0,80)}${ic.diagnostico.length>80?"...":""}<br>`:""}
+        ${ic.motivos?`<b>Motivo:</b> ${ic.motivos.substring(0,80)}${ic.motivos.length>80?"...":""}<br>`:""}
+        <b>Prioridad:</b> <span style="color:${urgente?"#C62828":"#2E7D32"};font-weight:700">${ic.prioridad||"—"}</span><br>
+        <b>Solicitada el:</b> ${ic.fecha_solicitud||""} ${ic.hora_solicitud||""}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div style="flex:0.4">
+          <label style="font-size:11px;font-weight:700;color:#546E7A;display:block;margin-bottom:4px">PAÍS</label>
+          <select id="wa-inter-pais" style="width:100%;padding:8px;border:1.5px solid #CFD8DC;border-radius:7px;font-size:13px;outline:none">
+            <option value="52">🇲🇽 México +52</option>
+            <option value="1">🇺🇸 USA +1</option>
+          </select>
+        </div>
+        <div style="flex:0.6">
+          <label style="font-size:11px;font-weight:700;color:#546E7A;display:block;margin-bottom:4px">CELULAR DEL ESPECIALISTA</label>
+          <input id="wa-inter-cel" value="${celPrefill}" type="tel" placeholder="55XXXXXXXX" style="width:100%;padding:8px;border:1.5px solid #CFD8DC;border-radius:7px;font-size:14px;outline:none">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="enviarWAInterconsulta('${nomPac.replace(/'/g,"\\'")}','${(ic.medico_interconsultante||"").replace(/'/g,"\\'")}','${solicitante.replace(/'/g,"\\'")}','${(ic.especialidad||"").replace(/'/g,"\\'")}','${(ic.diagnostico||"").substring(0,60).replace(/'/g,"\\'")}','${(ic.motivos||"").substring(0,60).replace(/'/g,"\\'")}','${ic.prioridad||""}',true)" 
+          style="flex:1;padding:10px;background:#25D366;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;min-width:140px">
+          💬 Reenviar recordatorio
+        </button>
+        <button onclick="document.getElementById('modal-wa-inter').remove()" style="padding:10px 16px;background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:8px;font-size:13px;cursor:pointer">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+window.enviarWAInterconsulta=async function(nomPac,medInter,solicitante,especialidad,diagnostico,motivos,prioridad,esRecordatorio){
   const cel=(document.getElementById("wa-inter-cel")?.value||"").replace(/\D/g,"");
   const pais=document.getElementById("wa-inter-pais")?.value||"52";
   if(!cel){showToast("Ingresa el celular del especialista",false);return;}
@@ -5764,12 +5846,12 @@ window.enviarWAInterconsulta=async function(nomPac,medInter,solicitante,especial
   // Limpiar nombre del médico: quitar especialidad pegada con "|" si viene incluida
   const medNombreLimpio=(medInter||"").split("|")[0].trim();
 
-  const msg=`${urgente?"INTERCONSULTA URGENTE":"SOLICITUD DE INTERCONSULTA"}
+  const msg=`${esRecordatorio?"RECORDATORIO - INTERCONSULTA PENDIENTE":(urgente?"INTERCONSULTA URGENTE":"SOLICITUD DE INTERCONSULTA")}
 QP Clinic - Sistema de Interconsultas
 
 Estimado(a) Dr(a). ${medNombreLimpio},
 
-${solicitante} le solicita una interconsulta${especialidad?" de "+especialidad:""} para el siguiente paciente:
+${esRecordatorio?"Le recordamos que tiene pendiente la siguiente interconsulta":(solicitante+" le solicita una interconsulta"+(especialidad?" de "+especialidad:"")+" para el siguiente paciente")}:
 
 Paciente: ${nomPac}
 Fecha: ${fecha}
