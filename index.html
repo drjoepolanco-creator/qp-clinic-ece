@@ -4948,13 +4948,9 @@ window.abrirConsulta=async function(cid){
 async function renderInterconsultas(b){
   // Cargar médicos del sistema
   const {data:medicos}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2,rol").eq("activo",true).order("apellidos");
+  STATE._medicosIC=medicos||[]; // guardar para búsqueda en JS
   const med=STATE.userProfile||{};
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
-  const medOptions=(medicos||[]).map(m=>{
-    const nombre=`${m.titulo||""} ${m.nombre||""} ${m.apellidos||""}`.trim();
-    const esp=m.especialidad_2||m.especialidad_1||"";
-    return`<option value="${nombre}${esp?" | "+esp:""}">${nombre}${esp?" — "+esp:""}</option>`;
-  }).join("");
   b.innerHTML=`<div style="max-width:1000px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">INTERCONSULTA / REFERIDO MÉDICO</b></div>
@@ -4982,18 +4978,15 @@ async function renderInterconsultas(b){
           <div>
             ${fld("Médico interconsultante",`
               <div style="position:relative">
-                <select id="ic_med_sel" onchange="seleccionarMedInter(this.value)"
-                  style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px;cursor:pointer">
-                  <option value="">— Seleccionar del catálogo QP Clinic —</option>
-                  <optgroup label="Médicos del sistema">
-                    ${medOptions}
-                  </optgroup>
-                  <option value="__externo__">➕ Médico externo (escribir manualmente)</option>
-                </select>
+                <input id="ic_med_buscar" type="text" autocomplete="off" placeholder="🔍 Buscar por nombre o especialidad..."
+                  oninput="filtrarMedInter(this.value)" onfocus="filtrarMedInter(this.value)"
+                  style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">
+                <div id="ic_med_dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid ${BR};border-radius:8px;margin-top:4px;max-height:260px;overflow-y:auto;z-index:50;box-shadow:0 6px 18px rgba(0,0,0,.12)"></div>
                 <div id="ic_med_externo" style="display:none;margin-top:8px">
                   ${ta("ic_med","","Nombre, especialidad, teléfono del médico externo...",3)}
                 </div>
                 <input type="hidden" id="ic_med" value="">
+                <input type="hidden" id="ic_med_id" value="">
               </div>
             `)}
           </div>
@@ -5002,6 +4995,9 @@ async function renderInterconsultas(b){
           <div>${fld("Tratamiento actual",ta("ic_trat","","Tratamiento en curso...",3))}</div>
           <div style="grid-column:span 2">${fld("Motivos de la interconsulta",ta("ic_mot","","Motivos por los que se solicita y lo que se espera del médico interconsultante...",4))}</div>
           ${fld("Prioridad",sel("ic_pri",["Electiva (no urgente)","Prioritaria (esta semana)","Urgente (hoy)","Emergencia (inmediata)"]))}
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:7px;margin-top:18px;padding-top:14px;border-top:1px solid ${BR}">
+          ${btn("💾 Guardar","guardarInterconsulta()","ok",1)}${btn("✕ Cancelar","cerrarFormInter()","d",1)}
         </div>
       </div>
     </div>
@@ -5180,18 +5176,17 @@ window.verInterconsulta=async function(id){
           </div>
           <div style="margin-top:10px"><p style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:4px">Recomendaciones</p><div style="background:#fff;border-radius:7px;padding:8px;font-size:14px;white-space:pre-wrap">${ic.recomendaciones||"—"}</div></div>
         </div>`:`
-        <div style="background:#E3F4FB;border-radius:10px;padding:14px;border:1px solid #90CAF9">
-          <p style="font-size:13px;font-weight:700;color:#006BB6;margin-bottom:12px">📝 Registrar respuesta de interconsulta</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-            ${fld("Hallazgos clínicos",`<textarea id="ic_hallazgos" rows="3" placeholder="Hallazgos del médico interconsultante..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-family:inherit;font-size:14px;resize:vertical"></textarea>`)}
-            ${fld("Diagnóstico interconsultante",`<textarea id="ic_diag_resp" rows="3" placeholder="Diagnóstico con CIE-10..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-family:inherit;font-size:14px;resize:vertical"></textarea>`)}
-          </div>
-          <div style="margin-bottom:12px">
-            ${fld("Recomendaciones y plan",`<textarea id="ic_recom" rows="3" placeholder="Tratamiento sugerido, indicaciones, seguimiento..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-family:inherit;font-size:14px;resize:vertical"></textarea>`)}
-          </div>
-          <div style="display:flex;justify-content:flex-end;gap:8px">
-            <button onclick="document.getElementById('modal-inter-ver').remove()" style="background:#F5F5F5;border:1px solid ${BR};border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px">Cerrar sin responder</button>
-            <button onclick="guardarRespuestaInterconsulta('${ic.id}','${medNom.replace(/'/g,"\\'")}')" style="background:#006BB6;color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">✅ Guardar respuesta</button>
+        <div style="background:#E3F4FB;border-radius:10px;padding:16px;border:1px solid #90CAF9;text-align:center">
+          <p style="font-size:30px;margin-bottom:6px">📝</p>
+          <p style="font-size:14px;font-weight:700;color:#006BB6;margin-bottom:6px">La respuesta se documenta en una Nota Médica</p>
+          <p style="font-size:13px;color:${MU};max-width:440px;margin:0 auto 14px;line-height:1.6">
+            Por norma (NOM-004), la respuesta del interconsultante se integra al expediente como
+            <b>Nota de Interconsulta</b> dentro del módulo de Consultas — no se escribe aquí.
+            Al continuar se abrirá una nota nueva con el tipo ya preseleccionado.
+          </p>
+          <div style="display:flex;justify-content:center;gap:8px">
+            <button onclick="document.getElementById('modal-inter-ver').remove()" style="background:#F5F5F5;border:1px solid ${BR};border-radius:7px;padding:9px 16px;cursor:pointer;font-size:14px">Cerrar</button>
+            <button onclick="irANotaInterconsulta('${ic.id}','${(ic.especialidad||"").replace(/'/g,"\\'")}')" style="background:#006BB6;color:#fff;border:none;border-radius:7px;padding:9px 18px;cursor:pointer;font-size:14px;font-weight:700">📝 Crear Nota de Interconsulta →</button>
           </div>
         </div>`}
       </div>
@@ -5199,6 +5194,15 @@ window.verInterconsulta=async function(id){
   document.body.appendChild(overlay);
   // Guardar datos de la IC en STATE para el PDF
   STATE._icActual={ic,medSol};
+}
+
+window.irANotaInterconsulta=function(icId,especialidad){
+  document.getElementById("modal-inter-ver")?.remove();
+  // Preparar una consulta nueva con tipo "Nota de interconsulta" preseleccionado
+  STATE.consultaActual={tipo_nota:"Nota de interconsulta"};
+  STATE.notaPendienteIC={icId,especialidad}; // vincula la IC para marcarla como respondida al guardar
+  go("consulta");
+  showToast("📝 Nota de interconsulta lista — completa y guarda para marcarla como respondida");
 }
 window.guardarRespuestaInterconsulta=async function(id,medNom){
   const hall=document.getElementById("ic_hallazgos")?.value||"";
@@ -5224,9 +5228,15 @@ window.guardarRespuestaInterconsulta=async function(id,medNom){
 
 window.imprimirInterconsulta=async function(id){
   const {jsPDF}=window.jspdf;if(!jsPDF){showToast("jsPDF no disponible",false);return;}
-  loading(true,"Generando PDF...");
+  if(typeof html2canvas==="undefined"){
+    await new Promise((res,rej)=>{
+      const s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);
+    });
+  }
+  loading(true,"Generando PDF de interconsulta...");
   await sbRefresh();
-  // Cargar interconsulta si no está en STATE
   let ic=STATE._icActual?.ic;
   let medSolData=STATE._icActual?.medSol;
   if(!ic||ic.id!==id){
@@ -5240,172 +5250,259 @@ window.imprimirInterconsulta=async function(id){
     ]);
     ic=ic2;medSolData=ms;
   }
-  loading(false);
-  if(!ic){showToast("No se encontró la interconsulta",false);return;}
-  const p=STATE.pat||{};
-  const medActual=STATE.medProfile||STATE.userProfile||{};
-  // Médico solicitante (de Supabase) o actual
-  const medSol=medSolData||medActual;
-  const T=(v)=>{if(v===null||v===undefined)return"";const s=String(v);return(s==="null"||s==="undefined")?"":s;};
-  const S=(v)=>T(v).replace(/[áÁ]/g,"a").replace(/[éÉ]/g,"e").replace(/[íÍ]/g,"i").replace(/[óÓ]/g,"o").replace(/[úÚüÜ]/g,"u").replace(/[ñÑ]/g,"n").replace(/[—–]/g,"-").replace(/[""«»]/g,'"').replace(/['']/g,"'").replace(/[•·]/g,"-").replace(/[→←↑↓]/g,"->").replace(/[µ]/g,"u").replace(/[°]/g," gr.").replace(/[²³]/g,"").replace(/[\u0100-\uFFFF]/g,"?");
-  const nomPac=S([p.nombre,p.apellido_paterno,p.apellido_materno].filter(Boolean).join(" "));
-  const medSolNom=S([medSol?.titulo||"Dr.",medSol?.nombre||"",medSol?.apellidos||""].filter(Boolean).join(" "));
-  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
-  const hora=new Date().toTimeString().substring(0,5);
-  const folio="IC-"+Date.now().toString().slice(-8);
-  const esRespondida=ic.estatus==="Respondida";
-  // Construir credenciales del médico solicitante
-  const shortI=s=>s?s.split(" — ")[0].split(" · ")[0].trim():"";
-  const credLines=[];
-  if(medSol?.licenciatura)credLines.push(S(medSol.licenciatura));
-  if(medSol?.cedula_medico)credLines.push("Ced. Prof. "+S(medSol.cedula_medico));
-  if(medSol?.especialidad_1)credLines.push("Esp. en "+S(medSol.especialidad_1));
-  if(medSol?.cedula_esp_1)credLines.push("Ced. Esp. "+S(medSol.cedula_esp_1));
-  if(medSol?.especialidad_2)credLines.push("Subesp. en "+S(medSol.especialidad_2));
-  if(medSol?.cedula_subesp)credLines.push("Ced. Subesp. "+S(medSol.cedula_subesp));
-  // Cargar imágenes
-  let logoB64=null,firmaB64=null;
-  try{logoB64=await urlToBase64firma("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");}catch(e){}
-  const firmaUrl=medSol?.firma_digital;
-  if(firmaUrl){try{firmaB64=await urlToBase64firma(firmaUrl);}catch(e){}}
+  if(!ic){loading(false);showToast("No se encontró la interconsulta",false);return;}
+
   try{
+    const p=STATE.pat||{};
+    const medActual=STATE.medProfile||STATE.userProfile||{};
+    const medSol=medSolData||medActual;
+    const esRespondida=ic.estatus==="Respondida";
+    const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
+    const hora=new Date().toTimeString().substring(0,5);
+    const folio=ic.folio||("IC-"+String(id).replace(/-/g,"").slice(-8).toUpperCase());
+
+    const nomPac=[p.nombre,p.apellido_paterno,p.apellido_materno].filter(Boolean).join(" ")||"—";
+    const medSolNom=[medSol?.titulo||"Dr.",medSol?.nombre||"",medSol?.apellidos||""].filter(Boolean).join(" ").trim();
+    const edad=p.fecha_nacimiento?calcEdad(p.fecha_nacimiento):"—";
+
+    // Credenciales del médico solicitante
+    const credLines=[];
+    if(medSol?.cedula_medico)credLines.push("Céd. Prof. "+medSol.cedula_medico);
+    if(medSol?.especialidad_1)credLines.push(medSol.especialidad_1+(medSol.cedula_esp_1?" · Céd. Esp. "+medSol.cedula_esp_1:""));
+
+    // Diagnósticos: separar líneas tipo "M54.5 Lumbago..." si vienen en el campo diagnostico
+    const dxLineas=(ic.diagnostico||"").split("\n").map(l=>l.trim()).filter(Boolean);
+    const dxFilas=dxLineas.map(l=>{
+      const m=l.match(/^([A-Z]\d{2}(?:\.\d{1,3})?)\s*[\-–—:]?\s*(.*)$/);
+      return m?{cie:m[1],desc:m[2]||l}:{cie:"",desc:l};
+    });
+
+    // Tratamiento actual: lista
+    const tratLineas=(ic.tratamiento||"").split("\n").map(l=>l.trim()).filter(Boolean);
+
+    // Firma digital
+    let firmaB64=null;
+    if(medSol?.firma_digital){
+      try{const r=await fetch(medSol.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}
+    }
+    // Logo QP Clinic
+    let logoB64=null;
+    try{
+      const r=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");
+      const bl=await r.blob();
+      logoB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
+    }catch(e){}
+
+    // ── PALETA (según JSON) ──────────────────────────────────
+    const AZ="#005B8F",AZ2="#0077B6",BG="#F3FAFD",SEC="#F3FAFD",BRD="#D6E4EC",TXT="#1F2933",MU2="#5F6B73",WARN_BG="#FFF4E5",WARN_TX="#B7791F",WARN_BR="#F6C177",OK_BG="#E8F5EF",OK_TX="#1B7F5C",OK_BR="#9BD8BF";
+
+    // ── HTML→Canvas helper ────────────────────────────────────
+    const CW_PX=720;
+    const HCSC=3;
+    const PX_PER_MM=CW_PX*HCSC/189.9;
+    const renderHTML=async(html)=>{
+      const wrap=document.createElement("div");
+      wrap.style.cssText=`position:fixed;left:-9999px;top:0;width:${CW_PX}px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:${TXT};line-height:1.35;box-sizing:border-box`;
+      wrap.innerHTML=html;
+      document.body.appendChild(wrap);
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      const cv=await html2canvas(wrap,{scale:HCSC,useCORS:true,backgroundColor:"#fff",logging:false,imageTimeout:10000,allowTaint:true});
+      document.body.removeChild(wrap);
+      return cv;
+    };
+
+    const PW=215.9,PH=279.4,ML=14,CWMM=PW-28,FH=9;
     const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
-    const W=215.9,M=14,CW=W-2*M;
-    // ── ENCABEZADO ────────────────────────────────────────
-    doc.setFillColor(0,80,137);doc.rect(0,0,W,40,"F");
-    if(logoB64){try{doc.addImage(logoB64,"JPEG",W-50,2,44,34);}catch(e){}}
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(11);doc.setFont("helvetica","bold");
-    doc.text("QP Clinic - Especialistas en Salud Integral",M,9);
-    doc.setFontSize(7.5);doc.setFont("helvetica","normal");
-    doc.text("Insurgentes Sur 933, Piso 12, Col. Napoles, Benito Juarez, CDMX",M,14);
-    doc.text("Tel. 55 5682 4345 / 56 4423 7028  |  qpclinic.org  |  RFC: QCL230518J66",M,18);
-    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(S(medSolNom),M,25);
-    doc.setFontSize(7.5);doc.setFont("helvetica","normal");
-    credLines.slice(0,4).forEach((cl,i)=>doc.text(cl,M,29+i*3.5));
-    // ── BANDA TÍTULO ────────────────────────────────────────
-    const bandaCol=esRespondida?[0,100,60]:[0,107,182];
-    doc.setFillColor(...bandaCol);doc.rect(0,40,W,8,"F");
-    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont("helvetica","bold");
-    const titulo=esRespondida
-      ?"NOTA DE INTERCONSULTA Y CONTRARREFERENCIA — NOM-004-SSA3-2012 Art. 9"
-      :"NOTA DE SOLICITUD DE INTERCONSULTA — NOM-004-SSA3-2012 Art. 9";
-    doc.text(titulo,W/2,45.5,{align:"center"});
-    // ── FOLIO / FECHA ────────────────────────────────────────
-    let y=52;
-    doc.setFillColor(227,244,251);doc.rect(M,y,CW,12,"F");
-    doc.setDrawColor(0,107,182);doc.setLineWidth(0.3);doc.rect(M,y,CW,12);
-    doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(0,58,93);
-    doc.text("Folio:",M+2,y+5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.text(folio,M+14,y+5);
-    doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);doc.text("Fecha:",M+60,y+5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.text(hoy,M+73,y+5);
-    doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);doc.text("Hora:",M+100,y+5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);doc.text(hora,M+111,y+5);
-    doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);doc.text("Estatus:",M+2,y+10);
-    doc.setFont("helvetica","bold");doc.setTextColor(esRespondida?0:180,esRespondida?120:80,esRespondida?50:0);
-    doc.text(S(ic.estatus||"Pendiente"),M+22,y+10);
-    y+=14;
-    // Helpers
-    const caja=(label,valor,x,cy,w,h=11)=>{
-      doc.setDrawColor(190,210,230);doc.setLineWidth(0.25);doc.rect(x,cy,w,h);
-      doc.setFontSize(6.5);doc.setFont("helvetica","bold");doc.setTextColor(0,107,182);doc.text(S(label).toUpperCase(),x+2,cy+4);
-      doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
-      const ls=doc.splitTextToSize(S(valor||"—"),w-4);doc.text(ls[0]||"",x+2,cy+9);
-      return cy+h;
+
+    const addFooter=(pg,total)=>{
+      doc.setFillColor(238,244,248);doc.rect(0,PH-FH,PW,FH,"F");
+      doc.setDrawColor(214,228,236);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
+      doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(6.2);
+      doc.text(`NOM-004-SSA3-2012 Art. 9  |  QP Clinic — qpclinic.org  |  Folio: ${folio}  |  Generado: ${hoy} ${hora}  |  Página ${pg} de ${total}`,PW/2,PH-3.5,{align:"center",maxWidth:PW-6});
     };
-    const bloq=(titulo2,contenido,cy2,color=[0,80,137])=>{
-      if(!contenido||!S(contenido).trim())return cy2;
-      if(cy2>238){doc.addPage();cy2=14;}
-      doc.setFillColor(...color);doc.rect(M,cy2,CW,6,"F");
-      doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
-      doc.text(S(titulo2),M+2,cy2+4.2);cy2+=7;
-      doc.setTextColor(38,50,56);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
-      const ls2=doc.splitTextToSize(S(contenido),CW-4);
-      ls2.forEach(l=>{if(cy2>250){doc.addPage();cy2=14;}doc.text(S(l),M+2,cy2);cy2+=4.5;});
-      return cy2+3;
+
+    const AVAIL_H=PH-FH-ML;
+    const pages=[];
+    const canvasToPDFPages=async(cv)=>{
+      let srcY=0;
+      while(srcY<cv.height){
+        const sliceH=Math.min(Math.round(AVAIL_H*PX_PER_MM),cv.height-srcY);
+        if(sliceH<=0)break;
+        const sl=document.createElement("canvas");
+        sl.width=cv.width;sl.height=sliceH;
+        sl.getContext("2d").drawImage(cv,0,-srcY);
+        pages.push(sl);
+        srcY+=sliceH;
+      }
     };
-    // ── I. DATOS DEL PACIENTE ─────────────────────────────
-    doc.setFillColor(0,80,137);doc.rect(M,y,CW,6,"F");
-    doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
-    doc.text("I. DATOS DEL PACIENTE",M+2,y+4.2);y+=7;
-    caja("Nombre completo",nomPac,M,y,105,11);
-    caja("No. expediente",T(p.numero_expediente),M+106,y,CW-106,11);y+=12;
-    caja("Fecha de nacimiento",T(p.fecha_nacimiento),M,y,45,11);
-    caja("Edad",S(calcEdad(p.fecha_nacimiento)),M+46,y,22,11);
-    caja("Sexo",S(p.sexo_biologico||""),M+69,y,28,11);
-    caja("CURP",S(p.curp||""),M+98,y,CW-98,11);y+=12;
-    caja("Domicilio",S([p.calle,p.colonia].filter(Boolean).join(", ")||""),M,y,105,11);
-    caja("Telefono / Celular",S(p.celular||""),M+106,y,CW-106,11);y+=13;
-    y+=2;
-    // ── II. MÉDICO SOLICITANTE ────────────────────────────
-    doc.setFillColor(0,80,137);doc.rect(M,y,CW,6,"F");
-    doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
-    doc.text("II. MEDICO SOLICITANTE",M+2,y+4.2);y+=7;
-    caja("Nombre del medico solicitante",S(medSolNom),M,y,105,11);
-    caja("Cedula profesional",S(medSol?.cedula_medico||""),M+106,y,CW-106,11);y+=12;
-    if(medSol?.especialidad_1){
-      caja("Especialidad",S(medSol.especialidad_1||""),M,y,80,11);
-      caja("Cedula de especialidad",S(medSol?.cedula_esp_1||""),M+81,y,CW-81,11);y+=12;
+
+    // ── Helpers de sección ────────────────────────────────────
+    const secBar=(t)=>`<div style="background:${AZ};padding:6px 12px;border-radius:4px 4px 0 0;margin-top:11px"><b style="color:#fff;font-size:11px;letter-spacing:.2px">${t}</b></div>`;
+    const fieldGrid=(rows)=>`
+    <div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;background:#fff">
+      ${rows.map(row=>`<div style="display:flex;border-bottom:1px solid ${BRD}">
+        ${row.map(([l,v,flex])=>`<div style="flex:${flex||1};padding:7px 11px;border-right:1px solid ${BRD}">
+          <div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">${l}</div>
+          <div style="font-size:10px;font-weight:600;color:${TXT};word-break:break-word">${v||"—"}</div>
+        </div>`).join("")}
+      </div>`).join("")}
+    </div>`.replace(/border-right:1px solid \${BRD}">\s*([\s\S]*?)<\/div>\s*<\/div>(?=\s*<\/div>)/,"$&"); // no-op safeguard
+
+    // ── HEADER ────────────────────────────────────────────────
+    const headerHTML=`
+    <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic - Especialistas en Salud Integral</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:7px">Insurgentes Sur 933, Piso 12, Col. Nápoles, Benito Juárez, CDMX &nbsp;|&nbsp; Tel. 55 6442-3702 &nbsp;|&nbsp; qpclinic.org &nbsp;|&nbsp; RFC: QCL230518J66</div>
+        <div style="font-size:10.5px;font-weight:bold;color:#fff;margin-bottom:2px">${medSolNom}</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.85)">${credLines.join(" &nbsp;·&nbsp; ")}</div>
+      </div>
+      ${logoB64?`<div style="background:#fff;border-radius:4px;padding:5px;flex-shrink:0"><img src="${logoB64}" style="height:38px;display:block;object-fit:contain"></div>`:""}
+    </div>
+    <div style="background:${AZ2};padding:6px 12px;text-align:center;border-radius:0;margin-top:0">
+      <b style="color:#fff;font-size:10.5px;letter-spacing:.3px">NOTA DE SOLICITUD DE INTERCONSULTA — NOM-004-SSA3-2012 Art. 9</b>
+    </div>
+    <div style="background:${BG};border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:8px 12px;display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+      <div><span style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold">Folio</span><br><span style="font-size:10px;font-weight:700;color:${TXT}">${folio}</span></div>
+      <div><span style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold">Fecha</span><br><span style="font-size:10px;font-weight:700;color:${TXT}">${ic.fecha_solicitud||hoy}</span></div>
+      <div><span style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold">Hora</span><br><span style="font-size:10px;font-weight:700;color:${TXT}">${ic.hora_solicitud||hora}</span></div>
+      <div style="margin-left:auto">
+        <span style="background:${esRespondida?OK_BG:WARN_BG};color:${esRespondida?OK_TX:WARN_TX};border:1px solid ${esRespondida?OK_BR:WARN_BR};padding:3px 11px;border-radius:14px;font-size:9.5px;font-weight:700">${esRespondida?"Respondida":"Pendiente de respuesta"}</span>
+      </div>
+    </div>`;
+
+    // ── I. DATOS DEL PACIENTE ─────────────────────────────────
+    const pacienteHTML=secBar("I. DATOS DEL PACIENTE")+`
+    <div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;background:#fff">
+      <div style="display:flex;border-bottom:1px solid ${BRD}">
+        <div style="flex:2;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Nombre completo</div><div style="font-size:10.5px;font-weight:700;color:${TXT}">${nomPac}</div></div>
+        <div style="flex:1;padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">No. Expediente</div><div style="font-size:10.5px;font-weight:700;color:${TXT}">${p.numero_expediente||"—"}</div></div>
+      </div>
+      <div style="display:flex;border-bottom:1px solid ${BRD}">
+        <div style="flex:1;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">F. Nacimiento</div><div style="font-size:10px;font-weight:600;color:${TXT}">${p.fecha_nacimiento||"—"}</div></div>
+        <div style="flex:0.7;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Edad</div><div style="font-size:10px;font-weight:600;color:${TXT}">${edad}</div></div>
+        <div style="flex:0.8;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Sexo</div><div style="font-size:10px;font-weight:600;color:${TXT}">${p.sexo_biologico||"—"}</div></div>
+        <div style="flex:1.5;padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">CURP</div><div style="font-size:9.5px;font-weight:600;color:${TXT};word-break:break-all">${p.curp||"—"}</div></div>
+      </div>
+      <div style="display:flex">
+        <div style="flex:1.6;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Domicilio</div><div style="font-size:9.5px;font-weight:600;color:${TXT}">${[p.domicilio?.calle,p.domicilio?.colonia,p.domicilio?.municipio].filter(Boolean).join(", ")||"—"}</div></div>
+        <div style="flex:1;padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Teléfono / Celular</div><div style="font-size:10px;font-weight:600;color:${TXT}">${p.celular||p.telefono_principal||"—"}</div></div>
+      </div>
+    </div>`;
+
+    // ── II. MÉDICO SOLICITANTE ────────────────────────────────
+    const solicitanteHTML=secBar("II. MÉDICO SOLICITANTE")+`
+    <div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;background:#fff">
+      <div style="display:flex;border-bottom:1px solid ${BRD}">
+        <div style="flex:2;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Nombre del médico solicitante</div><div style="font-size:10.5px;font-weight:700;color:${TXT}">${medSolNom}</div></div>
+        <div style="flex:1;padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Cédula profesional</div><div style="font-size:10px;font-weight:600;color:${TXT}">${medSol?.cedula_medico||"—"}</div></div>
+      </div>
+      <div style="display:flex;border-bottom:1px solid ${BRD}">
+        <div style="flex:1;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Especialidad</div><div style="font-size:10px;font-weight:600;color:${TXT}">${medSol?.especialidad_2||medSol?.especialidad_1||"—"}</div></div>
+        <div style="flex:1;padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Cédula de especialidad</div><div style="font-size:10px;font-weight:600;color:${TXT}">${medSol?.cedula_esp_1||"—"}</div></div>
+      </div>
+      <div style="padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Institución / unidad de origen</div><div style="font-size:9.5px;font-weight:600;color:${TXT}">QP Clinic — Insurgentes Sur 933, Piso 12, CDMX</div></div>
+    </div>`;
+
+    // ── III. MÉDICO INTERCONSULTANTE ──────────────────────────
+    const interconsultanteHTML=secBar("III. MÉDICO INTERCONSULTANTE")+`
+    <div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;background:#fff">
+      <div style="display:flex;border-bottom:1px solid ${BRD}">
+        <div style="flex:1.6;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Nombre del médico interconsultante</div><div style="font-size:10.5px;font-weight:700;color:${TXT}">${ic.medico_interconsultante||"—"}</div></div>
+        <div style="flex:1;padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Especialidad solicitada</div><div style="font-size:10px;font-weight:600;color:${TXT}">${ic.especialidad||"—"}</div></div>
+      </div>
+      <div style="display:flex">
+        <div style="flex:1;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Prioridad</div><div style="font-size:10px;font-weight:600;color:${TXT}">${ic.prioridad||"—"}</div></div>
+        <div style="flex:1;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Fecha de solicitud</div><div style="font-size:10px;font-weight:600;color:${TXT}">${ic.fecha_solicitud||hoy}</div></div>
+        <div style="flex:1;padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Hora</div><div style="font-size:10px;font-weight:600;color:${TXT}">${ic.hora_solicitud||hora}</div></div>
+      </div>
+    </div>`;
+
+    // ── IV. DIAGNÓSTICOS (CIE-10) ──────────────────────────────
+    const diagHTML=dxFilas.length?secBar("IV. DIAGNÓSTICO ACTUAL DEL PACIENTE (CIE-10)")+`
+    <table style="width:100%;border-collapse:collapse;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px">
+      ${dxFilas.map((d,i)=>`<tr style="background:${i%2===0?"#fff":BG}">
+        <td style="padding:6px 11px;width:18%;font-weight:700;font-size:9.5px;color:${TXT};border-bottom:1px solid ${BRD};vertical-align:top">${d.cie||""}</td>
+        <td style="padding:6px 11px;font-size:9.5px;color:${TXT};border-bottom:1px solid ${BRD};vertical-align:top">${d.desc}</td>
+      </tr>`).join("")}
+    </table>`:"";
+
+    // ── V. TRATAMIENTO EN CURSO ────────────────────────────────
+    const tratHTML=tratLineas.length?secBar("V. TRATAMIENTO EN CURSO")+`
+    <div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;background:#fff;padding:8px 12px">
+      ${tratLineas.map(l=>`<div style="font-size:9.5px;color:${TXT};margin-bottom:2px">• ${l}</div>`).join("")}
+    </div>`:"";
+
+    const page1HTML=headerHTML+pacienteHTML+solicitanteHTML+interconsultanteHTML+diagHTML+tratHTML;
+
+    // ── PÁGINA 2: motivo, respuesta, firmas ───────────────────
+    const motivoHTML=secBar("VI. MOTIVO DE LA INTERCONSULTA / PREGUNTAS AL ESPECIALISTA")+`
+    <div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;background:#fff;padding:10px 13px;min-height:20mm">
+      <div style="font-size:9.5px;color:${TXT};line-height:1.6;white-space:pre-wrap">${ic.motivos||"—"}</div>
+    </div>`;
+
+    const respuestaHTML=esRespondida?
+      secBar("VII. RESPUESTA DEL MÉDICO INTERCONSULTANTE")+`
+      <div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;background:${OK_BG};padding:10px 13px">
+        <div style="font-size:8px;font-weight:700;color:${OK_TX};margin-bottom:6px">Respondida el ${ic.fecha_respuesta||""} por ${ic.medico_responde||ic.medico_interconsultante||""}</div>
+        ${ic.hallazgos?`<div style="margin-bottom:6px"><div style="font-size:7px;color:${OK_TX};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Hallazgos</div><div style="font-size:9.5px;color:${TXT};white-space:pre-wrap">${ic.hallazgos}</div></div>`:""}
+        ${ic.diagnostico_interconsultante?`<div style="margin-bottom:6px"><div style="font-size:7px;color:${OK_TX};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Diagnóstico interconsultante</div><div style="font-size:9.5px;color:${TXT};white-space:pre-wrap">${ic.diagnostico_interconsultante}</div></div>`:""}
+        ${ic.recomendaciones?`<div><div style="font-size:7px;color:${OK_TX};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Recomendaciones</div><div style="font-size:9.5px;color:${TXT};white-space:pre-wrap">${ic.recomendaciones}</div></div>`:""}
+      </div>`
+      :
+      secBar("VII. RESPUESTA DEL MÉDICO INTERCONSULTANTE")+`
+      <div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;background:#fff;padding:10px 13px;min-height:45mm">
+        ${Array.from({length:6}).map(()=>`<div style="border-bottom:1px solid ${BRD};height:7mm"></div>`).join("")}
+      </div>`;
+
+    const firmasHTML=`
+    <div style="display:flex;gap:14px;margin-top:12px">
+      <div style="flex:1;background:#fff;border:1px solid ${BRD};border-radius:4px;padding:12px 14px;text-align:center">
+        <div style="font-size:8px;font-weight:700;color:${MU2};text-transform:uppercase;margin-bottom:10px">Firma del médico solicitante</div>
+        ${firmaB64?`<img src="${firmaB64}" style="height:30px;object-fit:contain;margin-bottom:6px"><br>`:`<div style="height:34px"></div>`}
+        <div style="border-top:1.3px solid ${TXT};width:75%;margin:0 auto 8px"></div>
+        <div style="font-size:9.5px;font-weight:700;color:${TXT}">${medSolNom}</div>
+        <div style="font-size:8px;color:${MU2};margin-top:2px">${medSol?.cedula_medico?"Céd. Prof. "+medSol.cedula_medico:""}</div>
+        <div style="font-size:8px;color:${MU2}">${medSol?.especialidad_1?"Esp. en "+medSol.especialidad_1:""}</div>
+        <div style="font-size:8px;color:${MU2}">${medSol?.cedula_esp_1?"Céd. Esp. "+medSol.cedula_esp_1:""}</div>
+      </div>
+      <div style="flex:1;background:#fff;border:1px solid ${BRD};border-radius:4px;padding:12px 14px;text-align:center">
+        <div style="font-size:8px;font-weight:700;color:${MU2};text-transform:uppercase;margin-bottom:10px">Firma del interconsultante</div>
+        <div style="height:34px"></div>
+        <div style="border-top:1.3px solid ${TXT};width:75%;margin:0 auto 8px"></div>
+        <div style="font-size:9.5px;font-weight:700;color:${TXT}">${ic.medico_interconsultante||"—"}</div>
+        <div style="font-size:8px;color:${MU2};margin-top:2px">${ic.especialidad||""}</div>
+        <div style="font-size:8px;color:${MU2};margin-top:6px">Fecha: ____________________</div>
+        <div style="font-size:8px;color:${MU2}">Hora: _____________________</div>
+      </div>
+    </div>`;
+
+    const notaLegalHTML=`
+    <div style="background:${BG};border:1px solid ${BRD};border-radius:4px;padding:9px 13px;margin-top:11px">
+      <div style="font-size:7.5px;color:${MU2};line-height:1.6">
+        Documento elaborado conforme a los elementos de solicitud de interconsulta descritos en la NOM-004-SSA3-2012, Art. 9.<br>
+        La respuesta de interconsulta deberá integrarse al expediente clínico y correlacionarse con la historia clínica, exploración física, estudios complementarios y evolución del paciente.
+      </div>
+    </div>`;
+
+    const page2HTML=motivoHTML+respuestaHTML+firmasHTML+notaLegalHTML;
+
+    // ── RENDER ────────────────────────────────────────────────
+    const cv1=await renderHTML(page1HTML);
+    await canvasToPDFPages(cv1);
+    const cv2=await renderHTML(page2HTML);
+    await canvasToPDFPages(cv2);
+
+    const total=pages.length;
+    for(let i=0;i<pages.length;i++){
+      if(i>0)doc.addPage();
+      const cv=pages[i];
+      const hmm=cv.height/PX_PER_MM;
+      doc.addImage(cv.toDataURL("image/png"),"PNG",ML,ML,CWMM,hmm,undefined,"FAST");
+      addFooter(i+1,total);
     }
-    caja("Institucion / Unidad de origen",S(medSol?.institucion_esp_1||"QP Clinic — Insurgentes Sur 933 P.12, CDMX"),M,y,CW,11);y+=13;
-    y+=2;
-    // ── III. MÉDICO INTERCONSULTANTE ──────────────────────
-    doc.setFillColor(0,80,137);doc.rect(M,y,CW,6,"F");
-    doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
-    doc.text("III. MEDICO INTERCONSULTANTE",M+2,y+4.2);y+=7;
-    caja("Nombre del medico interconsultante",S(ic.medico_interconsultante||""),M,y,105,11);
-    caja("Especialidad solicitada",S(ic.especialidad||""),M+106,y,CW-106,11);y+=12;
-    caja("Prioridad",S(ic.prioridad||""),M,y,60,11);
-    caja("Fecha de solicitud",S(ic.fecha_solicitud||""),M+61,y,50,11);
-    caja("Hora",S((ic.hora_solicitud||"").substring(0,5)),M+112,y,CW-112,11);y+=13;
-    y+=2;
-    // ── IV-VI SECCIÓN DE SOLICITUD ────────────────────────
-    y=bloq("IV. DIAGNOSTICO ACTUAL DEL PACIENTE (CIE-10)",S(ic.diagnostico||""),y,[0,80,137]);
-    y=bloq("V. TRATAMIENTO EN CURSO",S(ic.tratamiento||""),y,[0,80,137]);
-    y=bloq("VI. MOTIVO DE LA INTERCONSULTA / PREGUNTAS AL ESPECIALISTA",S(ic.motivos||""),y,[0,80,137]);
-    // ── VII-IX SECCIÓN DE RESPUESTA ───────────────────────
-    if(esRespondida){
-      if(y>220){doc.addPage();y=14;}
-      y+=4;
-      doc.setFillColor(0,100,60);doc.rect(M,y,CW,8,"F");
-      doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont("helvetica","bold");
-      doc.text("RESPUESTA DE INTERCONSULTA",M+2,y+5.5);
-      doc.setFontSize(7.5);
-      doc.text("Respondida por: "+S(ic.medico_responde||"")+"   |   Fecha: "+S(ic.fecha_respuesta||""),M+90,y+5.5);
-      y+=9;
-      y=bloq("VII. HALLAZGOS CLINICOS DEL INTERCONSULTANTE",S(ic.hallazgos||""),y,[0,100,60]);
-      y=bloq("VIII. DIAGNOSTICO DEL INTERCONSULTANTE (CIE-10)",S(ic.diagnostico_interconsultante||""),y,[0,100,60]);
-      y=bloq("IX. RECOMENDACIONES Y PLAN DE MANEJO",S(ic.recomendaciones||""),y,[0,100,60]);
-    }
-    // ── FIRMAS ────────────────────────────────────────────
-    if(y>238){doc.addPage();y=14;}
-    y=Math.max(y+6,esRespondida?220:230);
-    doc.setDrawColor(190,210,230);doc.setLineWidth(0.3);doc.line(M,y,W-M,y);y+=4;
-    const fw=60;
-    const fx1=M+5;               // médico solicitante
-    const fx2=W/2-fw/2;          // espacio receptor / interconsultante
-    const fyf=y;
-    // Firma médico solicitante
-    if(firmaB64){try{doc.addImage(firmaB64,"PNG",fx1,fyf,fw,14);}catch(e){}}
-    doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);doc.line(fx1,fyf+16,fx1+fw,fyf+16);
-    doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-    doc.text("FIRMA DEL MEDICO SOLICITANTE",fx1+fw/2,fyf+20,{align:"center"});
-    doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
-    doc.text(S(medSolNom),fx1+fw/2,fyf+24,{align:"center"});
-    credLines.slice(0,3).forEach((cl,i)=>doc.text(cl,fx1+fw/2,fyf+27+i*3.5,{align:"center"}));
-    // Firma interconsultante (espacio o nombre si respondida)
-    doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);doc.line(fx2,fyf+16,fx2+fw,fyf+16);
-    doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
-    doc.text(esRespondida?"FIRMA DEL INTERCONSULTANTE":"FIRMA DEL INTERCONSULTANTE",fx2+fw/2,fyf+20,{align:"center"});
-    doc.setFont("helvetica","normal");doc.setTextColor(84,110,122);
-    if(esRespondida){
-      doc.text(S(ic.medico_responde||ic.medico_interconsultante||""),fx2+fw/2,fyf+24,{align:"center"});
-      doc.text(S(ic.especialidad||""),fx2+fw/2,fyf+27,{align:"center"});
-    } else {
-      doc.text(S(ic.medico_interconsultante||""),fx2+fw/2,fyf+24,{align:"center"});
-    }
-    // ── FOOTER ────────────────────────────────────────────
-    doc.setFontSize(6.5);doc.setTextColor(144,164,174);
-    doc.text("NOM-004-SSA3-2012 Art. 9  |  QP Clinic — qpclinic.org  |  Folio: "+folio+"  |  Generado: "+hoy+" "+hora,W/2,272,{align:"center"});
-    // ── GUARDAR EN SUPABASE ───────────────────────────────
+
+    // ── GUARDAR EN SUPABASE ───────────────────────────────────
     const pid=STATE.pat?.id;
     if(pid){
       try{
@@ -5415,7 +5512,7 @@ window.imprimirInterconsulta=async function(id){
         if(!upErr){
           await SB.from("anexos").insert({
             paciente_id:pid,
-            titulo:(esRespondida?"INTERCONSULTA RESPONDIDA — ":"SOLICITUD INTERCONSULTA — ")+S(ic.especialidad||"")+" | "+folio,
+            titulo:(esRespondida?"INTERCONSULTA RESPONDIDA — ":"SOLICITUD INTERCONSULTA — ")+(ic.especialidad||"")+" | "+folio,
             tipo_documento:esRespondida?"contrarreferencia":"interconsulta",
             origen:"generado",
             firmado:esRespondida,
@@ -5425,20 +5522,90 @@ window.imprimirInterconsulta=async function(id){
         }
       }catch(e){}
     }
-    doc.save("Interconsulta_"+S(ic.especialidad||"").replace(/ /g,"_")+"_"+nomPac.replace(/ /g,"_")+"_"+hoy.replace(/\//g,"-")+".pdf");
+
+    loading(false);
+    doc.save("Interconsulta_"+(ic.especialidad||"").replace(/[^a-zA-Z0-9]/g,"_")+"_"+nomPac.replace(/\s+/g,"_")+"_"+hoy.replace(/\//g,"-")+".pdf");
     showToast("✓ PDF de interconsulta guardado");
-  }catch(err){showToast("Error al generar PDF: "+T(err.message),false);console.error(err);}
-}
-window.seleccionarMedInter=function(val){
-  const ext=document.getElementById("ic_med_externo");
-  const hid=document.getElementById("ic_med");
-  if(val==="__externo__"){
-    if(ext)ext.style.display="block";
-    if(hid)hid.value="";
-  } else {
-    if(ext)ext.style.display="none";
-    if(hid)hid.value=val;
+  }catch(err){
+    loading(false);
+    console.error("Error PDF interconsulta:",err);
+    showToast("Error al generar PDF: "+err.message,false);
   }
+}
+window.filtrarMedInter=function(q){
+  const dd=document.getElementById("ic_med_dropdown");
+  if(!dd)return;
+  const medicos=STATE._medicosIC||[];
+  const qNorm=(q||"").trim().toLowerCase();
+  const sinTilde=t=>t.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const qBuscar=sinTilde(qNorm);
+
+  let resultados=medicos.map(m=>{
+    const nombre=`${m.titulo||""} ${m.nombre||""} ${m.apellidos||""}`.trim();
+    const esp=m.especialidad_2||m.especialidad_1||"";
+    const haystack=sinTilde((nombre+" "+esp).toLowerCase());
+    return{...m,nombre,esp,haystack};
+  });
+  if(qBuscar)resultados=resultados.filter(m=>m.haystack.includes(qBuscar));
+
+  let html="";
+  resultados.slice(0,40).forEach(m=>{
+    html+=`<div onclick="elegirMedInter('${m.id}')" style="padding:9px 13px;cursor:pointer;border-bottom:1px solid #F0F0F0;transition:background .1s" onmouseover="this.style.background='#F0F7FF'" onmouseout="this.style.background='#fff'">
+      <div style="font-size:14px;font-weight:700;color:${TX}">${m.nombre}</div>
+      ${m.esp?`<div style="font-size:13px;color:${MU}">${m.esp}</div>`:""}
+    </div>`;
+  });
+  html+=`<div onclick="elegirMedExterno()" style="padding:9px 13px;cursor:pointer;background:#FFF8E1;font-weight:700;color:#E65100;font-size:14px" onmouseover="this.style.background='#FFECB3'" onmouseout="this.style.background='#FFF8E1'">
+    ➕ Médico externo (escribir manualmente)
+  </div>`;
+  if(resultados.length===0&&qBuscar){
+    html=`<div style="padding:14px;text-align:center;color:${MU};font-size:13px">Sin coincidencias para "${q}"</div>`+html;
+  }
+  dd.innerHTML=html;
+  dd.style.display="block";
+  // Cerrar al hacer click fuera
+  setTimeout(()=>{
+    document.addEventListener("click",function cerrarDD(e){
+      if(!e.target.closest("#ic_med_dropdown")&&!e.target.closest("#ic_med_buscar")){
+        dd.style.display="none";
+        document.removeEventListener("click",cerrarDD);
+      }
+    });
+  },50);
+}
+
+window.elegirMedInter=function(medId){
+  const m=(STATE._medicosIC||[]).find(x=>x.id===medId);
+  if(!m)return;
+  const nombre=`${m.titulo||""} ${m.nombre||""} ${m.apellidos||""}`.trim();
+  const esp=m.especialidad_2||m.especialidad_1||"";
+  document.getElementById("ic_med_buscar").value=nombre+(esp?" — "+esp:"");
+  document.getElementById("ic_med").value=nombre+(esp?" | "+esp:"");
+  document.getElementById("ic_med_id").value=medId;
+  document.getElementById("ic_med_externo").style.display="none";
+  document.getElementById("ic_med_dropdown").style.display="none";
+  // Auto-rellenar Especialidad solicitada con la especialidad del médico elegido
+  if(esp){
+    const selEsp=document.getElementById("ic_esp");
+    if(selEsp){
+      const opt=[...selEsp.options].find(o=>o.value===esp);
+      if(opt)selEsp.value=esp;
+      else{
+        // Si la especialidad del médico no está en el catálogo exacto, agregarla
+        const newOpt=document.createElement("option");
+        newOpt.value=esp;newOpt.textContent=esp;newOpt.selected=true;
+        selEsp.appendChild(newOpt);
+      }
+    }
+  }
+}
+
+window.elegirMedExterno=function(){
+  document.getElementById("ic_med_buscar").value="";
+  document.getElementById("ic_med").value="";
+  document.getElementById("ic_med_id").value="";
+  document.getElementById("ic_med_externo").style.display="block";
+  document.getElementById("ic_med_dropdown").style.display="none";
 }
 window.copiarDxInter=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
@@ -5453,8 +5620,9 @@ window.cerrarFormInter=function(){const f=document.getElementById("inter-form");
 window.guardarInterconsulta=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
   await sbRefresh();
-  const sel=document.getElementById("ic_med_sel")?.value;
-  const medInter=sel==="__externo__"?(document.getElementById("ic_med")?.value||gv("ic_med")):gv("ic_med");
+  const medIdSel=document.getElementById("ic_med_id")?.value||"";
+  const esExterno=document.getElementById("ic_med_externo")?.style.display==="block";
+  const medInter=esExterno?(document.getElementById("ic_med")?.value||gv("ic_med")):gv("ic_med");
   if(!medInter){showToast("Selecciona o escribe el médico interconsultante",false);return;}
   loading(true,"Guardando interconsulta...");
 
@@ -5479,8 +5647,8 @@ window.guardarInterconsulta=async function(){
 
   // Buscar celular del médico interconsultante si está en el sistema
   let celMedInter=null;
-  if(sel&&sel!=="__externo__"){
-    const {data:medData}=await SB.from("usuarios").select("celular,nombre,apellidos").eq("id",sel).maybeSingle();
+  if(medIdSel){
+    const {data:medData}=await SB.from("usuarios").select("celular,nombre,apellidos").eq("id",medIdSel).maybeSingle();
     if(medData?.celular)celMedInter=medData.celular;
   }
 
@@ -7724,7 +7892,21 @@ window.guardarConsulta=async function(){
   if(res.error){showToast("Error: "+res.error.message,false);return;}
   STATE.consultaActual=res.data;
   logBitacora("GUARDADO DE NOTA",`Tipo: ${payload.tipo_nota||"Nota de evolución"}`);
-  showToast("✓ Consulta guardada");
+
+  // Si esta nota responde una interconsulta pendiente, marcarla como Respondida
+  if(STATE.notaPendienteIC?.icId&&payload.tipo_nota==="Nota de interconsulta"){
+    const medNomResp=`${med.titulo||""} ${med.nombre||""} ${med.apellidos||""}`.trim();
+    await SB.from("interconsultas").update({
+      estatus:"Respondida",
+      fecha_respuesta:fechaHoy,
+      medico_responde:medNomResp,
+      nota_respuesta_id:res.data.id,
+    }).eq("id",STATE.notaPendienteIC.icId);
+    showToast("✓ Consulta guardada — Interconsulta marcada como Respondida");
+    STATE.notaPendienteIC=null;
+  } else {
+    showToast("✓ Consulta guardada");
+  }
 }
 window.firmarNota=async function(){
   const cid=STATE.consultaActual?.id;if(!cid)return;
