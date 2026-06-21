@@ -13103,17 +13103,34 @@ async function pgNutricion(){
   const tipo=STATE.nutriTipo||"mantenimiento";
   const plant=FAMEL_PLANTILLAS[tipo];
   const p=STATE.pat||{};
+
+  // Requiere paciente activo — sin expediente abierto no se puede llenar la plantilla
+  if(!p?.id){
+    b.innerHTML=`<div style="max-width:560px;margin:60px auto;padding:24px;text-align:center" class="fade">
+      <div style="background:#fff;border-radius:14px;box-shadow:0 1px 6px #00000012;padding:36px 28px">
+        <p style="font-size:44px;margin-bottom:10px">📋</p>
+        <h3 style="font-size:17px;font-weight:800;color:${TX};margin-bottom:8px">Abre un expediente primero</h3>
+        <p style="font-size:14px;color:${MU};line-height:1.6;margin-bottom:20px">Para llenar un plan nutricional Famel necesitas tener un paciente activo — así se completan automáticamente su nombre, correo y la fecha.</p>
+        <button onclick="go('buscar')" style="background:${P};color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">🔍 Ir a Buscar paciente →</button>
+      </div>
+    </div>`;
+    return;
+  }
+
   STATE.nutriDatos=STATE.nutriDatos||{};
 
   b.innerHTML=`
   <div style="max-width:1000px;margin:0 auto;padding:16px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-      <div>
-        <h2 style="font-size:18px;font-weight:800;color:${TX};margin-bottom:2px">🥗 Nutrición — Plantillas Famel</h2>
-        <p style="font-size:13px;color:${MU}">Selecciona la fase y llena los campos editables</p>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="go('expediente')" style="background:${PL};color:${P};border:1.5px solid #B3E5FC;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:700">← Expediente</button>
+        <div>
+          <h2 style="font-size:18px;font-weight:800;color:${TX};margin-bottom:2px">🥗 Nutrición — Plantillas Famel</h2>
+          <p style="font-size:13px;color:${MU}">Selecciona la fase y llena los campos editables</p>
+        </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        ${STATE.pat?`<span style="background:${PL};color:${P};padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700">👤 ${STATE.pat.nombre} ${STATE.pat.apellido_paterno}</span>`:""}
+        <span style="background:${PL};color:${P};padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700">👤 ${p.nombre} ${p.apellido_paterno}</span>
         <select id="nutri-fase-sel" onchange="cambiarFaseNutri(this.value)" style="padding:8px 13px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;font-weight:700;background:#fff">
           <option value="mantenimiento" ${tipo==="mantenimiento"?"selected":""}>Fase 4: Mantenimiento</option>
           <option value="cetosis_franca" ${tipo==="cetosis_franca"?"selected":""}>Fase 1: Cetosis Franca</option>
