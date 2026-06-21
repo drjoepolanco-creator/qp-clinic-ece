@@ -786,10 +786,17 @@ window.abrirModalUsuario=async function(uid=""){
       ${fld("Nombre(s) *",inp("mu_nom",u.nombre||"","Nombre(s)"),1)}
       ${fld("Apellidos *",inp("mu_ap",u.apellidos||"","Apellido Paterno Materno"),1)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       ${fld("Rol *",`<select id="mu_rol" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${ROLES.map(([v,l])=>`<option value="${v}" ${(u.rol||"medico")===v?"selected":""}>${l}</option>`).join("")}</select>`,1)}
       ${fld("Nombre de usuario *",inp("mu_user",u.username||"","Ej: dr.garcia"),1)}
       ${fld("Teléfono",inp("mu_tel",u.telefono||"","55XXXXXXXX","tel"))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:16px">
+      ${uid
+        ?fld("Correo electrónico",`<input value="${u.email||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;background:#F5F5F5;color:${MU}" readonly>`)
+        :`${fld("Correo electrónico real *",inp("mu_email","","correo@dominio.com — del profesionista, para acceso e identificación","email"),1)}
+          <p style="font-size:12px;color:${MU};margin-top:4px">📩 Debe ser un correo real que el profesionista pueda revisar — según la configuración del proyecto, Supabase podría enviarle un correo de confirmación antes de poder iniciar sesión por primera vez.</p>`
+      }
     </div>
     <!-- Formación académica -->
     <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">🎓 Formación académica (aparece en recetas)</b></div>
@@ -861,7 +868,15 @@ window.guardarUsuario=async function(uid=""){
     if(errPass){showToast("Contraseña insegura: "+errPass,false);return;}
   }
   loading(true,uid?"Guardando cambios...":"Creando usuario...");
-  const email=usuario+"@qpclinic.mx";
+  let email=null;
+  if(!uid){
+    email=gv("mu_email").trim().toLowerCase();
+    if(!email||!email.includes("@")||!email.includes(".")){
+      loading(false);
+      showToast("Ingresa un correo electrónico real y válido del profesionista",false);
+      return;
+    }
+  }
   // Subir firma si hay archivo seleccionado
   let firma_url=null;
   const firmaFile=document.getElementById("mu_firma_file")?.files[0];
@@ -880,7 +895,7 @@ window.guardarUsuario=async function(uid=""){
   const cedMed=gv("mu_cedmed").trim();
   const cedEsp1=gv("mu_cedesp1").trim();
   const profilePayload={
-    username:usuario,email,titulo:gv("mu_titulo"),nombre:nom,apellidos:ap,rol:gv("mu_rol"),
+    username:usuario,titulo:gv("mu_titulo"),nombre:nom,apellidos:ap,rol:gv("mu_rol"),
     // Formación académica
     licenciatura:gv("mu_lic")||null,
     cedula_medico:cedMed||null,
@@ -899,6 +914,7 @@ window.guardarUsuario=async function(uid=""){
     calendar_color:document.getElementById("mu_color")?.value||"#006BB6",
     activo:true,
   };
+  if(!uid)profilePayload.email=email; // solo se asigna al crear; al editar nunca se sobreescribe
   if(firma_url)profilePayload.firma_digital=firma_url;
   if(!uid){
     // Crear usuario en Auth usando cliente temporal para NO reemplazar la sesión del admin
