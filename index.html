@@ -236,7 +236,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -416,7 +416,7 @@ async function guardarConsultaSilencioso(){
 function nav(){
   // Título dinámico del tab
   const patNombre=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""} — `:"";
-  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",perfil:"Mi perfil — "};
+  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",perfil:"Mi perfil — "};
   document.title=`${pageTitles[STATE.page]||""}${patNombre}QP Clinic`;
   const u=STATE.userProfile;const p=STATE.pat;
   const online=navigator.onLine;
@@ -425,6 +425,18 @@ function nav(){
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
     ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    <div style="position:relative" id="nutri-menu-wrap">
+      <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
+      <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
+        <button onclick="showToast('Calculadora de dietas — próximamente');toggleNutriMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#B0BEC5;display:flex;align-items:center;gap:8px" disabled>🧮 Cálculo de dietas <span style="margin-left:auto;background:#F5F5F5;color:#90A4AE;padding:1px 7px;border-radius:10px;font-size:11px">Próximamente</span></button>
+        <div style="border-top:1px solid #EEE;margin:4px 0"></div>
+        <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Plantillas Famel Nutrition</div>
+        <button onclick="go('nutricion');STATE.nutriTipo='mantenimiento';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🥗 Fase 4: Mantenimiento</button>
+        <button onclick="go('nutricion');STATE.nutriTipo='cetosis_franca';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🥑 Fase 1: Cetosis Franca</button>
+        <button onclick="go('nutricion');STATE.nutriTipo='cetosis_mixta';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍗 Fase 2: Cetosis Mixta</button>
+        <button onclick="go('nutricion');STATE.nutriTipo='transicion';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍎 Fase 3: Transición</button>
+      </div>
+    </div>
     ${STATE.userProfile?.rol==="admin"?`
     <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
@@ -2854,6 +2866,25 @@ window.toggleCfgMenu=function(){
       document.addEventListener("click",function cerrar(e){
         if(!document.getElementById("cfg-menu-wrap")?.contains(e.target)){
           const menu=document.getElementById("cfg-menu");
+          if(menu)menu.style.display="none";
+          document.removeEventListener("click",cerrar);
+        }
+      });
+    },10);
+  }
+}
+window.toggleNutriMenu=function(){
+  const m=document.getElementById("nutri-menu");
+  if(!m)return;
+  const visible=m.style.display==="block";
+  m.style.display=visible?"none":"block";
+  if(!visible){
+    const wrap=document.getElementById("nutri-menu-wrap");
+    if(wrap){const r=wrap.getBoundingClientRect();m.style.left=r.left+"px";}
+    setTimeout(()=>{
+      document.addEventListener("click",function cerrar(e){
+        if(!document.getElementById("nutri-menu-wrap")?.contains(e.target)){
+          const menu=document.getElementById("nutri-menu");
           if(menu)menu.style.display="none";
           document.removeEventListener("click",cerrar);
         }
@@ -10540,13 +10571,14 @@ async function renderSVTab(b,pid){
   const hist=data||[];
   const hoyStr=new Date().toISOString().split("T")[0];
   const ultimoHoy=hist.filter(s=>s.fecha&&s.fecha.startsWith(hoyStr))[0]||null;
-  const v=ultimoHoy||{};
+  // El formulario SIEMPRE inicia en blanco para una nueva toma — v ya no se prellena
+  // con el último registro del día (eso solo se ve como referencia en el historial de abajo)
   let ibPeso="",ibTalla="",ibImc="";
   const {data:ibData}=await SB.from("inbody_resultados").select("peso,altura,imc,fecha").eq("paciente_id",pid).order("fecha",{ascending:false}).limit(1);
   const ibUltimo=ibData?.[0];
-  if(ibUltimo&&!v.peso&&ibUltimo.peso)ibPeso=ibUltimo.peso;
-  if(ibUltimo&&!v.talla&&ibUltimo.altura)ibTalla=(parseFloat(ibUltimo.altura)/100).toFixed(2);
-  if(ibUltimo&&!v.imc&&ibUltimo.imc)ibImc=ibUltimo.imc;
+  if(ibUltimo?.peso)ibPeso=ibUltimo.peso;
+  if(ibUltimo?.altura)ibTalla=(parseFloat(ibUltimo.altura)/100).toFixed(2);
+  if(ibUltimo?.imc)ibImc=ibUltimo.imc;
   const svBody=document.getElementById("sv-body");if(!svBody)return;
   svBody.innerHTML=`
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
@@ -10555,25 +10587,25 @@ async function renderSVTab(b,pid){
         <span style="font-size:14px;color:rgba(255,255,255,.7)">${new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
       </div>
       <div style="padding:14px">
-        ${ultimoHoy?`<div style="background:#E8F5E9;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#2E7D32">✅ Mostrando registro de hoy.</div>`:`<div style="background:#FFF3E0;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#E65100">📝 Sin registro de hoy.</div>`}
-        ${ibUltimo&&(ibPeso||ibTalla)?`<div style="background:#E3F4FB;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#006BB6">📊 Peso/Talla pre-llenados desde InBody del ${ibUltimo.fecha}</div>`:""}
+        ${ultimoHoy?`<div style="background:#E3F4FB;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#006BB6">ℹ️ Ya existe un registro de hoy (${ultimoHoy.hora||""} hrs por ${ultimoHoy.registrado_por||"—"}) — visible en el historial de abajo. Este formulario está en blanco para capturar una <b>nueva</b> toma.</div>`:`<div style="background:#FFF3E0;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#E65100">📝 Sin registro de hoy todavía.</div>`}
+        ${ibUltimo&&(ibPeso||ibTalla)?`<div style="background:#E8F5E9;border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#2E7D32">📊 Peso/Talla sugeridos desde InBody del ${ibUltimo.fecha} — edítalos si han cambiado</div>`:""}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
-          ${fld("Temperatura (°C)",`<input id="sv_temp" type="number" step="0.1" value="${v.temperatura||""}" placeholder="36.5" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("F. Cardíaca (lat/min)",`<input id="sv_fc" type="number" value="${v.frecuencia_cardiaca||""}" placeholder="72" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("F. Respiratoria (r/min)",`<input id="sv_fr" type="number" value="${v.frecuencia_respiratoria||""}" placeholder="16" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Sat. O₂ (%)",`<input id="sv_sat" type="number" step="0.1" value="${v.saturacion_o2||""}" placeholder="98" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Glucosa (mg/dL)",`<input id="sv_glu" type="number" value="${v.glucosa||""}" placeholder="100" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Temperatura (°C)",`<input id="sv_temp" type="number" step="0.1" value="" placeholder="36.5" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("F. Cardíaca (lat/min)",`<input id="sv_fc" type="number" value="" placeholder="72" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("F. Respiratoria (r/min)",`<input id="sv_fr" type="number" value="" placeholder="16" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Sat. O₂ (%)",`<input id="sv_sat" type="number" step="0.1" value="" placeholder="98" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Glucosa (mg/dL)",`<input id="sv_glu" type="number" value="" placeholder="100" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
-          ${fld("Presión sistólica",`<input id="sv_tas" type="number" value="${v.presion_sistolica||""}" placeholder="120" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Presión diastólica",`<input id="sv_tad" type="number" value="${v.presion_diastolica||""}" placeholder="80" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Peso (kg)",`<input id="sv_peso" type="number" step="0.1" value="${v.peso||ibPeso}" placeholder="70.0" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("Talla (m)",`<input id="sv_talla" type="number" step="0.01" value="${v.talla||ibTalla}" placeholder="1.70" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
-          ${fld("IMC",`<input id="sv_imc" value="${v.imc||ibImc}" placeholder="Auto" readonly style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;background:#F8F9FA;font-size:14px;font-weight:700">`)}
-          ${fld("Perímetro abdominal (cm)",`<input id="sv_pab" type="number" step="0.1" value="${v.perimetro_abdominal||""}" placeholder="90" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Presión sistólica",`<input id="sv_tas" type="number" value="" placeholder="120" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Presión diastólica",`<input id="sv_tad" type="number" value="" placeholder="80" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Peso (kg)",`<input id="sv_peso" type="number" step="0.1" value="${ibPeso}" placeholder="70.0" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("Talla (m)",`<input id="sv_talla" type="number" step="0.01" value="${ibTalla}" placeholder="1.70" oninput="calcIMC()" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
+          ${fld("IMC",`<input id="sv_imc" value="${ibImc}" placeholder="Auto" readonly style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;background:#F8F9FA;font-size:14px;font-weight:700">`)}
+          ${fld("Perímetro abdominal (cm)",`<input id="sv_pab" type="number" step="0.1" value="" placeholder="90" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}
         </div>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
-          ${fld("Observaciones",`<input id="sv_obs" value="${v.observaciones||""}" placeholder="Observaciones relevantes..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          ${fld("Observaciones",`<input id="sv_obs" value="" placeholder="Observaciones relevantes..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
           ${fld("Registrado por",`<input id="sv_enf" value="${STATE.userProfile?`${STATE.userProfile.titulo||""} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""}" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -12892,6 +12924,510 @@ window.abrirEditorBirads=function(){
 
 
 
+
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MÓDULO NUTRICIÓN — Plantillas Famel                              ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+const FAMEL_LOGO_B64="data:image/png;base64,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";
+
+const FAMEL_PLANTILLAS={
+  mantenimiento:{
+    titulo:"Fase 4: MANTENIMIENTO",
+    filas:["Proteína Famel","Proteína animal","Verduras*","Aceite de oliva extra virgen","Cereal","Fruta","Lácteos","Proteínas de origen vegetal"],
+    nota_tabla:"El aceite de oliva debe consumirse crudo. Le recordamos que puede intercambiar los tiempos de comida, siempre y cuando se respeten las porciones durante el día. Se recomienda no consumir fruta y cereales en la cena.",
+    suple:["Vitamin Fusion","Omega 3","Akker + B. Lactis","Antiox C+D3","Triptófano","Citra Mag","Calci-Plus","Creatine","Gli Mg Complex","Glutamine","Myo D.Chiro","Isoflav Fem"],
+    nota_suple:"No consumir los suplementos en ayuno.",
+    referencia_extra:`
+      <div style="margin-top:14px">
+        <div style="background:#0F2A52;color:#fff;text-align:center;padding:7px;font-weight:700;font-size:11px;letter-spacing:.5px">LISTA DE ALIMENTOS PERMITIDOS — BEBIDAS / ACEITES / CONDIMENTOS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#fff;border:1px solid #D6E4EC;border-top:none;padding:12px">
+          <div>
+            <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:4px">Bebidas</p>
+            <p style="font-size:9px;color:#37474F;line-height:1.7">Endulza con Splenda o Stevia. Mínimo 1.5 litros de agua natural. Agua de jamaica natural sin azúcar. Té o café sin azúcar.</p>
+            <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin:8px 0 4px">Aceites</p>
+            <p style="font-size:9px;color:#37474F;line-height:1.7">1 cdta. aceite de canola (cocinar) · 1 cdta. aceite de oliva (en frío) · 8 pza. aceituna verde sin hueso · 1/3 pza. aguacate (31g)</p>
+          </div>
+          <div>
+            <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:4px">Condimentos</p>
+            <p style="font-size:9px;color:#37474F;line-height:1.6">Ajo, ajo en polvo, albahaca*, alcaparras, azafrán, canela molida, cebollín, chile piquín, cilantro*, comino, curry en polvo, laurel, mostaza, nuez moscada, orégano*, perejil*, pimienta*, romero*, sal, sal de ajo, tomillo, extracto de vainilla, vinagre balsámico, vinagre de manzana/vino. <i>*Fresco o deshidratado</i></p>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#fff;border:1px solid #D6E4EC;border-top:none;padding:12px">
+          <div>
+            <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:4px">Pan / Cereales</p>
+            <p style="font-size:9px;color:#37474F;line-height:1.7">1 pza. pan de caja Thins® · 1 reb. pan tostado integral Bimbo® · 1/2 taza avena cruda o 3/4 cocida · 4 galletas Saladitas® · 3 pzas. Salmas® · 2 tostadas horneadas Sanissimo® · 2 pzas. tortilla de nopal* · 1 pza. tortilla de maíz* · 1/2 taza arroz integral cocido · 1/3 taza pasta integral cocida · 1/3 taza chícharos en lata · 1/3 taza lenteja cocida · 1 reb. pan Wonder® doble cero. <i>*Elige 3 para consumir máx. 3 veces/semana</i></p>
+          </div>
+          <div>
+            <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:4px">Lácteos y bebidas vegetales</p>
+            <p style="font-size:9px;color:#37474F;line-height:1.7">1 taza bebida de almendras Pure Almond® · 1 taza leche de soya · 1 taza leche descremada · 1 pza. 125g yogurt Vitalinea® · 1 pza. 150g yogurt sin azúcar light (Lala®, Siluette®, Yoplus®, Fage®, Activia® 0%). <i>Permitido únicamente en fase de mantenimiento.</i></p>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #D6E4EC;border-top:none;padding:12px">
+          <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:4px">Frutas (elige 3 de las marcadas* para consumir máx. 3 veces/semana)</p>
+          <p style="font-size:9px;color:#37474F;line-height:1.7">20 cereza · 2 ciruela peq. · 2 durazno peq. · 1 taza frambuesa · 1 taza fresa · 1 kiwi · 3 limón · 1 mandarina peq. · 1 manzana peq. · 1 naranja peq. · 1/2 taza pera peq. · 1 toronja peq. · 18 uva blanca · 1 taza zarzamoras · 2 guayaba* peq. · 3 higo* · 12 lichi natural* · 1/2 mango* peq. · 2/3 taza papaya* · 10 pasas* · 3/4 taza piña* · 1/2 plátano*</p>
+        </div>
+        <div style="background:#fff;border:1px solid #D6E4EC;border-top:none;padding:12px">
+          <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:4px">Verduras (100g crudo, ver porción cocida)</p>
+          <p style="font-size:9px;color:#37474F;line-height:1.7">Acelga, apio, brócoli, calabacita, cebolla, champiñones, chayote, chile jalapeño, chile poblano, chile serrano, col, coliflor, flor de calabaza, espinaca, ejotes, espárragos, lechuga (todo tipo), jícama, jitomate rojo, nopal, pepino, pimiento verde, rábano, tomate verde, zanahoria.</p>
+        </div>
+        <div style="background:#fff;border:1px solid #D6E4EC;border-top:none;border-radius:0 0 4px 4px;padding:12px">
+          <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:4px">Proteínas vegetales y animal (pesado en crudo)</p>
+          <p style="font-size:9px;color:#37474F;line-height:1.7"><b>Vegetal:</b> 10 almendras · 1 cda. crema de cacahuate · 13 cacahuate tostado · 4 cdas. semilla de girasol · 18 pistache · 5 cdtas. chía · 7 mitades de nuez<br><b>Animal:</b> 60g bistec/filete/milanesa res o pollo · 90g cuete de res · 60g pechuga pollo/pavo · 60g roast beef · 60g t-bone sin grasa · 50g rib-eye sin grasa · 60g atún en agua o fresco · 30g bacalao · 90g camarones · 80g filete pescado · 50g pulpo cocido · 70g salmón · 4 claras de huevo · 2 huevos (1 vez/sem.) · 100g salmón en lata · 90g queso cottage light · 60g queso panela</p>
+        </div>
+      </div>`
+  },
+  cetosis_franca:{
+    titulo:"Fase 1: CETOSIS FRANCA",
+    filas:["Proteína Famel","Verduras*","Vitamin Fusion","Omega 3","Akker + B. Lactis","Antiox C+D3","Triptófano","Citra Mag"],
+    nota_tabla:"*Verduras 2 veces al día. Entre comidas deja pasar mínimo 2.5 horas y máximo 3 horas.",
+    suple:["Calci-Plus","Creatine","Gli Mg Complex","Glutamine","Myo D.Chiro","Isoflav Fem"],
+    nota_suple:"No consumir los suplementos en ayuno.",
+    referencia_extra:`
+      <div style="margin-top:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px">
+            <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:6px;text-align:center;background:#0F2A52;color:#fff;padding:5px;border-radius:3px;margin:-12px -12px 8px">Verduras: 2 tazas al día</p>
+            <p style="font-size:9px;color:#37474F;line-height:1.8">Acelga, arúgula, apio, brócoli, berro crudo, espinaca, flor de calabaza cocida, germen de soya, germen de alfalfa, lechuga, nopal, pepino, rábano crudo. <i>De preferencia consumirlas crudas.</i></p>
+          </div>
+          <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px">
+            <p style="font-weight:700;font-size:10.5px;color:#0F2A52;text-align:center;background:#0F2A52;color:#fff;padding:5px;border-radius:3px;margin:-12px -12px 8px">Verduras con restricción (máx. 100g crudo/día)</p>
+            <table style="width:100%;font-size:8.5px;color:#37474F;border-collapse:collapse">
+              ${[["Berenjena picada","100g","1 taza"],["Calabaza alargada","100g","1 pieza"],["Champiñón","100g","1 taza"],["Chayote","100g","1/2 pieza"],["Coliflor","100g","1 taza"],["Ejote","100g","1 taza"],["Espárrago","100g","6 piezas"],["Jitomate Cherry","100g","3 piezas"],["Jitomate Saladet","100g","1 pieza"],["Pimiento Verde","100g","1 pieza"],["Romerito","100g","100g"],["Tomate verde","100g","5 piezas"],["Verdolaga","100g","1 taza"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:center">${r[1]}</td><td style="text-align:right">${r[2]}</td></tr>`).join("")}
+            </table>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px;margin-top:10px">
+          <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:6px">Otros alimentos permitidos</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:9px;color:#37474F;line-height:1.7">
+            <div>1. Agua mineral: Peñafiel Twist®, Topo Chico®, sueros sin azúcar.<br>2. Clorofila sin azúcar (5ml/litro de agua).<br>3. Té en bolsita: verde, blanco, rojo, negro, menta, hierbabuena.<br>4. Café de grano (no soluble).<br>5. Sucralosa o aspartame: máx. 3 sobres/día.<br>6. Vinagre de vino tinto (1 cda. máx./día).<br>7. Mostaza: Dijon o natural.</div>
+            <div>8. 2 cdtas. aceite de oliva extra virgen.<br>9. Limón: máx. 2/día.<br>10. Ajo y cebolla en polvo, hierbas, especias.<br>11. Sal y pimienta al gusto.<br>12. Chile serrano, cuaresmeño, habanero, de árbol (frescos).<br>13. Tajín® en polvo (tapa blanca).<br>14. Salsa Valentina® y Tabasco®.<br>15. Gelatina: máx. 2 tazas 250ml (D'Gari® sin azúcar, Jell-o® light).</div>
+          </div>
+        </div>
+      </div>`
+  },
+  cetosis_mixta:{
+    titulo:"Fase 2: CETOSIS MIXTA",
+    filas:["Proteína Famel","Proteína animal","Verduras*","Vitamin Fusion","Omega 3","Akker + B. Lactis","Antiox C+D3","Triptófano","Citra Mag"],
+    nota_tabla:"*Verduras 2 veces al día. Entre comidas deja pasar mínimo 2.5 horas y máximo 3 horas.",
+    suple:["Calci-Plus","Creatine","Gli Mg Complex","Glutamine","Myo D.Chiro","Isoflav Fem"],
+    nota_suple:"No consumir los suplementos en ayuno.",
+    referencia_extra:`
+      <div style="margin-top:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px">
+            <p style="font-weight:700;font-size:10.5px;color:#fff;text-align:center;background:#0F2A52;padding:5px;border-radius:3px;margin:-12px -12px 8px">Proteína animal (carnes magras) — vapor, plancha, asada u horno</p>
+            <table style="width:100%;font-size:8.5px;color:#37474F;border-collapse:collapse">
+              ${[["Pollo (no rostizado ni embutido)","120g"],["Pavo natural (no embutido)","120g"],["Carne magra de res (no arrachera)","120g"],["Cerdo (solo filete)","150g"],["Conejo","150g"],["Codorniz","120g"],["Pescado blanco","120g"],["Lomo de atún","200g"],["Huevo","4pz"],["Claras de huevo","8pz"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:right;font-weight:600">${r[1]}</td></tr>`).join("")}
+            </table>
+            <p style="font-weight:700;font-size:9.5px;color:#0F2A52;margin:8px 0 4px">Permitida solo una vez a la semana</p>
+            <table style="width:100%;font-size:8.5px;color:#37474F;border-collapse:collapse">
+              ${[["Salmón","120g"],["Pulpo","150g"],["Calamar","150g"],["Mejillones sin concha","230g"],["Almeja mediana sin concha","230g"],["Camarón cocido","140g"],["Langostinos","220g"],["Cangrejo","160g"],["Langosta","220g"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:right;font-weight:600">${r[1]}</td></tr>`).join("")}
+            </table>
+          </div>
+          <div>
+            <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px;margin-bottom:10px">
+              <p style="font-weight:700;font-size:10.5px;color:#fff;text-align:center;background:#0F2A52;padding:5px;border-radius:3px;margin:-12px -12px 8px">Verduras: 2 tazas al día</p>
+              <p style="font-size:9px;color:#37474F;line-height:1.8;margin-top:8px">Acelga, arúgula, apio, brócoli, berro crudo, espinaca, flor de calabaza cocida, germen de soya, germen de alfalfa, lechuga, nopal, pepino, rábano crudo. <i>De preferencia consumirlas crudas.</i></p>
+            </div>
+            <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px">
+              <p style="font-weight:700;font-size:10.5px;color:#fff;text-align:center;background:#0F2A52;padding:5px;border-radius:3px;margin:-12px -12px 8px">Verduras con restricción (máx. 100g crudo/día)</p>
+              <table style="width:100%;font-size:8.5px;color:#37474F;border-collapse:collapse;margin-top:8px">
+                ${[["Berenjena picada","100g","1 taza"],["Calabaza alargada","100g","1 pieza"],["Champiñón","100g","1 taza"],["Chayote","100g","1/2 pieza"],["Coliflor","100g","1 taza"],["Ejote","100g","1 taza"],["Espárrago","100g","6 piezas"],["Jitomate Cherry","100g","3 piezas"],["Pimiento Verde","100g","1 pieza"],["Tomate verde","100g","5 piezas"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:center">${r[1]}</td><td style="text-align:right">${r[2]}</td></tr>`).join("")}
+              </table>
+            </div>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px;margin-top:10px">
+          <p style="font-weight:700;font-size:10.5px;color:#0F2A52;margin-bottom:6px">Otros alimentos permitidos</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:9px;color:#37474F;line-height:1.7">
+            <div>1. Agua mineral: Peñafiel Twist®, Topo Chico®, sueros sin azúcar.<br>2. Clorofila sin azúcar (5ml/litro de agua).<br>3. Té en bolsita.<br>4. Café de grano (no soluble).<br>5. Sucralosa/aspartame: máx. 3 sobres/día.<br>6. Vinagre de vino tinto (1 cda. máx./día).<br>7. Mostaza: Dijon o natural.</div>
+            <div>8. 2 cdtas. aceite de oliva extra virgen.<br>9. Limón: máx. 2/día.<br>10. Ajo y cebolla en polvo, hierbas, especias.<br>11. Sal y pimienta al gusto.<br>12. Chile fresco (serrano, cuaresmeño, habanero, árbol).<br>13. Tajín® (tapa blanca).<br>14. Salsa Valentina® y Tabasco®.<br>15. Gelatina sin azúcar: máx. 2 tazas/día.</div>
+          </div>
+        </div>
+      </div>`
+  },
+  transicion:{
+    titulo:"Fase 3: TRANSICIÓN",
+    filas:["Proteína Famel","Proteína animal","Verduras*","Cereal","Fruta","Vitamin Fusion","Omega 3","Akker + B. Lactis","Antiox C+D3","Triptófano","Citra Mag"],
+    nota_tabla:"*Verduras 2 veces al día. Entre comidas deja pasar mínimo 2.5 horas y máximo 3 horas.",
+    suple:["Calci-Plus","Creatine","Gli Mg Complex","Glutamine","Myo D.Chiro","Isoflav Fem"],
+    nota_suple:"No consumir los suplementos en ayuno.",
+    referencia_extra:`
+      <div style="margin-top:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px">
+            <p style="font-weight:700;font-size:10.5px;color:#fff;text-align:center;background:#0F2A52;padding:5px;border-radius:3px;margin:-12px -12px 8px">Frutas (2 al día)</p>
+            <table style="width:100%;font-size:8.5px;color:#37474F;border-collapse:collapse;margin-top:8px">
+              ${[["Arándano","1/2 taza"],["Cereza","1 taza"],["Ciruela pequeña","1 taza"],["Durazno pequeño","2 piezas"],["Frambuesa","1 taza"],["Fresa","1 taza"],["Higo","2 piezas"],["Kiwi","1 1/2 piezas"],["Limón","3 piezas"],["Mandarina en gajos","2 piezas"],["Manzana","1 pieza"],["Naranja pequeña en gajos","1 pieza"],["Toronja en gajos","1 pieza"],["Uva","3/4 taza"],["Zarzamora","1 taza"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:right;font-weight:600">${r[1]}</td></tr>`).join("")}
+            </table>
+          </div>
+          <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px">
+            <p style="font-weight:700;font-size:10.5px;color:#fff;text-align:center;background:#0F2A52;padding:5px;border-radius:3px;margin:-12px -12px 8px">Cereales (2 al día)</p>
+            <table style="width:100%;font-size:8.5px;color:#37474F;border-collapse:collapse;margin-top:8px">
+              ${[["Amaranto natural","1/2 barra chica"],["Avena cruda","1/2 taza"],["Avena cocida","1/4 taza"],["Galletas Habaneras","4 galletas"],["Pan tostado integral","1 rebanada"],["Pan de caja integral","1 rebanada"],["Tostadas horneadas","2 piezas"],["Tortilla de maíz mediana","1 pieza"],["Salmas®","1 paquete"],["Tortillas de nopal","2 piezas"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:right;font-weight:600">${r[1]}</td></tr>`).join("")}
+            </table>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px;margin-top:10px">
+          <p style="font-weight:700;font-size:10.5px;color:#fff;text-align:center;background:#0F2A52;padding:5px;border-radius:3px;margin:-12px -12px 8px">Verduras — porción cruda / cocida</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <table style="width:100%;font-size:8.3px;color:#37474F;border-collapse:collapse">
+              ${[["Acelga","2 tazas","150g | 1 taza"],["Apio","1 taza","150g | 1 taza"],["Brócoli","1 taza","150g | 1 taza"],["Calabacita","1 pieza","1 pieza"],["Cebolla","1/2 taza","150g | 3/4 taza"],["Champiñones","1 taza","150g | 1 taza"],["Chayote","1 pieza","1 pieza"],["Chile jalapeño","6 piezas","6 piezas"],["Chile poblano","1 pieza","1 pieza"],["Chile serrano","3 piezas","3 piezas"],["Col","1 1/2 taza","150g | 1 taza"],["Coliflor","2 tazas","150g | 2 tazas"],["Flor de calabaza","3 tazas","150g | 1 taza"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:center">${r[1]}</td><td style="text-align:right">${r[2]}</td></tr>`).join("")}
+            </table>
+            <table style="width:100%;font-size:8.3px;color:#37474F;border-collapse:collapse">
+              ${[["Espinaca","2 tazas","150g | 1 taza"],["Ejotes","1 taza","150g | 1 taza"],["Espárragos","6 piezas","6 piezas"],["Lechuga","2 tazas","2 tazas"],["Jícama","1 taza","1 taza"],["Jitomate","1/2 taza","150g | 1 taza"],["Nopal","2 piezas","2 piezas"],["Pepino","1 taza","1 taza"],["Pimiento verde","1 pieza","1 pieza"],["Rábano","1 taza","1 taza"],["Tomate verde","5 piezas","5 piezas"],["Zanahoria","1 taza","1 taza"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:center">${r[1]}</td><td style="text-align:right">${r[2]}</td></tr>`).join("")}
+            </table>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #D6E4EC;border-radius:4px;padding:12px;margin-top:10px">
+          <p style="font-weight:700;font-size:10.5px;color:#fff;text-align:center;background:#0F2A52;padding:5px;border-radius:3px;margin:-12px -12px 8px">Proteína animal (carnes magras) — vapor, plancha, asada u horno</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <table style="width:100%;font-size:8.3px;color:#37474F;border-collapse:collapse">
+              ${[["Almeja mediana sin concha","230g"],["Calamar","150g"],["Camarón cocido","140g"],["Cangrejo","160g"],["Carne magra de res (no arrachera)","120g"],["Cerdo (solo filete)","150g"],["Claras de huevo","8pz"],["Codorniz","120g"],["Conejo","150g"],["Huevo","4pz"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:right;font-weight:600">${r[1]}</td></tr>`).join("")}
+            </table>
+            <table style="width:100%;font-size:8.3px;color:#37474F;border-collapse:collapse">
+              ${[["Langosta","220g"],["Langostinos","220g"],["Lomo de atún","200g"],["Mejillones sin concha, crudos","230g"],["Pavo natural (no embutido)","120g"],["Pescado blanco","120g"],["Pollo (no rostizado ni embutido)","120g"],["Pulpo","150g"],["Salmón","120g"]].map(r=>`<tr style="border-bottom:1px solid #EEE"><td style="padding:2px 0">${r[0]}</td><td style="text-align:right;font-weight:600">${r[1]}</td></tr>`).join("")}
+            </table>
+          </div>
+        </div>
+      </div>`
+  }
+};
+
+const FAMEL_HORARIOS=["Desayuno","Colación","Comida","Colación","Cena","Opcional"];
+
+async function pgNutricion(){
+  const b=RR();
+  const tipo=STATE.nutriTipo||"mantenimiento";
+  const plant=FAMEL_PLANTILLAS[tipo];
+  const p=STATE.pat||{};
+  STATE.nutriDatos=STATE.nutriDatos||{};
+
+  b.innerHTML=`
+  <div style="max-width:1000px;margin:0 auto;padding:16px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX};margin-bottom:2px">🥗 Nutrición — Plantillas Famel</h2>
+        <p style="font-size:13px;color:${MU}">Selecciona la fase y llena los campos editables</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${STATE.pat?`<span style="background:${PL};color:${P};padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700">👤 ${STATE.pat.nombre} ${STATE.pat.apellido_paterno}</span>`:""}
+        <select id="nutri-fase-sel" onchange="cambiarFaseNutri(this.value)" style="padding:8px 13px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;font-weight:700;background:#fff">
+          <option value="mantenimiento" ${tipo==="mantenimiento"?"selected":""}>Fase 4: Mantenimiento</option>
+          <option value="cetosis_franca" ${tipo==="cetosis_franca"?"selected":""}>Fase 1: Cetosis Franca</option>
+          <option value="cetosis_mixta" ${tipo==="cetosis_mixta"?"selected":""}>Fase 2: Cetosis Mixta</option>
+          <option value="transicion" ${tipo==="transicion"?"selected":""}>Fase 3: Transición</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 6px #00000012;overflow:hidden">
+      <!-- Header estilo Famel -->
+      <div style="background:linear-gradient(120deg,#EAF2FB,#F3F8E8);padding:18px 22px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0F2A52">
+        <img src="${FAMEL_LOGO_B64}" style="height:44px">
+        <div style="text-align:right">
+          <p style="font-size:11px;font-weight:700;color:#0F2A52;letter-spacing:.5px">CIENCIA Y</p>
+          <p style="font-size:11px;font-weight:700;color:#0F2A52;letter-spacing:.5px">EXPERIENCIA</p>
+        </div>
+      </div>
+      <div style="text-align:center;padding:16px 0 10px">
+        <h3 style="font-size:20px;font-weight:800;color:#0F2A52">${plant.titulo.split(":")[0]}: <span style="color:#1565C0">${plant.titulo.split(":")[1]}</span></h3>
+      </div>
+
+      <!-- Datos del paciente -->
+      <div style="padding:0 22px 16px">
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:10px">
+          ${fld("Nombre completo",`<input id="nu_nombre" value="${(p.nombre?`${p.nombre} ${p.apellido_paterno} ${p.apellido_materno||""}`.trim():"")}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center">`)}
+          ${fld("Fecha",`<input id="nu_fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center">`)}
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
+          ${fld("Correo",`<input id="nu_correo" value="${p.correo||""}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center">`)}
+          ${fld("Teléfono",`<input id="nu_tel" value="${p.celular||""}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center">`)}
+        </div>
+      </div>
+
+      <!-- Tabla de Alimentos -->
+      <div style="padding:0 22px">
+        <div style="background:#0F2A52;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:13px;letter-spacing:.5px;border-radius:4px 4px 0 0">ALIMENTOS</div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #D6E4EC">
+          <thead>
+            <tr style="background:#F4FAFD">
+              <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#0F2A52;border-bottom:1px solid #D6E4EC">Distribución</th>
+              ${FAMEL_HORARIOS.map(h=>`<th style="padding:8px 6px;text-align:center;font-size:11px;font-weight:700;color:#0F2A52;border-bottom:1px solid #D6E4EC;border-left:1px solid #EEE">${h}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${plant.filas.map((fila,fi)=>`<tr style="background:${fi%2?"#FAFCFE":"#fff"}">
+              <td style="padding:7px 10px;font-size:11px;font-weight:600;color:#37474F;border-bottom:1px solid #EEE">${fila}</td>
+              ${FAMEL_HORARIOS.map((h,hi)=>`<td style="padding:4px 6px;border-bottom:1px solid #EEE;border-left:1px solid #F5F5F5">
+                <input type="number" step="any" id="nu_cell_${fi}_${hi}" style="width:100%;padding:5px;border:1px solid #E0E0E0;border-radius:4px;outline:none;text-align:center;font-size:11px">
+              </td>`).join("")}
+            </tr>`).join("")}
+          </tbody>
+        </table>
+        <p style="font-size:9.5px;color:${MU};font-style:italic;text-align:center;padding:8px 10px;background:#FAFCFE;border:1px solid #D6E4EC;border-top:none">${plant.nota_tabla}</p>
+      </div>
+
+      <!-- Tabla de Suplementación -->
+      <div style="padding:14px 22px 0">
+        <div style="background:#0F2A52;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:13px;letter-spacing:.5px;border-radius:4px 4px 0 0">SUPLEMENTACIÓN ESPECIALIZADA</div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #D6E4EC">
+          <thead>
+            <tr style="background:#F4FAFD">
+              <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#0F2A52;border-bottom:1px solid #D6E4EC">Distribución</th>
+              ${FAMEL_HORARIOS.map(h=>`<th style="padding:8px 6px;text-align:center;font-size:11px;font-weight:700;color:#0F2A52;border-bottom:1px solid #D6E4EC;border-left:1px solid #EEE">${h}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${plant.suple.map((fila,fi)=>`<tr style="background:${fi%2?"#FAFCFE":"#fff"}">
+              <td style="padding:7px 10px;font-size:11px;font-weight:600;color:#37474F;border-bottom:1px solid #EEE">${fila}</td>
+              ${FAMEL_HORARIOS.map((h,hi)=>`<td style="padding:4px 6px;border-bottom:1px solid #EEE;border-left:1px solid #F5F5F5">
+                <input type="number" step="any" id="nu_sup_${fi}_${hi}" style="width:100%;padding:5px;border:1px solid #E0E0E0;border-radius:4px;outline:none;text-align:center;font-size:11px">
+              </td>`).join("")}
+            </tr>`).join("")}
+          </tbody>
+        </table>
+        <p style="font-size:9.5px;color:${MU};font-style:italic;text-align:center;padding:8px 10px;background:#FAFCFE;border:1px solid #D6E4EC;border-top:none">${plant.nota_suple}</p>
+      </div>
+
+      <!-- Requerimiento hídrico -->
+      <div style="padding:14px 22px 0">
+        <div style="background:#0F2A52;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:13px;letter-spacing:.5px;border-radius:4px 4px 0 0">REQUERIMIENTO HÍDRICO</div>
+        <div style="border:1px solid #D6E4EC;border-top:none;padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          ${fld("Consumo de líquidos al día (obligatorio)",`<input id="nu_hidrico" placeholder="Ej: 2.5 litros" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center">`)}
+          ${fld("Agua mineral al día (mitad del consumo)",`<input id="nu_agua_min" placeholder="Ej: 1.25 litros" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center">`)}
+        </div>
+      </div>
+
+      <!-- Recomendaciones (solo Mantenimiento) -->
+      ${tipo==="mantenimiento"?`
+      <div style="padding:14px 22px 0">
+        <div style="background:#0F2A52;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:13px;letter-spacing:.5px;border-radius:4px 4px 0 0">RECOMENDACIONES</div>
+        <div style="border:1px solid #D6E4EC;border-top:none;padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#FAFCFE">
+          <div style="display:flex;gap:8px"><span style="background:#fff;border:2px solid #1565C0;color:#1565C0;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0">1</span><p style="font-size:9.5px;color:#37474F;line-height:1.6">Al hacer sus comidas es posible que se sienta satisfecho muy rápido. En ese caso, elija alimentos de porciones más pequeñas o quite un cereal o una fruta ese día.</p></div>
+          <div style="display:flex;gap:8px"><span style="background:#fff;border:2px solid #1565C0;color:#1565C0;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0">2</span><p style="font-size:9.5px;color:#37474F;line-height:1.6">Por el contrario, si algún día se queda con hambre, escoja alimentos permitidos de porciones más grandes. Las verduras crudas son libres.</p></div>
+          <div style="display:flex;gap:8px"><span style="background:#fff;border:2px solid #1565C0;color:#1565C0;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0">3</span><p style="font-size:9.5px;color:#37474F;line-height:1.6">En ocasiones los cambios de alimentación pueden provocar problemas intestinales. Le sugerimos consumir el mínimo de agua indicado al día.</p></div>
+          <div style="display:flex;gap:8px"><span style="background:#fff;border:2px solid #1565C0;color:#1565C0;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0">4</span><p style="font-size:9.5px;color:#37474F;line-height:1.6">Para mejores resultados, recomendamos complementar el método con actividad física. Pregunte a su especialista cuál es la más adecuada.</p></div>
+        </div>
+      </div>`:""}
+
+      <!-- Notas adicionales del nutriólogo -->
+      <div style="padding:14px 22px">
+        ${fld("Notas / Indicaciones adicionales",`<textarea id="nu_notas" rows="3" placeholder="Indicaciones personalizadas para el paciente..." style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-family:inherit;resize:vertical"></textarea>`)}
+      </div>
+
+      <!-- Lista de referencia (no editable) -->
+      <div style="padding:0 22px 18px">
+        ${plant.referencia_extra}
+      </div>
+
+      <!-- Botones -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;padding:16px 22px;border-top:1px solid ${BR};background:#FAFAFA">
+        <button onclick="generarPDFNutricion()" style="background:linear-gradient(135deg,#0F2A52,#1565C0);color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">💾 Guardar y enviar por WhatsApp</button>
+        <button onclick="generarPDFNutricion(true)" style="background:#fff;color:#0F2A52;border:1.5px solid #0F2A52;border-radius:9px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer">📄 Solo descargar PDF</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+window.cambiarFaseNutri=function(val){
+  STATE.nutriTipo=val;
+  pgNutricion();
+}
+
+window.generarPDFNutricion=async function(soloDescargar){
+  const {jsPDF}=window.jspdf;
+  if(!jsPDF){showToast("jsPDF no disponible",false);return;}
+  if(typeof html2canvas==="undefined"){
+    await new Promise((res,rej)=>{
+      const s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);
+    });
+  }
+  loading(true,"Generando PDF de nutrición...");
+  try{
+    const tipo=STATE.nutriTipo||"mantenimiento";
+    const plant=FAMEL_PLANTILLAS[tipo];
+    const gv2=(id)=>document.getElementById(id)?.value||"";
+
+    const nombre=gv2("nu_nombre")||"—";
+    const fecha=gv2("nu_fecha")||new Date().toISOString().split("T")[0];
+    const correo=gv2("nu_correo");
+    const tel=gv2("nu_tel");
+    const hidrico=gv2("nu_hidrico");
+    const aguaMin=gv2("nu_agua_min");
+    const notas=gv2("nu_notas");
+
+    // Recolectar celdas de tabla
+    const filasTabla=plant.filas.map((f,fi)=>({
+      label:f,
+      vals:FAMEL_HORARIOS.map((h,hi)=>gv2(`nu_cell_${fi}_${hi}`))
+    }));
+    const filasSuple=plant.suple.map((f,fi)=>({
+      label:f,
+      vals:FAMEL_HORARIOS.map((h,hi)=>gv2(`nu_sup_${fi}_${hi}`))
+    }));
+
+    const AZ="#0F2A52",AZ2="#1565C0",BRD="#D6E4EC",TXT="#1F2933",SEC="#5F6B73",BGSEC="#F4FAFD";
+
+    const CW_PX=720;
+    const HCSC=3;
+    const PX_PER_MM=CW_PX*HCSC/189.9;
+    const renderHTML=async(html)=>{
+      const wrap=document.createElement("div");
+      wrap.style.cssText=`position:fixed;left:-9999px;top:0;width:${CW_PX}px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:${TXT};line-height:1.3;box-sizing:border-box`;
+      wrap.innerHTML=html;
+      document.body.appendChild(wrap);
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      const cv=await html2canvas(wrap,{scale:HCSC,useCORS:true,backgroundColor:"#fff",logging:false,imageTimeout:10000,allowTaint:true});
+      document.body.removeChild(wrap);
+      return cv;
+    };
+
+    const PW=215.9,PH=279.4,ML=14,CWMM=PW-28,FH=8;
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+
+    const addFooter=(pg,total)=>{
+      doc.setFillColor(244,250,253);doc.rect(0,PH-FH,PW,FH,"F");
+      doc.setDrawColor(214,228,236);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
+      doc.setTextColor(95,107,115);doc.setFont("helvetica","normal");doc.setFontSize(6);
+      doc.text(`Famel Nutrition  |  QP Clinic — Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX  |  Generado: ${new Date().toLocaleDateString("es-MX")}  |  Página ${pg} de ${total}`,PW/2,PH-3,{align:"center",maxWidth:PW-6});
+    };
+
+    const AVAIL_H=PH-FH-ML;
+    const pages=[];
+    const canvasToPDFPages=async(cv)=>{
+      let srcY=0;
+      while(srcY<cv.height){
+        const sliceH=Math.min(Math.round(AVAIL_H*PX_PER_MM),cv.height-srcY);
+        if(sliceH<=0)break;
+        const sl=document.createElement("canvas");
+        sl.width=cv.width;sl.height=sliceH;
+        sl.getContext("2d").drawImage(cv,0,-srcY);
+        pages.push(sl);
+        srcY+=sliceH;
+      }
+    };
+
+    const tabla=(titulo,filas,nota)=>`
+    <div style="background:${AZ};color:#fff;text-align:center;padding:7px;font-weight:700;font-size:11px;letter-spacing:.4px;border-radius:4px 4px 0 0;margin-top:12px">${titulo}</div>
+    <table style="width:100%;border-collapse:collapse;border:1px solid ${BRD}">
+      <tr style="background:${BGSEC}">
+        <th style="padding:6px 9px;text-align:left;font-size:9px;font-weight:700;color:${AZ};border-bottom:1px solid ${BRD}">Distribución</th>
+        ${FAMEL_HORARIOS.map(h=>`<th style="padding:6px 5px;text-align:center;font-size:9px;font-weight:700;color:${AZ};border-bottom:1px solid ${BRD};border-left:1px solid #EEE">${h}</th>`).join("")}
+      </tr>
+      ${filas.map((f,i)=>`<tr style="background:${i%2?"#FAFCFE":"#fff"}">
+        <td style="padding:6px 9px;font-size:9px;font-weight:600;color:${SEC};border-bottom:1px solid #EEE">${f.label}</td>
+        ${f.vals.map(v=>`<td style="padding:6px 4px;text-align:center;font-size:10px;font-weight:700;color:${TXT};border-bottom:1px solid #EEE;border-left:1px solid #F5F5F5">${v||""}</td>`).join("")}
+      </tr>`).join("")}
+    </table>
+    <p style="font-size:7.5px;color:${SEC};font-style:italic;text-align:center;padding:6px 9px;background:#FAFCFE;border:1px solid ${BRD};border-top:none;margin:0">${nota}</p>`;
+
+    const page1=`
+    <!-- HEADER -->
+    <div style="background:linear-gradient(120deg,#EAF2FB,#F3F8E8);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:2.5px solid ${AZ}">
+      <img src="${FAMEL_LOGO_B64}" style="height:38px">
+      <div style="text-align:right">
+        <div style="font-size:9px;font-weight:700;color:${AZ};letter-spacing:.5px">CIENCIA Y</div>
+        <div style="font-size:9px;font-weight:700;color:${AZ};letter-spacing:.5px">EXPERIENCIA</div>
+      </div>
+    </div>
+    <div style="text-align:center;padding:12px 0 8px">
+      <span style="font-size:17px;font-weight:800;color:${AZ}">${plant.titulo.split(":")[0]}:</span>
+      <span style="font-size:17px;font-weight:800;color:${AZ2}">${plant.titulo.split(":")[1]}</span>
+    </div>
+    <!-- DATOS PACIENTE -->
+    <div style="display:flex;gap:14px;padding:0 4px 10px;flex-wrap:wrap">
+      <div style="flex:2"><div style="font-size:7px;color:${SEC};text-transform:uppercase;font-weight:700">Nombre completo</div><div style="font-size:10.5px;font-weight:700;color:${TXT};text-align:center;border-bottom:1px solid ${BRD};padding:2px 0">${nombre}</div></div>
+      <div style="flex:1"><div style="font-size:7px;color:${SEC};text-transform:uppercase;font-weight:700">Fecha</div><div style="font-size:10.5px;font-weight:700;color:${TXT};text-align:center;border-bottom:1px solid ${BRD};padding:2px 0">${fecha}</div></div>
+    </div>
+    <div style="display:flex;gap:14px;padding:0 4px 4px;flex-wrap:wrap">
+      <div style="flex:2"><div style="font-size:7px;color:${SEC};text-transform:uppercase;font-weight:700">Correo</div><div style="font-size:10px;color:${TXT};text-align:center;border-bottom:1px solid ${BRD};padding:2px 0">${correo||"—"}</div></div>
+      <div style="flex:1"><div style="font-size:7px;color:${SEC};text-transform:uppercase;font-weight:700">Teléfono</div><div style="font-size:10px;color:${TXT};text-align:center;border-bottom:1px solid ${BRD};padding:2px 0">${tel||"—"}</div></div>
+    </div>
+    ${tabla("ALIMENTOS",filasTabla,plant.nota_tabla)}
+    ${tabla("SUPLEMENTACIÓN ESPECIALIZADA",filasSuple,plant.nota_suple)}
+    <div style="background:${AZ};color:#fff;text-align:center;padding:7px;font-weight:700;font-size:11px;letter-spacing:.4px;border-radius:4px 4px 0 0;margin-top:12px">REQUERIMIENTO HÍDRICO</div>
+    <div style="border:1px solid ${BRD};border-top:none;padding:10px 14px;display:flex;gap:14px;font-size:9.5px;color:${TXT}">
+      <div style="flex:1"><b>Consumo de líquidos:</b> ${hidrico||"________"} al día (obligatorio)</div>
+      <div style="flex:1"><b>Agua mineral:</b> ${aguaMin||"________"} al día</div>
+    </div>
+    ${notas?`<div style="margin-top:10px;background:#FFF8E1;border:1px solid #FFE082;border-radius:4px;padding:9px 12px"><div style="font-size:8px;font-weight:700;color:#E65100;text-transform:uppercase;margin-bottom:3px">Notas / Indicaciones</div><div style="font-size:9.5px;color:${TXT};white-space:pre-wrap">${notas}</div></div>`:""}
+    ${tipo==="mantenimiento"?`
+    <div style="background:${AZ};color:#fff;text-align:center;padding:7px;font-weight:700;font-size:11px;letter-spacing:.4px;border-radius:4px 4px 0 0;margin-top:12px">RECOMENDACIONES</div>
+    <div style="border:1px solid ${BRD};border-top:none;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#FAFCFE">
+      <div style="font-size:8.5px;color:${SEC};line-height:1.5"><b>1.</b> Si se siente satisfecho muy rápido, elija porciones más pequeñas o quite un cereal/fruta ese día.</div>
+      <div style="font-size:8.5px;color:${SEC};line-height:1.5"><b>2.</b> Si se queda con hambre, elija porciones más grandes. Las verduras crudas son libres.</div>
+      <div style="font-size:8.5px;color:${SEC};line-height:1.5"><b>3.</b> Si hay molestias intestinales, consuma el mínimo de agua indicado al día.</div>
+      <div style="font-size:8.5px;color:${SEC};line-height:1.5"><b>4.</b> Complemente el método con actividad física adecuada para usted.</div>
+    </div>`:""}
+    `;
+
+    const cv1=await renderHTML(page1);
+    await canvasToPDFPages(cv1);
+    const cv2=await renderHTML(plant.referencia_extra);
+    await canvasToPDFPages(cv2);
+
+    const total=pages.length;
+    for(let i=0;i<pages.length;i++){
+      if(i>0)doc.addPage();
+      const cv=pages[i];
+      const hmm=cv.height/PX_PER_MM;
+      doc.addImage(cv.toDataURL("image/png"),"PNG",ML,ML,CWMM,hmm,undefined,"FAST");
+      addFooter(i+1,total);
+    }
+
+    // Guardar en Supabase si hay paciente
+    const pid=STATE.pat?.id;
+    let savedPath=null;
+    if(pid){
+      try{
+        const blob=doc.output("blob");
+        const path=`${pid}/nutricion/${tipo}_${Date.now()}.pdf`;
+        const {error:upErr}=await SB.storage.from("expedientes").upload(path,blob,{contentType:"application/pdf",upsert:false});
+        if(!upErr){
+          savedPath=path;
+          await SB.from("anexos").insert({
+            paciente_id:pid,
+            titulo:`PLAN NUTRICIONAL — ${plant.titulo} — ${fecha}`,
+            tipo_documento:"Laboratorio (PDF)",
+            origen:"generado",firmado:false,
+            storage_path:path,
+            fecha:fecha,
+          });
+        }
+      }catch(e){console.warn("No se pudo guardar en expediente:",e.message);}
+    }
+
+    loading(false);
+    const fname=`Famel_${plant.titulo.replace(/[^a-zA-Z0-9]/g,"_")}_${nombre.replace(/\s+/g,"_")}_${fecha}.pdf`;
+    doc.save(fname);
+
+    if(soloDescargar){
+      showToast("✓ PDF descargado");
+      return;
+    }
+
+    showToast("✓ PDF guardado — abre WhatsApp y adjunta el archivo descargado");
+    // Abrir WhatsApp con mensaje (igual que recetas — el PDF se adjunta manualmente)
+    const celWA=(tel||p.celular||"").replace(/\D/g,"");
+    const celFinal=celWA.length===10?"52"+celWA:celWA;
+    const msg=`🥗 *QP Clinic — Plan Nutricional Famel*\n\n*Paciente:* ${nombre}\n*Plan:* ${plant.titulo}\n*Fecha:* ${fecha}\n\nEl PDF se descargó en tu dispositivo. Adjúntalo en WhatsApp.`;
+    if(celFinal){
+      setTimeout(()=>window.open(`https://web.whatsapp.com/send?phone=${celFinal}&text=${encodeURIComponent(msg)}`,"_blank"),800);
+    } else {
+      setTimeout(()=>window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(msg)}`,"_blank"),800);
+    }
+
+  }catch(err){
+    loading(false);
+    console.error("Error PDF nutrición:",err);
+    showToast("Error al generar PDF: "+err.message,false);
+  }
+}
 
 ;(async function init(){
   // Helper de detección amplia de token corrupto
