@@ -428,13 +428,13 @@ function nav(){
     <div style="position:relative" id="nutri-menu-wrap">
       <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
       <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
-        <button onclick="showToast('Calculadora de dietas — próximamente');toggleNutriMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#B0BEC5;display:flex;align-items:center;gap:8px" disabled>🧮 Cálculo de dietas <span style="margin-left:auto;background:#F5F5F5;color:#90A4AE;padding:1px 7px;border-radius:10px;font-size:11px">Próximamente</span></button>
+        <button onclick="go('nutricion');STATE.nutriModulo='calculo';toggleNutriMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🧮 Cálculo nutricional</button>
         <div style="border-top:1px solid #EEE;margin:4px 0"></div>
         <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Plantillas Famel Nutrition</div>
-        <button onclick="go('nutricion');STATE.nutriTipo='mantenimiento';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🥗 Fase 4: Mantenimiento</button>
-        <button onclick="go('nutricion');STATE.nutriTipo='cetosis_franca';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🥑 Fase 1: Cetosis Franca</button>
-        <button onclick="go('nutricion');STATE.nutriTipo='cetosis_mixta';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍗 Fase 2: Cetosis Mixta</button>
-        <button onclick="go('nutricion');STATE.nutriTipo='transicion';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍎 Fase 3: Transición</button>
+        <button onclick="go('nutricion');STATE.nutriModulo='plantillas';STATE.nutriTipo='mantenimiento';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🥗 Fase 4: Mantenimiento</button>
+        <button onclick="go('nutricion');STATE.nutriModulo='plantillas';STATE.nutriTipo='cetosis_franca';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🥑 Fase 1: Cetosis Franca</button>
+        <button onclick="go('nutricion');STATE.nutriModulo='plantillas';STATE.nutriTipo='cetosis_mixta';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍗 Fase 2: Cetosis Mixta</button>
+        <button onclick="go('nutricion');STATE.nutriModulo='plantillas';STATE.nutriTipo='transicion';toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍎 Fase 3: Transición</button>
       </div>
     </div>
     ${STATE.userProfile?.rol==="admin"?`
@@ -13099,6 +13099,11 @@ const FAMEL_PLANTILLAS={
 const FAMEL_HORARIOS=["Desayuno","Colación","Comida","Colación","Cena","Opcional"];
 
 async function pgNutricion(){
+  if((STATE.nutriModulo||"plantillas")==="calculo")return pgNutricionCalculo();
+  return pgNutricionPlantillas();
+}
+
+async function pgNutricionPlantillas(){
   const b=RR();
   const tipo=STATE.nutriTipo||"mantenimiento";
   const plant=FAMEL_PLANTILLAS[tipo];
@@ -13444,6 +13449,461 @@ window.generarPDFNutricion=async function(soloDescargar){
     console.error("Error PDF nutrición:",err);
     showToast("Error al generar PDF: "+err.message,false);
   }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MÓDULO CÁLCULO NUTRICIONAL                                        ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+function edadAnios(fnac){
+  if(!fnac)return null;
+  const hoy=new Date(),nac=new Date(fnac);
+  let a=hoy.getFullYear()-nac.getFullYear();
+  const m=hoy.getMonth()-nac.getMonth();
+  if(m<0||(m===0&&hoy.getDate()<nac.getDate()))a--;
+  return a;
+}
+
+async function pgNutricionCalculo(){
+  const b=RR();
+  const p=STATE.pat||{};
+
+  if(!p?.id){
+    b.innerHTML=`<div style="max-width:560px;margin:60px auto;padding:24px;text-align:center" class="fade">
+      <div style="background:#fff;border-radius:14px;box-shadow:0 1px 6px #00000012;padding:36px 28px">
+        <p style="font-size:44px;margin-bottom:10px">🧮</p>
+        <h3 style="font-size:17px;font-weight:800;color:${TX};margin-bottom:8px">Abre un expediente primero</h3>
+        <p style="font-size:14px;color:${MU};line-height:1.6;margin-bottom:20px">Para usar el cálculo nutricional necesitas un paciente activo — así se obtiene su composición corporal del InBody y datos generales.</p>
+        <button onclick="go('buscar')" style="background:${P};color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">🔍 Ir a Buscar paciente →</button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  STATE.calcTab=STATE.calcTab||"mediciones";
+  STATE.calcDatos=STATE.calcDatos||{};
+
+  // Cargar última medición InBody disponible
+  const {data:ibList}=await SB.from("inbody_resultados").select("*").eq("paciente_id",p.id).order("fecha",{ascending:false}).limit(1);
+  const ib=ibList?.[0]||null;
+  STATE.calcIB=ib;
+
+  const edad=edadAnios(p.fecha_nacimiento);
+  const sexo=(p.sexo_biologico||"").toLowerCase();
+  const esHombre=sexo.includes("masculino")||sexo.includes("hombre");
+
+  b.innerHTML=`
+  <div style="max-width:1000px;margin:0 auto;padding:16px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="go('expediente')" style="background:${PL};color:${P};border:1.5px solid #B3E5FC;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:700">← Expediente</button>
+        <div>
+          <h2 style="font-size:18px;font-weight:800;color:${TX};margin-bottom:2px">🧮 Cálculo Nutricional</h2>
+          <p style="font-size:13px;color:${MU}">${p.nombre} ${p.apellido_paterno} · ${edad!=null?edad+" años":"—"} · ${esHombre?"Hombre":"Mujer"}</p>
+        </div>
+      </div>
+      <span style="background:${PL};color:${P};padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700">👤 ${p.nombre} ${p.apellido_paterno}</span>
+    </div>
+
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 6px #00000012;overflow:hidden">
+      <div style="display:flex;border-bottom:2px solid ${BR};background:#F8FAFB;padding:0 8px">
+        ${[["mediciones","📏 Mediciones"],["calculos","🧮 Cálculos"],["calorias","📊 Calorías"]].map(([k,l])=>{
+          const activo=STATE.calcTab===k;
+          return`<button onclick="setCalcTab('${k}')" style="padding:11px 16px;border:none;cursor:pointer;font-weight:${activo?700:500};font-size:14px;color:${activo?P:MU};border-bottom:${activo?"3px solid "+P:"3px solid transparent"};background:${activo?"#fff":"transparent"};border-radius:${activo?"6px 6px 0 0":"0"}">${l}</button>`;
+        }).join("")}
+      </div>
+      <div id="calc-body" style="padding:20px"></div>
+    </div>
+  </div>`;
+
+  renderCalcTab();
+}
+
+window.setCalcTab=function(t){STATE.calcTab=t;renderCalcTab();}
+
+function renderCalcTab(){
+  const cb=document.getElementById("calc-body");if(!cb)return;
+  if(STATE.calcTab==="mediciones")renderCalcMediciones(cb);
+  else if(STATE.calcTab==="calculos")renderCalcCalculos(cb);
+  else if(STATE.calcTab==="calorias")renderCalcCalorias(cb);
+}
+
+// ── TAB 1: MEDICIONES (desde InBody) ─────────────────────────────────────────
+function renderCalcMediciones(cb){
+  const ib=STATE.calcIB;
+  const p=STATE.pat||{};
+  if(!ib){
+    cb.innerHTML=`<div style="text-align:center;padding:40px 20px">
+      <p style="font-size:40px;margin-bottom:10px">📏</p>
+      <p style="font-size:15px;font-weight:700;color:${TX};margin-bottom:6px">Sin mediciones InBody registradas</p>
+      <p style="font-size:13px;color:${MU};margin-bottom:18px;max-width:420px;margin-left:auto;margin-right:auto">La composición corporal por impedancia bioeléctrica se obtiene del módulo InBody del expediente. Registra una evaluación para habilitar los cálculos automáticos.</p>
+      <button onclick="STATE.expTab='inbody';go('expediente')" style="background:${P};color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer">📲 Ir a InBody →</button>
+    </div>`;
+    return;
+  }
+  const campo=(l,v,u)=>`<div style="background:#F8FAFB;border-radius:8px;padding:10px 12px;text-align:center">
+    <div style="font-size:11px;color:${MU};text-transform:uppercase;font-weight:700;margin-bottom:3px">${l}</div>
+    <div style="font-size:17px;font-weight:800;color:${TX}">${v!=null&&v!==""?v:"—"}${v!=null&&v!==""&&u?" "+u:""}</div>
+  </div>`;
+  cb.innerHTML=`
+    <div style="background:${PL};border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span style="font-size:13px;color:${P}">📅 Última evaluación InBody: <b>${ib.fecha||"—"}</b> ${ib.hora?"· "+ib.hora:""} ${ib.modelo?"· "+ib.modelo:""}</span>
+      <button onclick="STATE.expTab='inbody';go('expediente')" style="background:#fff;color:${P};border:1px solid ${P};border-radius:6px;padding:4px 11px;font-size:12px;font-weight:700;cursor:pointer">Ver / actualizar →</button>
+    </div>
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Composición corporal por impedancia bioeléctrica</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px">
+      ${campo("Peso",ib.peso,"kg")}
+      ${campo("Altura",ib.altura,"cm")}
+      ${campo("IMC",ib.imc,"")}
+      ${campo("% Grasa corporal",ib.pgc,"%")}
+      ${campo("Masa grasa",ib.masa_grasa,"kg")}
+      ${campo("Masa muscular",ib.masa_musculo,"kg")}
+      ${campo("Agua corporal",ib.agua_corporal,"L")}
+      ${campo("Proteína",ib.proteina,"kg")}
+      ${campo("Minerales",ib.minerales,"kg")}
+      ${campo("Grasa visceral",ib.grasa_visceral,"")}
+      ${campo("TMB (InBody)",ib.tmb,"kcal")}
+      ${campo("Masa celular",ib.masa_celular,"kg")}
+    </div>
+    <div style="background:#FFF8E1;border-radius:8px;padding:12px 14px;font-size:13px;color:#E65100">
+      💡 Estos valores (peso, altura, edad) se usan automáticamente en la pestaña <b>Cálculos</b> para estimar el gasto energético basal con las 4 fórmulas.
+    </div>
+  `;
+}
+
+// ── TAB 2: CÁLCULOS (gasto energético) ───────────────────────────────────────
+function renderCalcCalculos(cb){
+  const ib=STATE.calcIB;
+  const p=STATE.pat||{};
+  const edad=edadAnios(p.fecha_nacimiento);
+  const sexo=(p.sexo_biologico||"").toLowerCase();
+  const esHombre=sexo.includes("masculino")||sexo.includes("hombre");
+  const peso=ib?.peso?parseFloat(ib.peso):null;
+  const talla=ib?.altura?parseFloat(ib.altura):null;
+
+  if(!peso||!talla||edad==null){
+    cb.innerHTML=`<div style="text-align:center;padding:30px 20px">
+      <p style="font-size:36px;margin-bottom:8px">⚠️</p>
+      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:6px">Datos insuficientes</p>
+      <p style="font-size:13px;color:${MU}">Se requiere peso y altura del InBody, además de fecha de nacimiento del paciente, para calcular el gasto energético.</p>
+    </div>`;
+    return;
+  }
+
+  const r=calcularFormulasGEB(peso,talla,edad,esHombre);
+  STATE.calcDatos.geb=r;
+
+  const filaFormula=(nombre,basal)=>{
+    const af45=basal*1.45;
+    return`<tr style="border-bottom:1px solid ${BR}">
+      <td style="padding:9px 11px;font-size:13px;font-weight:600;color:${TX}">${nombre}</td>
+      <td style="padding:9px 11px;font-size:13px;text-align:center;color:${TX}">${Math.round(basal)}</td>
+      <td style="padding:9px 11px;font-size:13px;text-align:center;color:${TX}">${Math.round(af45)}</td>
+      <td style="padding:9px 11px;font-size:13px;text-align:center;font-weight:700;color:${P}">${Math.round(af45)}</td>
+    </tr>`;
+  };
+
+  const promBasal=(r.fao+r.hb+r.val+r.msj)/4;
+  const promAF=promBasal*1.45;
+
+  cb.innerHTML=`
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Gasto energético para mantenimiento</p>
+    <div style="overflow-x:auto;margin-bottom:18px">
+      <table style="width:100%;border-collapse:collapse;border:1px solid ${BR};border-radius:8px;overflow:hidden">
+        <thead><tr style="background:${PL}">
+          <th style="padding:9px 11px;text-align:left;font-size:12px;font-weight:700;color:${P}">Autor</th>
+          <th style="padding:9px 11px;text-align:center;font-size:12px;font-weight:700;color:${P}">Basal</th>
+          <th style="padding:9px 11px;text-align:center;font-size:12px;font-weight:700;color:${P}">AF 45%</th>
+          <th style="padding:9px 11px;text-align:center;font-size:12px;font-weight:700;color:${P}">Total</th>
+        </tr></thead>
+        <tbody>
+          ${filaFormula("FAO/OMS/ONU",r.fao)}
+          ${filaFormula("Harris-Benedict",r.hb)}
+          ${filaFormula("Valencia",r.val)}
+          ${filaFormula("Mifflin-St. Jeor",r.msj)}
+          <tr style="background:${PL}">
+            <td style="padding:9px 11px;font-size:13px;font-weight:800;color:${TX}">Promedio</td>
+            <td style="padding:9px 11px;font-size:13px;text-align:center;font-weight:800;color:${TX}">${Math.round(promBasal)}</td>
+            <td style="padding:9px 11px;font-size:13px;text-align:center;font-weight:800;color:${TX}">${Math.round(promAF)}</td>
+            <td style="padding:9px 11px;font-size:14px;text-align:center;font-weight:800;color:${P}">${Math.round(promAF)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:11px;color:${MU};margin-bottom:18px">• Las calorías seleccionadas en la pestaña <b>Calorías</b> aparecen como Objetivo calórico del paciente.</p>
+
+    <div style="background:#F8FAFB;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+      <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Datos utilizados en el cálculo</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;font-size:13px;color:${TX}">
+        <div><b>Peso:</b> ${peso} kg</div>
+        <div><b>Talla:</b> ${talla} cm</div>
+        <div><b>Edad:</b> ${edad} años</div>
+        <div><b>Sexo:</b> ${esHombre?"Hombre":"Mujer"}</div>
+      </div>
+    </div>
+
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:${P}">Ver fórmulas utilizadas</summary>
+      <div style="font-size:11.5px;color:${MU};margin-top:8px;line-height:1.8;background:#FAFAFA;border-radius:7px;padding:10px 13px">
+        <b>FAO/OMS/ONU</b> (Schofield): por rango de edad y sexo, basada en peso.<br>
+        <b>Harris-Benedict</b> (1919): Hombres = 66.5 + 13.75×peso + 5.08×talla − 6.78×edad. Mujeres = 655.1 + 9.56×peso + 1.85×talla − 4.68×edad.<br>
+        <b>Valencia</b> (2008, validada en mexicanos): coeficientes por rango de edad y sexo, basada en peso.<br>
+        <b>Mifflin-St. Jeor</b> (1990): Hombres = (9.99×peso) + (6.25×talla) − (4.92×edad) + 5. Mujeres = mismo − 161.<br>
+        <i>AF 45% = Factor de actividad física ligera-moderada aplicado sobre el gasto basal.</i>
+      </div>
+    </details>
+  `;
+}
+
+function calcularFormulasGEB(peso,talla,edad,esHombre){
+  // FAO/OMS/ONU (Schofield) — por rango de edad
+  let fao;
+  if(esHombre){
+    if(edad<=3)fao=60.9*peso-54;
+    else if(edad<=10)fao=22.7*peso+495;
+    else if(edad<=18)fao=17.5*peso+651;
+    else if(edad<=30)fao=15.3*peso+679;
+    else if(edad<=60)fao=11.6*peso+879;
+    else fao=13.5*peso+487;
+  } else {
+    if(edad<=3)fao=61.0*peso-51;
+    else if(edad<=10)fao=22.5*peso+499;
+    else if(edad<=18)fao=12.2*peso+746;
+    else if(edad<=30)fao=14.7*peso+496;
+    else if(edad<=60)fao=8.7*peso+829;
+    else fao=10.5*peso+596;
+  }
+
+  // Harris-Benedict (clásica 1919)
+  const hb=esHombre
+    ?66.5+13.75*peso+5.08*talla-6.78*edad
+    :655.1+9.56*peso+1.85*talla-4.68*edad;
+
+  // Valencia (2008) — validada en mexicanos
+  let val;
+  if(esHombre){
+    if(edad<30)val=13.37*peso+747;
+    else if(edad<60)val=13.08*peso+693;
+    else val=14.21*peso+429;
+  } else {
+    if(edad<30)val=11.02*peso+679;
+    else if(edad<60)val=10.92*peso+677;
+    else val=10.98*peso+520;
+  }
+
+  // Mifflin-St. Jeor (1990)
+  const msj=esHombre
+    ?(9.99*peso)+(6.25*talla)-(4.92*edad)+5
+    :(9.99*peso)+(6.25*talla)-(4.92*edad)-161;
+
+  return{fao,hb,val,msj};
+}
+
+// ── TAB 3: CALORÍAS (Balance energético) ─────────────────────────────────────
+function renderCalcCalorias(cb){
+  const geb=STATE.calcDatos?.geb;
+  if(!geb){
+    cb.innerHTML=`<div style="text-align:center;padding:30px 20px">
+      <p style="font-size:36px;margin-bottom:8px">📊</p>
+      <p style="font-size:14px;font-weight:700;color:${TX}">Primero calcula el gasto energético</p>
+      <p style="font-size:13px;color:${MU};margin-top:6px">Ve a la pestaña <b>Cálculos</b> para generar las cifras base.</p>
+    </div>`;
+    return;
+  }
+  const balance=STATE.calcBalance||"deficit";
+  const promBasal=(geb.fao+geb.hb+geb.val+geb.msj)/4;
+  const gebAF=promBasal*1.45;
+  const ib=STATE.calcIB;
+  const pesoKg=ib?.peso?parseFloat(ib.peso):0;
+
+  cb.innerHTML=`
+    <div style="display:grid;grid-template-columns:220px 1fr;gap:16px">
+      <div>
+        <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px;font-style:italic">Balance energético</p>
+        <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden">
+          ${[["normocalorico","⚖️ Normocalórico"],["deficit","⚖️ Déficit"],["superavit","⚖️ Superávit"]].map(([k,l])=>`
+          <label style="display:flex;align-items:center;gap:8px;padding:11px 13px;cursor:pointer;border-bottom:1px solid #F0F0F0;background:${balance===k?PL:"#fff"}">
+            <input type="checkbox" ${balance===k?"checked":""} onclick="seleccionarBalance('${k}');return false;" style="accent-color:${P};width:15px;height:15px">
+            <span style="font-size:14px;color:${TX}">${l}</span>
+          </label>`).join("")}
+        </div>
+      </div>
+      <div id="calc-balance-detalle"></div>
+    </div>
+  `;
+  renderBalanceDetalle();
+}
+
+window.seleccionarBalance=function(k){
+  STATE.calcBalance=k;
+  renderCalcCalorias(document.getElementById("calc-body"));
+}
+
+function renderBalanceDetalle(){
+  const det=document.getElementById("calc-balance-detalle");if(!det)return;
+  const balance=STATE.calcBalance||"deficit";
+  const geb=STATE.calcDatos.geb;
+  const promBasal=(geb.fao+geb.hb+geb.val+geb.msj)/4;
+  const gebAF=promBasal*1.45;
+  const ib=STATE.calcIB;
+  const pesoKg=ib?.peso?parseFloat(ib.peso):0;
+
+  if(balance==="normocalorico"){
+    det.innerHTML=`
+    <div style="border:1px solid ${BR};border-radius:8px;padding:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:20px">⚖️</span>
+        <b style="font-size:15px;color:${TX}">Cálculo normocalórico</b>
+      </div>
+      <p style="font-size:13px;color:${MU};margin-bottom:14px">Mantiene el peso actual del paciente — utilizado para mantenimiento o estabilización.</p>
+      <div style="background:${PL};border-radius:8px;padding:16px;text-align:center">
+        <p style="font-size:12px;color:${P};text-transform:uppercase;font-weight:700">Objetivo calórico</p>
+        <p style="font-size:30px;font-weight:800;color:${P}">${Math.round(gebAF)} kcal</p>
+      </div>
+      <button onclick="asignarObjetivoCalorico(${Math.round(gebAF)},'Normocalórico')" style="margin-top:14px;background:${P};color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Usar como Objetivo</button>
+    </div>`;
+    return;
+  }
+
+  if(balance==="deficit"){
+    const opciones=[
+      {l:"Déficit leve: 25 kcal/kg peso",v:25},
+      {l:"Déficit moderado: 20 kcal/kg peso",v:20},
+      {l:"Déficit intenso: 15 kcal/kg peso",v:15},
+      {l:"Déficit muy intenso: 11 kcal/kg peso",v:11},
+      {l:"Ingresar cantidad manualmente",v:"manual"},
+    ];
+    det.innerHTML=`
+    <div style="border:1px solid ${BR};border-radius:8px;padding:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:20px">⚖️</span>
+        <b style="font-size:15px;color:${TX}">Cálculo para déficit calórico</b>
+      </div>
+      <p style="font-size:13px;color:${MU};margin-bottom:14px">Normalmente utilizado para pacientes que inician su proceso de pérdida de peso.</p>
+      <select id="deficit-sel" onchange="calcDeficitChange()" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;outline:none;margin-bottom:14px">
+        <option value="">Seleccionar</option>
+        ${opciones.map(o=>`<option value="${o.v}">${o.l}</option>`).join("")}
+      </select>
+      <div id="deficit-manual" style="display:none;margin-bottom:14px">
+        ${fld("kcal por kg de peso",`<input type="number" id="deficit-manual-val" step="0.5" oninput="calcDeficitChange()" placeholder="Ej: 18" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+      <div id="deficit-resultado"></div>
+      <p style="font-size:11px;color:${MU};margin-top:12px">Fuente: <a href="https://aspenjournals.onlinelibrary.wiley.com/doi/10.1177/0148607115621863" target="_blank" style="color:${P}">aspenjournals.onlinelibrary.wiley.com/doi/10.1177/0148607115621863</a></p>
+      <p style="font-size:11px;color:${MU};font-style:italic;margin-top:4px">• Las calorías seleccionadas aparecen como Objetivo en la sección de Dietas</p>
+    </div>`;
+    return;
+  }
+
+  if(balance==="superavit"){
+    STATE.calcSup=STATE.calcSup||{hdec:4,prot:1.5,lip:0.5};
+    const s=STATE.calcSup;
+    det.innerHTML=`
+    <div style="border:1px solid ${BR};border-radius:8px;padding:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:20px">⚖️</span>
+        <b style="font-size:15px;color:${TX}">Cálculo para superávit calórico</b>
+      </div>
+      <p style="font-size:13px;color:${MU};margin-bottom:16px">Frecuentemente utilizado en pacientes para el aumento de masa muscular.</p>
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+        <label style="font-size:13px;font-weight:600;color:${TX};width:70px">Hdec</label>
+        <input type="range" min="0" max="10" step="0.5" value="${s.hdec}" oninput="updateSup('hdec',this.value)" id="sup-hdec-range" style="flex:1;accent-color:${P}">
+        <input type="number" value="${s.hdec}" id="sup-hdec-val" oninput="updateSup('hdec',this.value)" style="width:60px;padding:6px 8px;border:1.5px solid ${BR};border-radius:6px;text-align:center;font-size:13px">
+      </div>
+
+      <label style="display:flex;align-items:center;gap:7px;margin-bottom:10px;cursor:pointer">
+        <input type="checkbox" checked style="accent-color:${P};width:15px;height:15px">
+        <span style="font-size:13px;font-weight:600;color:${TX}">Gramos por kilos</span>
+      </label>
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+        <label style="font-size:13px;font-weight:600;color:${TX};width:70px">Prot</label>
+        <input type="range" min="0" max="3" step="0.1" value="${s.prot}" oninput="updateSup('prot',this.value)" id="sup-prot-range" style="flex:1;accent-color:${P}">
+        <input type="number" value="${s.prot}" id="sup-prot-val" oninput="updateSup('prot',this.value)" style="width:60px;padding:6px 8px;border:1.5px solid ${BR};border-radius:6px;text-align:center;font-size:13px">
+      </div>
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <label style="font-size:13px;font-weight:600;color:${TX};width:70px">Lip</label>
+        <input type="range" min="0" max="2" step="0.1" value="${s.lip}" oninput="updateSup('lip',this.value)" id="sup-lip-range" style="flex:1;accent-color:${P}">
+        <input type="number" value="${s.lip}" id="sup-lip-val" oninput="updateSup('lip',this.value)" style="width:60px;padding:6px 8px;border:1.5px solid ${BR};border-radius:6px;text-align:center;font-size:13px">
+      </div>
+
+      <div id="sup-resultado"></div>
+      <p style="font-size:11px;color:${MU};font-style:italic;margin-top:10px">• Las calorías seleccionadas aparecen como Objetivo en la sección de Dietas</p>
+    </div>`;
+    renderSupResultado();
+    return;
+  }
+}
+
+window.calcDeficitChange=function(){
+  const sel=document.getElementById("deficit-sel")?.value;
+  const manualDiv=document.getElementById("deficit-manual");
+  const resDiv=document.getElementById("deficit-resultado");
+  if(!sel){if(manualDiv)manualDiv.style.display="none";if(resDiv)resDiv.innerHTML="";return;}
+  let kcalPorKg;
+  if(sel==="manual"){
+    if(manualDiv)manualDiv.style.display="block";
+    kcalPorKg=parseFloat(document.getElementById("deficit-manual-val")?.value)||0;
+  } else {
+    if(manualDiv)manualDiv.style.display="none";
+    kcalPorKg=parseFloat(sel);
+  }
+  const ib=STATE.calcIB;
+  const peso=ib?.peso?parseFloat(ib.peso):0;
+  const total=Math.round(kcalPorKg*peso);
+  if(resDiv){
+    resDiv.innerHTML=total>0?`
+    <div style="background:${PL};border-radius:8px;padding:16px;text-align:center">
+      <p style="font-size:12px;color:${P};text-transform:uppercase;font-weight:700">Objetivo calórico</p>
+      <p style="font-size:30px;font-weight:800;color:${P}">${total} kcal</p>
+      <p style="font-size:12px;color:${MU};margin-top:4px">${kcalPorKg} kcal × ${peso} kg</p>
+    </div>
+    <button onclick="asignarObjetivoCalorico(${total},'Déficit calórico')" style="margin-top:14px;background:${P};color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Usar como Objetivo</button>
+    `:"";
+  }
+}
+
+window.updateSup=function(campo,val){
+  STATE.calcSup=STATE.calcSup||{hdec:4,prot:1.5,lip:0.5};
+  STATE.calcSup[campo]=parseFloat(val)||0;
+  // Sincronizar slider y número
+  const r=document.getElementById(`sup-${campo}-range`);
+  const v=document.getElementById(`sup-${campo}-val`);
+  if(r)r.value=STATE.calcSup[campo];
+  if(v)v.value=STATE.calcSup[campo];
+  renderSupResultado();
+}
+
+function renderSupResultado(){
+  const resDiv=document.getElementById("sup-resultado");if(!resDiv)return;
+  const s=STATE.calcSup||{hdec:4,prot:1.5,lip:0.5};
+  const ib=STATE.calcIB;
+  const peso=ib?.peso?parseFloat(ib.peso):0;
+  const geb=STATE.calcDatos.geb;
+  const promBasal=geb?(geb.fao+geb.hb+geb.val+geb.msj)/4:0;
+  const gebAF=promBasal*1.45;
+
+  // Cálculo de equilibrio calórico: proteína (4 kcal/g) + lípidos (9 kcal/g) por kg de peso + hidratos restantes
+  const kcalProt=s.prot*peso*4;
+  const kcalLip=s.lip*peso*9;
+  const kcalHdec=s.hdec*peso*4; // hidratos de carbono ~4 kcal/g, usando Hdec como g/kg
+  const total=Math.round(kcalProt+kcalLip+kcalHdec);
+
+  resDiv.innerHTML=`
+    <div style="background:${PL};border-radius:8px;padding:16px;text-align:center">
+      <p style="font-size:12px;color:${P};text-transform:uppercase;font-weight:700">Equilibrio calórico</p>
+      <p style="font-size:30px;font-weight:800;color:${P}">${total} kcal</p>
+      <p style="font-size:12px;color:${MU};margin-top:6px">Hdec ${s.hdec}g/kg + Prot ${s.prot}g/kg + Lip ${s.lip}g/kg × ${peso}kg</p>
+    </div>
+    <button onclick="asignarObjetivoCalorico(${total},'Superávit calórico')" style="margin-top:14px;background:${P};color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Usar como Objetivo</button>
+  `;
+}
+
+window.asignarObjetivoCalorico=function(kcal,tipo){
+  STATE.objetivoCalorico={kcal,tipo,fecha:new Date().toISOString().split("T")[0]};
+  showToast(`✓ Objetivo calórico asignado: ${kcal} kcal (${tipo}) — disponible para usar en Dietas`);
 }
 
 ;(async function init(){
