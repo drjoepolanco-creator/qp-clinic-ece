@@ -5935,8 +5935,10 @@ function renderAnexoBody(){
 async function renderDocsAnexos(ab){
   ab.innerHTML=`<div style="text-align:center;padding:24px;color:${MU}"><span class="spin" style="font-size:20px;display:block;margin-bottom:6px">⚙️</span>Cargando documentos...</div>`;
   const pid=STATE.pat?.id;if(!pid){ab.innerHTML="<p>No hay paciente seleccionado</p>";return;}
-  const {data}=await SB.from("anexos").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
-  const docs=data||[];
+  const {data}=await SB.from("anexos").select("*").eq("paciente_id",pid)
+    .not("titulo","like","OBJETIVO CALÓRICO%")
+    .order("created_at",{ascending:false});
+  const docs=(data||[]).filter(d=>!(d.descripcion||"").startsWith("__OBJCAL__:"));
   ab.innerHTML=`
     <div style="background:${PL};border:1px solid #B3E5FC;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:14px;color:${TX};line-height:1.7">
       📋 Aquí se almacenan el <b>Aviso de Privacidad, Consentimiento Informado, Consentimiento de Telemedicina</b> y otros documentos firmados digitalmente por el paciente desde su celular. También puedes subir PDF, JPG, DOCX.
@@ -13585,7 +13587,7 @@ async function renderCalcGuardados(cb){
         </div>
       </div>
       <div style="display:flex;gap:6px">
-        <button onclick="usarObjetivoGuardado(${obj.kcal})" style="background:${P};color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Usar este</button>
+        <button onclick="copiarObjetivoCalorico(${obj.kcal},'${(obj.tipo||"").replace(/'/g,"\\'")}','${obj.fecha||a.fecha||""}','${(obj.formula||"").replace(/'/g,"\\'")}','${(obj.nivel_actividad||"").replace(/'/g,"\\'")}')" style="background:${P};color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">📋 Copiar</button>
         <button onclick="eliminarObjetivoGuardado('${a.id}')" style="background:#FFEBEE;color:${DA};border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer">🗑️</button>
       </div>
     </div>`;
@@ -13597,9 +13599,17 @@ async function renderCalcGuardados(cb){
   `;
 }
 
-window.usarObjetivoGuardado=function(kcal){
-  STATE.objetivoCalorico={...(STATE.objetivoCalorico||{}),kcal};
-  showToast(`✓ Objetivo activo: ${kcal} kcal`);
+window.copiarObjetivoCalorico=async function(kcal,tipo,fecha,formula,nivel){
+  const texto=`Objetivo calórico: ${kcal} kcal (${tipo})${fecha?" — "+fecha:""}${formula?" · Fórmula: "+formula:""}${nivel?" · Actividad: "+nivel:""}`;
+  try{
+    await navigator.clipboard.writeText(texto);
+    showToast("✓ Copiado — pégalo en la nota de consulta");
+  }catch(e){
+    const ta=document.createElement("textarea");
+    ta.value=texto;document.body.appendChild(ta);ta.select();
+    document.execCommand("copy");document.body.removeChild(ta);
+    showToast("✓ Copiado — pégalo en la nota de consulta");
+  }
 }
 
 window.eliminarObjetivoGuardado=async function(anexoId){
@@ -14077,7 +14087,12 @@ window.asignarObjetivoCalorico=async function(kcal,tipo){
   }
   STATE.objetivoCalorico=nuevoObjetivo;
   if(STATE.pat)STATE.pat.objetivo_calorico_actual=nuevoObjetivo;
-  showToast(`✓ Objetivo calórico guardado: ${kcal} kcal (${tipo}) — ${fecha} ${hora}`);
+
+  // Copiar automáticamente al portapapeles para pegarlo en la nota de consulta
+  const texto=`Objetivo calórico: ${kcal} kcal (${tipo}) — ${fecha}${nuevoObjetivo.formula?" · Fórmula: "+nuevoObjetivo.formula:""}${nuevoObjetivo.nivel_actividad?" · Actividad: "+nuevoObjetivo.nivel_actividad:""}`;
+  try{await navigator.clipboard.writeText(texto);}catch(e){}
+
+  showToast(`✓ Guardado y copiado: ${kcal} kcal (${tipo}) — pégalo en la nota de consulta`);
 }
 
 ;(async function init(){
