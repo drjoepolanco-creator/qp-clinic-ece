@@ -13980,15 +13980,16 @@ window.asignarObjetivoCalorico=async function(kcal,tipo){
   };
 
   loading(true,"Guardando objetivo calórico...");
-  // Leer historial actual del paciente para no perder registros previos
-  const {data:pacActual}=await SB.from("pacientes").select("objetivo_calorico_historial").eq("id",pid).maybeSingle();
-  const historial=Array.isArray(pacActual?.objetivo_calorico_historial)?pacActual.objetivo_calorico_historial:[];
-  historial.push(nuevoObjetivo);
-
-  const {error}=await SB.from("pacientes").update({
-    objetivo_calorico_historial:historial,
-    objetivo_calorico_actual:nuevoObjetivo,
-  }).eq("id",pid);
+  // Se guarda en anexos (sin requerir columnas nuevas en pacientes)
+  const {error}=await SB.from("anexos").insert({
+    paciente_id:pid,
+    titulo:`OBJETIVO CALÓRICO — ${tipo} — ${kcal} kcal — ${fecha}`,
+    tipo_documento:"Nota",
+    origen:"generado",
+    firmado:false,
+    descripcion:"__OBJCAL__:"+JSON.stringify(nuevoObjetivo),
+    fecha:fecha,
+  });
   loading(false);
 
   if(error){
