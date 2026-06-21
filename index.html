@@ -1626,6 +1626,19 @@ function renderSeccionEspecial(tipo,d){
   }
 
   // ══════════════════════════════════════════════════════════
+  // NOTA NUTRICIONAL
+  // ══════════════════════════════════════════════════════════
+  if(tipo==="Nota nutricional"){
+    return`<div style="background:#E8F5E9;border-radius:10px;padding:10px 16px;display:flex;align-items:flex-start;gap:10px">
+      <span style="font-size:18px;margin-top:1px">🥗</span>
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#2E7D32;margin-bottom:4px">Nota nutricional</p>
+        <p style="font-size:13px;color:${TX}">Documenta el seguimiento nutricional del paciente: evolución dietética, mediciones antropométricas/InBody, análisis y objetivo calórico, plan de alimentación y suplementación. Usa los campos SOAP de arriba — en <b>Tratamiento</b> encontrarás el botón <b>💊 Suplementación</b> para prescribir productos Famel directamente.</p>
+      </div>
+    </div>`;
+  }
+
+  // ══════════════════════════════════════════════════════════
   // NOTA DE PRIMERA VEZ (HISTORIA CLÍNICA)
   // NOM-004 Art. 7 — requiere antecedentes completos + exploración física completa + DX inicial
   // ══════════════════════════════════════════════════════════
@@ -7430,6 +7443,81 @@ const MOTIVOS_COMUNES={
   "🦴 Osteomuscular":["Dolor lumbar / Lumbalgia","Cervicalgia","Dorsalgia","Artralgia","Mialgia generalizada","Osteoartritis"],
   "🌡️ General":["Fiebre","Astenia / Fatiga crónica","Pérdida de peso involuntaria","Chequeo médico general","Seguimiento de tratamiento","Resultado de laboratorios"]
 };
+// ── CATÁLOGO DE SUPLEMENTOS FAMEL NUTRITION ───────────────────────────────────
+const FAMEL_SUPLEMENTOS=[
+  {nombre:"Vanilla Protein Mix",pres:"Polvo",porcion:"25 g (1.5 medidas)",
+    texto:"Vanilla Protein Mix. Suplemento alimenticio. Polvo. Porción 25 gramos.\n-Mezclar 1 medida y media (incluida) equivalente a 25g, en vaso con 250mL de agua o leche de su preferencia y tomar vía oral hasta 2 veces al día. Para mejor consistencia usar licuadora y hielos."},
+  {nombre:"Strawberry Protein Mix",pres:"Polvo",porcion:"25 g (1.5 medidas)",
+    texto:"Strawberry Protein Mix. Suplemento alimenticio. Polvo. Porción 25 gramos.\n-Mezclar 1 medida y media (incluida) equivalente a 25g, en vaso con 250mL de agua o leche de su preferencia y tomar vía oral hasta 2 veces al día. Para mejor consistencia usar licuadora y hielos."},
+  {nombre:"Chocolate Protein Mix",pres:"Polvo",porcion:"25 g (1.5 medidas)",
+    texto:"Chocolate Protein Mix. Suplemento alimenticio. Polvo. Porción 25 gramos.\n-Mezclar 1 medida y media (incluida) equivalente a 25g, en vaso con 250mL de agua o leche de su preferencia y tomar vía oral hasta 2 veces al día. Para mejor consistencia usar licuadora y hielos."},
+  {nombre:"Whey Moka Protein Mix",pres:"Polvo",porcion:"43 g (1.5 medidas)",
+    texto:"Whey Moka Protein Mix. Suplemento alimenticio. Polvo. Porción 43 gramos.\n-Mezclar 1 medida y media (incluida) equivalente a 25g de creatina*, en vaso con 250mL de agua o leche de su preferencia y tomar vía oral hasta 2 veces al día. Para mejor consistencia usar licuadora y hielos."},
+  {nombre:"Hot Cakes Protein",pres:"Harina para preparar",porcion:"1 medida (25 g)",
+    texto:"Hot Cakes Protein. Suplemento alimenticio. Harina para preparar. Porción 25 gramos.\n-Tomar 1 medida incluida de la harina y añadir una medida y media de agua. Mezclar vigorosamente hasta disolver los grumos. Calentar un sartén, rociar con aceite en aerosol, verter la mezcla y cocinar a fuego lento. Voltear una vez que se sequen las orillas y cocinar un minuto más. Contiene edulcorantes, no recomendable en niños."},
+  {nombre:"Creatine",pres:"Polvo",porcion:"5 g (1 medida)",
+    texto:"Creatine. Suplemento alimenticio. Polvo. Porción 5 gramos.\n-Mezclar 1 medida (incluida) equivalente a 5g de creatina, en vaso con 250mL de agua o jugo de su preferencia y tomar vía oral una vez al día."},
+  {nombre:"Myo + D Chiro Inositol",pres:"Polvo",porcion:"4.1 g (1 medida)",
+    texto:"Myo + D Chiro Inositol. Suplemento alimenticio. Polvo. Porción 4.1 gramos.\n-Mezclar 1 medida (4.1g) en vaso con agua fría y tomar vía oral una vez al día."},
+  {nombre:"Iso Flav Fem",pres:"Tabletas",porcion:"2 tabletas",
+    texto:"Iso Flav Fem (Isoflavonas de soya). Suplemento alimenticio. Tabletas. Porción 2 tabletas.\n-Tomar 2 tabletas vía oral al día, junto con los alimentos: 1 con el desayuno y 1 con la cena."},
+  {nombre:"Glutamine",pres:"Polvo",porcion:"10 g (1 medida)",
+    texto:"Glutamine. Suplemento alimenticio. Polvo. Porción 10 gramos.\n-Mezclar 1 medida equivalente a 10g de glutamina, en vaso con 250mL de la bebida de su preferencia o agua y tomar vía oral."},
+  {nombre:"Gli Mg Complex",pres:"Cápsulas",porcion:"4 cápsulas",
+    texto:"Gli Mg Complex (Glicinato de Magnesio). Suplemento alimenticio. Cápsulas. Porción 4 cápsulas.\n-Tomar 4 cápsulas vía oral en la noche, junto con la cena."},
+  {nombre:"Full CitraMag",pres:"Cápsulas",porcion:"3 cápsulas",
+    texto:"Full CitraMag (Citrato de Magnesio). Suplemento alimenticio. Cápsulas. Porción 3 cápsulas.\n-Tomar 3 cápsulas vía oral una vez al día, junto con cualquier alimento."},
+  {nombre:"Antiox C+D3",pres:"Tabletas",porcion:"1 tableta",
+    texto:"Antiox C+D3 (Acerola C + D3 + Zinc). Suplemento alimenticio. Tabletas. Porción 1 tableta.\n-Masticar 1 tableta vía oral al día."},
+  {nombre:"Calcium Plus",pres:"Tabletas",porcion:"2 tabletas",
+    texto:"Calcium Plus. Suplemento alimenticio. Tabletas de 1.2g. Porción 2 tabletas.\n-Masticar 2 tabletas vía oral al día."},
+  {nombre:"Tripto + B6 + CitMg",pres:"Tabletas",porcion:"1 cápsula",
+    texto:"Tripto + B6 + CitMg. Suplemento alimenticio. Tabletas. Porción 1 cápsula.\n-Tomar 1 cápsula vía oral al día, entre las 16:00 y 17:00 horas. Evitar consumir carnes, derivados cárnicos, huevos o queso en la cena."},
+  {nombre:"Omega +",pres:"Cápsulas",porcion:"1 cápsula",
+    texto:"Omega + (Aceite de pescado). Suplemento alimenticio. Cápsulas. Porción 1 cápsula.\n-Tomar 1 cápsula vía oral al día. Aumentar la dosis de acuerdo al caso particular, previa valoración médica."},
+  {nombre:"Vitam Fusion",pres:"Polvo",porcion:"1 medida",
+    texto:"Vitam Fusion. Suplemento alimenticio. Polvo. Porción 1 medida.\n-Agregar el contenido de 1 medida del polvo a 240mL de agua y tomar vía oral 1 a 2 veces al día."},
+  {nombre:"Akker + B. Lactis Probiotic",pres:"Cápsulas",porcion:"1 cápsula (428 mg)",
+    texto:"Akker + B. Lactis Probiotic. Suplemento alimenticio. Cápsulas. Porción 1 cápsula (428mg).\n-Tomar 1 cápsula vía oral al día. No exceder la porción recomendada. Producto exclusivo para mayores de 18 años."},
+];
+
+window.toggleMenuSuplementacion=function(){
+  const menu=document.getElementById("menu-suplementacion");
+  if(!menu)return;
+  const visible=menu.style.display==="block";
+  if(visible){
+    menu.style.display="none";
+    return;
+  }
+  menu.innerHTML=FAMEL_SUPLEMENTOS.map((s,i)=>`
+    <button onclick="agregarSuplementoATratamiento(${i})" style="width:100%;padding:10px 14px;border:none;border-bottom:1px solid #F0F0F0;background:#fff;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px" onmouseover="this.style.background='#F0F7FF'" onmouseout="this.style.background='#fff'">
+      <span style="font-size:13px;font-weight:700;color:#263238">${s.nombre}</span>
+      <span style="font-size:11px;color:#90A4AE">${s.pres} · Porción ${s.porcion}</span>
+    </button>`).join("");
+  menu.style.display="block";
+  setTimeout(()=>{
+    document.addEventListener("click",function cerrar(e){
+      if(!e.target.closest("#menu-suplementacion")&&!e.target.closest("#btn-suplementacion")){
+        const m=document.getElementById("menu-suplementacion");
+        if(m)m.style.display="none";
+        document.removeEventListener("click",cerrar);
+      }
+    });
+  },10);
+}
+
+window.agregarSuplementoATratamiento=function(idx){
+  const s=FAMEL_SUPLEMENTOS[idx];
+  if(!s)return;
+  const campo=document.getElementById("cs_trat");
+  if(!campo){showToast("Campo de tratamiento no encontrado",false);return;}
+  campo.value=(campo.value.trim()?campo.value.trim()+"\n\n":"")+s.texto;
+  campo.focus();
+  campo.scrollTop=campo.scrollHeight;
+  document.getElementById("menu-suplementacion").style.display="none";
+  showToast(`✓ ${s.nombre} agregado al tratamiento`);
+}
+
 function pgConsulta(){
   const p=STATE.pat;const c=STATE.consultaActual||{};
   // Combinar con signos vitales de triage del día
@@ -7464,7 +7552,7 @@ function pgConsulta(){
     <div style="background:#fff;border-bottom:1px solid ${BR};padding:7px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <!-- Tipo de nota -->
       <select id="cs_tipo_nota" onchange="actualizarTipoNota(this.value)" style="padding:5px 10px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;font-weight:700;color:${P};background:#fff;cursor:pointer;outline:none">
-        ${["Nota de evolución","Nota de primera vez (Historia clínica)","Nota de urgencias","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
+        ${["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
       </select>
       <div style="width:1px;height:24px;background:${BR}"></div>
       <button onclick="abrirModalIA()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">🤖 Generar nota con IA</button>
@@ -7537,9 +7625,13 @@ function pgConsulta(){
           <div style="padding:12px">${ta("cs_anal",c.analisis||"","Diagnóstico(s) con código CIE-10...",8)}</div>
         </div>
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
-          <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
+          <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
             <b style="font-size:14px;color:${TX}">💊 Tratamiento</b>
-            <button onclick="showRecipe()" style="background:#1B5E20;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">Receta electrónica</button>
+            <div style="display:flex;gap:6px;align-items:center;position:relative">
+              <button onclick="toggleMenuSuplementacion()" id="btn-suplementacion" style="background:#1565C0;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">💊 Suplementación</button>
+              <div id="menu-suplementacion" style="display:none;position:absolute;top:26px;left:0;background:#fff;border:1.5px solid ${BR};border-radius:8px;box-shadow:0 8px 24px #00000030;min-width:280px;max-height:340px;overflow-y:auto;z-index:9990"></div>
+              <button onclick="showRecipe()" style="background:#1B5E20;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">Receta electrónica</button>
+            </div>
           </div>
           <div style="padding:12px">${ta("cs_trat",c.tratamiento||"","Medicamentos, dosis, medidas generales...",8)}</div>
         </div>
