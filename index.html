@@ -13507,20 +13507,24 @@ async function pgNutricionCalculo(){
     </div>
 
     <div style="background:#fff;border-radius:12px;box-shadow:0 1px 6px #00000012;overflow:hidden">
-      <div style="display:flex;border-bottom:2px solid ${BR};background:#F8FAFB;padding:0 8px">
-        ${[["mediciones","📏 Mediciones"],["calculos","🧮 Cálculos"],["calorias","📊 Calorías"]].map(([k,l])=>{
-          const activo=STATE.calcTab===k;
-          return`<button onclick="setCalcTab('${k}')" style="padding:11px 16px;border:none;cursor:pointer;font-weight:${activo?700:500};font-size:14px;color:${activo?P:MU};border-bottom:${activo?"3px solid "+P:"3px solid transparent"};background:${activo?"#fff":"transparent"};border-radius:${activo?"6px 6px 0 0":"0"}">${l}</button>`;
-        }).join("")}
-      </div>
+      <div id="calc-tabs" style="display:flex;border-bottom:2px solid ${BR};background:#F8FAFB;padding:0 8px"></div>
       <div id="calc-body" style="padding:20px"></div>
     </div>
   </div>`;
 
+  renderCalcTabsBar();
   renderCalcTab();
 }
 
-window.setCalcTab=function(t){STATE.calcTab=t;renderCalcTab();}
+function renderCalcTabsBar(){
+  const tb=document.getElementById("calc-tabs");if(!tb)return;
+  tb.innerHTML=[["mediciones","📏 Mediciones"],["calculos","🧮 Cálculos"],["calorias","📊 Calorías"]].map(([k,l])=>{
+    const activo=STATE.calcTab===k;
+    return`<button onclick="setCalcTab('${k}')" style="padding:11px 16px;border:none;cursor:pointer;font-weight:${activo?700:500};font-size:14px;color:${activo?P:MU};border-bottom:${activo?"3px solid "+P:"3px solid transparent"};background:${activo?"#fff":"transparent"};border-radius:${activo?"6px 6px 0 0":"0"};position:relative;top:${activo?"1px":"0"}">${l}</button>`;
+  }).join("");
+}
+
+window.setCalcTab=function(t){STATE.calcTab=t;renderCalcTabsBar();renderCalcTab();}
 
 function renderCalcTab(){
   const cb=document.getElementById("calc-body");if(!cb)return;
@@ -13573,6 +13577,15 @@ function renderCalcMediciones(cb){
 }
 
 // ── TAB 2: CÁLCULOS (gasto energético) ───────────────────────────────────────
+// Tabla de Actividad Física: % AF (sobre GEB) ↔ Factor OMS (PAL) ↔ METs equivalentes
+const NIVELES_AF=[
+  {k:"sedentario",label:"Sedentario",pct:0,faoFactor:1.00,mets:"< 1.6",desc:"Sin ejercicio, trabajo de oficina, vida sedentaria"},
+  {k:"ligera",label:"Ligera",pct:30,faoFactor:1.375,mets:"1.6 – 2.9",desc:"Ejercicio ligero 1-3 días/semana, caminar"},
+  {k:"moderada",label:"Moderada",pct:45,faoFactor:1.55,mets:"3.0 – 5.9",desc:"Ejercicio moderado 3-5 días/semana"},
+  {k:"intensa",label:"Intensa",pct:65,faoFactor:1.725,mets:"6.0 – 8.9",desc:"Ejercicio intenso 6-7 días/semana"},
+  {k:"muy_intensa",label:"Muy intensa",pct:85,faoFactor:1.90,mets:"≥ 9.0",desc:"Ejercicio muy intenso, trabajo físico, atletas"},
+];
+
 function renderCalcCalculos(cb){
   const ib=STATE.calcIB;
   const p=STATE.pat||{};
@@ -13593,45 +13606,85 @@ function renderCalcCalculos(cb){
 
   const r=calcularFormulasGEB(peso,talla,edad,esHombre);
   STATE.calcDatos.geb=r;
+  STATE.calcAFNivel=STATE.calcAFNivel||"ligera";
+  STATE.calcFormulaSel=STATE.calcFormulaSel||"promedio";
 
-  const filaFormula=(nombre,basal)=>{
-    const af45=basal*1.45;
-    return`<tr style="border-bottom:1px solid ${BR}">
-      <td style="padding:9px 11px;font-size:13px;font-weight:600;color:${TX}">${nombre}</td>
+  const nivelActivo=NIVELES_AF.find(n=>n.k===STATE.calcAFNivel)||NIVELES_AF[1];
+  const pctAF=nivelActivo.pct/100;
+
+  const promBasal=(r.fao+r.hb+r.val+r.msj)/4;
+  const formulas={fao:r.fao,hb:r.hb,val:r.val,msj:r.msj,promedio:promBasal};
+  const nombresFormulas={fao:"FAO/OMS/ONU",hb:"Harris-Benedict",val:"Valencia",msj:"Mifflin-St. Jeor",promedio:"Promedio"};
+
+  const filaFormula=(key,nombre,basal)=>{
+    const total=basal*(1+pctAF);
+    const sel=STATE.calcFormulaSel===key;
+    return`<tr style="border-bottom:1px solid ${BR};background:${sel?PL:"transparent"};cursor:pointer" onclick="seleccionarFormulaGET('${key}')">
+      <td style="padding:9px 11px;font-size:13px;font-weight:${sel?800:600};color:${sel?P:TX}">
+        <input type="radio" name="formsel" ${sel?"checked":""} style="accent-color:${P};margin-right:7px;pointer-events:none">${nombre}
+      </td>
       <td style="padding:9px 11px;font-size:13px;text-align:center;color:${TX}">${Math.round(basal)}</td>
-      <td style="padding:9px 11px;font-size:13px;text-align:center;color:${TX}">${Math.round(af45)}</td>
-      <td style="padding:9px 11px;font-size:13px;text-align:center;font-weight:700;color:${P}">${Math.round(af45)}</td>
+      <td style="padding:9px 11px;font-size:13px;text-align:center;color:${TX}">${Math.round(total-basal)}</td>
+      <td style="padding:9px 11px;font-size:14px;text-align:center;font-weight:800;color:${sel?P:TX}">${Math.round(total)}</td>
     </tr>`;
   };
 
-  const promBasal=(r.fao+r.hb+r.val+r.msj)/4;
-  const promAF=promBasal*1.45;
+  const getSeleccionado=formulas[STATE.calcFormulaSel]*(1+pctAF);
+  STATE.calcDatos.get=getSeleccionado;
+  STATE.calcDatos.formulaUsada=nombresFormulas[STATE.calcFormulaSel];
+  STATE.calcDatos.nivelAF=nivelActivo.label;
 
   cb.innerHTML=`
-    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Gasto energético para mantenimiento</p>
-    <div style="overflow-x:auto;margin-bottom:18px">
+    <!-- Selector de Actividad Física ─────────────────────────── -->
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Nivel de actividad física</p>
+    <select id="af-sel" onchange="cambiarNivelAF(this.value)" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;font-weight:700;background:#fff;margin-bottom:10px">
+      ${NIVELES_AF.map(n=>`<option value="${n.k}" ${n.k===STATE.calcAFNivel?"selected":""}>${n.label} — ${n.pct}% AF · Factor OMS ${n.faoFactor.toFixed(2)} · ${n.mets} METs</option>`).join("")}
+    </select>
+    <div style="overflow-x:auto;margin-bottom:10px">
+      <table style="width:100%;border-collapse:collapse;border:1px solid ${BR};border-radius:8px;overflow:hidden;font-size:12.5px">
+        <thead><tr style="background:${PL}">
+          <th style="padding:7px 10px;text-align:left;font-weight:700;color:${P}">Nivel</th>
+          <th style="padding:7px 10px;text-align:center;font-weight:700;color:${P}">% AF</th>
+          <th style="padding:7px 10px;text-align:center;font-weight:700;color:${P}">Factor OMS (PAL)</th>
+          <th style="padding:7px 10px;text-align:center;font-weight:700;color:${P}">METs</th>
+        </tr></thead>
+        <tbody>
+          ${NIVELES_AF.map(n=>`<tr onclick="cambiarNivelAF('${n.k}');document.getElementById('af-sel').value='${n.k}'" style="cursor:pointer;border-bottom:1px solid #F0F0F0;background:${n.k===STATE.calcAFNivel?PL:"#fff"}">
+            <td style="padding:7px 10px;font-weight:${n.k===STATE.calcAFNivel?800:600};color:${n.k===STATE.calcAFNivel?P:TX}">${n.label}</td>
+            <td style="padding:7px 10px;text-align:center;color:${TX}">${n.pct}%</td>
+            <td style="padding:7px 10px;text-align:center;color:${TX}">${n.faoFactor.toFixed(2)}</td>
+            <td style="padding:7px 10px;text-align:center;color:${TX}">${n.mets}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:11px;color:${MU};margin-bottom:18px;font-style:italic">${nivelActivo.desc}</p>
+
+    <!-- Tabla de fórmulas — selección de cuál usar ─────────────── -->
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Gasto energético — elige la fórmula a utilizar</p>
+    <div style="overflow-x:auto;margin-bottom:14px">
       <table style="width:100%;border-collapse:collapse;border:1px solid ${BR};border-radius:8px;overflow:hidden">
         <thead><tr style="background:${PL}">
           <th style="padding:9px 11px;text-align:left;font-size:12px;font-weight:700;color:${P}">Autor</th>
           <th style="padding:9px 11px;text-align:center;font-size:12px;font-weight:700;color:${P}">Basal</th>
-          <th style="padding:9px 11px;text-align:center;font-size:12px;font-weight:700;color:${P}">AF 45%</th>
-          <th style="padding:9px 11px;text-align:center;font-size:12px;font-weight:700;color:${P}">Total</th>
+          <th style="padding:9px 11px;text-align:center;font-size:12px;font-weight:700;color:${P}">+ AF</th>
+          <th style="padding:9px 11px;text-align:center;font-size:12px;font-weight:700;color:${P}">GET Total</th>
         </tr></thead>
         <tbody>
-          ${filaFormula("FAO/OMS/ONU",r.fao)}
-          ${filaFormula("Harris-Benedict",r.hb)}
-          ${filaFormula("Valencia",r.val)}
-          ${filaFormula("Mifflin-St. Jeor",r.msj)}
-          <tr style="background:${PL}">
-            <td style="padding:9px 11px;font-size:13px;font-weight:800;color:${TX}">Promedio</td>
-            <td style="padding:9px 11px;font-size:13px;text-align:center;font-weight:800;color:${TX}">${Math.round(promBasal)}</td>
-            <td style="padding:9px 11px;font-size:13px;text-align:center;font-weight:800;color:${TX}">${Math.round(promAF)}</td>
-            <td style="padding:9px 11px;font-size:14px;text-align:center;font-weight:800;color:${P}">${Math.round(promAF)}</td>
-          </tr>
+          ${filaFormula("fao","FAO/OMS/ONU",r.fao)}
+          ${filaFormula("hb","Harris-Benedict",r.hb)}
+          ${filaFormula("val","Valencia",r.val)}
+          ${filaFormula("msj","Mifflin-St. Jeor",r.msj)}
+          ${filaFormula("promedio","Promedio de las 4",promBasal)}
         </tbody>
       </table>
     </div>
-    <p style="font-size:11px;color:${MU};margin-bottom:18px">• Las calorías seleccionadas en la pestaña <b>Calorías</b> aparecen como Objetivo calórico del paciente.</p>
+    <div style="background:${PL};border-radius:8px;padding:14px;text-align:center;margin-bottom:14px">
+      <p style="font-size:12px;color:${P};text-transform:uppercase;font-weight:700">Gasto Energético Total (GET) seleccionado</p>
+      <p style="font-size:28px;font-weight:800;color:${P}">${Math.round(getSeleccionado)} kcal</p>
+      <p style="font-size:12px;color:${MU}">${nombresFormulas[STATE.calcFormulaSel]} · Actividad ${nivelActivo.label} (+${nivelActivo.pct}%)</p>
+    </div>
+    <p style="font-size:11px;color:${MU};margin-bottom:18px">• Esta selección se usa en la pestaña <b>Calorías</b> como base para el objetivo calórico (déficit, normocalórico o superávit).</p>
 
     <div style="background:#F8FAFB;border-radius:8px;padding:12px 14px;margin-bottom:10px">
       <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">Datos utilizados en el cálculo</p>
@@ -13650,10 +13703,20 @@ function renderCalcCalculos(cb){
         <b>Harris-Benedict</b> (1919): Hombres = 66.5 + 13.75×peso + 5.08×talla − 6.78×edad. Mujeres = 655.1 + 9.56×peso + 1.85×talla − 4.68×edad.<br>
         <b>Valencia</b> (2008, validada en mexicanos): coeficientes por rango de edad y sexo, basada en peso.<br>
         <b>Mifflin-St. Jeor</b> (1990): Hombres = (9.99×peso) + (6.25×talla) − (4.92×edad) + 5. Mujeres = mismo − 161.<br>
-        <i>AF 45% = Factor de actividad física ligera-moderada aplicado sobre el gasto basal.</i>
+        <i>% AF = porcentaje aplicado sobre el gasto basal según el nivel de actividad física elegido (equivalente clínico al Factor OMS/PAL y a la escala de METs).</i>
       </div>
     </details>
   `;
+}
+
+window.cambiarNivelAF=function(val){
+  STATE.calcAFNivel=val;
+  renderCalcCalculos(document.getElementById("calc-body"));
+}
+
+window.seleccionarFormulaGET=function(key){
+  STATE.calcFormulaSel=key;
+  renderCalcCalculos(document.getElementById("calc-body"));
 }
 
 function calcularFormulasGEB(peso,talla,edad,esHombre){
@@ -13712,17 +13775,21 @@ function renderCalcCalorias(cb){
     return;
   }
   const balance=STATE.calcBalance||"deficit";
-  const promBasal=(geb.fao+geb.hb+geb.val+geb.msj)/4;
-  const gebAF=promBasal*1.45;
+  const get=STATE.calcDatos.get||((geb.fao+geb.hb+geb.val+geb.msj)/4*1.375);
+  const formulaUsada=STATE.calcDatos.formulaUsada||"Promedio";
+  const nivelAF=STATE.calcDatos.nivelAF||"Ligera";
   const ib=STATE.calcIB;
   const pesoKg=ib?.peso?parseFloat(ib.peso):0;
 
   cb.innerHTML=`
+    <div style="background:${PL};border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:12.5px;color:${P}">
+      📐 GET base: <b>${Math.round(get)} kcal</b> — calculado con <b>${formulaUsada}</b> y actividad <b>${nivelAF}</b> (ajustable en la pestaña Cálculos)
+    </div>
     <div style="display:grid;grid-template-columns:220px 1fr;gap:16px">
       <div>
         <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px;font-style:italic">Balance energético</p>
         <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden">
-          ${[["normocalorico","⚖️ Normocalórico"],["deficit","⚖️ Déficit"],["superavit","⚖️ Superávit"]].map(([k,l])=>`
+          ${[["normocalorico","⚖️ Normocalórico"],["deficit","⚖️ Déficit (Hipocalórico)"],["superavit","⚖️ Superávit (Hipercalórico)"]].map(([k,l])=>`
           <label style="display:flex;align-items:center;gap:8px;padding:11px 13px;cursor:pointer;border-bottom:1px solid #F0F0F0;background:${balance===k?PL:"#fff"}">
             <input type="checkbox" ${balance===k?"checked":""} onclick="seleccionarBalance('${k}');return false;" style="accent-color:${P};width:15px;height:15px">
             <span style="font-size:14px;color:${TX}">${l}</span>
@@ -13744,8 +13811,7 @@ function renderBalanceDetalle(){
   const det=document.getElementById("calc-balance-detalle");if(!det)return;
   const balance=STATE.calcBalance||"deficit";
   const geb=STATE.calcDatos.geb;
-  const promBasal=(geb.fao+geb.hb+geb.val+geb.msj)/4;
-  const gebAF=promBasal*1.45;
+  const get=STATE.calcDatos.get||((geb.fao+geb.hb+geb.val+geb.msj)/4*1.375);
   const ib=STATE.calcIB;
   const pesoKg=ib?.peso?parseFloat(ib.peso):0;
 
@@ -13759,9 +13825,9 @@ function renderBalanceDetalle(){
       <p style="font-size:13px;color:${MU};margin-bottom:14px">Mantiene el peso actual del paciente — utilizado para mantenimiento o estabilización.</p>
       <div style="background:${PL};border-radius:8px;padding:16px;text-align:center">
         <p style="font-size:12px;color:${P};text-transform:uppercase;font-weight:700">Objetivo calórico</p>
-        <p style="font-size:30px;font-weight:800;color:${P}">${Math.round(gebAF)} kcal</p>
+        <p style="font-size:30px;font-weight:800;color:${P}">${Math.round(get)} kcal</p>
       </div>
-      <button onclick="asignarObjetivoCalorico(${Math.round(gebAF)},'Normocalórico')" style="margin-top:14px;background:${P};color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Usar como Objetivo</button>
+      <button onclick="asignarObjetivoCalorico(${Math.round(get)},'Normocalórico')" style="margin-top:14px;background:${P};color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Usar como Objetivo</button>
     </div>`;
     return;
   }
@@ -13881,9 +13947,6 @@ function renderSupResultado(){
   const s=STATE.calcSup||{hdec:4,prot:1.5,lip:0.5};
   const ib=STATE.calcIB;
   const peso=ib?.peso?parseFloat(ib.peso):0;
-  const geb=STATE.calcDatos.geb;
-  const promBasal=geb?(geb.fao+geb.hb+geb.val+geb.msj)/4:0;
-  const gebAF=promBasal*1.45;
 
   // Cálculo de equilibrio calórico: proteína (4 kcal/g) + lípidos (9 kcal/g) por kg de peso + hidratos restantes
   const kcalProt=s.prot*peso*4;
@@ -13901,9 +13964,40 @@ function renderSupResultado(){
   `;
 }
 
-window.asignarObjetivoCalorico=function(kcal,tipo){
-  STATE.objetivoCalorico={kcal,tipo,fecha:new Date().toISOString().split("T")[0]};
-  showToast(`✓ Objetivo calórico asignado: ${kcal} kcal (${tipo}) — disponible para usar en Dietas`);
+window.asignarObjetivoCalorico=async function(kcal,tipo){
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("Sin paciente activo",false);return;}
+  const fecha=new Date().toISOString().split("T")[0];
+  const hora=new Date().toTimeString().substring(0,5);
+  const med=STATE.userProfile||{};
+  const registradoPor=`${med.titulo||""} ${med.nombre||""} ${med.apellidos||""}`.trim();
+
+  const nuevoObjetivo={
+    kcal,tipo,fecha,hora,
+    formula:STATE.calcDatos?.formulaUsada||null,
+    nivel_actividad:STATE.calcDatos?.nivelAF||null,
+    registrado_por:registradoPor,
+  };
+
+  loading(true,"Guardando objetivo calórico...");
+  // Leer historial actual del paciente para no perder registros previos
+  const {data:pacActual}=await SB.from("pacientes").select("objetivo_calorico_historial").eq("id",pid).maybeSingle();
+  const historial=Array.isArray(pacActual?.objetivo_calorico_historial)?pacActual.objetivo_calorico_historial:[];
+  historial.push(nuevoObjetivo);
+
+  const {error}=await SB.from("pacientes").update({
+    objetivo_calorico_historial:historial,
+    objetivo_calorico_actual:nuevoObjetivo,
+  }).eq("id",pid);
+  loading(false);
+
+  if(error){
+    showToast("Error al guardar: "+error.message,false);
+    return;
+  }
+  STATE.objetivoCalorico=nuevoObjetivo;
+  if(STATE.pat)STATE.pat.objetivo_calorico_actual=nuevoObjetivo;
+  showToast(`✓ Objetivo calórico guardado: ${kcal} kcal (${tipo}) — ${fecha} ${hora}`);
 }
 
 ;(async function init(){
