@@ -13518,9 +13518,9 @@ async function pgNutricionCalculo(){
 
 function renderCalcTabsBar(){
   const tb=document.getElementById("calc-tabs");if(!tb)return;
-  tb.innerHTML=[["mediciones","📏 Mediciones"],["calculos","🧮 Cálculos"],["calorias","📊 Calorías"]].map(([k,l])=>{
+  tb.innerHTML=[["mediciones","📏 Mediciones"],["calculos","🧮 Cálculos"],["calorias","📊 Calorías"],["guardados","📋 Cálculos calóricos guardados"]].map(([k,l])=>{
     const activo=STATE.calcTab===k;
-    return`<button onclick="setCalcTab('${k}')" style="padding:11px 16px;border:none;cursor:pointer;font-weight:${activo?700:500};font-size:14px;color:${activo?P:MU};border-bottom:${activo?"3px solid "+P:"3px solid transparent"};background:${activo?"#fff":"transparent"};border-radius:${activo?"6px 6px 0 0":"0"};position:relative;top:${activo?"1px":"0"}">${l}</button>`;
+    return`<button onclick="setCalcTab('${k}')" style="padding:11px 16px;border:none;cursor:pointer;font-weight:${activo?700:500};font-size:14px;color:${activo?P:MU};border-bottom:${activo?"3px solid "+P:"3px solid transparent"};background:${activo?"#fff":"transparent"};border-radius:${activo?"6px 6px 0 0":"0"};position:relative;top:${activo?"1px":"0"};white-space:nowrap">${l}</button>`;
   }).join("");
 }
 
@@ -13531,6 +13531,85 @@ function renderCalcTab(){
   if(STATE.calcTab==="mediciones")renderCalcMediciones(cb);
   else if(STATE.calcTab==="calculos")renderCalcCalculos(cb);
   else if(STATE.calcTab==="calorias")renderCalcCalorias(cb);
+  else if(STATE.calcTab==="guardados")renderCalcGuardados(cb);
+}
+
+// ── TAB 4: CÁLCULOS CALÓRICOS GUARDADOS (historial desde anexos) ─────────────
+async function renderCalcGuardados(cb){
+  const pid=STATE.pat?.id;
+  if(!pid){cb.innerHTML="";return;}
+  cb.innerHTML=`<div style="text-align:center;padding:24px;color:${MU}"><span class="spin" style="font-size:20px;display:block;margin-bottom:6px">⚙️</span>Cargando historial...</div>`;
+
+  const {data,error}=await SB.from("anexos")
+    .select("id,titulo,descripcion,fecha,created_at")
+    .eq("paciente_id",pid)
+    .like("descripcion","__OBJCAL__:%")
+    .order("created_at",{ascending:false});
+
+  if(error){
+    cb.innerHTML=`<div style="text-align:center;padding:24px;color:${DA}">Error al cargar: ${error.message}</div>`;
+    return;
+  }
+
+  if(!data||data.length===0){
+    cb.innerHTML=`<div style="text-align:center;padding:40px 20px">
+      <p style="font-size:40px;margin-bottom:10px">📋</p>
+      <p style="font-size:15px;font-weight:700;color:${TX};margin-bottom:6px">Sin objetivos calóricos guardados</p>
+      <p style="font-size:13px;color:${MU};max-width:400px;margin:0 auto">Cuando asignes un objetivo calórico desde la pestaña <b>Calorías</b>, aparecerá aquí con su fecha de registro.</p>
+    </div>`;
+    return;
+  }
+
+  const colorTipo=(tipo)=>{
+    if(!tipo)return{bg:"#F5F5F5",tx:MU};
+    if(tipo.includes("Déficit")||tipo.includes("Hipocalórico"))return{bg:"#FFEBEE",tx:"#C62828"};
+    if(tipo.includes("Superávit")||tipo.includes("Hipercalórico"))return{bg:"#E8F5E9",tx:"#2E7D32"};
+    return{bg:"#E3F4FB",tx:P};
+  };
+
+  const filas=data.map(a=>{
+    let obj={};
+    try{obj=JSON.parse(a.descripcion.substring(11));}catch(e){}
+    const c=colorTipo(obj.tipo);
+    return`<div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div style="text-align:center;min-width:70px">
+          <p style="font-size:22px;font-weight:800;color:${c.tx}">${obj.kcal||"—"}</p>
+          <p style="font-size:11px;color:${MU};text-transform:uppercase">kcal</p>
+        </div>
+        <div>
+          <span style="background:${c.bg};color:${c.tx};padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700">${obj.tipo||"—"}</span>
+          <p style="font-size:13px;color:${TX};margin-top:5px">📅 ${obj.fecha||a.fecha||"—"} ${obj.hora?"· "+obj.hora:""}</p>
+          <p style="font-size:12px;color:${MU};margin-top:2px">${obj.formula?"Fórmula: "+obj.formula:""}${obj.nivel_actividad?" · Actividad: "+obj.nivel_actividad:""}</p>
+          ${obj.registrado_por?`<p style="font-size:12px;color:${MU}">👤 ${obj.registrado_por}</p>`:""}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="usarObjetivoGuardado(${obj.kcal})" style="background:${P};color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Usar este</button>
+        <button onclick="eliminarObjetivoGuardado('${a.id}')" style="background:#FFEBEE;color:${DA};border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer">🗑️</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  cb.innerHTML=`
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:12px">Historial de objetivos calóricos — ${data.length} registro${data.length!==1?"s":""}</p>
+    ${filas}
+  `;
+}
+
+window.usarObjetivoGuardado=function(kcal){
+  STATE.objetivoCalorico={...(STATE.objetivoCalorico||{}),kcal};
+  showToast(`✓ Objetivo activo: ${kcal} kcal`);
+}
+
+window.eliminarObjetivoGuardado=async function(anexoId){
+  if(!await qpConfirm("¿Eliminar este registro de objetivo calórico? No se puede deshacer.",{title:"Eliminar objetivo calórico",okLabel:"Eliminar",danger:true}))return;
+  loading(true,"Eliminando...");
+  const {error}=await SB.from("anexos").delete().eq("id",anexoId);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("✓ Registro eliminado");
+  renderCalcGuardados(document.getElementById("calc-body"));
 }
 
 // ── TAB 1: MEDICIONES (desde InBody) ─────────────────────────────────────────
