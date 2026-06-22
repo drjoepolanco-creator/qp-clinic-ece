@@ -10728,8 +10728,8 @@ async function renderSVTab(b,pid){
       <div style="background:#F8F9FA;padding:8px 14px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">Historial (${hist.length})</b></div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:14px">
-          <thead><tr style="background:${PL}">${["Fecha","Registró","T°","FC","FR","Sat","TA","Peso","Talla","IMC","Glu","Obs"].map(h=>`<th style="padding:9px 11px;text-align:left;font-weight:700;color:${TX};white-space:nowrap">${h}</th>`).join("")}</tr></thead>
-          <tbody>${hist.map((s,i)=>{const esHoy=s.fecha?.startsWith(hoyStr);return`<tr style="border-top:1px solid ${BR};background:${esHoy?PL:i%2?"#FAFAFA":"#fff"};border-left:${esHoy?"3px solid "+P:"3px solid transparent"}">
+          <thead><tr style="background:${PL}">${["Fecha","Registró","T°","FC","FR","Sat","TA","Peso","Talla","IMC","Glu","Obs",""].map(h=>`<th style="padding:9px 11px;text-align:left;font-weight:700;color:${TX};white-space:nowrap">${h}</th>`).join("")}</tr></thead>
+          <tbody>${hist.map((s,i)=>{const esHoy=s.fecha?.startsWith(hoyStr);const svJson=JSON.stringify(s).replace(/'/g,"&#39;");return`<tr style="border-top:1px solid ${BR};background:${esHoy?PL:i%2?"#FAFAFA":"#fff"};border-left:${esHoy?"3px solid "+P:"3px solid transparent"}">
             <td style="padding:9px 11px;white-space:nowrap;${esHoy?"font-weight:700;color:"+P:""}">${s.fecha?new Date(s.fecha).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}</td>
             <td style="padding:9px 11px;white-space:nowrap">${s.usuario_nombre||"—"}</td>
             <td style="padding:9px 11px">${s.temperatura??""}</td><td style="padding:9px 11px">${s.frecuencia_cardiaca??""}</td>
@@ -10738,6 +10738,7 @@ async function renderSVTab(b,pid){
             <td style="padding:9px 11px">${s.peso??""}</td><td style="padding:9px 11px">${s.talla??""}</td>
             <td style="padding:9px 11px;font-weight:700">${s.imc??""}</td><td style="padding:9px 11px">${s.glucosa??""}</td>
             <td style="padding:9px 11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.observaciones||""}</td>
+            <td style="padding:6px 11px;white-space:nowrap"><button onclick="cargarSVDesdeHistorial(${svJson})" style="background:#7B1FA2;color:#fff;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap" title="Cargar estos valores en la consulta activa">📋 Cargar</button></td>
           </tr>`;}).join("")}</tbody>
         </table>
       </div>
@@ -10823,14 +10824,15 @@ window.guardarSV=async function(pid){
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
   showToast("✓ Signos vitales guardados");
-  // Si hay una consulta abierta, pasar los valores automáticamente
+  // Si hay una consulta abierta, cargar desde el payload recién guardado
   if(document.getElementById("cs_temp")){
-    cargarSVEnConsulta();
+    cargarSVDesdeHistorial(payload);
     showToast("✓ Signos vitales guardados y cargados en la consulta activa");
   }
   setET("sv");
 }
 window.cargarSVEnConsulta=function(){
+  // Lee los valores actuales del formulario de signos vitales
   const set=(id,val)=>{const e=document.getElementById(id);if(e&&val!==null&&val!==undefined&&val!=="")e.value=val;};
   set("cs_temp",gv("sv_temp"));set("cs_fc",gv("sv_fc"));
   set("cs_fr",gv("sv_fr"));set("cs_sat",gv("sv_sat"));
@@ -10838,6 +10840,23 @@ window.cargarSVEnConsulta=function(){
   set("cs_glu",gv("sv_glu"));set("cs_peso",gv("sv_peso"));
   set("cs_talla",gv("sv_talla"));set("cs_imc",gv("sv_imc"));
   showToast("✓ Signos vitales cargados en la consulta");
+}
+window.cargarSVDesdeHistorial=function(sv){
+  // Carga directamente desde un objeto de signos_vitales (historial o payload recién guardado)
+  const haConsulta=document.getElementById("cs_temp");
+  if(!haConsulta){showToast("⚠️ No hay consulta activa abierta en este momento",false);return;}
+  const set=(id,val)=>{const e=document.getElementById(id);if(e&&val!=null&&val!=="")e.value=val;};
+  set("cs_temp",sv.temperatura);
+  set("cs_fc",sv.frecuencia_cardiaca);
+  set("cs_fr",sv.frecuencia_respiratoria);
+  set("cs_sat",sv.saturacion_o2);
+  set("cs_tas",sv.presion_sistolica);
+  set("cs_tad",sv.presion_diastolica);
+  set("cs_glu",sv.glucosa);
+  set("cs_peso",sv.peso);
+  set("cs_talla",sv.talla);
+  set("cs_imc",sv.imc);
+  showToast("✓ Signos vitales cargados en la consulta activa");
 }
 // ── PÁGINA ENFERMERÍA ─────────────────────────────────────
 async function pgEnfermeria(){
