@@ -11206,15 +11206,16 @@ const US_PLANTILLAS = {
   "Mama":{
     "Ultrasonido Mamario":{
       campos:[
-        {id:"us_motivo",label:"Motivo de estudio",tipo:"text"},
-        {id:"us_dc",label:"Datos clínicos",tipo:"text"},
+        {id:"us_motivo",label:"Indicación del estudio",tipo:"text"},
+        {id:"us_dc",label:"Datos clínicos relevantes",tipo:"text"},
         {id:"us_hf",label:"Antecedente heredofamiliar de Ca de mama",tipo:"select",ops:["No","Sí","Se desconoce"]},
-        {id:"us_previos",label:"Estudios previos para comparar",tipo:"select",ops:["No contamos con estudios previos","Sí, se adjuntan"]},
-        {id:"us_tejido",label:"El tejido mamario es",tipo:"text",ph:"fibroadiposo, fibroglandular, denso..."},
-        {id:"us_nodulos",label:"Hallazgos nodulares",tipo:"textarea",ph:"Nódulos sólidos o quísticos identificados..."},
+        {id:"us_previos",label:"Comparación con estudios previos",tipo:"select",ops:["No contamos con estudios previos","Sí, se adjuntan"]},
+        {id:"us_tejido",label:"Ecotextura de fondo",tipo:"select",ops:["Homogénea grasa","Homogénea fibroglandular","Heterogénea"]},
+        {id:"us_nodulos",label:"Hallazgos nodulares (Hallazgos masa)",tipo:"textarea",ph:"Nódulos o masas identificadas: localización, tamaño, características..."},
+        {id:"us_hnm",label:"Hallazgos no masa (HNM)",tipo:"textarea",ph:"Asimetría, distorsión arquitectónica, calcificaciones, cambios en piel..."},
         {id:"us_piel",label:"Piel",tipo:"select",ops:["de grosor y ecogenicidad normal","engrosada","con edema"]},
-        {id:"us_axilas",label:"Axilas",tipo:"text",ph:"ganglios de características morfológicas benignas"},
-        {id:"us_birads",label:"BI-RADS",tipo:"select",ops:["1 – Negativo","2 – Hallazgos benignos","3 – Hallazgos probablemente benignos","4A – Baja sospecha de malignidad","4B – Sospecha intermedia","4C – Alta sospecha moderada","5 – Altamente sugestivo de malignidad","6 – Malignidad conocida"]},
+        {id:"us_axilas",label:"Ganglios intramam. / axilares",tipo:"text",ph:"Ganglios axilares (niveles I, II, III) de características morfológicas benignas"},
+        {id:"us_birads",label:"BI-RADS",tipo:"select",ops:["0 – Evaluación adicional necesaria","1 – Negativo","2 – Hallazgos benignos","3 – Hallazgos probablemente benignos","4A – Baja sospecha de malignidad","4B – Sospecha intermedia","4C – Alta sospecha moderada","5 – Altamente sugestivo de malignidad","6 – Malignidad conocida"]},
         {id:"us_recom",label:"Recomendación",tipo:"textarea",ph:"Control anual / seguimiento en 6 meses / biopsia..."},
       ],
       nota:"Este estudio deberá conservarse y presentarse en su próxima cita para análisis radiológico comparativo."
@@ -11871,19 +11872,25 @@ window.generarPDFUltrasonido=async function(){
     if(med.especialidad_1)credLines.push("Especialidad en "+med.especialidad_1+(med.cedula_esp_1?" · Céd. Esp. "+med.cedula_esp_1:""));
     if(med.subespecialidad)credLines.push("Alta Especialidad en "+med.subespecialidad+(med.cedula_subesp?" · Céd. "+med.cedula_subesp:""));
     if(med.especialidad_2)credLines.push("Alta Especialidad en "+med.especialidad_2+(med.cedula_esp_2?" · Céd. "+med.cedula_esp_2:""));
+    if(med.alta_especialidad)credLines.push("Alta Especialidad en "+med.alta_especialidad);
     const fallbackCreds=["Médico Especialista en Radiología","Alta Especialidad en Radiología de Urgencias","Alta Especialidad en Radiología de la Mujer","C.P. 13524542 · C.E. 13705584"];
     const credsToShow=credLines.length?credLines:fallbackCreds;
     const nomMedFallback=STATE.userProfile?`${STATE.userProfile.titulo||"Dra."} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():"Médico Radiólogo";
     const nomMed=(datos.medico||nomMedFallback).trim();
 
-    // Firma
-    let firmaB64=null;
+    // Logo QP Clinic y Firma
+    let logoQPB64=null,firmaB64=null;
+    try{
+      const rLogo=await fetch('https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg');
+      const blLogo=await rLogo.blob();
+      logoQPB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blLogo);});
+    }catch(e){}
     if(med.firma_digital){try{const r=await fetch(med.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}}
 
     // Hallazgos
     const camposHallazgo=(plantilla?.campos||[]).filter(c=>!["us_impresion","us_recom","us_motivo","us_dc","us_psa"].includes(c.id));
     const hallazgosFilas=camposHallazgo.filter(c=>datos[c.id]&&datos[c.id]!==c.label).map(c=>({l:c.label,v:datos[c.id]}));
-    if(datos.hallazgos_extra&&datos.hallazgos_extra.trim())hallazgosFilas.push({l:"Notas adicionales",v:datos.hallazgos_extra});
+    if(datos.hallazgos_extra&&datos.hallazgos_extra.trim())hallazgosFilas.push({l:"Descripción del ultrasonido",v:datos.hallazgos_extra});
 
     // ── PALETA ────────────────────────────────────────────────
     const AZ="#0077B6",AZDK="#023E8A",AZLT="#EAF6FB",BG="#F4F8FB",BRD="#D9E4EC",TXT="#1F2933",SEC="#5F6B73",FTR="#6B7280";
@@ -11937,7 +11944,7 @@ window.generarPDFUltrasonido=async function(){
     const secBar=(t)=>`<div style="background:${AZ};padding:6px 12px;border-radius:4px 4px 0 0;margin-top:12px"><b style="color:#fff;font-size:11px">${t}</b></div>`;
     const secBox=(c)=>`<div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:11px 13px;background:#fff;font-size:11px;line-height:1.6;color:${TXT}">${c}</div>`;
 
-    const transductor=(STATE.usActivo?.cat==="Abdomen"||STATE.usActivo?.cat==="Mama")?"convexo":"lineal";
+    const transductor=(STATE.usActivo?.cat==="Abdomen")?"convexo":"lineal";
 
     const pag1=`
     <!-- HEADER -->
@@ -11948,7 +11955,8 @@ window.generarPDFUltrasonido=async function(){
         <div style="font-size:11px;font-weight:bold;color:#fff;margin-bottom:3px">${nomMed.toUpperCase()}</div>
         <div style="font-size:8px;color:rgba(255,255,255,.85);line-height:1.5">${credsToShow.join(" &nbsp;·&nbsp; ")}</div>
       </div>
-      <div style="background:#fff;border-radius:6px;padding:10px 14px;min-width:120px;max-width:140px;text-align:center;flex-shrink:0">
+      <div style="background:#fff;border-radius:6px;padding:8px 12px;min-width:120px;max-width:150px;text-align:center;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px">
+        ${logoQPB64?`<img src="${logoQPB64}" style="max-height:36px;max-width:120px;object-fit:contain">`:""}
         <div style="font-size:9px;font-weight:bold;color:${AZ};line-height:1.5">${tipo.toUpperCase()}</div>
       </div>
     </div>
@@ -11970,7 +11978,7 @@ window.generarPDFUltrasonido=async function(){
         <td style="padding:7px 12px;font-size:10.5px;color:${TXT};vertical-align:top;border-bottom:1px solid ${BRD};word-break:break-word">${h.v}</td>
       </tr>`).join("")}
     </table>`:""}
-    ${datos.us_impresion&&datos.us_impresion.trim()?secBar("IMPRESIÓN DIAGNÓSTICA")+secBox(datos.us_impresion.split("\n").filter(Boolean).map(l=>`<div style="margin-bottom:4px">• ${l}</div>`).join("")):""}
+    ${tipo==="Ultrasonido Mamario"&&datos.us_birads?secBar("CONCLUSIÓN / IMPRESIÓN DIAGNÓSTICA")+secBox(`<b>BI-RADS ${datos.us_birads}</b>${datos.us_impresion&&datos.us_impresion.trim()?"<br>"+datos.us_impresion:""}`):(datos.us_impresion&&datos.us_impresion.trim()?secBar("IMPRESIÓN DIAGNÓSTICA")+secBox(datos.us_impresion.split("\n").filter(Boolean).map(l=>`<div style="margin-bottom:4px">• ${l}</div>`).join("")):"") }
     ${(datos.us_recom&&datos.us_recom.trim())||plantilla?.nota?secBar("RECOMENDACIONES")+secBox([datos.us_recom,plantilla?.nota].filter(Boolean).join("<br><br>")):""}
     `;
 
@@ -11984,6 +11992,7 @@ window.generarPDFUltrasonido=async function(){
         ${credsToShow.map(c=>`<div style="font-size:8.5px;color:${SEC};margin-bottom:3px">${c}</div>`).join("")}
       </div>
       <div style="background:${AZLT};border-radius:8px;padding:18px 16px;min-width:160px;text-align:center">
+        ${logoQPB64?`<img src="${logoQPB64}" style="max-height:40px;max-width:130px;object-fit:contain;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto">`:""}
         <div style="font-size:11px;font-weight:bold;color:${AZ};margin-bottom:8px">QP CLINIC</div>
         <div style="font-size:8.5px;color:${SEC};margin-bottom:4px">Insurgentes Sur 933, Piso 12</div>
         <div style="font-size:8.5px;color:${SEC};margin-bottom:4px">Col. Nápoles, CDMX</div>
@@ -12000,63 +12009,87 @@ window.generarPDFUltrasonido=async function(){
 
     // ── Galería de imágenes ───────────────────────────────────
     if(imgs.length>0){
-      const COLS=3;
-      const GAP=8;
-      const IMG_PX=Math.floor((CW_PX*HCSC-(COLS-1)*GAP*HCSC)/COLS);
-      const IMG_H=Math.floor(IMG_PX*0.72);
-      const CAP_H=24*HCSC/3;
-      const CARD_H=IMG_H+CAP_H;
-      const ROWS=Math.ceil(imgs.length/COLS);
-      const TBAR=28*HCSC/3;
-      const galW=CW_PX*HCSC;
-      const galH=TBAR+ROWS*(CARD_H+GAP*HCSC/3)+GAP*HCSC/3;
+      // Separar diagrama BI-RADS del resto
+      const imgDiagrama=imgs.filter(i=>i.etiqueta==="Diagrama BI-RADS");
+      const imgsNormales=imgs.filter(i=>i.etiqueta!=="Diagrama BI-RADS");
 
-      // Paginación de galería: 9 por página
-      const PERPAGE=9;
-      for(let pg=0;pg<imgs.length;pg+=PERPAGE){
-        const batch=imgs.slice(pg,pg+PERPAGE);
-        const bROWS=Math.ceil(batch.length/COLS);
-        const bH=TBAR+bROWS*(CARD_H+GAP*HCSC/3)+GAP*HCSC/3;
+      // Diagrama BI-RADS → hoja completa propia
+      for(const diag of imgDiagrama){
         const gc=document.createElement("canvas");
-        gc.width=galW;gc.height=bH;
+        const galW=CW_PX*HCSC;
+        const TBAR=Math.round(28*HCSC/3);
+        gc.width=galW;gc.height=Math.round(galW*1.05);
         const gx=gc.getContext("2d");
-        // Fondo
-        gx.fillStyle="#fff";gx.fillRect(0,0,galW,bH);
-        // Barra título
+        gx.fillStyle="#fff";gx.fillRect(0,0,gc.width,gc.height);
         gx.fillStyle=AZ;gx.fillRect(0,0,galW,TBAR);
         gx.fillStyle="#fff";
-        const fSz=Math.round(11*HCSC/3.78*0.8);
-        gx.font=`bold ${fSz}px Arial`;
-        gx.fillText("IMÁGENES DEL ESTUDIO"+(pg>0?" (continuación)":""),12*HCSC/3,TBAR*0.72);
-        let gy=TBAR+GAP*HCSC/3;
-        for(let j=0;j<batch.length;j++){
-          const col=j%COLS,row=Math.floor(j/COLS);
-          const x=col*(IMG_PX+GAP*HCSC/3);
-          const y=gy+row*(CARD_H+GAP*HCSC/3);
-          // Tarjeta
-          gx.fillStyle="#fff";gx.strokeStyle=BRD;gx.lineWidth=2;
-          gx.beginPath();gx.roundRect(x,y,IMG_PX,CARD_H,6);gx.fill();gx.stroke();
-          // Imagen
-          try{
-            const im=new Image();
-            await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=batch[j].b64;});
-            const asp=im.naturalWidth/im.naturalHeight;
-            let dw=IMG_PX,dh=IMG_H,dx=x,dy=y;
-            if(asp>IMG_PX/IMG_H){dh=Math.round(IMG_PX/asp);dy=y+Math.round((IMG_H-dh)/2);}
-            else{dw=Math.round(IMG_H*asp);dx=x+Math.round((IMG_PX-dw)/2);}
-            gx.fillStyle="#111";gx.fillRect(x,y,IMG_PX,IMG_H);
-            gx.drawImage(im,dx,dy,dw,dh);
-          }catch(e){gx.fillStyle="#222";gx.fillRect(x,y,IMG_PX,IMG_H);}
-          // Caption
-          gx.fillStyle=AZ;gx.fillRect(x,y+IMG_H,IMG_PX,CAP_H);
-          gx.fillStyle="#fff";
-          const cfSz=Math.round(8.5*HCSC/3.78*0.8);
-          gx.font=`bold ${cfSz}px Arial`;
-          gx.textAlign="center";
-          gx.fillText(batch[j].etiqueta||("Imagen "+(pg+j+1)),x+IMG_PX/2,y+IMG_H+CAP_H*0.7);
-          gx.textAlign="left";
-        }
+        gx.font=`bold ${Math.round(11*HCSC/3.78*0.8)}px Arial`;
+        gx.fillText("DIAGRAMA BI-RADS — MARCADO DE LESIONES",12*HCSC/3,TBAR*0.72);
+        try{
+          const im=new Image();
+          await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=diag.b64;});
+          const avW=galW-20*HCSC/3;
+          const avH=gc.height-TBAR-10*HCSC/3;
+          const asp=im.naturalWidth/im.naturalHeight;
+          let dw=avW,dh=Math.round(avW/asp);
+          if(dh>avH){dh=avH;dw=Math.round(avH*asp);}
+          const dx=(galW-dw)/2;
+          gx.drawImage(im,dx,TBAR+5*HCSC/3,dw,dh);
+        }catch(e){}
         pages.push(gc);
+      }
+
+      // Imágenes normales: 4 columnas, 4 por página (2 filas × 2 cols → se ajusta a 4 cols)
+      if(imgsNormales.length>0){
+        const COLS=4;
+        const GAP=6;
+        const IMG_PX=Math.floor((CW_PX*HCSC-(COLS-1)*GAP*HCSC/3)/COLS);
+        const IMG_H=Math.floor(IMG_PX*0.78);
+        const CAP_H=Math.round(22*HCSC/3);
+        const CARD_H=IMG_H+CAP_H;
+        const TBAR=Math.round(28*HCSC/3);
+        const galW=CW_PX*HCSC;
+        const PERPAGE=4;
+        for(let pg=0;pg<imgsNormales.length;pg+=PERPAGE){
+          const batch=imgsNormales.slice(pg,pg+PERPAGE);
+          const bROWS=Math.ceil(batch.length/COLS);
+          const bH=TBAR+bROWS*(CARD_H+GAP*HCSC/3)+GAP*HCSC/3;
+          const gc=document.createElement("canvas");
+          gc.width=galW;gc.height=bH;
+          const gx=gc.getContext("2d");
+          gx.fillStyle="#fff";gx.fillRect(0,0,galW,bH);
+          gx.fillStyle=AZ;gx.fillRect(0,0,galW,TBAR);
+          gx.fillStyle="#fff";
+          const fSz=Math.round(11*HCSC/3.78*0.8);
+          gx.font=`bold ${fSz}px Arial`;
+          gx.fillText("IMÁGENES DEL ESTUDIO"+(pg>0?" (continuación)":""),12*HCSC/3,TBAR*0.72);
+          const gy=TBAR+GAP*HCSC/3;
+          for(let j=0;j<batch.length;j++){
+            const col=j%COLS,row=Math.floor(j/COLS);
+            const x=col*(IMG_PX+GAP*HCSC/3);
+            const y=gy+row*(CARD_H+GAP*HCSC/3);
+            gx.fillStyle="#fff";gx.strokeStyle=BRD;gx.lineWidth=2;
+            gx.beginPath();gx.roundRect(x,y,IMG_PX,CARD_H,6);gx.fill();gx.stroke();
+            try{
+              const im=new Image();
+              await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=batch[j].b64;});
+              const asp=im.naturalWidth/im.naturalHeight;
+              let dw=IMG_PX,dh=IMG_H,dx=x,dy=y;
+              if(asp>IMG_PX/IMG_H){dh=Math.round(IMG_PX/asp);dy=y+Math.round((IMG_H-dh)/2);}
+              else{dw=Math.round(IMG_H*asp);dx=x+Math.round((IMG_PX-dw)/2);}
+              gx.fillStyle="#111";gx.fillRect(x,y,IMG_PX,IMG_H);
+              gx.drawImage(im,dx,dy,dw,dh);
+            }catch(e){gx.fillStyle="#222";gx.fillRect(x,y,IMG_PX,IMG_H);}
+            gx.fillStyle=AZ;gx.fillRect(x,y+IMG_H,IMG_PX,CAP_H);
+            gx.fillStyle="#fff";
+            const cfSz=Math.round(8.5*HCSC/3.78*0.8);
+            gx.font=`bold ${cfSz}px Arial`;
+            gx.textAlign="center";
+            gx.fillText(batch[j].etiqueta||("Imagen "+(pg+j+1)),x+IMG_PX/2,y+IMG_H+CAP_H*0.7);
+            gx.textAlign="left";
+          }
+          pages.push(gc);
+        }
       }
     }
 
@@ -12275,17 +12308,29 @@ Impresión diagnóstica:
 
 Recuerde: Llevar el presente estudio en su siguiente cita y estudios de control.`,
 
-ultrasonido_mamario:`Motivo de estudio: ____
-Datos clínicos: ____
+ultrasonido_mamario:`Indicación del estudio: ____
+Datos clínicos relevantes: ____
 Antecedente heredofamiliar de Ca de mama: ____. No contamos con estudios previos para comparar.
-Técnica: Se realizó ultrasonido mamario utilizando transductor lineal.
-Hallazgos:
-El tejido mamario es ____. No se identificaron nódulos sólidos ni quísticos, tampoco distorsión de la arquitectura mamaria. Las regiones retroareolares y retromamarias sin alteraciones. La piel es de grosor y ecogenicidad normal. Axilas: se visualizaron ganglios de características morfológicas benignas.
+Técnica: Se realizó ultrasonido mamario bilateral utilizando transductor lineal de alta frecuencia, en escala de grises y Doppler color.
 
-Impresión diagnóstica:
-Tejido mamario BIRADS ____ (____)
+Hallazgos:
+Ecotextura de fondo: ____
+
+Hallazgos nodulares (Hallazgos masa):
+Mama derecha: No se identifican masas circunscritas.
+Mama izquierda: No se identifican masas circunscritas.
+
+Hallazgos no masa (HNM):
+Sin alteraciones de la ecogenicidad. Sin distorsión de la arquitectura mamaria. Sin calcificaciones.
+
+Piel de grosor y ecogenicidad normal. Regiones retroareolares y retromamarias sin alteraciones.
+
+Axilas: Ganglios axilares bilaterales (niveles I, II, III) de características morfológicas benignas, con hilio graso preservado y corteza <3 mm.
+
+Conclusión / Impresión diagnóstica:
+BI-RADS ____ (____).
 Recomendación: En ausencia de sintomatología se sugiere control anual.
-Nota: Este estudio deberá conservarse y presentarse en su próxima cita para análisis radiológico comparativo.`,
+Recuerde: Este estudio deberá conservarse y presentarse en su próxima cita para análisis radiológico comparativo.`,
 
 testicular:`Datos clínicos: ____
 Técnica: Se realizó estudio utilizando transductor lineal, en escala de grises y Doppler color.
@@ -12719,8 +12764,8 @@ window.abrirBiradsDiagrama=function(){
           <text x="296" y="163" font-family="Arial" font-size="9" fill="#7986CB">CIE</text>
           <ellipse cx="350" cy="62" rx="23" ry="14" fill="#E8EAF6" stroke="#9FA8DA" stroke-width="1.5"/>
           <text x="338" y="66" font-family="Arial" font-size="7" fill="#5C6BC0">R.axilar</text>
-          <text x="138" y="215" font-family="Arial" font-size="10" fill="#1565C0" font-weight="bold" text-anchor="middle">SENO DERECHO</text>
-          <text x="282" y="215" font-family="Arial" font-size="10" fill="#1565C0" font-weight="bold" text-anchor="middle">SENO IZQUIERDO</text>
+          <text x="138" y="215" font-family="Arial" font-size="10" fill="#1565C0" font-weight="bold" text-anchor="middle">MAMA DERECHA</text>
+          <text x="282" y="215" font-family="Arial" font-size="10" fill="#1565C0" font-weight="bold" text-anchor="middle">MAMA IZQUIERDA</text>
         </svg>
         <p style="font-size:11px;color:#90A4AE;margin-top:6px">CSE=Superexterno · CSI=Superointerno · CIE=Inferoexterno · CII=Inferointerno</p>
       </div>
@@ -12736,7 +12781,7 @@ window.abrirBiradsDiagrama=function(){
       </div>
       <div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#1565C0">
         <b>Convencion de colores sugerida:</b><br>
-        Azul oscuro = Nodulo solido probable fibroadenoma &nbsp;|&nbsp; Rojo = Lesion sospechosa &nbsp;|&nbsp; Verde = Quiste simple &nbsp;|&nbsp; Amarillo = Quiste complicado
+        Azul oscuro = Nódulo &nbsp;|&nbsp; Azul medio = Lesión no masa &nbsp;|&nbsp; Rojo = Lesión sospechosa &nbsp;|&nbsp; Verde = Quiste simple &nbsp;|&nbsp; Amarillo = Quiste complicado &nbsp;|&nbsp; Morado = Ganglio axilar &nbsp;|&nbsp; Rosa = Ganglio intramam.
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button onclick="abrirEditorBirads()" style="flex:1;background:linear-gradient(135deg,#6A1B9A,#1565C0);color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;min-width:180px">
@@ -12758,16 +12803,18 @@ window.abrirEditorBirads=function(){
   // Estado del editor
   const ED={
     lesiones:[],  // [{x,y,lado,tipo,radio,etiqueta}]
-    modoActivo:"nodulo_solido",
+    modoActivo:"nodulo",
     lado:"derecho",
   };
 
   const TIPOS={
-    nodulo_solido:   {color:"#0D47A1",label:"Nódulo sólido",r:7},
+    nodulo:          {color:"#0D47A1",label:"Nódulo",r:7},
+    lesion_no_masa:  {color:"#1565C0",label:"Lesión no masa",r:7},
     quiste_simple:   {color:"#2E7D32",label:"Quiste simple",r:7},
     quiste_complic:  {color:"#F9A825",label:"Quiste complicado",r:7},
     sospechoso:      {color:"#C62828",label:"Lesión sospechosa",r:8},
     ganglio_axilar:  {color:"#6A1B9A",label:"Ganglio axilar",r:6},
+    ganglio_intramam:{color:"#AD1457",label:"Ganglio intramam.",r:6},
   };
 
   // SVG viewBox: 520 x 260
@@ -12868,8 +12915,8 @@ window.abrirEditorBirads=function(){
             <rect width="${VW}" height="${VH}" fill="#EEF6FB" rx="6"/>
 
             <!-- Etiqueta DERECHO / IZQUIERDO -->
-            <text x="30" y="18" font-family="Arial" font-size="11" fill="#1565C0" font-weight="bold">SENO DERECHO</text>
-            <text x="310" y="18" font-family="Arial" font-size="11" fill="#1565C0" font-weight="bold">SENO IZQUIERDO</text>
+            <text x="30" y="18" font-family="Arial" font-size="11" fill="#1565C0" font-weight="bold">MAMA DERECHA</text>
+            <text x="310" y="18" font-family="Arial" font-size="11" fill="#1565C0" font-weight="bold">MAMA IZQUIERDA</text>
 
             <!-- Mama DERECHA -->
             <ellipse cx="145" cy="135" rx="88" ry="85" fill="white" stroke="#90CAF9" stroke-width="2.5"/>
