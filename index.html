@@ -11848,6 +11848,10 @@ function usRecolectarDatos(){
   };
 }
 
+
+// ── Helper: hex color → [r,g,b] para jsPDF ──────────────────────────────────
+function hexRGB(h){h=h.replace("#","");if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+
 // ── PDF Generator ────────────────────────────────────────────────────────────
 window.generarPDFUltrasonido=async function(){
   const {jsPDF}=window.jspdf;
@@ -12094,27 +12098,201 @@ window.generarPDFUltrasonido=async function(){
       }
     }
 
-    // ── Firma ─────────────────────────────────────────────────
-    const cvFirma=await renderHTML(firmaPage);
-    await canvasToPDFPages(cvFirma);
+    // ── Helper comprimir imagen a JPEG ───────────────────────
+    const comprimgB64=async(b64,maxW=1400,q=0.82)=>new Promise(res=>{
+      const im=new Image();
+      im.onload=()=>{
+        let w=im.naturalWidth,h=im.naturalHeight;
+        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+        const cv=document.createElement("canvas");cv.width=w;cv.height=h;
+        cv.getContext("2d").drawImage(im,0,0,w,h);
+        res({jpeg:cv.toDataURL("image/jpeg",q),w,h});
+      };
+      im.onerror=()=>res({jpeg:b64,w:200,h:200});
+      im.src=b64;
+    });
 
-    // ── Ensamblar PDF ─────────────────────────────────────────
-    const total=pages.length;
-    for(let i=0;i<pages.length;i++){
-      if(i>0)doc.addPage();
-      const cv=pages[i];
-      const hmm=cv.height/PX_PER_MM;
-      doc.addImage(cv.toDataURL("image/png"),  // PNG para mejor calidad
-        "PNG",ML,ML,CWMM,hmm,undefined,"FAST");
-      addFooter(i+1,total);
+    const TIPOS_L=[
+      {id:"nodulo",label:"Nódulo",color:"#0D47A1"},
+      {id:"lesion_no_masa",label:"Lesión no masa",color:"#1565C0"},
+      {id:"quiste_simple",label:"Quiste simple",color:"#2E7D32"},
+      {id:"quiste_complic",label:"Quiste complicado",color:"#F9A825"},
+      {id:"sospechoso",label:"Lesión sospechosa",color:"#C62828"},
+      {id:"ganglio_axilar",label:"Ganglio axilar",color:"#6A1B9A"},
+      {id:"ganglio_intramam",label:"Ganglio intramam.",color:"#AD1457"},
+    ];
+    const lesionesEd=STATE.usActivo?.lesiones||[];
+    const imgDiag=imgs.filter(i=>i.etiqueta==="Diagrama BI-RADS");
+    const imgsNorm=imgs.filter(i=>i.etiqueta!=="Diagrama BI-RADS");
+
+    // ── Construir doc2 (jsPDF con texto vectorial) ────────────
+    const doc2=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+    let curPg=1;
+    let jpegQ=0.82,jpegMaxW=1400;
+
+    const addFtr2=(n,tot)=>{
+      doc2.setFillColor(238,244,248);doc2.rect(0,PH-FH,PW,FH,"F");
+      doc2.setDrawColor(217,228,236);doc2.setLineWidth(0.2);doc2.line(0,PH-FH,PW,PH-FH);
+      doc2.setTextColor(107,114,128);doc2.setFont("helvetica","normal");doc2.setFontSize(6);
+      doc2.text("QP Clinic  |  Insurgentes Sur 933 Piso 12, Col. Nápoles, CDMX  |  (55) 6442-3702  |  "+tipo+"  |  "+(datos.paciente||"—")+"  |  "+(datos.fecha||"")+"  |  Página "+n+" de "+tot,PW/2,PH-3.5,{align:"center",maxWidth:PW-4});
+    };
+
+    // Pre-render pág1 y firma
+    const p1slices=[],fmSlices=[];
+    {
+      let yPx=0;const cv1x=await renderHTML(pag1);
+      while(yPx<cv1x.height){const sH=Math.min(Math.round(AVAIL_H*PX_PER_MM),cv1x.height-yPx);if(sH<=0)break;const sl=document.createElement("canvas");sl.width=cv1x.width;sl.height=sH;sl.getContext("2d").drawImage(cv1x,0,-yPx);p1slices.push(sl);yPx+=sH;}
+    }
+    {
+      let yPx=0;const cvFx=await renderHTML(firmaPage);
+      while(yPx<cvFx.height){const sH=Math.min(Math.round(AVAIL_H*PX_PER_MM),cvFx.height-yPx);if(sH<=0)break;const sl=document.createElement("canvas");sl.width=cvFx.width;sl.height=sH;sl.getContext("2d").drawImage(cvFx,0,-yPx);fmSlices.push(sl);yPx+=sH;}
+    }
+
+    const totalPg=p1slices.length+imgDiag.length+Math.ceil(imgsNorm.length/4)+fmSlices.length;
+
+    // Pág 1
+    for(let i=0;i<p1slices.length;i++){
+      if(i>0)doc2.addPage();
+      const hmm=p1slices[i].height/PX_PER_MM;
+      doc2.addImage(p1slices[i].toDataURL("image/jpeg",0.92),"JPEG",ML,ML,CWMM,hmm,undefined,"MEDIUM");
+      addFtr2(curPg++,totalPg);
+    }
+
+    // Diagrama BI-RADS (hoja completa + tabla de lesiones vectorial)
+    for(const diag of imgDiag){
+      doc2.addPage();
+      const [r1,g1,b1]=hexRGB(AZ);doc2.setFillColor(r1,g1,b1);doc2.rect(ML,ML,CWMM,7,"F");
+      doc2.setTextColor(255,255,255);doc2.setFont("helvetica","bold");doc2.setFontSize(9);
+      doc2.text("DIAGRAMA BI-RADS — MARCADO DE LESIONES",ML+3,ML+5);
+      const {jpeg:dJpeg,w:dW,h:dH}=await comprimgB64(diag.b64,1400,0.88);
+      const legBlock=lesionesEd.length>0?lesionesEd.length*5+22:14;
+      const dAvH=PH-FH-ML-10-legBlock;
+      const dAsp=dW/dH;
+      let dImgW=CWMM,dImgH=CWMM/dAsp;
+      if(dImgH>dAvH){dImgH=dAvH;dImgW=dAvH*dAsp;}
+      doc2.addImage(dJpeg,"JPEG",ML+(CWMM-dImgW)/2,ML+9,dImgW,dImgH,"","MEDIUM");
+      // Leyenda
+      let legY=ML+9+dImgH+5;
+      doc2.setFontSize(7);doc2.setFont("helvetica","bold");
+      const [r2,g2,b2]=hexRGB(AZ);doc2.setTextColor(r2,g2,b2);doc2.text("Leyenda:",ML,legY);
+      let lx=ML+19;
+      for(const tp of TIPOS_L){
+        const [lr,lg,lb]=hexRGB(tp.color);doc2.setFillColor(lr,lg,lb);doc2.circle(lx+2,legY-1.2,2,"F");
+        doc2.setTextColor(30,30,30);doc2.setFont("helvetica","normal");doc2.setFontSize(6.5);
+        doc2.text(tp.label,lx+5.5,legY);lx+=doc2.getTextWidth(tp.label)+14;
+        if(lx>ML+CWMM-25){lx=ML+19;legY+=6;}
+      }
+      // Tabla lesiones marcadas
+      if(lesionesEd.length>0){
+        legY+=7;
+        const [r3,g3,b3]=hexRGB(AZ);doc2.setFillColor(r3,g3,b3);doc2.rect(ML,legY,CWMM,6,"F");
+        doc2.setTextColor(255,255,255);doc2.setFont("helvetica","bold");doc2.setFontSize(7.5);doc2.text("LESIONES MARCADAS",ML+3,legY+4.2);
+        const tCols=["#","Tipo","Mama","Hora","Cuadrante","Radio","Medidas","Descripción"];
+        const tW=[7,26,18,10,18,14,30,CWMM-7-26-18-10-18-14-30];
+        let tY=legY+6;doc2.setFontSize(6.5);doc2.setFont("helvetica","bold");doc2.setTextColor(80,80,80);
+        let tcx=ML;
+        for(let ci=0;ci<tCols.length;ci++){doc2.setFillColor(234,245,251);doc2.rect(tcx,tY,tW[ci],5,"F");doc2.text(tCols[ci],tcx+1,tY+3.5);tcx+=tW[ci];}
+        tY+=5;doc2.setFont("helvetica","normal");
+        for(let li=0;li<lesionesEd.length;li++){
+          const les=lesionesEd[li];
+          if(li%2===0)doc2.setFillColor(244,248,251);else doc2.setFillColor(255,255,255);
+          doc2.rect(ML,tY,CWMM,5,"F");
+          const row=[String(li+1),TIPOS_L.find(t=>t.id===les.tipo)?.label||les.tipo||"—",les.lado==="derecho"?"Derecha":"Izquierda",les.radio||"—",les.cuadrante||"—",les.radio_cm?les.radio_cm+" cm":"—",les.etiqueta||"—",les.descripcion||"—"];
+          tcx=ML;
+          for(let ci=0;ci<row.length;ci++){doc2.setTextColor(40,40,40);const lines=doc2.splitTextToSize(String(row[ci]),tW[ci]-2);doc2.text(lines[0],tcx+1,tY+3.5);tcx+=tW[ci];}
+          doc2.setDrawColor(210,225,235);doc2.line(ML,tY+5,ML+CWMM,tY+5);tY+=5;
+        }
+      }
+      addFtr2(curPg++,totalPg);
+    }
+
+    // Páginas 2×2 imágenes (jsPDF nativo — texto 100% vectorial)
+    const GAPX2=6,GAPY2=6,HDRHH=8,CAPH=22;
+    const aY2=ML+HDRHH+2,aH2=PH-aY2-FH-2;
+    const CL2=2,RW2=2,PP=4;
+    const cW2=(CWMM-(CL2-1)*GAPX2)/CL2;
+    const cH2=(aH2-(RW2-1)*GAPY2)/RW2;
+    const imgH2=cH2-CAPH;
+
+    for(let pg=0;pg<imgsNorm.length;pg+=PP){
+      const batch=imgsNorm.slice(pg,pg+PP);
+      doc2.addPage();
+      const [ar,ag,ab]=hexRGB(AZ);doc2.setFillColor(ar,ag,ab);doc2.rect(ML,ML,CWMM,HDRHH,"F");
+      doc2.setTextColor(255,255,255);doc2.setFont("helvetica","bold");doc2.setFontSize(8.5);
+      doc2.text("IMÁGENES DEL ESTUDIO"+(pg>0?" (cont.)":""),ML+3,ML+5.8);
+      doc2.setFontSize(7);doc2.text((pg+1)+"–"+Math.min(pg+PP,imgsNorm.length)+" / "+imgsNorm.length,ML+CWMM-3,ML+5.8,{align:"right"});
+
+      for(let j=0;j<batch.length;j++){
+        const col=j%CL2,row=Math.floor(j/CL2);
+        const cx=ML+col*(cW2+GAPX2),cy=aY2+row*(cH2+GAPY2);
+        const idx=pg+j;
+        doc2.setDrawColor(214,226,236);doc2.setLineWidth(0.3);doc2.setFillColor(255,255,255);
+        doc2.roundedRect(cx,cy,cW2,cH2,2,2,"FD");
+        // Imagen JPEG
+        try{
+          const {jpeg,w:iW,h:iH}=await comprimgB64(batch[j].b64,jpegMaxW,jpegQ);
+          const asp=iW/iH;let dw=cW2-4,dh=(cW2-4)/asp;
+          if(dh>imgH2-4){dh=imgH2-4;dw=dh*asp;}
+          doc2.addImage(jpeg,"JPEG",cx+2+(cW2-4-dw)/2,cy+2+(imgH2-4-dh)/2,dw,dh,"","MEDIUM");
+        }catch(e){}
+        // Caption vectorial
+        const capY=cy+imgH2;
+        const [ccr,ccg,ccb]=hexRGB(AZLT);doc2.setFillColor(ccr,ccg,ccb);doc2.rect(cx,capY,cW2,CAPH,"F");
+        doc2.setDrawColor(180,210,225);doc2.setLineWidth(0.2);doc2.line(cx,capY,cx+cW2,capY);
+        const les=lesionesEd[idx]||null;const etq=batch[j].etiqueta||"";
+        // L1: Imagen · Mama · Tipo
+        doc2.setFont("helvetica","bold");doc2.setFontSize(7.2);
+        const [atr,atg,atb]=hexRGB(AZDK);doc2.setTextColor(atr,atg,atb);
+        let l1="Img "+(idx+1);
+        if(les?.lado)l1+=" · Mama "+(les.lado==="derecho"?"Derecha":"Izquierda");
+        else if(etq)l1+=" · "+etq;
+        if(les?.tipo){const tl=TIPOS_L.find(t=>t.id===les.tipo);if(tl)l1+=" · "+tl.label;}
+        doc2.text(l1,cx+2.5,capY+4.5,{maxWidth:cW2-5});
+        // L2: Hora · Cuadrante · Radio
+        doc2.setFont("helvetica","normal");doc2.setFontSize(6.8);doc2.setTextColor(60,80,100);
+        const p2=[];
+        if(les?.radio)p2.push("H"+les.radio);if(les?.cuadrante)p2.push(les.cuadrante);if(les?.radio_cm)p2.push("R:"+les.radio_cm+"cm");
+        if(p2.length)doc2.text(p2.join(" · "),cx+2.5,capY+9.2,{maxWidth:cW2-5});
+        // L3: Medidas
+        doc2.setFontSize(6.5);doc2.setTextColor(80,90,100);
+        const medStr=(les?.etiqueta||"").trim();
+        if(medStr)doc2.text("Med: "+medStr,cx+2.5,capY+13.5,{maxWidth:cW2-5});
+        // L4: Descripción
+        const descStr=(les?.descripcion||"").trim()||(!les?etq:"");
+        if(descStr){doc2.setTextColor(50,60,70);const dl=doc2.splitTextToSize(descStr,cW2-5);doc2.text(dl.slice(0,2),cx+2.5,capY+(medStr?17.5:13.5));}
+      }
+      // Leyenda pie
+      const legY2=PH-FH-8;
+      doc2.setFontSize(6);doc2.setFont("helvetica","bold");doc2.setTextColor(90,100,110);doc2.text("Tipos:",ML,legY2);
+      let lx2=ML+11;
+      for(const tp of TIPOS_L){
+        const [tpr,tpg,tpb]=hexRGB(tp.color);doc2.setFillColor(tpr,tpg,tpb);doc2.circle(lx2+1.5,legY2-1,1.5,"F");
+        doc2.setTextColor(50,50,50);doc2.setFont("helvetica","normal");doc2.setFontSize(5.8);
+        doc2.text(tp.label,lx2+4.5,legY2);lx2+=doc2.getTextWidth(tp.label)+9;
+        if(lx2>ML+CWMM-18){lx2=ML+11;}
+      }
+      addFtr2(curPg++,totalPg);
+    }
+
+    // Firma
+    for(let i=0;i<fmSlices.length;i++){
+      doc2.addPage();
+      const hmm=fmSlices[i].height/PX_PER_MM;
+      doc2.addImage(fmSlices[i].toDataURL("image/jpeg",0.92),"JPEG",ML,ML,CWMM,hmm,undefined,"MEDIUM");
+      addFtr2(curPg++,totalPg);
+    }
+
+    // Control peso ≤20 MB
+    const pdfBlob2=doc2.output("blob");
+    if(pdfBlob2.size>20*1024*1024){
+      showToast("⚠️ PDF supera 20 MB — sube imágenes en menor resolución para optimizar",false);
     }
 
     // ── Guardar en Supabase ───────────────────────────────────
     if(STATE.pat?.id){
       try{
-        const blob=doc.output("blob");
         const path=`${STATE.pat.id}/ultrasonido/${Date.now()}.pdf`;
-        const {error:e2}=await SB.storage.from("expedientes").upload(path,blob,{contentType:"application/pdf",upsert:false});
+        const {error:e2}=await SB.storage.from("expedientes").upload(path,pdfBlob2,{contentType:"application/pdf",upsert:false});
         if(!e2){await SB.from("anexos").insert({
           paciente_id:STATE.pat.id,
           titulo:`ULTRASONIDO — ${tipo.toUpperCase()} — ${datos.fecha||""}`,
@@ -12126,7 +12304,7 @@ window.generarPDFUltrasonido=async function(){
 
     loading(false);
     const nom=(datos.paciente||"reporte").replace(/[^a-zA-Z0-9]/g,"_").substring(0,25);
-    doc.save(`US_${tipo.replace(/[^a-zA-Z0-9]/g,"_").substring(0,20)}_${nom}_${datos.fecha||""}.pdf`);
+    doc2.save("US_"+tipo.replace(/[^a-zA-Z0-9]/g,"_").substring(0,20)+"_"+nom+"_"+(datos.fecha||"")+".pdf");
     showToast("✓ Reporte de ultrasonido generado");
 
   }catch(err){
