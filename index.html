@@ -11983,8 +11983,7 @@ window.generarPDFUltrasonido=async function(){
         <td style="padding:7px 12px;font-size:10.5px;color:${TXT};vertical-align:top;border-bottom:1px solid ${BRD};word-break:break-word">${h.v}</td>
       </tr>`).join("")}
     </table>`:""}
-    ${tipo==="Ultrasonido Mamario"&&datos.us_birads?secBar("CONCLUSIÓN / IMPRESIÓN DIAGNÓSTICA")+secBox(`<b>BI-RADS ${datos.us_birads}</b>${datos.us_impresion&&datos.us_impresion.trim()?"<br>"+datos.us_impresion:""}`):(datos.us_impresion&&datos.us_impresion.trim()?secBar("IMPRESIÓN DIAGNÓSTICA")+secBox(datos.us_impresion.split("\n").filter(Boolean).map(l=>`<div style="margin-bottom:4px">• ${l}</div>`).join("")):"") }
-    ${(datos.us_recom&&datos.us_recom.trim())||plantilla?.nota?secBar("RECOMENDACIONES")+secBox([datos.us_recom,plantilla?.nota].filter(Boolean).join("<br><br>")):""}
+    ${tipo==="Ultrasonido Mamario"&&datos.us_birads?`<div style="page-break-inside:avoid">`+secBar("CONCLUSIÓN / IMPRESIÓN DIAGNÓSTICA")+secBox(`<b>BI-RADS ${datos.us_birads}</b>${datos.us_impresion&&datos.us_impresion.trim()?"<br>"+datos.us_impresion:""}`)+((datos.us_recom&&datos.us_recom.trim())||plantilla?.nota?secBar("RECOMENDACIONES")+secBox([datos.us_recom,plantilla?.nota].filter(Boolean).join("<br><br>")):"")+"</div>":(datos.us_impresion&&datos.us_impresion.trim()?`<div style="page-break-inside:avoid">`+secBar("IMPRESIÓN DIAGNÓSTICA")+secBox(datos.us_impresion.split("\n").filter(Boolean).map(l=>`<div style="margin-bottom:4px">• ${l}</div>`).join(""))+((datos.us_recom&&datos.us_recom.trim())||plantilla?.nota?secBar("RECOMENDACIONES")+secBox([datos.us_recom,plantilla?.nota].filter(Boolean).join("<br><br>")):"")+"</div>":((datos.us_recom&&datos.us_recom.trim())||plantilla?.nota?`<div style="page-break-inside:avoid">`+secBar("RECOMENDACIONES")+secBox([datos.us_recom,plantilla?.nota].filter(Boolean).join("<br><br>"))+"</div>":""))}
     `;
 
     // ── Firma HTML ────────────────────────────────────────────
@@ -12951,20 +12950,15 @@ window.abrirBiradsDiagrama=function(){
       <div style="background:#EDE7F6;border-radius:8px;padding:12px 14px;margin-bottom:16px">
         <p style="font-size:13px;font-weight:700;color:#6A1B9A;margin-bottom:6px">Como usar:</p>
         <div style="font-size:13px;color:#4A148C;line-height:1.8">
-          1. Abre Canva con el boton de abajo<br>
-          2. Usa el diseño de mamas y marca las lesiones con puntos de color<br>
-          3. Descarga la imagen (PNG) del diagrama completado<br>
-          4. Cargala en el campo de imagenes con etiqueta "Diagrama BI-RADS"<br>
-          5. Se incluira automaticamente en el PDF del reporte
+          1. Abre el editor de abajo dando click en el botón <b>"Abrir el editor"</b><br>
+          2. Marca las lesiones con puntos de color en el cuadrante correcto de cada mama<br>
+          3. Agrega descripción a cada lesión (radio, medidas, etc.)<br>
+          4. Presiona <b>"Agregar al reporte"</b> para incluir el diagrama en el PDF automáticamente
         </div>
-      </div>
-      <div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#1565C0">
-        <b>Convencion de colores sugerida:</b><br>
-        Azul oscuro = Nódulo &nbsp;|&nbsp; Azul medio = Lesión no masa &nbsp;|&nbsp; Rojo = Lesión sospechosa &nbsp;|&nbsp; Verde = Quiste simple &nbsp;|&nbsp; Amarillo = Quiste complicado &nbsp;|&nbsp; Morado = Ganglio axilar &nbsp;|&nbsp; Rosa = Ganglio intramam.
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button onclick="abrirEditorBirads()" style="flex:1;background:linear-gradient(135deg,#6A1B9A,#1565C0);color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;min-width:180px">
-          ✏️ Abrir editor de diagrama
+          ✏️ Abrir el editor
         </button>
         <button onclick="document.getElementById('modal-birads').remove()" style="padding:12px 18px;background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:9px;font-size:14px;cursor:pointer">Cerrar</button>
       </div>
@@ -13080,7 +13074,7 @@ window.abrirEditorBirads=function(){
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
           <span style="font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase">Tipo de lesión:</span>
           ${Object.entries(TIPOS).map(([k,v])=>`
-          <button id="btn-tipo-${k}" onclick="biradsModo('${k}')" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1.5px solid ${v.color};background:${k==="nodulo_solido"?v.color:"#fff"};color:${k==="nodulo_solido"?"#fff":v.color};cursor:pointer;font-size:11px;font-weight:600;transition:all .15s">
+          <button id="btn-tipo-${k}" onclick="biradsModo('${k}')" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1.5px solid ${v.color};background:${k==="nodulo"?v.color:"#fff"};color:${k==="nodulo"?"#fff":v.color};cursor:pointer;font-size:11px;font-weight:600;transition:all .15s">
             <span style="width:9px;height:9px;background:${v.color};border-radius:50%;display:inline-block;flex-shrink:0"></span>${v.label}
           </button>`).join("")}
           <button onclick="biradsBorrarTodo()" style="margin-left:auto;padding:4px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:20px;cursor:pointer;font-size:11px;font-weight:700">🗑 Limpiar todo</button>
@@ -13228,7 +13222,6 @@ window.abrirEditorBirads=function(){
   window.biradsCopiarComoImagen=async function(){
     const svg=document.getElementById("birads-svg");
     if(!svg){showToast("Diagrama no disponible",false);return;}
-    // Serializar SVG y convertir a PNG via canvas
     const svgData=new XMLSerializer().serializeToString(svg);
     const svgBlob=new Blob([svgData],{type:"image/svg+xml;charset=utf-8"});
     const url=URL.createObjectURL(svgBlob);
@@ -13240,15 +13233,19 @@ window.abrirEditorBirads=function(){
       ctx.scale(2,2);ctx.drawImage(img,0,0,svg.clientWidth,svg.clientHeight);
       URL.revokeObjectURL(url);
       const b64=canvas.toDataURL("image/png");
-      // Agregar al reporte como primera imagen con etiqueta especial
       if(!STATE.usActivo)STATE.usActivo={imagenes:[]};
       if(!STATE.usActivo.imagenes)STATE.usActivo.imagenes=[];
-      // Insertar al inicio
       STATE.usActivo.imagenes.unshift({id:"birads_"+Date.now(),nombre:"Diagrama_BIRADS.png",b64,etiqueta:"Diagrama BI-RADS"});
       STATE.usActivo.imagenesB64=STATE.usActivo.imagenes.map(i=>i.b64);
+      // Guardar lesiones marcadas para el PDF
+      STATE.usActivo.lesiones=ED.lesiones.map((l,i)=>({
+        ...l,
+        numero:i+1,
+        tipo_label:(TIPOS[l.tipo]||{label:l.tipo||"—"}).label,
+      }));
       usRenderImageGrid();
       document.getElementById("modal-birads-editor")?.remove();
-      showToast("✓ Diagrama BI-RADS agregado al reporte como primera imagen");
+      showToast("✓ Diagrama BI-RADS agregado al reporte");
     };
     img.src=url;
   };
