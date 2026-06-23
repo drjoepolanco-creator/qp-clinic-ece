@@ -447,6 +447,8 @@ function nav(){
         <button onclick="go('tramites');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏛️ Trámites y Cumplimiento</button>
         <button onclick="go('reportes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📊 Reportes de Dirección</button>
         <button onclick="go('cortecaja');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">💰 Corte de caja</button>
+        <div style="border-top:1px solid #F0F0F0;margin:4px 0"></div>
+        <button onclick="toggleCfgMenu();reiniciarSesionEmergencia()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#E65100;display:flex;align-items:center;gap:8px" title="Usar si un usuario reporta errores 'InvalidJWT' repetidos">🔄 Limpiar sesión corrupta (InvalidJWT)</button>
       </div>
     </div>`:""}
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
@@ -456,7 +458,6 @@ function nav(){
         <span style="font-size:16px">👤</span>
         <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u?u.titulo+" "+u.nombre+" "+u.apellidos:"Mi perfil"}</span>
       </button>
-      <button onclick="reiniciarSesionEmergencia()" title="Usar si la sesión muestra errores InvalidJWT" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:5px;padding:3px 8px;color:rgba(255,255,255,.65);cursor:pointer;font-size:12px" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.65)'">🔄</button>
       <button onclick="cerrarSesion()" title="Cerrar sesión" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:3px 9px;color:#fff;cursor:pointer;font-size:14px">Salir</button>
     </div>
   </div>
