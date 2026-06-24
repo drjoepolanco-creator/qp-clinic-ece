@@ -11658,8 +11658,11 @@ window.usCargarPlantilla=function(){
       ondrop="event.preventDefault();this.style.borderColor='#90CAF9';this.style.background='#F0F7FF';usAgregarImagenes({files:event.dataTransfer.files})">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div>
-          <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:2px">📷 Imágenes del ultrasonido</p>
-          <p style="font-size:12px;color:${MU}">Hasta 30 imágenes. Arrastra archivos aquí o usa el botón. Agrega etiqueta a cada una.</p>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+            <p style="font-size:14px;font-weight:700;color:${P};margin:0">📷 Imágenes del ultrasonido</p>
+            <button onclick="usModalInstrucciones()" style="background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer">ℹ️ Instrucciones</button>
+          </div>
+          <p style="font-size:12px;color:${MU}">Hasta 30 imágenes. <b>Arrastra las tarjetas para reordenarlas.</b> Si marcaste lesiones en el diagrama, vincula cada imagen a su lesión correspondiente.</p>
         </div>
         <label style="background:${P};color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:14px;font-weight:700;display:inline-block">
           + Agregar imágenes <input id="us-img-input" type="file" accept="image/*,.jpg,.JPG,.jpeg,.png" multiple style="display:none" onchange="usAgregarImagenes(this)">
@@ -11777,33 +11780,159 @@ function usRenderImageGrid(){
   const cnt=document.getElementById("us-img-count");
   if(!grid)return;
   const imgs=STATE.usActivo?.imagenes||[];
+  const lesiones=STATE.usActivo?.lesiones||[];
   if(imgs.length===0){
     grid.innerHTML=`<div style="border:2px dashed #B0BEC5;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:80px;color:#90A4AE;font-size:13px">Sin imágenes</div>`;
     if(cnt)cnt.textContent="0 imágenes cargadas";
     return;
   }
+  // Opciones del selector de lesión
+  const lesOpts=lesiones.map((l,i)=>`<option value="${i}">Lesión ${i+1} · ${l.tipo_label||l.tipo||"—"} · Mama ${l.lado==="derecho"?"D":"I"}${l.radio?" H"+l.radio:""}</option>`).join("");
+  const selOpts=`<option value="">— Sin lesión asociada —</option>${lesOpts}`;
+
   grid.innerHTML=imgs.map((img,i)=>`
-    <div style="position:relative;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #00000020">
-      <img src="${img.b64}" style="width:100%;height:120px;object-fit:cover;display:block">
+    <div draggable="true"
+         ondragstart="usDragStart(event,${i})"
+         ondragover="usDragOver(event)"
+         ondrop="usDrop(event,${i})"
+         ondragleave="usDragLeave(event)"
+         id="us-img-card-${i}"
+         style="position:relative;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #00000020;cursor:grab;background:#fff;border:2px solid transparent;transition:border-color .15s">
+      <!-- Handle drag visual -->
+      <div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.45);color:#fff;border-radius:4px;padding:2px 5px;font-size:10px;font-weight:700;z-index:2">#${i+1}</div>
+      <div style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.35);color:#fff;border-radius:4px;padding:1px 5px;font-size:10px;z-index:2" title="Arrastra para reordenar">⠿</div>
+      <img src="${img.b64}" style="width:100%;height:120px;object-fit:cover;display:block;pointer-events:none">
       <div style="padding:5px 6px;background:#fff">
-        <input value="${img.etiqueta}" onchange="usSetEtiqueta(${i},this.value)" placeholder="Región / Radio / Proyección" style="width:100%;border:1px solid ${BR};border-radius:5px;padding:3px 6px;font-size:11px;outline:none">
-        <div style="display:flex;justify-content:space-between;margin-top:4px;align-items:center">
-          <span style="font-size:10px;color:${MU}">#${i+1}</span>
-          <button onclick="usEliminarImagen(${i})" style="background:#FFEBEE;color:${DA};border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✕</button>
+        <input value="${img.etiqueta||""}" onchange="usSetEtiqueta(${i},this.value)" placeholder="Región / Proyección / Notas" style="width:100%;border:1px solid ${BR};border-radius:5px;padding:3px 6px;font-size:11px;outline:none;margin-bottom:4px">
+        ${lesiones.length>0?`<select onchange="usSetLesion(${i},this.value)" style="width:100%;border:1px solid #B0BEC5;border-radius:5px;padding:3px 5px;font-size:10.5px;color:#37474F;background:#F8FBFC;outline:none">
+          ${selOpts.replace(`value="${img.lesion_idx!=null?img.lesion_idx:""}"`,`value="${img.lesion_idx!=null?img.lesion_idx:""}" selected`)}
+        </select>`:""}
+        <div style="display:flex;justify-content:flex-end;margin-top:4px">
+          <button onclick="usEliminarImagen(${i})" style="background:#FFEBEE;color:${DA};border:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:11px">✕ Eliminar</button>
         </div>
       </div>
     </div>`).join("");
+
+  // Restaurar selected del select después de renderizar
+  imgs.forEach((img,i)=>{
+    if(img.lesion_idx!=null){
+      const sel=grid.querySelector(`#us-img-card-${i} select`);
+      if(sel)sel.value=String(img.lesion_idx);
+    }
+  });
+
   if(cnt)cnt.textContent=`${imgs.length} imagen${imgs.length!==1?"es":""} cargada${imgs.length!==1?"s":""}`;
 }
 
+// ── Drag & Drop reordenar imágenes ────────────────────────────
+let _usDragIdx=null;
+window.usDragStart=function(e,i){
+  _usDragIdx=i;
+  e.dataTransfer.effectAllowed="move";
+  setTimeout(()=>{const c=document.getElementById("us-img-card-"+i);if(c)c.style.opacity=".4";},0);
+};
+window.usDragOver=function(e){
+  e.preventDefault();e.dataTransfer.dropEffect="move";
+  const card=e.currentTarget;if(card)card.style.borderColor="#0077B6";
+};
+window.usDragLeave=function(e){
+  const card=e.currentTarget;if(card)card.style.borderColor="transparent";
+};
+window.usDrop=function(e,toIdx){
+  e.preventDefault();
+  const card=e.currentTarget;if(card)card.style.borderColor="transparent";
+  if(_usDragIdx===null||_usDragIdx===toIdx){_usDragIdx=null;return;}
+  const imgs=STATE.usActivo?.imagenes||[];
+  const moved=imgs.splice(_usDragIdx,1)[0];
+  imgs.splice(toIdx,0,moved);
+  _usDragIdx=null;
+  STATE.usActivo.imagenesB64=imgs.map(i=>i.b64);
+  usRenderImageGrid();
+};
+
 window.usSetEtiqueta=function(idx,val){
   if(STATE.usActivo?.imagenes?.[idx])STATE.usActivo.imagenes[idx].etiqueta=val;
+}
+window.usSetLesion=function(idx,val){
+  if(STATE.usActivo?.imagenes?.[idx]){
+    STATE.usActivo.imagenes[idx].lesion_idx=val!==""?Number(val):null;
+  }
 }
 window.usEliminarImagen=function(idx){
   STATE.usActivo?.imagenes?.splice(idx,1);
   STATE.usActivo.imagenesB64=STATE.usActivo.imagenes.map(i=>i.b64);
   usRenderImageGrid();
 }
+
+window.usModalInstrucciones=function(){
+  if(document.getElementById("modal-us-instrucciones"))return;
+  const overlay=document.createElement("div");
+  overlay.id="modal-us-instrucciones";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9990;display:flex;align-items:center;justify-content:center;padding:16px";
+  overlay.innerHTML=`
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:540px;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#0077B6,#023E8A);padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <p style="color:rgba(255,255,255,.75);font-size:10px;font-weight:600;margin-bottom:2px;text-transform:uppercase">Módulo Ultrasonido</p>
+        <b style="color:#fff;font-size:15px">📷 Cómo subir imágenes</b>
+      </div>
+      <button onclick="document.getElementById('modal-us-instrucciones').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:16px;font-weight:700">✕</button>
+    </div>
+    <!-- Pasos -->
+    <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span style="background:#0077B6;color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">1</span>
+        <div>
+          <p style="font-weight:700;font-size:13px;color:#1F2933;margin-bottom:2px">Primero genera el diagrama BI-RADS</p>
+          <p style="font-size:12px;color:#546E7A;line-height:1.5">Antes de subir imágenes, usa el botón <b>"Abrir diagrama"</b> para marcar las lesiones en el esquema de mamas. Esto permite vincular cada imagen a su lesión correspondiente.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span style="background:#0077B6;color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">2</span>
+        <div>
+          <p style="font-weight:700;font-size:13px;color:#1F2933;margin-bottom:2px">Sube las imágenes del equipo</p>
+          <p style="font-size:12px;color:#546E7A;line-height:1.5">Presiona <b>"+ Agregar imágenes"</b> o arrastra los archivos directamente al área. Se aceptan JPG y PNG. Puedes subir hasta 30 imágenes.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span style="background:#0077B6;color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">3</span>
+        <div>
+          <p style="font-weight:700;font-size:13px;color:#1F2933;margin-bottom:2px">Ordena las imágenes</p>
+          <p style="font-size:12px;color:#546E7A;line-height:1.5">Arrastra cada tarjeta de imagen para cambiar el orden. El número <b>#1, #2…</b> en la esquina indica su posición en el PDF. Ordénalas de forma que tengan sentido clínico.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span style="background:#0077B6;color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">4</span>
+        <div>
+          <p style="font-weight:700;font-size:13px;color:#1F2933;margin-bottom:2px">Vincula cada imagen a su lesión</p>
+          <p style="font-size:12px;color:#546E7A;line-height:1.5">Si marcaste lesiones en el diagrama, aparecerá un selector debajo de cada imagen. Elige la lesión que corresponde a esa imagen — así el caption del PDF mostrará los datos correctos (mama, hora, cuadrante, medidas).</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span style="background:#0077B6;color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">5</span>
+        <div>
+          <p style="font-weight:700;font-size:13px;color:#1F2933;margin-bottom:2px">Agrega notas opcionales a cada imagen</p>
+          <p style="font-size:12px;color:#546E7A;line-height:1.5">El campo de texto debajo de cada imagen permite agregar una nota libre: región anatómica, proyección, técnica especial (Doppler, elastografía), o cualquier descripción relevante.</p>
+        </div>
+      </div>
+
+      <div style="background:#E8F5E9;border-left:4px solid #43A047;border-radius:0 8px 8px 0;padding:10px 13px;font-size:12px;color:#2E7D32;line-height:1.5">
+        💡 <b>Consejo:</b> Imágenes con medidas ya marcadas en el equipo (calipers) son las más útiles. Sube primero las imágenes diagnósticas y al final las de control o comparación.
+      </div>
+
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid #EEE;display:flex;justify-content:flex-end">
+      <button onclick="document.getElementById('modal-us-instrucciones').remove()" style="background:#0077B6;color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer">Entendido</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+};
 
 window.guardarBorradorUS=async function(){
   if(!STATE.pat?.id){showToast("Sin paciente activo — el borrador no puede guardarse",false);return;}
@@ -12238,7 +12367,7 @@ window.generarPDFUltrasonido=async function(){
         const capY=cy+imgH2;
         const [ccr,ccg,ccb]=hexRGB(AZLT);doc2.setFillColor(ccr,ccg,ccb);doc2.rect(cx,capY,cW2,CAPH,"F");
         doc2.setDrawColor(180,210,225);doc2.setLineWidth(0.2);doc2.line(cx,capY,cx+cW2,capY);
-        const les=lesionesEd[idx]||null;const etq=batch[j].etiqueta||"";
+        const lesIdx=batch[j].lesion_idx!=null?batch[j].lesion_idx:idx;const les=lesionesEd[lesIdx]||null;const etq=batch[j].etiqueta||"";
         // L1: Imagen · Mama · Tipo
         doc2.setFont("helvetica","bold");doc2.setFontSize(7.2);
         const [atr,atg,atb]=hexRGB(AZDK);doc2.setTextColor(atr,atg,atb);
@@ -12260,15 +12389,20 @@ window.generarPDFUltrasonido=async function(){
         const descStr=(les?.descripcion||"").trim()||(!les?etq:"");
         if(descStr){doc2.setTextColor(50,60,70);const dl=doc2.splitTextToSize(descStr,cW2-5);doc2.text(dl.slice(0,2),cx+2.5,capY+(medStr?17.5:13.5));}
       }
-      // Leyenda pie
-      const legY2=PH-FH-8;
-      doc2.setFontSize(6);doc2.setFont("helvetica","bold");doc2.setTextColor(90,100,110);doc2.text("Tipos:",ML,legY2);
-      let lx2=ML+11;
-      for(const tp of TIPOS_L){
-        const [tpr,tpg,tpb]=hexRGB(tp.color);doc2.setFillColor(tpr,tpg,tpb);doc2.circle(lx2+1.5,legY2-1,1.5,"F");
-        doc2.setTextColor(50,50,50);doc2.setFont("helvetica","normal");doc2.setFontSize(5.8);
-        doc2.text(tp.label,lx2+4.5,legY2);lx2+=doc2.getTextWidth(tp.label)+9;
-        if(lx2>ML+CWMM-18){lx2=ML+11;}
+      // Leyenda pie — solo tipos presentes en el diagrama
+      const tiposPresentes=lesionesEd.length>0
+        ? TIPOS_L.filter(tp=>lesionesEd.some(l=>l.tipo===tp.id))
+        : TIPOS_L; // si no hay diagrama, muestra todos
+      if(tiposPresentes.length>0){
+        const legY2=PH-FH-8;
+        doc2.setFontSize(6);doc2.setFont("helvetica","bold");doc2.setTextColor(90,100,110);doc2.text("Tipos:",ML,legY2);
+        let lx2=ML+11;
+        for(const tp of tiposPresentes){
+          const [tpr,tpg,tpb]=hexRGB(tp.color);doc2.setFillColor(tpr,tpg,tpb);doc2.circle(lx2+1.5,legY2-1,1.5,"F");
+          doc2.setTextColor(50,50,50);doc2.setFont("helvetica","normal");doc2.setFontSize(5.8);
+          doc2.text(tp.label,lx2+4.5,legY2);lx2+=doc2.getTextWidth(tp.label)+9;
+          if(lx2>ML+CWMM-18){lx2=ML+11;}
+        }
       }
       addFtr2(curPg++,totalPg);
     }
