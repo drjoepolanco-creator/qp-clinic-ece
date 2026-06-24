@@ -7192,6 +7192,7 @@ async function renderSeguros(b){
           <span style="background:#2E7D32;color:#fff;font-size:10px;padding:2px 7px;border-radius:20px;margin-left:8px">Pre-llenado desde expediente</span>
         </div>
         <div style="display:flex;gap:8px">
+          <button onclick="cargarBorradorMetLife()" style="background:#fff;color:#1565C0;border:1.5px solid #90CAF9;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">📂 Abrir borrador</button>
           <button onclick="guardarBorradorMetLife()" style="background:#fff;color:#1B5E20;border:1.5px solid #66BB6A;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">💾 Guardar borrador</button>
           <button onclick="generarPDFMetLife()" style="background:#1B5E20;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ti ti-file-type-pdf"></i> Generar PDF</button>
         </div>
@@ -7357,6 +7358,65 @@ window.guardarBorradorMetLife=async function(){
     await SB.from("anexos").insert(payload);
   }
   showToast("✓ Borrador MetLife guardado en el expediente");
+};
+
+// Cargar borrador guardado en anexos
+window.cargarBorradorMetLife=async function(){
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("No hay paciente activo",false);return;}
+  // Buscar todos los borradores de este paciente
+  const {data:borradores}=await SB.from("anexos")
+    .select("id,titulo,contenido,fecha")
+    .eq("paciente_id",pid)
+    .like("titulo","BORRADOR METLIFE%")
+    .order("fecha",{ascending:false});
+  if(!borradores?.length){showToast("No hay borradores guardados para este paciente",false);return;}
+  // Si hay varios, mostrar selector; si hay uno, cargarlo directo
+  if(borradores.length===1){
+    _aplicarBorradorMetLife(borradores[0]);
+  } else {
+    // Modal selector
+    const overlay=document.createElement("div");
+    overlay.id="modal-borrador-ml";
+    overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+    overlay.innerHTML=`
+    <div style="background:#fff;border-radius:12px;width:100%;max-width:460px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="background:linear-gradient(135deg,#1565C0,#0D47A1);padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+        <b style="color:#fff;font-size:14px">📂 Borradores guardados</b>
+        <button onclick="document.getElementById('modal-borrador-ml').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:15px">✕</button>
+      </div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto">
+        ${borradores.map((b,i)=>`
+        <button onclick="document.getElementById('modal-borrador-ml').remove();_aplicarBorradorMetLife(${JSON.stringify(b).replace(/"/g,'&quot;')})"
+          style="background:#F8FBFC;border:1.5px solid #BBDEFB;border-radius:8px;padding:10px 14px;text-align:left;cursor:pointer;transition:background .15s"
+          onmouseover="this.style.background='#E3F2FD'" onmouseout="this.style.background='#F8FBFC'">
+          <div style="font-weight:700;font-size:13px;color:#1565C0">${b.titulo}</div>
+          <div style="font-size:11px;color:#78909C;margin-top:2px">Guardado el ${b.fecha}</div>
+        </button>`).join("")}
+      </div>
+      <div style="padding:10px 14px;border-top:1px solid #EEE;text-align:right">
+        <button onclick="document.getElementById('modal-borrador-ml').remove()" style="background:#F5F5F5;color:#546E7A;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:13px">Cancelar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+};
+
+window._aplicarBorradorMetLife=function(borrador){
+  try{
+    const prefijo="__METLIFE__:";
+    const raw=borrador.contenido||"";
+    const json=raw.startsWith(prefijo)?raw.slice(prefijo.length):raw;
+    const campos=JSON.parse(json);
+    // Rellenar todos los campos del formulario
+    Object.entries(campos).forEach(([id,val])=>{
+      const el=document.getElementById(id);
+      if(el)el.value=val||"";
+    });
+    showToast("✓ Borrador \""+borrador.titulo+"\" cargado");
+  }catch(e){
+    showToast("Error al cargar el borrador: "+e.message,false);
+  }
 };
 
 // Generar PDF con coordenadas calibradas para imágenes 1100×1423px → carta 215.9×279.4mm
