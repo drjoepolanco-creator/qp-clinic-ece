@@ -7351,7 +7351,7 @@ window.guardarBorradorMetLife=async function(){
   const prefijo="__METLIFE__:";
   // Buscar si ya existe borrador
   const {data:ex}=await SB.from("anexos").select("id").eq("paciente_id",pid).like("titulo","BORRADOR METLIFE%").limit(1);
-  const payload={paciente_id:pid,titulo:"BORRADOR METLIFE — "+new Date().toLocaleDateString("es-MX"),tipo_documento:"Informe seguro",origen:"generado",contenido:prefijo+JSON.stringify(campos),fecha:new Date().toISOString().split("T")[0]};
+  const payload={paciente_id:pid,titulo:"BORRADOR METLIFE — "+new Date().toLocaleDateString("es-MX"),tipo_documento:"Informe seguro",origen:"generado",firmado:false,descripcion:prefijo+JSON.stringify(campos),fecha:new Date().toISOString().split("T")[0]};
   if(ex?.length){
     await SB.from("anexos").update(payload).eq("id",ex[0].id);
   } else {
@@ -7366,7 +7366,7 @@ window.cargarBorradorMetLife=async function(){
   if(!pid){showToast("No hay paciente activo",false);return;}
   // Buscar todos los borradores de este paciente
   const {data:borradores}=await SB.from("anexos")
-    .select("id,titulo,contenido,fecha")
+    .select("id,titulo,descripcion,fecha")
     .eq("paciente_id",pid)
     .like("titulo","BORRADOR METLIFE%")
     .order("fecha",{ascending:false});
@@ -7405,7 +7405,7 @@ window.cargarBorradorMetLife=async function(){
 window._aplicarBorradorMetLife=function(borrador){
   try{
     const prefijo="__METLIFE__:";
-    const raw=borrador.contenido||"";
+    const raw=borrador.descripcion||borrador.contenido||"";
     const json=raw.startsWith(prefijo)?raw.slice(prefijo.length):raw;
     const campos=JSON.parse(json);
     // Rellenar todos los campos del formulario
