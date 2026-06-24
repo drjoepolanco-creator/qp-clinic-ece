@@ -762,6 +762,45 @@ async function pgMedicos(){
     </div>
   </div>`;
 }
+// ── Helpers dinámicos para filas de credenciales en modal usuario ─────────────
+window.muAddRow=function(wrapId,label,prefixes,labels,esAlta=false){
+  const wrap=document.getElementById(wrapId);if(!wrap)return;
+  const idx=wrap.querySelectorAll("[class$='-row']").length;
+  const rowClass=wrapId==="mu-esps-wrap"?"mu-esp-row":wrapId==="mu-subesps-wrap"?"mu-subesp-row":"mu-alta-row";
+  const borderColor=esAlta?"#FFE0B2":"#E0E0E0";
+  const div=document.createElement("div");
+  div.className=rowClass;
+  div.style.cssText=`border:1px solid ${borderColor};border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff`;
+  const cols=esAlta?"1fr 1fr":"1fr 1fr 1fr";
+  div.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:700;color:${esAlta?"#E65100":"#0077B6"}">${label} ${idx+1}</span>
+      <button type="button" onclick="muRemoveRow(this,'${wrapId}')" style="background:#FFEBEE;color:#C62828;border:none;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:12px">✕ Quitar</button>
+    </div>
+    <div style="display:grid;grid-template-columns:${cols};gap:10px">
+      ${prefixes.map((p,i)=>`
+        <div>
+          <label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:4px;display:block">${labels[i]}</label>
+          <input id="${p}${idx}" placeholder="${labels[i]}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:13px;outline:none;box-sizing:border-box">
+        </div>`).join("")}
+    </div>`;
+  wrap.appendChild(div);
+  // Renumerar títulos
+  muRenumerarRows(wrapId,label);
+};
+window.muRemoveRow=function(btn,wrapId){
+  btn.closest("[class$='-row']")?.remove();
+  const label=wrapId==="mu-esps-wrap"?"Especialidad":wrapId==="mu-subesps-wrap"?"Subespecialidad":"Alta Especialidad";
+  muRenumerarRows(wrapId,label);
+};
+window.muRenumerarRows=function(wrapId,label){
+  const wrap=document.getElementById(wrapId);if(!wrap)return;
+  wrap.querySelectorAll("[class$='-row']").forEach((row,i)=>{
+    const span=row.querySelector("span");
+    if(span)span.textContent=`${label} ${i+1}`;
+  });
+};
+
 window.abrirModalUsuario=async function(uid=""){
   STATE._editingUserId=uid||null;
   const m=document.getElementById("modal-usuario");
@@ -806,25 +845,73 @@ window.abrirModalUsuario=async function(uid=""){
       ${fld("Cédula profesional",inp("mu_cedmed",u.cedula_medico||u.cedula||"","No. de cédula prof."))}
       ${fld("Institución",`${instInput("mu_igrado",u.institucion_grado||"")}`)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-      ${fld("Especialidad",espInput("mu_esp1",u.especialidad_1||""))}
-      ${fld("Cédula de especialidad",inp("mu_cedesp1",u.cedula_esp_1||u.cedula_especialidad||"","No. de cédula esp."))}
-      ${fld("Institución de especialidad",`${instInput("mu_iesp1",u.institucion_esp_1||"")}`)}
+
+    <!-- ESPECIALIDADES dinámicas -->
+    <div id="mu-esps-wrap">
+      ${(()=>{
+        const esps=[{nombre:u.especialidad_1||"",cedula:u.cedula_esp_1||u.cedula_especialidad||"",inst:u.institucion_esp_1||""}];
+        try{const ex=JSON.parse(u.especialidades_json||"[]");if(Array.isArray(ex))ex.forEach(e=>esps.push(e));}catch(e){}
+        return esps.map((e,i)=>`
+        <div class="mu-esp-row" style="border:1px solid ${BR};border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:700;color:${P}">Especialidad ${i+1}</span>
+            ${i>0?`<button type="button" onclick="muRemoveRow(this,'mu-esps-wrap')" style="background:#FFEBEE;color:#C62828;border:none;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:12px">✕ Quitar</button>`:""}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            ${fld("Especialidad",espInput("mu_esp_nombre_"+i,e.nombre||""))}
+            ${fld("Cédula de especialidad",inp("mu_esp_cedula_"+i,e.cedula||"","No. de cédula esp."))}
+            ${fld("Institución",instInput("mu_esp_inst_"+i,e.inst||""))}
+          </div>
+        </div>`).join("");
+      })()}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-      ${fld("Subespecialidad",inp("mu_subesp",u.subespecialidad||"","Ej: Traumatología del Deporte"))}
-      ${fld("Cédula de subespecialidad",inp("mu_cedsubesp",u.cedula_subesp||"","No. de cédula subesp."))}
-      ${fld("Institución de subespecialidad",`${instInput("mu_iesp2",u.institucion_esp_2||"")}`)}
+    <button type="button" onclick="muAddRow('mu-esps-wrap','Especialidad',['mu_esp_nombre_','mu_esp_cedula_','mu_esp_inst_'],['Especialidad','Cédula de especialidad','Institución'])" style="background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;border-radius:7px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:14px">+ Agregar otra especialidad</button>
+
+    <!-- SUBESPECIALIDADES dinámicas -->
+    <div id="mu-subesps-wrap">
+      ${(()=>{
+        const subesps=[{nombre:u.subespecialidad||"",cedula:u.cedula_subesp||"",inst:u.institucion_esp_2||""}];
+        try{const ex=JSON.parse(u.subespecialidades_json||"[]");if(Array.isArray(ex))ex.forEach(e=>subesps.push(e));}catch(e){}
+        return subesps.map((e,i)=>`
+        <div class="mu-subesp-row" style="border:1px solid ${BR};border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:700;color:${P}">Subespecialidad ${i+1}</span>
+            ${i>0?`<button type="button" onclick="muRemoveRow(this,'mu-subesps-wrap')" style="background:#FFEBEE;color:#C62828;border:none;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:12px">✕ Quitar</button>`:""}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            ${fld("Subespecialidad",inp("mu_subesp_nombre_"+i,e.nombre||"","Ej: Oncología Pediátrica"))}
+            ${fld("Cédula de subespecialidad",inp("mu_subesp_cedula_"+i,e.cedula||"","No. de cédula subesp."))}
+            ${fld("Institución",instInput("mu_subesp_inst_"+i,e.inst||""))}
+          </div>
+        </div>`).join("");
+      })()}
     </div>
-    <div style="border:1px solid ${BR};border-radius:8px;padding:12px;margin-bottom:16px;background:#FFFDE7">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <button type="button" onclick="muAddRow('mu-subesps-wrap','Subespecialidad',['mu_subesp_nombre_','mu_subesp_cedula_','mu_subesp_inst_'],['Subespecialidad','Cédula de subespecialidad','Institución'])" style="background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;border-radius:7px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:14px">+ Agregar otra subespecialidad</button>
+
+    <!-- ALTAS ESPECIALIDADES dinámicas -->
+    <div style="border:1px solid #FFE0B2;border-radius:8px;padding:12px;margin-bottom:16px;background:#FFFDE7">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <b style="font-size:13px;color:#E65100">🏅 Alta Especialidad</b>
         <span style="font-size:12px;color:${MU};background:#F5F5F5;padding:2px 8px;border-radius:20px">No se expide cédula — solo institución</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        ${fld("Alta Especialidad en…",inp("mu_altaesp",u.alta_especialidad||"","Ej: Medicina del Deporte de Alto Rendimiento"))}
-        ${fld("Institución",`${instInput("mu_ialta",u.institucion_alta||"")}`)}
+      <div id="mu-altas-wrap">
+        ${(()=>{
+          const altas=[{nombre:u.alta_especialidad||"",inst:u.institucion_alta||""}];
+          try{const ex=JSON.parse(u.altas_json||"[]");if(Array.isArray(ex))ex.forEach(e=>altas.push(e));}catch(e){}
+          return altas.map((e,i)=>`
+          <div class="mu-alta-row" style="border:1px solid #FFE0B2;border-radius:7px;padding:8px 10px;margin-bottom:8px;background:#fff">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:12px;font-weight:700;color:#E65100">Alta Especialidad ${i+1}</span>
+              ${i>0?`<button type="button" onclick="muRemoveRow(this,'mu-altas-wrap')" style="background:#FFEBEE;color:#C62828;border:none;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:12px">✕ Quitar</button>`:""}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              ${fld("Alta Especialidad en…",inp("mu_alta_nombre_"+i,e.nombre||"","Ej: Medicina Paliativa"))}
+              ${fld("Institución",instInput("mu_alta_inst_"+i,e.inst||""))}
+            </div>
+          </div>`).join("");
+        })()}
       </div>
+      <button type="button" onclick="muAddRow('mu-altas-wrap','Alta Especialidad',['mu_alta_nombre_','mu_alta_inst_'],['Alta Especialidad en…','Institución'],true)" style="background:#FFF3E0;color:#E65100;border:1px solid #FFCC80;border-radius:7px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer">+ Agregar otra alta especialidad</button>
     </div>
     <!-- Agenda y firma -->
     <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">📅 Agenda y firma médica</b></div>
@@ -894,21 +981,45 @@ window.guardarUsuario=async function(uid=""){
     }
   }
   const cedMed=gv("mu_cedmed").trim();
-  const cedEsp1=gv("mu_cedesp1").trim();
+  // Recolectar especialidades dinámicas
+  const _esps=[];
+  document.querySelectorAll("#mu-esps-wrap .mu-esp-row").forEach((row,i)=>{
+    const n=(row.querySelector(`[id^="mu_esp_nombre_"]`)||{value:""}).value.trim();
+    const c=(row.querySelector(`[id^="mu_esp_cedula_"]`)||{value:""}).value.trim();
+    const ins=(row.querySelector(`[id^="mu_esp_inst_"]`)||{value:""}).value.trim();
+    if(n)_esps.push({nombre:n,cedula:c,inst:ins});
+  });
+  const _subesps=[];
+  document.querySelectorAll("#mu-subesps-wrap .mu-subesp-row").forEach((row,i)=>{
+    const n=(row.querySelector(`[id^="mu_subesp_nombre_"]`)||{value:""}).value.trim();
+    const c=(row.querySelector(`[id^="mu_subesp_cedula_"]`)||{value:""}).value.trim();
+    const ins=(row.querySelector(`[id^="mu_subesp_inst_"]`)||{value:""}).value.trim();
+    if(n)_subesps.push({nombre:n,cedula:c,inst:ins});
+  });
+  const _altas=[];
+  document.querySelectorAll("#mu-altas-wrap .mu-alta-row").forEach((row,i)=>{
+    const n=(row.querySelector(`[id^="mu_alta_nombre_"]`)||{value:""}).value.trim();
+    const ins=(row.querySelector(`[id^="mu_alta_inst_"]`)||{value:""}).value.trim();
+    if(n)_altas.push({nombre:n,inst:ins});
+  });
   const profilePayload={
     username:usuario,titulo:gv("mu_titulo"),nombre:nom,apellidos:ap,rol:gv("mu_rol"),
-    // Formación académica
+    // Formación académica (campos legacy = primera entrada, para compatibilidad)
     licenciatura:gv("mu_lic")||null,
     cedula_medico:cedMed||null,
     institucion_grado:gv("mu_igrado")||null,
-    especialidad_1:gv("mu_esp1")||null,
-    cedula_esp_1:cedEsp1||null,
-    institucion_esp_1:gv("mu_iesp1")||null,
-    subespecialidad:gv("mu_subesp")||null,
-    cedula_subesp:gv("mu_cedsubesp")||null,
-    institucion_esp_2:gv("mu_iesp2")||null,
-    alta_especialidad:gv("mu_altaesp")||null,
-    institucion_alta:gv("mu_ialta")||null,
+    especialidad_1:_esps[0]?.nombre||null,
+    cedula_esp_1:_esps[0]?.cedula||null,
+    institucion_esp_1:_esps[0]?.inst||null,
+    subespecialidad:_subesps[0]?.nombre||null,
+    cedula_subesp:_subesps[0]?.cedula||null,
+    institucion_esp_2:_subesps[0]?.inst||null,
+    alta_especialidad:_altas[0]?.nombre||null,
+    institucion_alta:_altas[0]?.inst||null,
+    // Arrays JSON con todas las entradas (incluyendo la primera para lectura completa)
+    especialidades_json:JSON.stringify(_esps),
+    subespecialidades_json:JSON.stringify(_subesps),
+    altas_json:JSON.stringify(_altas),
     // Agenda y contacto
     telefono:gv("mu_tel")||null,
     calendar_url:gv("mu_cal")||null,
@@ -2773,8 +2884,10 @@ window.generarConsentimientoPDF=async function(clave){
   await addImg("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",M,7,14,32);
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);
   doc.text(medNom,W-M,11,{align:"right"});
-  if(med.especialidad_1){doc.setFont("helvetica","normal");doc.text(med.especialidad_1.toUpperCase(),W-M,15,{align:"right"});}
-  if(med.cedula_esp_1||med.cedula_medico){doc.text(`Céd. ${med.cedula_esp_1||med.cedula_medico}`,W-M,19,{align:"right"});}
+  const _rcreds=getCredLines(med);
+  let _rcy=15;
+  doc.setFont("helvetica","normal");doc.setFontSize(7);
+  _rcreds.forEach(cl=>{if(_rcy<23){doc.text(cl,W-M,_rcy,{align:"right"});_rcy+=3.5;}});
   doc.setDrawColor(0,58,93);doc.setLineWidth(0.8);doc.line(M,23,W-M,23);
 
   // ── TÍTULO DEL DOCUMENTO ──
@@ -2843,7 +2956,10 @@ window.generarConsentimientoPDF=async function(clave){
   doc.text(nomPac,fCol1,fY+8);
   doc.text(medNom,fCol2,fY+8);
   doc.text(`CURP: ${p.curp||"—"}`,fCol1,fY+12);
-  doc.text(`Céd. ${med.cedula_esp_1||med.cedula_medico||"—"}`,fCol2,fY+12);
+  // Credenciales completas en la firma
+  const _fcreds=getCredLines(med);
+  let _fcy=fY+12;
+  _fcreds.slice(0,3).forEach(cl=>{doc.text(cl,fCol2,_fcy);_fcy+=3.5;});
 
   // Firma digital del médico si existe
   if(med.firma_digital){
@@ -11978,6 +12094,36 @@ function usRecolectarDatos(){
 }
 
 
+
+// ── Helper centralizado: obtiene TODAS las credenciales de un médico ─────────
+// Lee tanto los campos legacy como los arrays JSON nuevos (especialidades_json, etc.)
+function getCredLines(med){
+  if(!med)return[];
+  const lines=[];
+  // Licenciatura
+  if(med.licenciatura){
+    let l=med.licenciatura;
+    if(med.cedula_medico)l+=" · Céd. Prof. "+med.cedula_medico;
+    lines.push(l);
+  }
+  // Especialidades (legacy esp1 + array nuevo)
+  const esps=[];
+  if(med.especialidad_1)esps.push({nombre:med.especialidad_1,cedula:med.cedula_esp_1||"",inst:med.institucion_esp_1||""});
+  try{const ex=JSON.parse(med.especialidades_json||"[]");if(Array.isArray(ex))ex.forEach(e=>e.nombre&&esps.push(e));}catch(e){}
+  esps.forEach(e=>{let l="Especialidad en "+e.nombre;if(e.cedula)l+=" · Céd. Esp. "+e.cedula;lines.push(l);});
+  // Subespecialidades
+  const subesps=[];
+  if(med.subespecialidad)subesps.push({nombre:med.subespecialidad,cedula:med.cedula_subesp||""});
+  try{const ex=JSON.parse(med.subespecialidades_json||"[]");if(Array.isArray(ex))ex.forEach(e=>e.nombre&&subesps.push(e));}catch(e){}
+  subesps.forEach(e=>{let l="Subespecialidad en "+e.nombre;if(e.cedula)l+=" · Céd. "+e.cedula;lines.push(l);});
+  // Altas especialidades
+  const altas=[];
+  if(med.alta_especialidad)altas.push({nombre:med.alta_especialidad,inst:med.institucion_alta||""});
+  try{const ex=JSON.parse(med.altas_json||"[]");if(Array.isArray(ex))ex.forEach(e=>e.nombre&&altas.push(e));}catch(e){}
+  altas.forEach(e=>{let l="Alta Especialidad en "+e.nombre;if(e.inst)l+=" · "+e.inst;lines.push(l);});
+  return lines;
+}
+
 // ── Helper: hex color → [r,g,b] para jsPDF ──────────────────────────────────
 function hexRGB(h){h=h.replace("#","");if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 
@@ -12000,13 +12146,8 @@ window.generarPDFUltrasonido=async function(){
     const imgs=STATE.usActivo?.imagenes||[];
     const med=STATE.medProfile||STATE.userProfile||{};
 
-    // Credenciales
-    const credLines=[];
-    if(med.licenciatura)credLines.push(med.licenciatura+(med.cedula_medico?" · Céd. Prof. "+med.cedula_medico:""));
-    if(med.especialidad_1)credLines.push("Especialidad en "+med.especialidad_1+(med.cedula_esp_1?" · Céd. Esp. "+med.cedula_esp_1:""));
-    if(med.subespecialidad)credLines.push("Alta Especialidad en "+med.subespecialidad+(med.cedula_subesp?" · Céd. "+med.cedula_subesp:""));
-    if(med.especialidad_2)credLines.push("Alta Especialidad en "+med.especialidad_2+(med.cedula_esp_2?" · Céd. "+med.cedula_esp_2:""));
-    if(med.alta_especialidad)credLines.push("Alta Especialidad en "+med.alta_especialidad);
+    // Credenciales — usando helper centralizado
+    const credLines=getCredLines(med);
     const fallbackCreds=["Médico Especialista en Radiología","Alta Especialidad en Radiología de Urgencias","Alta Especialidad en Radiología de la Mujer","C.P. 13524542 · C.E. 13705584"];
     const credsToShow=credLines.length?credLines:fallbackCreds;
     const nomMedFallback=STATE.userProfile?`${STATE.userProfile.titulo||"Dra."} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():"Médico Radiólogo";
