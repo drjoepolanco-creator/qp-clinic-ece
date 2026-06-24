@@ -7513,7 +7513,7 @@ window.generarPDFMetLife=async function(){
     // Helper split fecha DD/MM/AAAA → array
     const sF=s=>(s||"").includes("/")?s.split("/"):["","",""];
 
-    // Helper firma (reutilizable)
+    // Helper firma
     async function loadFirma(url){
       return new Promise(res=>{
         const img=new Image();img.crossOrigin="anonymous";
@@ -7524,125 +7524,215 @@ window.generarPDFMetLife=async function(){
     const firmaUrl=STATE.userProfile?.firma_digital||STATE.medProfile?.firma_digital||null;
     const firmaB64Ml=firmaUrl?await loadFirma(firmaUrl):null;
 
-    // ══════════ PÁGINA 1 ══════════
-    // Coordenadas calibradas pixel-perfect desde imágenes 1100×1423px → carta 215.9×279.4mm
-    if(p1)doc.addImage(p1,"JPEG",0,0,PW,PH);
-    doc.setTextColor(0,0,0);
-    T(d.lugar_fecha, 90.7, 86.0, 120);
-    const[fa_d,fa_m,fa_a]=sF(d.fecha_aten);
-    T(fa_d,174.1,86.0,9); T(fa_m,183.5,86.0,9); T(fa_a,192.0,86.0,14);
-    T(d.nombre, 48.1, 103.7, 160, 8.5, true);
-    T(d.edad, 4.9, 108.8, 30);
-    doc.setFontSize(9);
-    if(d.sexo==="M") doc.text("X",38.1,108.4);
-    if(d.sexo==="F") doc.text("X",38.1,112.9);
-    if(d.sexo==="O") doc.text("X",38.1,117.8);
-    if(d.causa==="Accidente")          doc.text("X",120.9,108.4);
-    if(d.causa==="Enfermedad")         doc.text("X",152.7,108.4);
-    if(d.causa==="Embarazo")           doc.text("X",184.1,108.4);
-    if(d.causa==="Segunda valoración") doc.text("X",184.1,112.9);
-    T(d.peso+"KG", 13.7, 124.3, 28);
-    T(d.talla+"CM", 51.4, 124.3, 28);
-    T(d.hcb,   48.1, 145.7, 155);
-    T(d.app,   66.3, 164.5, 140);
-    T(d.aqx,   52.0, 182.2, 150);
-    T(d.g,     166.4, 202.2, 8);
-    T(d.p_part,175.3, 202.2, 8);
-    T(d.a,     184.5, 202.2, 8);
-    T(d.c,     197.6, 202.2, 8);
-    T(d.afec,  4.9, 222.9, 204);
+    // Coordenadas exactas del AcroForm MetLife CC-1-020 VER.7
+    // rect_image_px (origen top-left, imagen 1100x1423px) → mm (origen top-left, carta 215.9x279.4mm)
+    // Fórmula: x_mm = x_px * 215.9/1100  |  y_mm = y_px * 279.4/1423
+    // Para texto: escribir en y_mm + h_mm*0.7 (baseline dentro del campo)
 
-    // ══════════ PÁGINA 2 ══════════
+    // ══ PÁGINA 1 ══
+    if(p1)doc.addImage(p1,"JPEG",0,0,PW,PH);
+    doc.setTextColor(0,0,0);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
+    const BL=0.72; // baseline factor dentro del campo
+    function F(x,y,w,h){return{x,y,w,h,by:y+h*BL};}
+
+    // Campos p1 con coordenadas AcroForm
+    const P1={
+      lugar_fecha: F(97.23,77.38,65.75,4.95),
+      D1:  F(171.9,77.87,6.69,4.48), M1: F(182.2,77.87,6.69,4.48), A1: F(192.5,77.69,12.44,4.63),
+      nombre: F(8.56,101.84,199.94,4.95),
+      EDAD: F(8.56,101.84,15.03,4.95),
+      MS:  F(61.57,102.10,4.49,4.34), F_:  F(61.57,108.80,4.49,4.34), O: F(61.69,116.30,4.49,4.34),
+      Acc: F(134.86,101.94,4.49,4.34), E: F(168.72,102.10,4.49,4.34),
+      EM:  F(198.75,102.10,4.49,4.34), SG:  F(198.75,108.76,4.49,4.34),
+      Peso: F(18.70,122.15,20.06,3.83), Talla: F(54.07,122.46,17.64,3.83),
+      D2: F(180.26,131.59,7.30,4.48), M2: F(189.93,131.43,7.30,4.48), A2: F(198.79,131.39,9.38,4.63),
+      hcb1: F(8.56,152.74,199.94,4.95), hcb2: F(8.56,158.25,199.94,4.95),
+      app1: F(8.56,169.64,199.94,4.95), app2: F(8.56,175.36,199.94,4.95),
+      aqx1: F(8.56,186.74,199.94,4.95), aqx2: F(8.56,192.46,199.94,4.95),
+      G: F(158.45,201.37,4.73,4.26), P_: F(173.45,201.37,4.73,4.26),
+      A_: F(188.42,201.37,4.73,4.26), C_: F(203.38,201.37,4.73,4.26),
+      afec1: F(8.56,229.06,199.94,4.91),
+    };
+
+    T(d.lugar_fecha, P1.lugar_fecha.x, P1.lugar_fecha.by, P1.lugar_fecha.w);
+    const[fa_d,fa_m,fa_a]=sF(d.fecha_aten);
+    T(fa_d, P1.D2.x, P1.D2.by, P1.D2.w);
+    T(fa_m, P1.M2.x, P1.M2.by, P1.M2.w);
+    T(fa_a, P1.A2.x, P1.A2.by, P1.A2.w);
+    T(d.nombre, P1.nombre.x, P1.nombre.by, P1.nombre.w, 8.5, true);
+    T(d.edad,   P1.EDAD.x,   P1.EDAD.by,   15.0);
+    // Sexo
+    const cb=(v,f)=>{if(v){doc.setFontSize(10);doc.setFont("helvetica","bold");doc.text("X",f.x+f.w/2,f.by,{align:"center"});doc.setFontSize(8.5);doc.setFont("helvetica","normal");}};
+    cb(d.sexo==="M", P1.MS); cb(d.sexo==="F", P1.F_); cb(d.sexo==="O", P1.O);
+    cb(d.causa==="Accidente", P1.Acc); cb(d.causa==="Enfermedad", P1.E);
+    cb(d.causa==="Embarazo", P1.EM); cb(d.causa==="Segunda valoración", P1.SG);
+    T(d.peso,  P1.Peso.x,  P1.Peso.by,  P1.Peso.w);
+    T(d.talla, P1.Talla.x, P1.Talla.by, P1.Talla.w);
+    // Fecha primera atención en D1/M1/A1
+    T(fa_d, P1.D1.x, P1.D1.by, P1.D1.w);
+    T(fa_m, P1.M1.x, P1.M1.by, P1.M1.w);
+    T(fa_a, P1.A1.x, P1.A1.by, P1.A1.w);
+    // HCB (split en 2 líneas)
+    {const L=doc.splitTextToSize((d.hcb||"").toUpperCase(),P1.hcb1.w);
+     if(L[0])T(L[0],P1.hcb1.x,P1.hcb1.by,P1.hcb1.w);
+     if(L[1])T(L[1],P1.hcb2.x,P1.hcb2.by,P1.hcb2.w);}
+    // APP
+    {const L=doc.splitTextToSize((d.app||"").toUpperCase(),P1.app1.w);
+     if(L[0])T(L[0],P1.app1.x,P1.app1.by,P1.app1.w);
+     if(L[1])T(L[1],P1.app2.x,P1.app2.by,P1.app2.w);}
+    // AQx
+    {const L=doc.splitTextToSize((d.aqx||"").toUpperCase(),P1.aqx1.w);
+     if(L[0])T(L[0],P1.aqx1.x,P1.aqx1.by,P1.aqx1.w);
+     if(L[1])T(L[1],P1.aqx2.x,P1.aqx2.by,P1.aqx2.w);}
+    // Gineco
+    T(d.g,     P1.G.x,  P1.G.by,  P1.G.w);
+    T(d.p_part,P1.P_.x, P1.P_.by, P1.P_.w);
+    T(d.a,     P1.A_.x, P1.A_.by, P1.A_.w);
+    T(d.c,     P1.C_.x, P1.C_.by, P1.C_.w);
+    // Afecciones
+    T(d.afec, P1.afec1.x, P1.afec1.by, P1.afec1.w);
+
+    // ══ PÁGINA 2 ══
     doc.addPage();
     if(p2)doc.addImage(p2,"JPEG",0,0,PW,PH);
-    doc.setTextColor(0,0,0);
-    T(d.signos, 4.9, 15.7, 204);
-    const[fi_d,fi_m,fi_a]=sF(d.fecha_inicio);
-    T(fi_d,69.5,32.0,9); T(fi_m,80.1,32.0,9); T(fi_a,90.3,32.0,14);
-    doc.setFontSize(9);
-    if(d.tipo_pad==="Congénito") doc.text("X",69.7,38.5);
-    if(d.tipo_pad==="Adquirido") doc.text("X",91.3,38.5);
-    if(d.tipo_pad==="Agudo")     doc.text("X",111.3,38.5);
-    if(d.tipo_pad==="Crónico")   doc.text("X",131.9,38.5);
-    T(d.evolucion, 49.1, 44.8, 90);
-    T(d.etiologia, 4.9, 56.5, 204);
-    T(d.exploracion, 4.9, 76.0, 204);
-    T(d.dx,  4.9, 96.2, 130, 8.5, true);
-    T(d.cie, 164.5, 96.2, 44, 8.5, true);
-    const[fdx_d,fdx_m,fdx_a]=sF(d.fecha_dx);
-    T(fdx_d,16.1,98.0,9); T(fdx_m,25.9,98.0,9); T(fdx_a,34.9,98.0,14);
-    const[ftt_d,ftt_m,ftt_a]=sF(d.fecha_tto);
-    T(ftt_d,125.2,98.0,9); T(ftt_m,134.8,98.0,9); T(ftt_a,143.9,98.0,14);
-    doc.setFontSize(9);
-    if(d.rel==="Sí") doc.text("X",128.4,104.1);
-    else             doc.text("X",137.8,104.1);
-    T(d.cual, 23.2, 109.6, 185);
-    T(d.tto,     4.9, 117.8, 204, 8.5, true);
-    T(d.tecnica, 4.9, 133.1, 204);
-    doc.setFontSize(9);
-    if(d.equipo==="Sí") doc.text("X",72.2,142.5);
-    else                doc.text("X",82.4,142.5);
-    T(d.equipo_det, 102.1, 142.5, 110);
-    if(d.insumos==="Sí") doc.text("X",72.2,153.5);
-    else                 doc.text("X",82.4,153.5);
-    T(d.insumos_det, 102.1, 153.5, 110);
-    T(d.compl,   4.9, 165.5, 204);
-    T(d.estado,  4.9, 180.2, 204);
-    doc.setFontSize(9);
-    if(d.continua==="Sí") doc.text("X",87.9,189.7);
-    else                  doc.text("X",97.7,189.7);
-    T(d.tto_desc, 4.9, 198.7, 204);
-    const[falt_d,falt_m,falt_a]=sF(d.fecha_alta);
-    T(falt_d,54.6,206.2,9); T(falt_m,64.4,206.2,9); T(falt_a,73.2,206.2,14);
-    T(d.hospital, 46.7, 221.5, 160);
-    doc.setFontSize(9);
-    if(d.tipo_ing==="Urgencia")                    doc.text("X",25.5,227.0);
-    if(d.tipo_ing==="Ingreso hospitalario")        doc.text("X",78.1,227.0);
-    if(d.tipo_ing==="Corta estancia / ambulatoria")doc.text("X",128.6,227.0);
-    const[fing_d,fing_m,fing_a]=sF(d.f_ing);
-    const[fegr_d,fegr_m,fegr_a]=sF(d.f_egr);
-    T(fing_d+"/"+fing_m+"/"+fing_a, 17.3, 234.6, 40);
-    T(fegr_d+"/"+fegr_m+"/"+fegr_a, 167.2, 234.6, 40);
-    T(d.obs, 4.9, 252.1, 204);
+    doc.setTextColor(0,0,0);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
 
-    // ══════════ PÁGINA 3 ══════════
+    const P2={
+      s1: F(98.73,12.70,109.81,4.24), s2: F(8.40,17.69,200.16,4.24), s3: F(8.40,22.70,200.16,4.24),
+      D2F: F(93.78,28.59,6.22,4.48), M2F: F(102.85,28.59,6.22,4.48), A2F: F(112.46,28.47,11.38,4.59),
+      cong: F(74.17,39.11,4.49,4.34), ADQ: F(101.65,39.11,4.49,4.34),
+      AGU: F(124.85,39.11,4.49,4.34), CRON: F(151.01,39.11,4.49,4.34),
+      evol: F(40.51,44.81,60.16,4.24),
+      etio1: F(8.13,53.0,200.16,4.24), etio2: F(8.13,58.0,200.16,4.24),
+      expl1: F(8.13,69.5,200.16,4.24), expl2: F(8.13,74.5,200.16,4.24), expl3: F(8.13,79.5,200.16,4.24),
+      dx: F(62.98,84.80,84.32,4.24), cie: F(176.17,84.80,32.46,4.24),
+      D3: F(50.76,91.75,6.69,4.48), M3: F(60.43,91.75,6.69,4.48), A3: F(70.52,91.44,11.76,4.75),
+      D4: F(157.82,91.75,6.69,4.48), M4: F(167.66,91.75,6.69,4.48), A4: F(177.59,91.60,10.23,4.75),
+      SIACC: F(137.84,101.29,4.49,4.34), NOACC: F(150.78,101.29,4.49,4.34),
+      cual: F(103.5,106.5,155.9,4.24),
+      tto1: F(149.76,116.26,58.18,4.24), tto2: F(8.13,120.93,200.16,4.24), tto3: F(8.13,125.43,200.16,4.24),
+      tec1: F(53.35,130.96,154.94,4.24), tec2: F(8.13,135.97,200.16,4.24),
+      SIPROD: F(96.68,147.51,4.49,4.34), NOPROD: F(114.39,147.48,4.49,4.34),
+      eq_det: F(139.79,147.77,68.5,4.24),
+      SIPRODM: F(101.47,159.31,4.49,4.34), NOPRODM: F(119.41,159.47,4.49,4.34),
+      ins_det: F(145.12,159.75,63.16,4.24),
+      compl1: F(108.58,169.74,99.35,4.24), compl2: F(7.77,174.75,200.16,4.24),
+      est1: F(55.49,184.78,152.45,4.24), est2: F(7.77,189.77,200.16,4.24),
+      SIT: F(93.94,200.63,4.49,4.34), NOT: F(111.52,200.51,4.49,4.34),
+      tto_desc: F(75.64,206.14,132.29,4.24),
+      D5: F(68.73,218.26,5.83,4.48), M5: F(78.55,218.38,5.22,4.32), A5: F(87.05,218.49,9.28,4.46),
+      hosp: F(40.51,233.36,167.42,4.24),
+      URG: F(58.59,240.23,4.49,4.34), ING: F(106.65,240.23,4.49,4.34), CE: F(166.07,240.23,4.49,4.34),
+      D6: F(43.34,246.61,5.22,4.48), M6: F(53.52,246.61,5.22,4.48), A6: F(61.57,246.61,8.46,4.48),
+      D7: F(117.53,246.61,5.22,4.48), M7: F(126.73,246.61,5.22,4.48), A7: F(135.64,246.61,8.75,4.48),
+      obs1: F(121.16,261.16,87.09,4.24),
+    };
+
+    // Signos (3 líneas)
+    {const L=doc.splitTextToSize((d.signos||"").toUpperCase(),P2.s2.w);
+     if(L[0])T(L[0],P2.s1.x,P2.s1.by,P2.s1.w);
+     if(L[1])T(L[1],P2.s2.x,P2.s2.by,P2.s2.w);
+     if(L[2])T(L[2],P2.s3.x,P2.s3.by,P2.s3.w);}
+    const[fi_d,fi_m,fi_a]=sF(d.fecha_inicio);
+    T(fi_d,P2.D2F.x,P2.D2F.by,P2.D2F.w); T(fi_m,P2.M2F.x,P2.M2F.by,P2.M2F.w); T(fi_a,P2.A2F.x,P2.A2F.by,P2.A2F.w);
+    cb(d.tipo_pad==="Congénito",P2.cong); cb(d.tipo_pad==="Adquirido",P2.ADQ);
+    cb(d.tipo_pad==="Agudo",P2.AGU);     cb(d.tipo_pad==="Crónico",P2.CRON);
+    T(d.evolucion,P2.evol.x,P2.evol.by,P2.evol.w);
+    {const L=doc.splitTextToSize((d.etiologia||"").toUpperCase(),P2.etio1.w);
+     if(L[0])T(L[0],P2.etio1.x,P2.etio1.by,P2.etio1.w);
+     if(L[1])T(L[1],P2.etio2.x,P2.etio2.by,P2.etio2.w);}
+    {const L=doc.splitTextToSize((d.exploracion||"").toUpperCase(),P2.expl1.w);
+     if(L[0])T(L[0],P2.expl1.x,P2.expl1.by,P2.expl1.w);
+     if(L[1])T(L[1],P2.expl2.x,P2.expl2.by,P2.expl2.w);
+     if(L[2])T(L[2],P2.expl3.x,P2.expl3.by,P2.expl3.w);}
+    T(d.dx, P2.dx.x,P2.dx.by,P2.dx.w, 8.5, true);
+    T(d.cie,P2.cie.x,P2.cie.by,P2.cie.w, 8.5, true);
+    const[fdx_d,fdx_m,fdx_a]=sF(d.fecha_dx);
+    T(fdx_d,P2.D3.x,P2.D3.by,P2.D3.w); T(fdx_m,P2.M3.x,P2.M3.by,P2.M3.w); T(fdx_a,P2.A3.x,P2.A3.by,P2.A3.w);
+    const[ftt_d,ftt_m,ftt_a]=sF(d.fecha_tto);
+    T(ftt_d,P2.D4.x,P2.D4.by,P2.D4.w); T(ftt_m,P2.M4.x,P2.M4.by,P2.M4.w); T(ftt_a,P2.A4.x,P2.A4.by,P2.A4.w);
+    cb(d.rel==="Sí",P2.SIACC); cb(d.rel!=="Sí",P2.NOACC);
+    T(d.cual,P2.cual.x,P2.cual.by,P2.cual.w);
+    {const L=doc.splitTextToSize((d.tto||"").toUpperCase(),P2.tto2.w);
+     if(L[0])T(L[0],P2.tto1.x,P2.tto1.by,P2.tto1.w);
+     if(L[1])T(L[1],P2.tto2.x,P2.tto2.by,P2.tto2.w);
+     if(L[2])T(L[2],P2.tto3.x,P2.tto3.by,P2.tto3.w);}
+    {const L=doc.splitTextToSize((d.tecnica||"").toUpperCase(),P2.tec2.w);
+     if(L[0])T(L[0],P2.tec1.x,P2.tec1.by,P2.tec1.w);
+     if(L[1])T(L[1],P2.tec2.x,P2.tec2.by,P2.tec2.w);}
+    cb(d.equipo==="Sí",P2.SIPROD); cb(d.equipo!=="Sí",P2.NOPROD);
+    T(d.equipo_det,P2.eq_det.x,P2.eq_det.by,P2.eq_det.w);
+    cb(d.insumos==="Sí",P2.SIPRODM); cb(d.insumos!=="Sí",P2.NOPRODM);
+    T(d.insumos_det,P2.ins_det.x,P2.ins_det.by,P2.ins_det.w);
+    {const L=doc.splitTextToSize((d.compl||"").toUpperCase(),P2.compl2.w);
+     if(L[0])T(L[0],P2.compl1.x,P2.compl1.by,P2.compl1.w);
+     if(L[1])T(L[1],P2.compl2.x,P2.compl2.by,P2.compl2.w);}
+    {const L=doc.splitTextToSize((d.estado||"").toUpperCase(),P2.est2.w);
+     if(L[0])T(L[0],P2.est1.x,P2.est1.by,P2.est1.w);
+     if(L[1])T(L[1],P2.est2.x,P2.est2.by,P2.est2.w);}
+    cb(d.continua==="Sí",P2.SIT); cb(d.continua!=="Sí",P2.NOT);
+    T(d.tto_desc,P2.tto_desc.x,P2.tto_desc.by,P2.tto_desc.w);
+    const[falt_d,falt_m,falt_a]=sF(d.fecha_alta);
+    T(falt_d,P2.D5.x,P2.D5.by,P2.D5.w); T(falt_m,P2.M5.x,P2.M5.by,P2.M5.w); T(falt_a,P2.A5.x,P2.A5.by,P2.A5.w);
+    T(d.hospital,P2.hosp.x,P2.hosp.by,P2.hosp.w);
+    cb(d.tipo_ing==="Urgencia",P2.URG); cb(d.tipo_ing==="Ingreso hospitalario",P2.ING); cb(d.tipo_ing==="Corta estancia / ambulatoria",P2.CE);
+    const[fing_d,fing_m,fing_a]=sF(d.f_ing);
+    T(fing_d,P2.D6.x,P2.D6.by,P2.D6.w); T(fing_m,P2.M6.x,P2.M6.by,P2.M6.w); T(fing_a,P2.A6.x,P2.A6.by,P2.A6.w);
+    const[fegr_d,fegr_m,fegr_a]=sF(d.f_egr);
+    T(fegr_d,P2.D7.x,P2.D7.by,P2.D7.w); T(fegr_m,P2.M7.x,P2.M7.by,P2.M7.w); T(fegr_a,P2.A7.x,P2.A7.by,P2.A7.w);
+    T(d.obs,P2.obs1.x,P2.obs1.by,P2.obs1.w);
+
+    // ══ PÁGINA 3 ══
     doc.addPage();
     if(p3)doc.addImage(p3,"JPEG",0,0,PW,PH);
-    doc.setTextColor(0,0,0);
-    doc.setFontSize(9);
-    if(d.tipo_aten==="Médico tratante")    doc.text("X",33.4,168.1);
-    if(d.tipo_aten==="Cirujano principal") doc.text("X",81.5,168.1);
-    if(d.tipo_aten==="Interconsultante")   doc.text("X",136.4,168.1);
-    if(d.tipo_aten==="Equipo quirúrgico")  doc.text("X",33.4,173.2);
-    if(d.tipo_aten==="Segunda valoración") doc.text("X",81.5,173.2);
-    T(d.med_nom, 4.9, 181.0, 132, 8.5, true);
-    T(d.med_esp, 142.9, 181.0, 68);
-    T(d.med_dir, 4.9, 190.8, 132);
-    T(d.med_tel, 142.9, 190.8, 68);
-    T(d.med_ced, 4.9, 200.7, 45, 8.5, true);
-    T(d.med_cel, 56.5, 200.7, 52);
-    T(d.med_rfc, 113.4, 200.7, 80);
-    T(d.med_email, 4.9, 208.5, 200);
-    doc.setFontSize(9);
-    if(d.convenio==="Sí"||!d.convenio) doc.text("X",115.4,219.9);
-    else                                doc.text("X",127.2,219.9);
-    // Firma en p3
-    if(firmaB64Ml){
-      try{doc.addImage(firmaB64Ml,firmaB64Ml.includes("png")?"PNG":"JPEG",103.0,237.0,40,16);}catch(e){}
-    }
+    doc.setTextColor(0,0,0);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
 
-    // ══════════ PÁGINA 4 ══════════
+    const P3={
+      MEDTRAT: F(100.83,144.77,4.49,4.34), CIRUP: F(140.79,144.77,4.49,4.34),
+      INTERCONS: F(178.29,144.77,4.49,4.34), EQUPQU: F(100.83,152.34,4.49,4.34),
+      SEGVA: F(140.79,152.34,4.49,4.34),
+      nom: F(8.07,159.55,137.55,4.79), esp: F(150.56,159.55,57.61,4.79),
+      dir: F(8.07,171.78,137.55,4.79), tel: F(150.34,171.78,50.42,4.79),
+      ced: F(8.07,184.35,52.54,4.79), cel: F(65.61,184.35,49.95,4.79), rfc: F(120.59,184.35,49.95,4.79),
+      email: F(8.07,194.89,47.54,4.28),
+      SIASE: F(105.69,218.20,4.49,4.34), NOASE: F(123.16,218.20,4.49,4.34),
+      SIPD: F(125.67,247.12,4.49,4.34), NOPD: F(143.00,247.12,4.49,4.34),
+    };
+
+    cb(d.tipo_aten==="Médico tratante",P3.MEDTRAT);
+    cb(d.tipo_aten==="Cirujano principal",P3.CIRUP);
+    cb(d.tipo_aten==="Interconsultante",P3.INTERCONS);
+    cb(d.tipo_aten==="Equipo quirúrgico",P3.EQUPQU);
+    cb(d.tipo_aten==="Segunda valoración",P3.SEGVA);
+    T(d.med_nom, P3.nom.x,P3.nom.by,P3.nom.w, 8.5, true);
+    T(d.med_esp, P3.esp.x,P3.esp.by,P3.esp.w);
+    T(d.med_dir, P3.dir.x,P3.dir.by,P3.dir.w);
+    T(d.med_tel, P3.tel.x,P3.tel.by,P3.tel.w);
+    T(d.med_ced, P3.ced.x,P3.ced.by,P3.ced.w, 8.5, true);
+    T(d.med_cel, P3.cel.x,P3.cel.by,P3.cel.w);
+    T(d.med_rfc, P3.rfc.x,P3.rfc.by,P3.rfc.w);
+    T(d.med_email,P3.email.x,P3.email.by,P3.email.w);
+    cb(d.convenio==="Sí",P3.SIASE); cb(d.convenio!=="Sí",P3.NOASE);
+    // Tabulador de pago (Sí por defecto)
+    cb(!d.tabulador||d.tabulador==="Sí",P3.SIPD); cb(d.tabulador==="No",P3.NOPD);
+    // Firma p3
+    if(firmaB64Ml){try{
+      const P3_FIRMA=F(8.07,255.0,137.55,15.0);
+      doc.addImage(firmaB64Ml,firmaB64Ml.includes("png")?"PNG":"JPEG",P3_FIRMA.x+30,P3_FIRMA.y,50,14);
+    }catch(e){}}
+
+    // ══ PÁGINA 4 ══
     doc.addPage();
     if(p4)doc.addImage(p4,"JPEG",0,0,PW,PH);
     doc.setTextColor(0,0,0);
-    // Firma imagen centrada sobre la línea de firma (y≈1100px → 216mm)
-    if(firmaB64Ml){
-      try{doc.addImage(firmaB64Ml,firmaB64Ml.includes("png")?"PNG":"JPEG",82.0,206.0,50,18);}catch(e){}
-    }
-    // Nombre médico en línea de firma (y≈1165px → 228mm)
-    T(d.med_nom, PW/2-40, 228.0, 80, 8.5, true);
+    // Campo FIRMA (nombre del médico)
+    const P4firma=F(65.97,118.16,95.51,6.34);
+    T(d.med_nom, P4firma.x, P4firma.by, P4firma.w, 8.5, true);
+    // Firma imagen arriba de la línea
+    if(firmaB64Ml){try{doc.addImage(firmaB64Ml,firmaB64Ml.includes("png")?"PNG":"JPEG",83.0,103.0,50,16);}catch(e){}}
 
     // Guardar en Supabase
+
     const pid=STATE.pat?.id;
     if(pid){
       try{
