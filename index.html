@@ -7502,14 +7502,6 @@ window.generarPDFMetLife=async function(){
     const BASE="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/metlife/";
     const [p1,p2,p3,p4]=await Promise.all(["page-001.jpg","page-002.jpg","page-003-c.jpg","page-004.jpg"].map(f=>imgToB64(BASE+f)));
 
-    // Helper texto — no escribe si str está vacío
-    function T(str,x,y,maxW,fs=8.5,bold=false){
-      if(!str||!String(str).trim())return;
-      doc.setFontSize(fs);doc.setFont("helvetica",bold?"bold":"normal");
-      doc.setTextColor(0,0,0);
-      const lines=doc.splitTextToSize(String(str).toUpperCase(),maxW);
-      doc.text(lines,x,y);
-    }
     // Helper split fecha DD/MM/AAAA → array
     const sF=s=>(s||"").includes("/")?s.split("/"):["","",""];
 
