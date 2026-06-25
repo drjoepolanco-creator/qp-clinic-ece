@@ -439,7 +439,7 @@ function nav(){
       </div>
     </div>
     ${STATE.userProfile?.rol==="admin"?`
-    <button onclick="goSeguros()" style="background:transparent;border:none;color:rgba(255,255,255,.85);cursor:pointer;font-size:13px;font-weight:600;padding:6px 10px;border-radius:6px;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='transparent'">🏥 Seguros</button>
+    <button onclick="goSeguros()" style="background:transparent;border:none;color:rgba(255,255,255,.85);cursor:pointer;font-size:13px;font-weight:600;padding:6px 10px;border-radius:6px;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='transparent'"> Seguros</button>
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
@@ -11869,7 +11869,7 @@ window.usCargarPlantilla=function(){
     <!-- Botones -->
     <div style="display:flex;gap:10px;flex-wrap:wrap;padding-top:12px;border-top:1px solid ${BR}">
       <button onclick="generarPDFUltrasonido()" style="background:linear-gradient(135deg,${P},#004c82);color:#fff;border:none;border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer">📄 Generar PDF</button>
-      <button onclick="guardarBorradorUS()" style="background:#fff;color:${P};border:1.5px solid ${P};border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer">💾 Guardar borrador</button>
+      <button onclick="guardarBorradorUS()" style="background:#fff;color:${P};border:1.5px solid ${P};border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer"> Guardar borrador</button>
       <button onclick="pgUltrasonido()" style="background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:9px;padding:11px 16px;font-size:14px;cursor:pointer">← Cambiar plantilla</button>
     </div>
   </div>`;
@@ -14994,15 +14994,15 @@ window.verHistorialNota=async function(consultaId){
 const SEGUROS_BASE = "https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/seguros/";
 
 const SEGUROS_CONFIG = {
-  metlife:   {nombre:"MetLife",    color:"#003366", file:"metlife.pdf",   logo:"🏛️"},
-  gnp:       {nombre:"GNP",        color:"#C8102E", file:"gnp.pdf",       logo:"🔴"},
-  axa:       {nombre:"AXA",        color:"#00008F", file:"axa.pdf",       logo:"🔵"},
-  zurich:    {nombre:"Zurich",     color:"#1A1A2E", file:"zurich.pdf",     logo:"⚡"},
-  sura:      {nombre:"SURA",       color:"#FF6B00", file:"sura.pdf",      logo:"🟠"},
-  inbursa:   {nombre:"Inbursa",    color:"#0066CC", file:"inbursa.pdf",    logo:"💎"},
-  atlas:     {nombre:"Seguros Atlas", color:"#006633", file:"atlas.pdf",  logo:"🟢"},
-  monterrey: {nombre:"Monterrey",  color:"#8B0000", file:"monterrey.pdf", logo:"🔶"},
-  bxmas:     {nombre:"BX+ / Ve por Más", color:"#7DB928", file:"bxmas.pdf", logo:"➕"},
+  metlife:   {nombre:"MetLife",         color:"#003366", file:"metlife.pdf"},
+  gnp:       {nombre:"GNP",             color:"#C8102E", file:"gnp.pdf"},
+  axa:       {nombre:"AXA",             color:"#00008F", file:"axa.pdf"},
+  zurich:    {nombre:"Zurich",          color:"#1A1A2E", file:"zurich.pdf"},
+  sura:      {nombre:"SURA",            color:"#FF6B00", file:"sura.pdf"},
+  inbursa:   {nombre:"Inbursa",         color:"#0066CC", file:"inbursa.pdf"},
+  atlas:     {nombre:"Seguros Atlas",   color:"#006633", file:"atlas.pdf"},
+  monterrey: {nombre:"Monterrey",       color:"#8B0000", file:"monterrey.pdf"},
+  bxmas:     {nombre:"BX+ / Ve por Más",color:"#7DB928", file:"bxmas.pdf"},
 };
 
 // Mapeo de campos clínicos → campos AcroForm por aseguradora
@@ -15249,25 +15249,25 @@ const SEGUROS_FIELDS = {
 // ── pgSeguros — página principal ──────────────────────────────────────────────
 function pgSeguros(){
   const b=RR();
-  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"/");
+  const nomPac=STATE.pat?`${STATE.pat.primer_nombre||""} ${STATE.pat.apellido_paterno||""}`.trim():"";
   b.innerHTML=`
   <div style="max-width:960px;margin:0 auto;padding:16px" class="fade">
-    <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-      <div>
-        <p style="color:rgba(255,255,255,.7);font-size:11px;text-transform:uppercase;margin-bottom:3px">Módulo de seguros</p>
-        <b style="color:#fff;font-size:17px">🏥 Informes médicos para aseguradora</b>
-        <p style="color:rgba(255,255,255,.75);font-size:12px;margin-top:3px">Selecciona la aseguradora. Los datos del paciente y médico se pre-llenan automáticamente.</p>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      ${STATE.pat?`<button onclick="go('expediente')" style="background:#fff;border:1.5px solid #E0E0E0;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;color:#546E7A">← Expediente</button>`:""}
+      <div style="flex:1">
+        <b style="font-size:15px;color:#1F2933">Informes médicos para aseguradora</b>
+        ${nomPac?`<span style="font-size:12px;color:#78909C;margin-left:8px">${nomPac}</span>`:""}
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
       ${Object.entries(SEGUROS_CONFIG).map(([key,cfg])=>`
-      <div onclick="pgSegurosForm('${key}')" style="background:#fff;border-radius:10px;box-shadow:0 1px 6px #00000015;padding:16px;cursor:pointer;border:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:12px"
-        onmouseover="this.style.borderColor='${cfg.color}';this.style.transform='translateY(-2px)'"
-        onmouseout="this.style.borderColor='transparent';this.style.transform='none'">
-        <div style="width:44px;height:44px;border-radius:50%;background:${cfg.color}15;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${cfg.logo}</div>
+      <div onclick="pgSegurosForm('${key}')" style="background:#fff;border-radius:8px;box-shadow:0 1px 4px #00000012;padding:14px 16px;cursor:pointer;border:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:12px"
+        onmouseover="this.style.borderColor='${cfg.color}';this.style.boxShadow='0 3px 10px ${cfg.color}25'"
+        onmouseout="this.style.borderColor='transparent';this.style.boxShadow='0 1px 4px #00000012'">
+        <div style="width:10px;height:36px;border-radius:4px;background:${cfg.color};flex-shrink:0"></div>
         <div>
-          <div style="font-weight:700;font-size:14px;color:#1F2933">${cfg.nombre}</div>
-          <div style="font-size:11px;color:#78909C;margin-top:2px">Informe médico</div>
+          <div style="font-weight:700;font-size:13px;color:#1F2933">${cfg.nombre}</div>
+          <div style="font-size:11px;color:#90A4AE;margin-top:2px">Informe médico</div>
         </div>
       </div>`).join("")}
     </div>
@@ -15307,16 +15307,16 @@ async function pgSegurosForm(key){
 
   b.innerHTML=`
   <div style="max-width:820px;margin:0 auto;padding:16px" class="fade">
-    <div style="background:${cfg.color};border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <div>
-        <button onclick="pgSeguros()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px;margin-bottom:6px">← Volver</button>
-        <b style="color:#fff;font-size:15px;display:block">${cfg.logo} ${cfg.nombre} — Informe Médico</b>
-        <span style="color:rgba(255,255,255,.75);font-size:11px">Pre-llenado con datos del expediente · ${nomPac||"Sin paciente"}</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button onclick="pgSeguros()" style="background:#fff;border:1.5px solid #E0E0E0;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;color:#546E7A">← Aseguradoras</button>
+      ${STATE.pat?`<button onclick="go('expediente')" style="background:#fff;border:1.5px solid #E0E0E0;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;color:#546E7A">← Expediente</button>`:""}
+      <div style="flex:1;min-width:200px">
+        <b style="font-size:14px;color:#1F2933">${cfg.nombre} — Informe Médico</b>
+        ${nomPac?`<span style="font-size:12px;color:#78909C;margin-left:8px">${nomPac}</span>`:""}
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="guardarBorradorSeguros('${key}')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4);border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">💾 Guardar</button>
-        <button onclick="generarPDFSeguros('${key}')" style="background:#fff;color:${cfg.color};border:none;border-radius:7px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer">📄 Generar PDF</button>
-      </div>
+      <button onclick="cargarBorradorSeguros('${key}')" style="background:#fff;color:#546E7A;border:1.5px solid #E0E0E0;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">Abrir borrador</button>
+      <button onclick="guardarBorradorSeguros('${key}')" style="background:#fff;color:#1B5E20;border:1.5px solid #A5D6A7;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">Guardar</button>
+      <button onclick="generarPDFSeguros('${key}')" style="background:${cfg.color};color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer">Generar PDF</button>
     </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000015;padding:16px">
       ${sec("Datos del paciente")}
@@ -15350,8 +15350,8 @@ async function pgSegurosForm(key){
       ${grid(2,fsel("¿Convenio con aseguradora?","convenio",["No seleccionado","Sí","No"],g("convenio")||"No seleccionado"),fsel("¿Acepta tabulador de pago directo?","tabulador",["No seleccionado","Sí","No"],g("tabulador")||"No seleccionado"))}
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;padding-bottom:20px">
-      <button onclick="guardarBorradorSeguros('${key}')" style="background:#fff;color:${cfg.color};border:1.5px solid ${cfg.color};border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer">💾 Guardar borrador</button>
-      <button onclick="generarPDFSeguros('${key}')" style="background:${cfg.color};color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer">📄 Generar PDF ${cfg.nombre}</button>
+      <button onclick="guardarBorradorSeguros('${key}')" style="background:#fff;color:${cfg.color};border:1.5px solid ${cfg.color};border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer"> Guardar borrador</button>
+      <button onclick="generarPDFSeguros('${key}')" style="background:${cfg.color};color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer"> Generar PDF ${cfg.nombre}</button>
     </div>
   </div>`;
 }
@@ -15390,6 +15390,50 @@ window.guardarBorradorSeguros=async function(key){
   if(ex?.length)await SB.from("anexos").update(payload).eq("id",ex[0].id);
   else await SB.from("anexos").insert(payload);
   showToast(`✓ Borrador ${SEGUROS_CONFIG[key].nombre} guardado`);
+};
+
+// Cargar borrador guardado
+window.cargarBorradorSeguros=async function(key){
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("No hay paciente activo",false);return;}
+  const {data:bd}=await SB.from("anexos")
+    .select("id,titulo,descripcion,fecha")
+    .eq("paciente_id",pid)
+    .like("titulo",`BORRADOR ${key.toUpperCase()}%`)
+    .order("fecha",{ascending:false})
+    .limit(5);
+  if(!bd?.length){showToast("No hay borradores guardados para esta aseguradora",false);return;}
+  // Si hay uno, cargarlo directo; si hay varios, mostrar selector
+  const aplicar=(b)=>{
+    try{
+      const raw=b.descripcion||"";
+      const json=raw.startsWith("__SEG__:")?raw.slice(8):raw;
+      const campos=JSON.parse(json);
+      Object.entries(campos).forEach(([id,val])=>{
+        const el=document.getElementById("sg_"+id);
+        if(el)el.value=val||"";
+      });
+      showToast(`✓ Borrador "${b.titulo}" cargado`);
+    }catch(e){showToast("Error al cargar borrador: "+e.message,false);}
+  };
+  if(bd.length===1){aplicar(bd[0]);return;}
+  // Selector modal
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+  ov.innerHTML=`<div style="background:#fff;border-radius:10px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="background:#37474F;padding:11px 16px;display:flex;justify-content:space-between;align-items:center">
+      <b style="color:#fff;font-size:13px">Borradores guardados</b>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div style="padding:12px;display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto">
+      ${bd.map((b,i)=>`<button id="_sgb_${i}" style="background:#F8F9FA;border:1.5px solid #E0E0E0;border-radius:7px;padding:9px 12px;text-align:left;cursor:pointer">
+        <div style="font-weight:600;font-size:13px;color:#263238">${b.titulo}</div>
+        <div style="font-size:11px;color:#90A4AE;margin-top:1px">${b.fecha}</div>
+      </button>`).join("")}
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  bd.forEach((b,i)=>{document.getElementById("_sgb_"+i).onclick=()=>{ov.remove();aplicar(b);};});
 };
 
 // ── Generar PDF con pdf-lib ────────────────────────────────────────────────────
@@ -15447,20 +15491,6 @@ window.generarPDFSeguros=async function(key){
       const isChecked=d[field]===val;
       setCheck(fname,isChecked);
     });
-
-    // Firma digital como imagen (PNG)
-    const firmaUrl=STATE.userProfile?.firma_digital||STATE.medProfile?.firma_digital||null;
-    if(firmaUrl){
-      try{
-        const fr=await fetch(firmaUrl);
-        const fBytes=await fr.arrayBuffer();
-        const fImg=await pdfDoc.embedPng(fBytes).catch(()=>pdfDoc.embedJpg(fBytes));
-        const pages=pdfDoc.getPages();
-        const lastPage=pages[pages.length-1];
-        const {width,height}=lastPage.getSize();
-        lastPage.drawImage(fImg,{x:width*0.3,y:height*0.25,width:120,height:40});
-      }catch(e){}
-    }
 
     // Guardar PDF
     const outBytes=await pdfDoc.save();
