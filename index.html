@@ -439,7 +439,6 @@ function nav(){
       </div>
     </div>
     ${STATE.userProfile?.rol==="admin"?`
-    <button
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
@@ -1020,10 +1019,6 @@ window.guardarUsuario=async function(uid=""){
     institucion_esp_2:_subesps[0]?.inst||null,
     alta_especialidad:_altas[0]?.nombre||null,
     institucion_alta:_altas[0]?.inst||null,
-    // Arrays JSON con todas las entradas (incluyendo la primera para lectura completa)
-    especialidades_json:JSON.stringify(_esps),
-    subespecialidades_json:JSON.stringify(_subesps),
-    altas_json:JSON.stringify(_altas),
     // Agenda y contacto
     telefono:gv("mu_tel")||null,
     calendar_url:gv("mu_cal")||null,
@@ -1032,6 +1027,8 @@ window.guardarUsuario=async function(uid=""){
   };
   if(!uid)profilePayload.email=email; // solo se asigna al crear; al editar nunca se sobreescribe
   if(firma_url)profilePayload.firma_digital=firma_url;
+  // Columnas JSON (se agregan por separado para no fallar si aún no existen en la DB)
+  const jsonPayload={especialidades_json:JSON.stringify(_esps),subespecialidades_json:JSON.stringify(_subesps),altas_json:JSON.stringify(_altas)};
   if(!uid){
     // Crear usuario en Auth usando cliente temporal para NO reemplazar la sesión del admin
     const SBtemp=window.supabase.createClient(
@@ -1059,6 +1056,7 @@ window.guardarUsuario=async function(uid=""){
     showToast("✓ Usuario creado correctamente");
   } else {
     const {error:dbErr}=await SB.from("usuarios").update(profilePayload).eq("id",uid);
+    try{await SB.from("usuarios").update(jsonPayload).eq("id",uid);}catch(e){console.warn("Cols JSON:",e);}
     if(dbErr){loading(false);showToast("Error: "+dbErr.message,false);return;}
     if(pass){
       if(STATE.user?.id===uid){
