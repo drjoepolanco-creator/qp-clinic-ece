@@ -842,9 +842,10 @@ window.abrirModalUsuario=async function(uid=""){
     </div>
     <!-- Formación académica -->
     <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">🎓 Formación académica (aparece en recetas)</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       ${fld("Licenciatura / Pregrado",inp("mu_lic",u.licenciatura||"","Ej: Médico Cirujano"))}
-      ${fld("Cédula profesional",inp("mu_cedmed",u.cedula_medico||u.cedula||"","No. de cédula prof."))}
+      ${fld("Cédula profesional (Lic.)",inp("mu_cedmed",u.cedula_medico||u.cedula||"","6382840"))}
+      ${fld("RFC del médico",inp("mu_rfc",u.rfc||"","POFA810319L30"))}
       ${fld("Institución",`${instInput("mu_igrado",u.institucion_grado||"")}`)}
     </div>
 
@@ -1009,6 +1010,7 @@ window.guardarUsuario=async function(uid=""){
     // Formación académica (campos legacy = primera entrada, para compatibilidad)
     licenciatura:gv("mu_lic")||null,
     cedula_medico:cedMed||null,
+    rfc:document.getElementById("mu_rfc")?.value?.trim()||null,
     institucion_grado:gv("mu_igrado")||null,
     especialidad_1:_esps[0]?.nombre||null,
     cedula_esp_1:_esps[0]?.cedula||null,
@@ -1172,7 +1174,8 @@ async function pgPerfil(){
       <div class="form-section-body">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
           ${fld("Licenciatura / Pregrado",inp("pf_lic",u.licenciatura||"","Ej: Médico Cirujano"))}
-          ${fld("Cédula profesional",inp("pf_cedmed",u.cedula_medico||u.cedula||"","No. de cédula profesional"))}
+          ${fld("Cédula profesional (Lic.)",inp("pf_cedmed",u.cedula_medico||u.cedula||"","No. de cédula profesional"))}
+          ${fld("RFC",inp("pf_rfc",u.rfc||"","POFA810319L30"))}
           ${fld("Institución",`${instInput("pf_igrado",u.institucion_grado||"")}`)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
@@ -1315,6 +1318,7 @@ window.guardarFormacionAcademica=async function(){
   const {error}=await SB.from("usuarios").update({
     licenciatura:gv("pf_lic")||null,
     cedula_medico:cedMed||null,
+    rfc:gv("pf_rfc")||null,
     institucion_grado:gv("pf_igrado")||null,
     especialidad_1:gv("pf_esp1")||null,
     cedula_esp_1:cedEsp1||null,
@@ -15300,10 +15304,10 @@ async function pgSegurosForm(key){
     const appKeys=Object.keys(pd).filter(k=>pd[k]&&!k.startsWith("oc_")&&!k.startsWith("sust"));
     const appStr=appKeys.join(", ");
     const appNotes=STATE.patOtrasNotes||"";
-    auto.app=[appStr,appNotes].filter(Boolean).join(". ")||"";
+    auto.app=[appStr,appNotes].filter(Boolean).join(". ")||"SIN ANTECEDENTES PERSONALES PATOLÓGICOS DE IMPORTANCIA PARA EL PADECIMIENTO ACTUAL";
 
     // 2. APNP desde STATE.antNoPatText
-    auto.apnp=STATE.antNoPatText||"";
+    auto.apnp=STATE.antNoPatText||"SIN ANTECEDENTES PERSONALES NO PATOLÓGICOS DE RELEVANCIA";
 
     // 3. AGO desde STATE.ginData
     const g2=STATE.ginData||{};
@@ -15314,7 +15318,7 @@ async function pgSegurosForm(key){
     if(g2.cesareas&&g2.cesareas!=="Ninguno")goStr.push(`C:${g2.cesareas}`);
     if(g2.fum)goStr.push(`FUM:${g2.fum}`);
     if(g2.ets)goStr.push(`ETS:${g2.ets}`);
-    auto.ago=goStr.join(" / ")||"";
+    auto.ago=goStr.join(" / ")||"SIN ANTECEDENTES GINECO-OBSTÉTRICOS DE IMPORTANCIA";
     // Valores separados G/P/A/C para aseguradoras que los tienen individual
     auto.g_val=g2.gestaciones||"";
     auto.p_val=g2.partos||"";
@@ -15340,6 +15344,9 @@ async function pgSegurosForm(key){
           auto.ta=`${sv[0].ta_sistolica}/${sv[0].ta_diastolica}`;
       }
     }catch(e){}
+
+    // RFC del médico
+    auto.med_rfc = u.rfc||"";
 
     // 7. Última consulta — diagnóstico, signos/síntomas, plan
     try{
@@ -15369,7 +15376,8 @@ async function pgSegurosForm(key){
                app:"app",apnp:"apnp",ago:"ago",
                peso:"peso_sv",talla:"talla_sv",
                signos:"signos_uc",dx:"dx_uc",
-               estado:"estado_uc",tto:"tto_uc",tto_desc:"tto_uc"};
+               estado:"estado_uc",tto:"tto_uc",tto_desc:"tto_uc",
+               med_rfc:"med_rfc"};
   const g=k=>{
     if(bor[k]!==undefined&&bor[k]!=="")return bor[k];
     // Intentar con el alias de auto
