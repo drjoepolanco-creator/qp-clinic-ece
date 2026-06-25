@@ -217,6 +217,7 @@ function espInput(id,val,ph="Especialidad o escribe la tuya"){
 }
 const RR=()=>document.getElementById("R");
 function go(pg,ex={}){if(pg==="herramientas"&&!("toolActive"in ex))STATE.toolActive=null;Object.assign(STATE,{page:pg,...ex});draw();}
+function goSeguros(){STATE.page="seguros";draw();}
 // ── BITÁCORA DE ACCESO (NOM-024) ─────────────────────────
 async function logBitacora(accion,detalle="",paciente_id=null){
   try{
@@ -236,7 +237,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -438,7 +439,8 @@ function nav(){
       </div>
     </div>
     ${STATE.userProfile?.rol==="admin"?`
-    <div style="position:relative" id="cfg-menu-wrap">
+    <button onclick="goSeguros()" style="background:transparent;border:none;color:rgba(255,255,255,.85);cursor:pointer;font-size:13px;font-weight:600;padding:6px 10px;border-radius:6px;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='transparent'">🏥 Seguros</button>
+        <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
         <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Solo Administrador</div>
@@ -3753,7 +3755,6 @@ function pgExp(){
     ]},
     {label:"Fisioterapia",items:[
       {k:"fisio",icon:"ti-walk",label:"Fisioterapia"},
-      {k:"seguros",icon:"ti-shield-check",label:"Informes aseguradora"},
     ]},
     {label:"Herramientas",items:[
       {k:"herramientas",icon:"ti-calculator",label:"Herramientas",ext:true},
@@ -3830,7 +3831,6 @@ function renderEB(){
   else if(STATE.expTab==="indicaciones")renderIndicaciones(b);
   else if(STATE.expTab==="enfermeria")renderEnfermeria(b);
   else if(STATE.expTab==="inbody")renderInBody(b);
-  else if(STATE.expTab==="seguros")renderSeguros(b);
   else b.innerHTML=`<div style="padding:40px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🔧</div><p style="color:${MU}">Módulo disponible en próxima versión</p></div>`;
 }
 // ── FICHA DE DATOS ────────────────────────────────────────
@@ -7150,1849 +7150,7 @@ window.guardarNotaEnfermeria=async function(){
 
 // ── INBODY / COMPOSICIÓN CORPORAL ────────────────────────────
 
-// ══════════════════════════════════════════════════════════════════════════════
-// MÓDULO SEGUROS — INFORMES DE ASEGURADORA
-// ══════════════════════════════════════════════════════════════════════════════
-async function renderSeguros(b){
-  const p=STATE.pat||{};
-  const u=STATE.userProfile||{};
-  const nomPac=`${p.primer_nombre||""} ${p.segundo_nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.replace(/\s+/g," ").trim();
-  const edadNum=edadAnios?.(p.fecha_nacimiento)||"";
-  const medNom=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();
-  const medEsp=u.especialidad_1||"";
-  const medCed=u.cedula_esp_1||u.cedula_medico||"";
-  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"/");
 
-  b.innerHTML=`
-  <div style="max-width:900px;margin:0 auto;padding:14px" class="fade">
-    <!-- Header selector aseguradora -->
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000015;overflow:hidden;margin-bottom:16px">
-      <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div>
-          <p style="color:rgba(255,255,255,.75);font-size:11px;margin-bottom:2px;text-transform:uppercase">Módulo de informes</p>
-          <b style="color:#fff;font-size:15px">🏥 Informe médico para aseguradora</b>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <label style="color:rgba(255,255,255,.85);font-size:12px">Aseguradora:</label>
-          <select id="seg-aseguradora" onchange="renderSeguros(document.getElementById('eb'))" style="padding:6px 10px;border-radius:7px;border:none;font-size:13px;font-weight:600;background:#fff;color:#1B5E20;cursor:pointer">
-            <option value="metlife" selected>MetLife — CC-1-020 VER.7</option>
-            <option value="gnp" disabled>GNP — Próximamente</option>
-            <option value="axa" disabled>AXA — Próximamente</option>
-            <option value="mapfre" disabled>MAPFRE — Próximamente</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- Formulario MetLife -->
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000015;overflow:hidden">
-      <div style="background:#E8F5E9;padding:10px 16px;border-bottom:1px solid #C8E6C9;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <div>
-          <b style="color:#1B5E20;font-size:13px">MetLife — Informe Médico CC-1-020 VER.7</b>
-          <span style="background:#2E7D32;color:#fff;font-size:10px;padding:2px 7px;border-radius:20px;margin-left:8px">Pre-llenado desde expediente</span>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button onclick="cargarBorradorMetLife()" style="background:#fff;color:#1565C0;border:1.5px solid #90CAF9;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">📂 Abrir borrador</button>
-          <button onclick="guardarBorradorMetLife()" style="background:#fff;color:#1B5E20;border:1.5px solid #66BB6A;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">💾 Guardar borrador</button>
-          <button onclick="generarPDFMetLife()" style="background:#1B5E20;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ti ti-file-type-pdf"></i> Generar PDF</button>
-        </div>
-      </div>
-
-      <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
-        <!-- Info -->
-        <div style="background:#F1F8E9;border-left:3px solid #66BB6A;border-radius:0 6px 6px 0;padding:8px 12px;font-size:12px;color:#33691E">
-          📋 Los datos del paciente y médico se pre-llenan automáticamente. Completa los campos clínicos y genera el PDF oficial listo para firmar.
-        </div>
-
-        <!-- Sección 1: Datos del paciente -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">1. Datos del paciente</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
-              ${fld("Lugar y fecha",inp("ml_lugar_fecha","CIUDAD DE MÉXICO, "+hoy,"Ej: Ciudad de México, 24/06/2026"))}
-              ${fld("Nombre completo del paciente",`<input id="ml_nombre" value="${nomPac}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`,`col-span-2`)}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px">
-              ${fld("Edad",inp("ml_edad",edadNum+" AÑOS","Años"))}
-              ${fld("Sexo",sel("ml_sexo",["M","F","O"],"M"))}
-              ${fld("Causa reclamación",sel("ml_causa",["Enfermedad","Accidente","Embarazo","Segunda valoración"],"Enfermedad"))}
-              ${fld("Peso (kg)",inp("ml_peso",p.peso||"","51"))}
-              ${fld("Talla (cm)",inp("ml_talla",p.talla||"","152"))}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              ${fld("Fecha primera atención (DD/MM/AAAA)",inp("ml_fecha_aten","","16/01/2026"))}
-            </div>
-          </div>
-        </div>
-
-        <!-- Sección 2: Antecedentes -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">2. Antecedentes clínicos</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            ${fld("Historia clínica breve",`<textarea id="ml_hcb" rows="2" placeholder="Resumen de antecedentes relevantes..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("Antecedentes personales patológicos",`<textarea id="ml_app" rows="2" placeholder="DM2, HAS, etc." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("Antecedentes quirúrgicos",`<textarea id="ml_aqx" rows="2" placeholder="Cirugías previas..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div>
-                <label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:4px;display:block">Gineco-obstétricos (G/P/A/C)</label>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
-                  <input id="ml_g" placeholder="G" style="padding:8px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center;font-size:13px">
-                  <input id="ml_p_part" placeholder="P" style="padding:8px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center;font-size:13px">
-                  <input id="ml_a" placeholder="A" style="padding:8px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center;font-size:13px">
-                  <input id="ml_c" placeholder="C" style="padding:8px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center;font-size:13px">
-                </div>
-              </div>
-            </div>
-            ${fld("Afecciones adicionales no relacionadas con la reclamación",`<textarea id="ml_afec" rows="2" placeholder="Otras enfermedades..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-          </div>
-        </div>
-
-        <!-- Sección 3: Padecimiento actual -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">3. Padecimiento actual</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            ${fld("a) Signos y síntomas principales / evolución",`<textarea id="ml_signos" rows="3" placeholder="Descripción del cuadro clínico..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-              ${fld("Fecha inicio síntomas (DD/MM/AAAA)",inp("ml_fecha_inicio","","02/04/2026"))}
-              ${fld("Tipo padecimiento",sel("ml_tipo_pad",["Adquirido","Congénito","Agudo","Crónico"],"Adquirido"))}
-              ${fld("Tiempo de evolución",inp("ml_evolucion","","3 MESES Y 22 DÍAS"))}
-            </div>
-            ${fld("Causa / etiología del padecimiento",`<textarea id="ml_etiologia" rows="2" placeholder="Mecanismo de lesión o causa..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("c) Exploración física, estudios de laboratorio y gabinete",`<textarea id="ml_exploracion" rows="3" placeholder="Hallazgos de exploración física y estudios..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
-              ${fld("d) Diagnóstico etiológico definitivo",inp("ml_dx","",""))}
-              ${fld("Código CIE",inp("ml_cie","",""))}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-              ${fld("Fecha diagnóstico (DD/MM/AAAA)",inp("ml_fecha_dx","",""))}
-              ${fld("Fecha inicio tratamiento (DD/MM/AAAA)",inp("ml_fecha_tto","",""))}
-              ${fld("¿Relacionado con otro padecimiento?",sel("ml_rel_sel",["No","Sí"],"No"))}
-            </div>
-            ${fld("¿Cuál?",inp("ml_cual","","Solo si aplica"))}
-            ${fld("h) Tratamiento y/o intervención quirúrgica (CPT)",`<textarea id="ml_tto" rows="2" placeholder="Procedimiento realizado..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("i) Descripción de la técnica",`<textarea id="ml_tecnica" rows="2" placeholder="Técnica quirúrgica o terapéutica..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              ${fld("j) ¿Utilizó equipo especial?",sel("ml_equipo_sel",["No","Sí"],"No"))}
-              ${fld("Detallar equipo",inp("ml_equipo_det","",""))}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              ${fld("k) ¿Utilizó insumos / materiales?",sel("ml_insumos_sel",["No","Sí"],"No"))}
-              ${fld("Detallar insumos",inp("ml_insumos_det","",""))}
-            </div>
-            ${fld("l) Complicaciones",`<textarea id="ml_compl" rows="2" placeholder="Ninguna / detallar si aplica..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("m) Estado actual del paciente",`<textarea id="ml_estado" rows="2" placeholder="Evolución clínica actual..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
-              ${fld("n) ¿Continuará tratamiento?",sel("ml_continua_sel",["Sí","No"],"Sí"))}
-              ${fld("Describir tratamiento y duración",inp("ml_tto_desc","","Ej: TERAPIA FÍSICA 10 SESIONES"))}
-            </div>
-            ${fld("o) Fecha probable de alta / prealta (DD/MM/AAAA)",inp("ml_fecha_alta","",""))}
-          </div>
-        </div>
-
-        <!-- Sección 4 & 5 -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">4. Hospitalización / 5. Observaciones</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px">
-              ${fld("Nombre del hospital",inp("ml_hospital","","Si aplica"))}
-              ${fld("Tipo ingreso",sel("ml_tipo_ing_sel",["Corta estancia / ambulatoria","Urgencia","Ingreso hospitalario"],"Corta estancia / ambulatoria"))}
-              ${fld("Fecha de ingreso (DD/MM/AAAA)",inp("ml_f_ing","",""))}
-              ${fld("Fecha de egreso (DD/MM/AAAA)",inp("ml_f_egr","",""))}
-            </div>
-            ${fld("5. Observaciones adicionales",`<textarea id="ml_obs" rows="2" placeholder="Comentarios adicionales..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-          </div>
-        </div>
-
-        <!-- Sección 7: Datos del médico -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">7. Datos del médico</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-              ${fld("Tipo de atención",sel("ml_tipo_aten_sel",["Médico tratante","Cirujano principal","Interconsultante","Equipo quirúrgico","Segunda valoración"],"Médico tratante"))}
-              ${fld("Nombre completo",`<input id="ml_med_nom" value="${medNom}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("Especialidad",`<input id="ml_med_esp" value="${medEsp}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-            </div>
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
-              ${fld("Domicilio del consultorio",`<input id="ml_med_dir" value="${u.institucion_grado||'AV. INSURGENTES SUR 933 PISO 12, COL. NÁPOLES, BENITO JUÁREZ, CDMX'}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("Teléfono",`<input id="ml_med_tel" value="${u.telefono||'55 5682 4345'}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
-              ${fld("Cédula profesional especialidad",`<input id="ml_med_ced" value="${medCed}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("Número celular",`<input id="ml_med_cel" value="${u.telefono||''}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("RFC",`<input id="ml_med_rfc" value="${u.rfc||''}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("Correo electrónico",`<input id="ml_med_email" value="${u.email_real||u.email||''}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-            </div>
-          </div>
-        </div>
-
-        <!-- Botones finales -->
-        <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px">
-          <button onclick="guardarBorradorMetLife()" style="background:#fff;color:#1B5E20;border:1.5px solid #66BB6A;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer">💾 Guardar borrador</button>
-          <button onclick="generarPDFMetLife()" style="background:#1B5E20;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer">📄 Generar PDF MetLife</button>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-
-// Guardar borrador en anexos
-window.guardarBorradorMetLife=async function(){
-  const pid=STATE.pat?.id; if(!pid){showToast("No hay paciente activo",false);return;}
-  const campos={};
-  ["ml_lugar_fecha","ml_nombre","ml_edad","ml_sexo","ml_causa","ml_peso","ml_talla",
-   "ml_fecha_aten","ml_hcb","ml_app","ml_aqx","ml_g","ml_p_part","ml_a","ml_c","ml_afec",
-   "ml_signos","ml_fecha_inicio","ml_tipo_pad","ml_evolucion","ml_etiologia","ml_exploracion",
-   "ml_dx","ml_cie","ml_fecha_dx","ml_fecha_tto","ml_cual","ml_tto","ml_tecnica",
-   "ml_equipo_det","ml_insumos_det","ml_compl","ml_estado","ml_tto_desc","ml_fecha_alta",
-   "ml_hospital","ml_f_ing","ml_f_egr","ml_obs",
-   "ml_med_nom","ml_med_esp","ml_med_dir","ml_med_tel","ml_med_ced","ml_med_cel","ml_med_rfc","ml_med_email",
-   "ml_tipo_aten_sel","ml_equipo_sel","ml_insumos_sel","ml_continua_sel","ml_rel_sel","ml_tipo_ing_sel"
-  ].forEach(id=>{const el=document.getElementById(id);if(el)campos[id]=el.value;});
-  const prefijo="__METLIFE__:";
-  // Buscar si ya existe borrador
-  const {data:ex}=await SB.from("anexos").select("id").eq("paciente_id",pid).like("titulo","BORRADOR METLIFE%").limit(1);
-  const payload={paciente_id:pid,titulo:"BORRADOR METLIFE — "+new Date().toLocaleDateString("es-MX"),tipo_documento:"Informe seguro",origen:"generado",firmado:false,descripcion:prefijo+JSON.stringify(campos),fecha:new Date().toISOString().split("T")[0]};
-  if(ex?.length){
-    await SB.from("anexos").update(payload).eq("id",ex[0].id);
-  } else {
-    await SB.from("anexos").insert(payload);
-  }
-  showToast("✓ Borrador MetLife guardado en el expediente");
-};
-
-// Cargar borrador guardado en anexos
-window.cargarBorradorMetLife=async function(){
-  const pid=STATE.pat?.id;
-  if(!pid){showToast("No hay paciente activo",false);return;}
-  // Buscar todos los borradores de este paciente
-  const {data:borradores}=await SB.from("anexos")
-    .select("id,titulo,descripcion,fecha")
-    .eq("paciente_id",pid)
-    .like("titulo","BORRADOR METLIFE%")
-    .order("fecha",{ascending:false});
-  if(!borradores?.length){showToast("No hay borradores guardados para este paciente",false);return;}
-  // Si hay varios, mostrar selector; si hay uno, cargarlo directo
-  if(borradores.length===1){
-    _aplicarBorradorMetLife(borradores[0]);
-  } else {
-    // Modal selector
-    const overlay=document.createElement("div");
-    overlay.id="modal-borrador-ml";
-    overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
-    overlay.innerHTML=`
-    <div style="background:#fff;border-radius:12px;width:100%;max-width:460px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-      <div style="background:linear-gradient(135deg,#1565C0,#0D47A1);padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
-        <b style="color:#fff;font-size:14px">📂 Borradores guardados</b>
-        <button onclick="document.getElementById('modal-borrador-ml').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:15px">✕</button>
-      </div>
-      <div style="padding:14px;display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto">
-        ${borradores.map((b,i)=>`
-        <button onclick="document.getElementById('modal-borrador-ml').remove();_aplicarBorradorMetLife(${JSON.stringify(b).replace(/"/g,'&quot;')})"
-          style="background:#F8FBFC;border:1.5px solid #BBDEFB;border-radius:8px;padding:10px 14px;text-align:left;cursor:pointer;transition:background .15s"
-          onmouseover="this.style.background='#E3F2FD'" onmouseout="this.style.background='#F8FBFC'">
-          <div style="font-weight:700;font-size:13px;color:#1565C0">${b.titulo}</div>
-          <div style="font-size:11px;color:#78909C;margin-top:2px">Guardado el ${b.fecha}</div>
-        </button>`).join("")}
-      </div>
-      <div style="padding:10px 14px;border-top:1px solid #EEE;text-align:right">
-        <button onclick="document.getElementById('modal-borrador-ml').remove()" style="background:#F5F5F5;color:#546E7A;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:13px">Cancelar</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-  }
-};
-
-window._aplicarBorradorMetLife=function(borrador){
-  try{
-    const prefijo="__METLIFE__:";
-    const raw=borrador.descripcion||borrador.contenido||"";
-    const json=raw.startsWith(prefijo)?raw.slice(prefijo.length):raw;
-    const campos=JSON.parse(json);
-    // Rellenar todos los campos del formulario
-    Object.entries(campos).forEach(([id,val])=>{
-      const el=document.getElementById(id);
-      if(el)el.value=val||"";
-    });
-    showToast("✓ Borrador \""+borrador.titulo+"\" cargado");
-  }catch(e){
-    showToast("Error al cargar el borrador: "+e.message,false);
-  }
-};
-
-// Generar PDF con coordenadas calibradas para imágenes 1100×1423px → carta 215.9×279.4mm
-window.generarPDFMetLife=async function(){
-  loading(true,"Generando informe médico MetLife...");
-  try{
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF({orientation:"portrait",unit:"pt",format:[612,792]});
-    const PW=612,PH=792;
-
-    // Leer campos
-    const gv=id=>document.getElementById(id)?.value||"";
-    const sF=s=>(s||"").includes("/")?s.split("/"):["","",""];
-
-    const d={
-      lugar_fecha: gv("ml_lugar_fecha"),
-      nombre:      gv("ml_nombre"),
-      edad:        gv("ml_edad"),
-      sexo:        gv("ml_sexo"),
-      causa:       gv("ml_causa"),
-      peso:        gv("ml_peso"),
-      talla:       gv("ml_talla"),
-      fecha_aten:  gv("ml_fecha_aten"),
-      hcb:         gv("ml_hcb"),
-      app:         gv("ml_app"),
-      aqx:         gv("ml_aqx"),
-      g:           gv("ml_g"),
-      p_part:      gv("ml_p_part"),
-      a:           gv("ml_a"),
-      c:           gv("ml_c"),
-      afec:        gv("ml_afec"),
-      signos:      gv("ml_signos"),
-      fecha_inicio:gv("ml_fecha_inicio"),
-      tipo_pad:    gv("ml_tipo_pad"),
-      evolucion:   gv("ml_evolucion"),
-      etiologia:   gv("ml_etiologia"),
-      exploracion: gv("ml_exploracion"),
-      dx:          gv("ml_dx"),
-      cie:         gv("ml_cie"),
-      fecha_dx:    gv("ml_fecha_dx"),
-      fecha_tto:   gv("ml_fecha_tto"),
-      rel:         gv("ml_rel_sel"),
-      cual:        gv("ml_cual"),
-      tto:         gv("ml_tto"),
-      tecnica:     gv("ml_tecnica"),
-      equipo:      gv("ml_equipo_sel"),
-      equipo_det:  gv("ml_equipo_det"),
-      insumos:     gv("ml_insumos_sel"),
-      insumos_det: gv("ml_insumos_det"),
-      compl:       gv("ml_compl"),
-      estado:      gv("ml_estado"),
-      continua:    gv("ml_continua_sel"),
-      tto_desc:    gv("ml_tto_desc"),
-      fecha_alta:  gv("ml_fecha_alta"),
-      hospital:    gv("ml_hospital"),
-      tipo_ing:    gv("ml_tipo_ing_sel"),
-      f_ing:       gv("ml_f_ing"),
-      f_egr:       gv("ml_f_egr"),
-      obs:         gv("ml_obs"),
-      med_nom:     gv("ml_med_nom"),
-      med_esp:     gv("ml_med_esp"),
-      med_dir:     gv("ml_med_dir"),
-      med_tel:     gv("ml_med_tel"),
-      med_ced:     gv("ml_med_ced"),
-      med_cel:     gv("ml_med_cel"),
-      med_rfc:     gv("ml_med_rfc"),
-      med_email:   gv("ml_med_email"),
-      tipo_aten:   gv("ml_tipo_aten_sel"),
-    };
-
-    // Cargar imágenes de fondo
-    async function imgToB64(url){
-      return new Promise(res=>{
-        const img=new Image();img.crossOrigin="anonymous";
-        img.onload=()=>{
-          const c=document.createElement("canvas");c.width=img.width;c.height=img.height;
-          c.getContext("2d").drawImage(img,0,0);
-          res(c.toDataURL("image/jpeg"));
-        };
-        img.onerror=()=>res(null);
-        img.src=url+"?t="+Date.now();
-      });
-    }
-    const BASE="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/metlife/";
-    const [p1,p2,p3,p4]=await Promise.all(["page-001.jpg","page-002.jpg","page-003-c.jpg","page-004.jpg"].map(f=>imgToB64(BASE+f)));
-
-
-    // Helper firma
-    async function loadFirma(url){
-      return new Promise(res=>{
-        const img=new Image();img.crossOrigin="anonymous";
-        img.onload=()=>{const c=document.createElement("canvas");c.width=img.width;c.height=img.height;c.getContext("2d").drawImage(img,0,0);res(c.toDataURL("image/png"));};
-        img.onerror=()=>res(null);img.src=url;
-      });
-    }
-    const firmaUrl=STATE.userProfile?.firma_digital||STATE.medProfile?.firma_digital||null;
-    const firmaB64Ml=firmaUrl?await loadFirma(firmaUrl):null;
-
-    // ── NOTA: jsPDF usa unit:"pt" y origen top-left ──────────
-    // Coordenadas extraídas directamente del AcroForm del PDF original (PyMuPDF)
-    // Página 612×792 pt. Sin conversión — coordenadas directas.
-    // T(str,x0,y0,w,h) coloca texto centrado verticalmente en el campo.
-    // CB(bool,x0,y0) coloca "X" centrado en el checkbox.
-
-    function T(str,x0,y0,w,h,bold=false){
-      if(!str||!String(str).trim())return;
-      doc.setFont("helvetica",bold?"bold":"normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(0,0,0);
-      const lines=doc.splitTextToSize(String(str).toUpperCase(),w);
-      // Baseline: mitad del campo
-      doc.text(lines[0],x0+2,y0+h*0.72);
-    }
-    function CB(val,x0,y0,w,h){
-      if(!val)return;
-      doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(0,0,0);
-      doc.text("X",x0+w/2,y0+h*0.72,{align:"center"});
-      doc.setFont("helvetica","normal");doc.setFontSize(8.5);
-    }
-    function TL(str,fields){
-      // Distribuye texto en múltiples campos consecutivos
-      if(!str)return;
-      const lines=doc.splitTextToSize(String(str).toUpperCase(),fields[0].w);
-      fields.forEach((f,i)=>{if(lines[i])T(lines[i],f.x,f.y,f.w,f.h);});
-    }
-
-    // ══ PÁGINA 1 ══ (612×792 pt, coordenadas AcroForm directas)
-    if(p1)doc.addImage(p1,"JPEG",0,0,612,792);
-
-    T(d.lugar_fecha, 275.63,219.35,186.36,14.04);
-    // Fecha primera atención DD/MM/AAAA → campos D1 M1 A1
-    const[fa_d,fa_m,fa_a]=sF(d.fecha_aten);
-    T(fa_d, 487.26,220.71,18.95,12.68);
-    T(fa_m, 516.45,220.71,18.95,12.68);
-    T(fa_a, 545.68,220.26,35.30,13.13);
-    // Nombre completo → campo '1 Datos del paciente'
-    T(d.nombre, 116.55,267.46,474.0,14.04,true);
-    // Edad
-    T(d.edad, 24.23,288.72,42.6,14.04);
-    // Sexo
-    CB(d.sexo==="M", 174.55,289.40,12.76,12.33);
-    CB(d.sexo==="F", 174.55,308.39,12.76,12.33);
-    CB(d.sexo==="O", 174.88,329.66,12.76,12.33);
-    // Causa reclamación
-    CB(d.causa==="Accidente",        382.26,288.97,12.76,12.33);
-    CB(d.causa==="Enfermedad",       478.26,289.40,12.76,12.33);
-    CB(d.causa==="Embarazo",         563.35,289.40,12.76,12.33);
-    CB(d.causa==="Segunda valoración",563.35,308.28,12.76,12.33);
-    // Peso / Talla
-    T(d.peso,  53.01,346.27,56.88,10.83);
-    T(d.talla,153.28,347.14,50.04,10.83);
-    // Fecha primera atención D2 M2 A2
-    T(fa_d, 510.96,373.00,20.69,12.68);
-    T(fa_m, 538.41,372.57,20.69,12.68);
-    T(fa_a, 563.49,372.44,26.57,13.13);
-    // Historia clínica breve (2 líneas)
-    TL(d.hcb,[{x:24.23,y:432.98,w:566.76,h:14.04},{x:24.23,y:448.61,w:566.76,h:14.04}]);
-    // APP (2 líneas)
-    TL(d.app,[{x:24.23,y:480.89,w:566.76,h:14.04},{x:24.23,y:497.09,w:566.76,h:14.04}]);
-    // AQx (2 líneas)
-    TL(d.aqx,[{x:24.23,y:529.37,w:566.76,h:14.04},{x:24.23,y:545.57,w:566.76,h:14.04}]);
-    // Gineco G P A C
-    T(d.g,     449.17,570.82,13.42,12.05);
-    T(d.p_part,491.67,570.82,13.42,12.05);
-    T(d.a,     534.08,570.82,13.42,12.05);
-    T(d.c,     576.50,570.82,13.42,12.05);
-    // Afecciones (3 líneas)
-    TL(d.afec,[{x:24.23,y:649.31,w:566.76,h:13.92},{x:24.23,y:665.39,w:566.76,h:14.04},{x:24.23,y:681.59,w:566.76,h:14.04}]);
-
-    // ══ PÁGINA 2 ══
-    doc.addPage();
-    if(p2)doc.addImage(p2,"JPEG",0,0,612,792);
-
-    // a) Signos síntomas (3 líneas)
-    TL(d.signos,[
-      {x:279.87,y:35.99,w:311.28,h:12.0},
-      {x:23.79,y:50.15,w:567.36,h:12.0},
-      {x:23.79,y:64.31,w:567.36,h:12.0}
-    ]);
-    // Fecha inicio síntomas
-    const[fi_d,fi_m,fi_a]=sF(d.fecha_inicio);
-    T(fi_d,265.83,81.06,17.64,12.67);
-    T(fi_m,291.53,81.06,17.64,12.67);
-    T(fi_a,318.79,80.72,32.24,13.02);
-    // Tipo padecimiento
-    CB(d.tipo_pad==="Congénito",210.23,110.84,12.76,12.33);
-    CB(d.tipo_pad==="Adquirido",288.12,110.84,12.76,12.33);
-    CB(d.tipo_pad==="Agudo",    353.90,110.84,12.76,12.33);
-    CB(d.tipo_pad==="Crónico",  428.09,110.84,12.76,12.33);
-    // Tiempo evolución
-    T(d.evolucion,114.81,127.01,170.52,12.0);
-    // Etiología (2 líneas — 2ª línea continúa en campo siguiente)
-    TL(d.etiologia,[
-      {x:527.87,y:146.72,w:62.41,h:12.0},
-      {x:23.79,y:161.32,w:567.36,h:12.0}
-    ]);
-    // Exploración física (3 líneas)
-    TL(d.exploracion,[
-      {x:546.39,y:197.89,w:45.02,h:12.0},
-      {x:24.05,y:212.05,w:567.36,h:12.0},
-      {x:24.05,y:226.21,w:567.36,h:12.0}
-    ]);
-    // Diagnóstico / CIE
-    T(d.dx, 178.53,240.37,239.04,12.0,true);
-    T(d.cie,499.37,240.37, 92.04,12.0,true);
-    // Fecha diagnóstico
-    const[fdx_d,fdx_m,fdx_a]=sF(d.fecha_dx);
-    T(fdx_d,143.86,260.06,18.95,12.68);
-    T(fdx_m,171.31,260.06,18.95,12.68);
-    T(fdx_a,199.88,259.19,33.35,13.46);
-    // Fecha inicio tratamiento
-    const[ftt_d,ftt_m,ftt_a]=sF(d.fecha_tto);
-    T(ftt_d,447.36,260.06,18.95,12.68);
-    T(ftt_m,475.24,260.06,18.95,12.68);
-    T(ftt_a,503.38,259.62,28.98,13.46);
-    // g) Relación
-    CB(d.rel==="Sí", 390.76,287.12,12.76,12.33);
-    CB(d.rel!=="Sí", 427.42,287.12,12.76,12.33);
-    T(d.cual,57.57,308.25,531.84,12.0);
-    // h) Tratamiento (3 líneas)
-    TL(d.tto,[
-      {x:424.53,y:329.52,w:164.88,h:12.0},
-      {x:23.05,y:342.81,w:567.36,h:12.0},
-      {x:23.05,y:357.09,w:567.36,h:12.0}
-    ]);
-    // i) Técnica (3 líneas)
-    TL(d.tecnica,[
-      {x:151.21,y:371.25,w:439.20,h:12.0},
-      {x:23.05,y:385.41,w:567.36,h:12.0},
-      {x:23.05,y:399.57,w:567.36,h:12.0}
-    ]);
-    // j) Equipo
-    CB(d.equipo==="Sí",274.07,418.14,12.76,12.33);
-    CB(d.equipo!=="Sí",324.25,418.03,12.76,12.33);
-    T(d.equipo_det,396.25,418.89,194.16,12.0);
-    T(d.equipo_det,24.12,432.73,566.28,12.77); // 2ª línea si es largo
-    // k) Insumos
-    CB(d.insumos==="Sí",287.65,451.63,12.76,12.33);
-    CB(d.insumos!=="Sí",338.49,452.06,12.76,12.33);
-    T(d.insumos_det,411.37,452.85,179.04,12.0);
-    T(d.insumos_det,22.33,467.46,567.31,12.0);
-    // l) Complicaciones (3 líneas)
-    TL(d.compl,[
-      {x:307.77,y:481.17,w:281.64,h:12.0},
-      {x:22.05,y:495.33,w:567.36,h:12.0},
-      {x:22.05,y:509.49,w:567.36,h:12.0}
-    ]);
-    // m) Estado actual (3 líneas)
-    TL(d.estado,[
-      {x:157.29,y:523.77,w:432.12,h:12.0},
-      {x:22.05,y:537.93,w:567.36,h:12.0},
-      {x:22.05,y:552.09,w:567.36,h:12.0}
-    ]);
-    // n) Seguirá tratamiento
-    CB(d.continua==="Sí",266.27,568.72,12.76,12.33);
-    CB(d.continua!=="Sí",316.12,568.39,12.76,12.33);
-    TL(d.tto_desc,[
-      {x:214.41,y:584.33,w:375.00,h:12.0},
-      {x:22.05,y:598.49,w:567.36,h:12.0}
-    ]);
-    // o) Fecha alta
-    const[falt_d,falt_m,falt_a]=sF(d.fecha_alta);
-    T(falt_d,194.86,618.67,16.55,12.68);
-    T(falt_m,222.63,619.00,14.80,12.24);
-    T(falt_a,246.73,619.36,26.30,12.65);
-    // Sección 4 Hospitalización
-    T(d.hospital,114.81,661.50,474.60,12.0);
-    CB(d.tipo_ing==="Urgencia",               166.07,680.97,12.76,12.33);
-    CB(d.tipo_ing==="Ingreso hospitalario",   302.35,680.97,12.76,12.33);
-    CB(d.tipo_ing==="Corta estancia / ambulatoria",470.75,680.97,12.76,12.33);
-    const[fing_d,fing_m,fing_a]=sF(d.f_ing);
-    T(fing_d,122.86,699.04,14.80,12.68);
-    T(fing_m,151.70,699.04,14.80,12.68);
-    T(fing_a,174.51,699.04,23.97,12.68);
-    const[fegr_d,fegr_m,fegr_a]=sF(d.f_egr);
-    T(fegr_d,333.17,699.04,14.80,12.68);
-    T(fegr_m,359.26,699.04,14.80,12.68);
-    T(fegr_a,384.50,699.04,24.84,12.68);
-    // Sección 5 Observaciones
-    TL(d.obs,[
-      {x:343.44,y:740.30,w:246.84,h:12.0},
-      {x:22.92,y:754.67,w:567.36,h:11.16}
-    ]);
-
-    // ══ PÁGINA 3 ══
-    doc.addPage();
-    if(p3)doc.addImage(p3,"JPEG",0,0,612,792);
-
-    // Tipo atención
-    CB(d.tipo_aten==="Médico tratante",   285.83,410.34,12.76,12.33);
-    CB(d.tipo_aten==="Cirujano principal",399.06,410.34,12.76,12.33);
-    CB(d.tipo_aten==="Interconsultante",  505.39,410.34,12.76,12.33);
-    CB(d.tipo_aten==="Equipo quirúrgico", 285.83,431.85,12.76,12.33);
-    CB(d.tipo_aten==="Segunda valoración",399.06,431.85,12.76,12.33);
-    // Datos médico
-    T(d.med_nom, 22.89,452.27,389.88,13.56,true);
-    T(d.med_esp,426.81,452.27,163.32,13.56);
-    T(d.med_dir, 22.89,486.95,389.88,13.56);
-    T(d.med_tel,426.19,486.95,142.91,13.56);
-    T(d.med_ced, 22.89,522.59,148.92,13.56,true);
-    T(d.med_cel,185.97,522.59,141.60,13.56);
-    T(d.med_rfc,341.85,522.59,141.60,13.56);
-    T(d.med_email,22.89,552.47,134.76,12.12);
-    // Convenio
-    CB(d.convenio==="Sí", 299.63,618.53,12.76,12.33);
-    CB(d.convenio!=="Sí", 349.14,618.53,12.76,12.33);
-    // Tabulador pago directo
-    CB(!d.tabulador||d.tabulador==="Sí",356.26,700.51,12.76,12.33);
-    CB(d.tabulador==="No",               405.36,700.51,12.76,12.33);
-    // Firma médico p3 — SOLO si hay firma, como PNG transparente
-    if(firmaB64Ml){
-      try{
-        // Posicionar firma sobre el espacio en blanco encima de la línea de firma
-        // La línea de firma en p3 está ~y=750, firmamos arriba ~y=720
-        doc.addImage(firmaB64Ml,"PNG",22.89,720,130,30);
-      }catch(e){}
-    }
-
-    // ══ PÁGINA 4 ══
-    doc.addPage();
-    if(p4)doc.addImage(p4,"JPEG",0,0,612,792);
-    // Campo FIRMA: x0=186.98 y0=334.95 w=270.74 h=17.99
-    T(d.med_nom, 186.98,334.95,270.74,17.99,true);
-    // Firma como PNG (sin fondo) centrada sobre la línea
-    if(firmaB64Ml){
-      try{
-        const fW=130,fH=35;
-        const fX=186.98+(270.74-fW)/2;
-        doc.addImage(firmaB64Ml,"PNG",fX,290,fW,fH);
-      }catch(e){}
-    }
-
-    // Guardar en Supabase (descripcion con prefijo __IA__)
-    await SB.from("anexos").update({descripcion:"__IA__:"+JSON.stringify(lab)}).eq("id",docId);
-    mostrarModalLabIA(docId,doc,lab);
-    renderGabinete(document.getElementById("anexo-body"));
-  }catch(e){loading(false);showToast("Error: "+e.message,false);}
-}
-
-window.verAnalisisIAGuardado=async function(docId){
-  loading(true,"Cargando análisis...");
-  const {data:doc}=await SB.from("anexos").select("*").eq("id",docId).single();
-  loading(false);
-  if(!doc?.descripcion?.startsWith("__IA__:")){showToast("No hay análisis guardado",false);return;}
-  try{
-    const lab=JSON.parse(doc.descripcion.substring(7));
-    mostrarModalLabIA(docId,doc,lab);
-  }catch(e){showToast("Error al leer el análisis guardado",false);}
-}
-
-function mostrarModalLabIA(docId,doc,lab){
-  document.getElementById("modal-lab-ia")?.remove();
-  const overlay=document.createElement("div");
-  overlay.id="modal-lab-ia";
-  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9990;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
-  const colI={"Normal":"#1B5E20","Alto":"#C62828","Bajo":"#1565C0","Critico":"#B71C1C","NoInterpretable":"#546E7A"};
-  const bgI={"Normal":"#E8F5E9","Alto":"#FFEBEE","Bajo":"#E3F2FD","Critico":"#FCE4EC","NoInterpretable":"#ECEFF1"};
-  const etI={"Normal":"✓ Normal","Alto":"↑ Alto","Bajo":"↓ Bajo","Critico":"⚠️ Crítico","NoInterpretable":"—"};
-  const rows=(lab.analitos||[]).map(a=>`
-    <tr style="border-top:1px solid #E0E0E0">
-      <td style="padding:7px 10px;font-size:13px;font-weight:600;color:#263238">${a.nombre||"—"}</td>
-      <td style="padding:7px 10px;font-size:14px;font-weight:800;color:${colI[a.interpretacion]||"#263238"}">${a.valor||"—"}</td>
-      <td style="padding:7px 10px;font-size:13px;color:#546E7A">${a.unidad||"—"}</td>
-      <td style="padding:7px 10px;font-size:13px;color:#546E7A">${a.referencia||"—"}</td>
-      <td style="padding:7px 10px">
-        <span style="background:${bgI[a.interpretacion]||"#F5F5F5"};color:${colI[a.interpretacion]||"#546E7A"};padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700">
-          ${etI[a.interpretacion]||"—"}
-        </span>
-      </td>
-    </tr>`).join("");
-  overlay.innerHTML=`
-  <div style="background:#fff;border-radius:14px;width:100%;max-width:860px;box-shadow:0 20px 60px rgba(0,0,0,.3);margin:auto">
-    <div style="background:linear-gradient(135deg,#7B1FA2,#006BB6);padding:14px 20px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <p style="color:rgba(255,255,255,.75);font-size:12px;font-weight:600;margin-bottom:2px">📊 ANÁLISIS IA — LABORATORIO</p>
-        <b style="color:#fff;font-size:15px">${doc.titulo||""}</b>
-        <span style="color:rgba(255,255,255,.8);font-size:13px;margin-left:10px">${lab.fecha||doc.fecha||""}</span>
-        ${lab.laboratorio?`<span style="background:rgba(255,255,255,.2);color:#fff;padding:1px 8px;border-radius:20px;font-size:12px;margin-left:8px">${lab.laboratorio}</span>`:""}
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="reAnalizarLab('${docId}','${(doc.titulo||"").replace(/'/g,"\\'").replace(/"/g,"")}','${doc.fecha||""}')" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🔄 Re-analizar</button>
-        <button onclick="document.getElementById('modal-lab-ia').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:16px;font-weight:700">✕</button>
-      </div>
-    </div>
-    <div style="padding:16px 20px">
-      ${lab.resumen_clinico?`
-      <div style="background:#F3E5F5;border-left:4px solid #7B1FA2;border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:16px">
-        <p style="font-size:12px;font-weight:700;color:#6A1B9A;text-transform:uppercase;margin-bottom:6px">📋 Interpretación clínica</p>
-        <p style="font-size:14px;color:#263238;line-height:1.7">${lab.resumen_clinico}</p>
-      </div>`:""}
-      ${(lab.analitos||[]).length>0?`
-      <p style="font-size:13px;font-weight:700;color:#546E7A;text-transform:uppercase;margin-bottom:8px">Resultados por analito</p>
-      <div style="overflow-x:auto;margin-bottom:16px;border:1px solid #E0E0E0;border-radius:8px">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead><tr style="background:#F5F5F5">
-            ${["Analito","Valor","Unidad","Referencia","Interpretación"].map(h=>`<th style="padding:8px 10px;text-align:left;font-weight:700;color:#263238">${h}</th>`).join("")}
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>`:""}
-      <p style="font-size:13px;font-weight:700;color:#546E7A;text-transform:uppercase;margin-bottom:8px">Texto para la nota médica</p>
-      <textarea id="lab-ia-texto" rows="10" style="width:100%;padding:12px;border:1.5px solid #CFD8DC;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.6;resize:vertical;outline:none;background:#FAFAFA">${lab.texto_nota||""}</textarea>
-      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-        <button onclick="insertarLabEnNota()" style="flex:1;padding:11px;background:#2E7D32;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;min-width:160px">📋 Insertar en campo Laboratorios</button>
-        <button onclick="copiarLabClipboard()" style="flex:1;padding:11px;background:#37474F;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;min-width:140px">📋 Copiar al portapapeles</button>
-        <button onclick="document.getElementById('modal-lab-ia').remove()" style="padding:11px 18px;background:#fff;color:#546E7A;border:1.5px solid #CFD8DC;border-radius:9px;font-size:14px;cursor:pointer">Cerrar</button>
-      </div>
-      <p style="font-size:11px;color:#90A4AE;margin-top:10px">⚠️ Revisa siempre los resultados. Análisis guardado en el expediente.</p>
-    </div>
-  </div>`;
-  document.body.appendChild(overlay);
-}
-
-window.reAnalizarLab=function(docId,titulo,fecha){
-  document.getElementById("modal-lab-ia")?.remove();
-  analizarLaboratorioIA(docId,titulo,fecha);
-}
-
-window.insertarLabEnNota=function(){
-  const texto=document.getElementById("lab-ia-texto")?.value||"";
-  if(!texto){showToast("Sin texto para insertar",false);return;}
-  const campoLab=document.getElementById("cs_lab");
-  if(campoLab){
-    campoLab.value=(campoLab.value?campoLab.value+"\n\n":"")+texto;
-    campoLab.focus();campoLab.scrollIntoView({behavior:"smooth",block:"center"});
-    document.getElementById("modal-lab-ia")?.remove();
-    showToast("✓ Resultados insertados en el campo Laboratorios de la nota");return;
-  }
-  STATE.labIAPendiente=texto;
-  document.getElementById("modal-lab-ia")?.remove();
-  showToast("Sin consulta abierta — ábre una consulta para pegar los resultados",false);
-}
-
-window.copiarLabClipboard=async function(){
-  const texto=document.getElementById("lab-ia-texto")?.value||"";
-  if(!texto)return;
-  try{await navigator.clipboard.writeText(texto);showToast("✓ Copiado al portapapeles");}
-  catch(e){const ta=document.createElement("textarea");ta.value=texto;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);showToast("✓ Copiado al portapapeles");}
-}
-
-window.pegarLabIAEnNota=function(){
-  const texto=STATE.labIAPendiente;
-  if(!texto){showToast("No hay resultados de Lab IA pendientes",false);return;}
-  const campoLab=document.getElementById("cs_lab");
-  if(!campoLab){showToast("Abre una consulta primero",false);return;}
-  campoLab.value=(campoLab.value?campoLab.value+"\n\n":"")+texto;
-  campoLab.focus();campoLab.scrollIntoView({behavior:"smooth",block:"center"});
-  STATE.labIAPendiente=null;
-  showToast("✓ Resultados de laboratorio insertados en la nota");
-}
-window.subirGabinete=async function(){
-  const pid=STATE.pat?.id;if(!pid)return;
-  const titulo=(document.getElementById("gab-titulo")?.value||"").trim();
-  if(!titulo){showToast("El nombre del estudio es obligatorio",false);return;}
-  const file=document.getElementById("gab-file")?.files[0];
-  if(!file){showToast("Selecciona un archivo para subir",false);return;}
-  if(file.size>30*1024*1024){showToast("El archivo es demasiado grande (máx. 30 MB)",false);return;}
-  loading(true,"Subiendo estudio...");
-  const fecha=document.getElementById("gab-fecha")?.value||new Date().toISOString().split("T")[0];
-  const tipo=document.getElementById("gab-tipo")?.value||"Otro estudio de gabinete";
-  const inst=(document.getElementById("gab-inst")?.value||"").trim();
-  const desc=(document.getElementById("gab-desc")?.value||"").trim();
-  const ext=file.name.split(".").pop().toLowerCase();
-  const path=`${pid}/gabinete/${Date.now()}_${titulo.replace(/[^a-zA-Z0-9]/g,"_").substring(0,40)}.${ext}`;
-  const {error:upErr}=await SB.storage.from("expedientes").upload(path,file,{upsert:false,contentType:file.type});
-  if(upErr){loading(false);showToast("Error al subir archivo: "+upErr.message,false);return;}
-  const {data:urlData}=SB.storage.from("expedientes").getPublicUrl(path);
-  const {error:dbErr}=await SB.from("anexos").insert({
-    paciente_id:pid,titulo,tipo_documento:tipo,fecha,
-    origen:"subido",firmado:false,
-    url_archivo:urlData?.publicUrl||null,
-    storage_path:path,
-    nombre_firmante:inst||null,
-    descripcion:desc||null,
-    created_at:new Date().toISOString()
-  });
-  loading(false);
-  if(dbErr){showToast("Error al guardar: "+dbErr.message,false);return;}
-  showToast("✓ Estudio guardado en el expediente");
-  renderGabinete(document.getElementById("anexo-body"));
-}
-
-// ── FORMULARIOS DEL PACIENTE ────────────────────────────
-async function renderFormularios(ab){
-  ab.innerHTML=`<div style="text-align:center;padding:20px;color:${MU}"><span class="spin" style="font-size:18px">⚙️</span> Cargando...</div>`;
-  const pid=STATE.pat?.id;if(!pid)return;
-  const TIPOS_FORM=["Historia clínica","PAR-Q (Cuestionario actividad física)","IPAQ (Actividad física)","SF-36 (Calidad de vida)","EVA / Cuestionario de dolor","Cuestionario nutricional","Cuestionario de sueño","Cuestionario de ansiedad / depresión","Consentimiento adicional","Formulario de ingreso","Otro formulario"];
-  const {data}=await SB.from("anexos").select("*")
-    .eq("paciente_id",pid)
-    .in("tipo_documento",TIPOS_FORM)
-    .order("fecha",{ascending:false});
-  const docs=data||[];
-  ab.innerHTML=`
-    <div style="display:flex;gap:8px;margin-bottom:14px">
-      ${btn("➕ Subir formulario","mostrarFormFormulario()","p",1)}
-    </div>
-    <div id="form-formulario" style="display:none;background:#F8F9FA;border:1.5px solid ${BR};border-radius:10px;padding:16px;margin-bottom:16px">
-      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">📋 Subir formulario del paciente</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        ${fld("Nombre del formulario *",`<input id="form-titulo" placeholder="Ej: PAR-Q inicial junio 2026" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-        ${fld("Tipo de formulario",`<select id="form-tipo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${TIPOS_FORM.map(c=>`<option>${c}</option>`).join("")}</select>`)}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        ${fld("Fecha",`<input id="form-fecha" type="date" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-        ${fld("Observaciones",`<input id="form-obs" placeholder="Notas relevantes sobre el formulario" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-      </div>
-      <div class="upload-area" onclick="document.getElementById('form-file').click()">
-        <div style="font-size:28px;margin-bottom:6px">📋</div>
-        <p style="font-size:14px;font-weight:600;color:${P}">Seleccionar archivo</p>
-        <p style="font-size:14px;color:${MU}">PDF, JPG, PNG, DOCX — máx. 20 MB</p>
-        <input id="form-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="display:none" onchange="this.nextElementSibling.style.display='block';this.nextElementSibling.textContent='📎 '+this.files[0].name">
-        <p id="form-file-name" style="display:none;color:${SU};font-size:14px;margin-top:6px"></p>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-        ${btn("Cancelar","ocultarFormFormulario()","s",1)}
-        ${btn("💾 Guardar formulario","subirFormulario()","ok",1)}
-      </div>
-    </div>
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr style="background:${PL}">
-        ${["Fecha","Nombre","Tipo","Observaciones","Acciones"].map(h=>`<th style="padding:10px 12px;text-align:left;font-size:13px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}
-      </tr></thead>
-      <tbody>
-        ${docs.length===0?`<tr><td colspan="5" style="padding:28px;text-align:center;color:${MU}">Sin formularios subidos.</td></tr>`
-        :docs.map((d,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-          <td style="padding:10px 12px;font-size:14px;color:${MU};white-space:nowrap">${d.fecha||"—"}</td>
-          <td style="padding:10px 12px;font-size:14px;font-weight:700;color:${TX}">📋 ${d.titulo}</td>
-          <td style="padding:10px 12px"><span style="background:#F3E5F5;color:#7B1FA2;padding:2px 8px;border-radius:20px;font-size:13px">${d.tipo_documento}</span></td>
-          <td style="padding:10px 12px;font-size:13px;color:${MU}">${d.descripcion||"—"}</td>
-          <td style="padding:10px 12px;white-space:nowrap">
-            ${d.storage_path?`<button onclick="verPDF('${d.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:
-            d.url_archivo?`<button onclick="window.open('${d.url_archivo}','_blank')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;margin-right:4px">📄 Ver</button>`:""}
-            ${d.storage_path?`<button onclick="descargarDoc('${d.id}')" style="background:#37474F;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">⬇️</button>`:""}
-          </td>
-        </tr>`).join("")}
-      </tbody>
-    </table>`;
-}
-window.mostrarFormFormulario=function(){document.getElementById("form-formulario").style.display="block";}
-window.ocultarFormFormulario=function(){document.getElementById("form-formulario").style.display="none";}
-window.subirFormulario=async function(){
-  const pid=STATE.pat?.id;if(!pid)return;
-  const titulo=(document.getElementById("form-titulo")?.value||"").trim();
-  if(!titulo){showToast("El nombre del formulario es obligatorio",false);return;}
-  const file=document.getElementById("form-file")?.files[0];
-  if(!file){showToast("Selecciona un archivo",false);return;}
-  if(file.size>20*1024*1024){showToast("El archivo es demasiado grande (máx. 20 MB)",false);return;}
-  loading(true,"Subiendo formulario...");
-  const fecha=document.getElementById("form-fecha")?.value||new Date().toISOString().split("T")[0];
-  const tipo=document.getElementById("form-tipo")?.value||"Otro formulario";
-  const obs=(document.getElementById("form-obs")?.value||"").trim();
-  const ext=file.name.split(".").pop().toLowerCase();
-  const path=`${pid}/formularios/${Date.now()}_${titulo.replace(/[^a-zA-Z0-9]/g,"_").substring(0,40)}.${ext}`;
-  const {error:upErr}=await SB.storage.from("expedientes").upload(path,file,{upsert:false,contentType:file.type});
-  if(upErr){loading(false);showToast("Error al subir: "+upErr.message,false);return;}
-  const {data:urlData}=SB.storage.from("expedientes").getPublicUrl(path);
-  const {error:dbErr}=await SB.from("anexos").insert({
-    paciente_id:pid,titulo,tipo_documento:tipo,fecha,
-    origen:"subido",firmado:false,
-    url_archivo:urlData?.publicUrl||null,
-    storage_path:path,
-    descripcion:obs||null,
-    created_at:new Date().toISOString()
-  });
-  loading(false);
-  if(dbErr){showToast("Error: "+dbErr.message,false);return;}
-  showToast("✓ Formulario guardado");
-  renderFormularios(document.getElementById("anexo-body"));
-}
-
-// ── LABORATORIOS POR ANALITOS ────────────────────────────
-async function renderAnalitos(ab){
-  ab.innerHTML=`<div style="text-align:center;padding:20px;color:${MU}"><span class="spin" style="font-size:18px">⚙️</span> Cargando...</div>`;
-  const pid=STATE.pat?.id;if(!pid)return;
-  const {data}=await SB.from("resultados_laboratorio").select("*")
-    .eq("paciente_id",pid).order("fecha",{ascending:false});
-  const panels=data||[];
-  const PANELES_COMUNES=["Biometría Hemática","Química Sanguínea","Perfil Lipídico","Perfil Hepático","Perfil Renal","Función Tiroidea","Perfil Hormonal","Uroanálisis","Hemoglobina Glucosilada (HbA1c)","Electrolitos séricos","Examen General de Orina","Coprocultivo","Cultivo de secreción","Panel metabólico completo","Panel nutricional","Otro panel"];
-  const INTERP=[["N","Normal","#2E7D32"],["A","Alterado","#E65100"],["H","Alto (H)","#C62828"],["L","Bajo (L)","#006BB6"],["C","Crítico","#880E4F"]];
-  ab.innerHTML=`
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      ${btn("➕ Registrar resultados","mostrarFormAnalitos()","p",1)}
-    </div>
-    <div id="form-analitos" style="display:none;background:#F8F9FA;border:1.5px solid ${BR};border-radius:10px;padding:16px;margin-bottom:16px">
-      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">🧪 Registrar resultados de laboratorio</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-        ${fld("Panel / Perfil *",`<select id="al-panel" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${PANELES_COMUNES.map(p=>`<option>${p}</option>`).join("")}</select>`)}
-        ${fld("Fecha del resultado",`<input id="al-fecha" type="date" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-        ${fld("Laboratorio / Institución",`<input id="al-lab" placeholder="Ej: Lab Médico del Sur" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-      </div>
-      <div style="overflow-x:auto;margin-bottom:10px">
-        <table style="width:100%;border-collapse:collapse;font-size:14px">
-          <thead><tr style="background:${PL}">
-            <th style="padding:8px 10px;text-align:left;font-weight:700;color:${TX}">Analito</th>
-            <th style="padding:8px 10px;text-align:left;font-weight:700;color:${TX}">Resultado</th>
-            <th style="padding:8px 10px;text-align:left;font-weight:700;color:${TX}">Unidad</th>
-            <th style="padding:8px 10px;text-align:left;font-weight:700;color:${TX}">Ref. (min)</th>
-            <th style="padding:8px 10px;text-align:left;font-weight:700;color:${TX}">Ref. (max)</th>
-            <th style="padding:8px 10px;text-align:left;font-weight:700;color:${TX}">Interpretación</th>
-            <th style="padding:8px 10px;width:36px"></th>
-          </tr></thead>
-          <tbody id="analitos-rows">
-            <tr class="analito-row">
-              <td style="padding:5px 6px"><input class="al-nombre" placeholder="Ej: Glucosa en ayuno" style="width:160px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-              <td style="padding:5px 6px"><input class="al-valor" type="number" step="0.01" placeholder="100" style="width:80px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-              <td style="padding:5px 6px"><input class="al-unidad" placeholder="mg/dL" style="width:70px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-              <td style="padding:5px 6px"><input class="al-ref-min" type="number" step="0.01" placeholder="70" style="width:70px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-              <td style="padding:5px 6px"><input class="al-ref-max" type="number" step="0.01" placeholder="100" style="width:70px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-              <td style="padding:5px 6px"><select class="al-interp" style="width:100px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;background:#fff;font-size:14px">${INTERP.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select></td>
-              <td style="padding:5px 6px"><button onclick="this.closest('tr').remove()" style="background:#FFEBEE;color:${DA};border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <button onclick="agregarFilaAnalito()" style="background:${PL};color:${P};border:1px solid ${P};border-radius:7px;padding:5px 14px;cursor:pointer;font-size:14px;font-weight:600;margin-bottom:12px">➕ Agregar analito</button>
-      <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px">
-        ${fld("Observaciones del resultado",`<textarea id="al-obs" rows="2" placeholder="Hallazgos relevantes, notas del laboratorio..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit"></textarea>`)}
-      </div>
-      <div class="upload-area" onclick="document.getElementById('al-file').click()">
-        <p style="font-size:14px;font-weight:600;color:${P}">📎 Adjuntar PDF del resultado (opcional)</p>
-        <input id="al-file" type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="this.nextElementSibling.style.display='block';this.nextElementSibling.textContent='📎 '+this.files[0].name">
-        <p id="al-file-name" style="display:none;color:${SU};font-size:14px;margin-top:4px"></p>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-        ${btn("Cancelar","ocultarFormAnalitos()","s",1)}
-        ${btn("💾 Guardar resultados","guardarAnalitos()","ok",1)}
-      </div>
-    </div>
-    ${panels.length===0?`<div style="text-align:center;padding:32px;color:${MU}">Sin resultados registrados. Usa "Registrar resultados" para agregar.</div>`:
-    panels.map((panel,i)=>{
-      const al=panel.analitos||[];
-      const COLS={"N":"#E8F5E9","A":"#FFF3E0","H":"#FFEBEE","L":"#E3F4FB","C":"#FCE4EC"};
-      const TCOLS={"N":"#2E7D32","A":"#E65100","H":"#C62828","L":"#006BB6","C":"#880E4F"};
-      return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
-        <div style="background:${i%2===0?PD:"#2E7D32"};padding:9px 14px;display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <b style="color:#fff;font-size:14px">🧪 ${panel.panel}</b>
-            <span style="color:rgba(255,255,255,.8);font-size:13px;margin-left:10px">${panel.fecha||""}</span>
-            ${panel.laboratorio?`<span style="color:rgba(255,255,255,.7);font-size:13px;margin-left:8px">— ${panel.laboratorio}</span>`:""}
-          </div>
-          <div style="display:flex;gap:6px">
-            ${panel.url_pdf?`<button onclick="window.open('${panel.url_pdf}','_blank')" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px">📄 PDF</button>`:""}
-          </div>
-        </div>
-        ${al.length>0?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">
-          <thead><tr style="background:${PL}">${["Analito","Resultado","Unidad","Referencia","Interp."].map(h=>`<th style="padding:8px 12px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
-          <tbody>${al.map((a,j)=>{const ic=a.interpretacion||"N";const bg=COLS[ic]||"#fff";const tc=TCOLS[ic]||GRIS;
-            return`<tr style="border-top:1px solid ${BR};background:${j%2?"#FAFAFA":bg}">
-              <td style="padding:8px 12px;font-weight:600;color:${TX}">${a.nombre||""}</td>
-              <td style="padding:8px 12px;font-size:15px;font-weight:700;color:${tc}">${a.valor||""}</td>
-              <td style="padding:8px 12px;color:${MU}">${a.unidad||""}</td>
-              <td style="padding:8px 12px;color:${MU}">${a.ref_min!==undefined&&a.ref_max!==undefined?a.ref_min+" — "+a.ref_max:""}</td>
-              <td style="padding:8px 12px"><span style="background:${bg};color:${tc};padding:2px 8px;border-radius:20px;font-size:13px;font-weight:700">${ic}</span></td>
-            </tr>`;}).join("")}</tbody>
-        </table></div>`:""}
-        ${panel.observaciones?`<div style="padding:10px 14px;font-size:13px;color:${MU};border-top:1px solid ${BR}">💬 ${panel.observaciones}</div>`:""}
-      </div>`;
-    }).join("")}`;
-}
-window.mostrarFormAnalitos=function(){document.getElementById("form-analitos").style.display="block";}
-window.ocultarFormAnalitos=function(){document.getElementById("form-analitos").style.display="none";}
-window.agregarFilaAnalito=function(){
-  const tbody=document.getElementById("analitos-rows");if(!tbody)return;
-  const INTERP=[["N","Normal"],["A","Alterado"],["H","Alto (H)"],["L","Bajo (L)"],["C","Crítico"]];
-  const row=document.createElement("tr");row.className="analito-row";
-  row.innerHTML=`
-    <td style="padding:5px 6px"><input class="al-nombre" placeholder="Analito" style="width:160px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-    <td style="padding:5px 6px"><input class="al-valor" type="number" step="0.01" placeholder="0" style="width:80px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-    <td style="padding:5px 6px"><input class="al-unidad" placeholder="Unidad" style="width:70px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-    <td style="padding:5px 6px"><input class="al-ref-min" type="number" step="0.01" placeholder="min" style="width:70px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-    <td style="padding:5px 6px"><input class="al-ref-max" type="number" step="0.01" placeholder="max" style="width:70px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;font-size:14px"></td>
-    <td style="padding:5px 6px"><select class="al-interp" style="width:100px;padding:7px 10px;border:1.5px solid ${BR};border-radius:6px;outline:none;background:#fff;font-size:14px">${INTERP.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select></td>
-    <td style="padding:5px 6px"><button onclick="this.closest('tr').remove()" style="background:#FFEBEE;color:${DA};border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button></td>`;
-  tbody.appendChild(row);
-}
-window.guardarAnalitos=async function(){
-  const pid=STATE.pat?.id;if(!pid)return;
-  const panel=(document.getElementById("al-panel")?.value||"").trim();
-  const fecha=document.getElementById("al-fecha")?.value||new Date().toISOString().split("T")[0];
-  const lab=(document.getElementById("al-lab")?.value||"").trim();
-  const obs=(document.getElementById("al-obs")?.value||"").trim();
-  // Recoger analitos
-  const rows=[...document.querySelectorAll(".analito-row")];
-  const analitos=rows.map(r=>({
-    nombre:r.querySelector(".al-nombre")?.value?.trim()||"",
-    valor:r.querySelector(".al-valor")?.value?.trim()||"",
-    unidad:r.querySelector(".al-unidad")?.value?.trim()||"",
-    ref_min:r.querySelector(".al-ref-min")?.value?.trim()||"",
-    ref_max:r.querySelector(".al-ref-max")?.value?.trim()||"",
-    interpretacion:r.querySelector(".al-interp")?.value||"N"
-  })).filter(a=>a.nombre);
-  if(!panel){showToast("Selecciona un panel",false);return;}
-  if(analitos.length===0){showToast("Agrega al menos un analito",false);return;}
-  loading(true,"Guardando resultados...");
-  // Subir PDF si hay
-  let url_pdf=null;
-  const file=document.getElementById("al-file")?.files[0];
-  if(file){
-    const ext=file.name.split(".").pop().toLowerCase();
-    const path=`${pid}/laboratorio/${Date.now()}_${panel.replace(/[^a-zA-Z0-9]/g,"_")}.${ext}`;
-    const {error:upErr}=await SB.storage.from("expedientes").upload(path,file,{upsert:false,contentType:file.type});
-    if(!upErr){const {data:ud}=SB.storage.from("expedientes").getPublicUrl(path);url_pdf=ud?.publicUrl||null;}
-  }
-  const {error}=await SB.from("resultados_laboratorio").insert({
-    paciente_id:pid,panel,fecha,laboratorio:lab||null,
-    analitos,observaciones:obs||null,url_pdf,
-    registrado_por:`${STATE.userProfile?.titulo||""} ${STATE.userProfile?.nombre||""} ${STATE.userProfile?.apellidos||""}`.trim(),
-    created_at:new Date().toISOString()
-  });
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("✓ Resultados guardados");
-  renderAnalitos(document.getElementById("anexo-body"));
-}
-
-// ── INDICACIONES MÉDICAS (NOM-004 Art. 5 Fracc. XI) ─────────
-async function renderIndicaciones(b){
-  const pid=STATE.pat?.id;if(!pid)return;
-  b.innerHTML=`<div style="text-align:center;padding:20px;color:${MU}"><span class="spin" style="font-size:18px">⚙️</span> Cargando...</div>`;
-  const {data}=await SB.from("indicaciones_medicas").select("*")
-    .eq("paciente_id",pid).eq("activa",true)
-    .order("fecha_indicacion",{ascending:false});
-  const items=data||[];
-  const VIAS=["Oral (VO)","Intravenosa (IV)","Intramuscular (IM)","Subcutánea (SC)","Sublingual (SL)","Tópica","Inhalatoria","Ótica","Oftálmica","Rectal","Transdérmica"];
-  const ESTADOS=[["Pendiente","#FFF3E0","#E65100"],["Administrado","#E8F5E9","#2E7D32"],["Suspendido","#ECEFF1","#546E7A"],["Cancelado","#FFEBEE","#C62828"]];
-  b.innerHTML=`
-  <div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="background:${PD};padding:9px 14px;display:flex;align-items:center;justify-content:space-between">
-        <b style="color:#fff;font-size:14px">💊 HOJA DE INDICACIONES MÉDICAS (NOM-004)</b>
-        ${btn("➕ Nueva indicación","mostrarFormIndicacion()","ok",1)}
-      </div>
-      <div id="form-indicacion" style="display:none;padding:14px;border-bottom:1px solid ${BR};background:#F8F9FA">
-        <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Nueva indicación / orden médica</p>
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px">
-          ${fld("Medicamento (nombre genérico) *",`<input id="ind-med" placeholder="Ej: Paracetamol, Metformina 850 mg" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Presentación",`<input id="ind-pres" placeholder="Tabletas, solución IV, ampolleta..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Dosis *",`<input id="ind-dosis" placeholder="500 mg, 10 mL, 2 tabletas..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-          ${fld("Vía *",`<select id="ind-via" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${VIAS.map(v=>`<option>${v}</option>`).join("")}</select>`)}
-          ${fld("Frecuencia *",`<input id="ind-freq" placeholder="Cada 8 hrs, Una vez al día..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Duración",`<input id="ind-dur" placeholder="5 días, indefinido..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Fecha de indicación",`<input id="ind-fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        </div>
-        ${fld("Instrucciones especiales",`<textarea id="ind-inst" rows="2" placeholder="Con alimentos, evitar sol, monitoreo de glucosa..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;resize:vertical;font-family:inherit"></textarea>`)}
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
-          ${btn("Cancelar","ocultarFormIndicacion()","s",1)}
-          ${btn("💊 Registrar indicación","guardarIndicacion()","ok",1)}
-        </div>
-      </div>
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:14px">
-          <thead><tr style="background:${PL}">
-            ${["Fecha","Médico","Medicamento","Dosis","Vía","Frecuencia","Duración","Estado","Administración / Lote / Cad.","Acciones"].map(h=>`<th style="padding:9px 11px;text-align:left;font-weight:700;color:${TX};white-space:nowrap">${h}</th>`).join("")}
-          </tr></thead>
-          <tbody>
-            ${items.length===0?`<tr><td colspan="10" style="padding:24px;text-align:center;color:${MU}">Sin indicaciones registradas. Usa "Nueva indicación" para agregar.</td></tr>`:
-            items.map((ind,i)=>{
-              const [estLbl,estBg,estCol]=ESTADOS.find(e=>e[0]===ind.estado)||ESTADOS[0];
-              return`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-                <td style="padding:9px 11px;white-space:nowrap;color:${MU}">${ind.fecha_indicacion||"—"}<br><small>${ind.hora_indicacion||""}</small></td>
-                <td style="padding:9px 11px;font-size:13px;color:${MU};max-width:120px">${ind.medico_nombre||"—"}</td>
-                <td style="padding:9px 11px"><b style="color:${TX}">${ind.medicamento||"—"}</b>${ind.presentacion?`<br><small style="color:${MU}">${ind.presentacion}</small>`:""}</td>
-                <td style="padding:9px 11px;font-weight:700;color:${P}">${ind.dosis||"—"}</td>
-                <td style="padding:9px 11px;color:${MU}">${ind.via||"—"}</td>
-                <td style="padding:9px 11px">${ind.frecuencia||"—"}</td>
-                <td style="padding:9px 11px;color:${MU}">${ind.duracion||"—"}</td>
-                <td style="padding:9px 11px"><span style="background:${estBg};color:${estCol};padding:2px 9px;border-radius:20px;font-size:13px;font-weight:700">${estLbl}</span></td>
-                <td style="padding:9px 11px;font-size:13px;color:${MU}">
-                  ${ind.administrado_por?`<div style="font-weight:600">${ind.administrado_por}</div><div>${ind.fecha_administracion?new Date(ind.fecha_administracion).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</div>`:"—"}
-                  ${ind.lote?`<div style="color:${P}">Lote: ${ind.lote}</div>`:""}
-                  ${ind.caducidad?`<div style="color:${ind.caducidad<new Date().toISOString().split('T')[0]?"#C62828":MU}">Cad: ${ind.caducidad}</div>`:""}
-                </td>
-                <td style="padding:9px 11px;white-space:nowrap">
-                  ${ind.estado==="Pendiente"?`<button onclick="marcarAdministrado('${ind.id}')" style="background:#2E7D32;color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:13px;margin-right:4px">✓ Administrar</button>`:""}
-                  ${ind.estado==="Pendiente"?`<button onclick="cancelarIndicacion('${ind.id}')" style="background:${DA};color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:13px">✕ Cancelar</button>`:""}
-                </td>
-              </tr>`;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>`;
-}
-window.mostrarFormIndicacion=function(){document.getElementById("form-indicacion").style.display="block";}
-window.ocultarFormIndicacion=function(){document.getElementById("form-indicacion").style.display="none";}
-window.guardarIndicacion=async function(){
-  const pid=STATE.pat?.id;if(!pid)return;
-  const med=gv("ind-med").trim();const dosis=gv("ind-dosis").trim();
-  const via=gv("ind-via");const freq=gv("ind-freq").trim();
-  if(!med||!dosis||!freq){showToast("Medicamento, dosis y frecuencia son obligatorios",false);return;}
-  const u=STATE.userProfile||{};
-  loading(true,"Registrando indicación...");
-  const {error}=await SB.from("indicaciones_medicas").insert({
-    paciente_id:pid,
-    consulta_id:STATE.consultaActual?.id||null,
-    medico_id:STATE.user?.id,
-    medico_nombre:`${u.titulo||"Dr."} ${u.nombre||""} ${u.apellidos||""}`.trim(),
-    fecha_indicacion:gv("ind-fecha")||new Date().toISOString().split("T")[0],
-    hora_indicacion:new Date().toTimeString().substring(0,5),
-    medicamento:med,presentacion:gv("ind-pres")||null,
-    dosis,via,frecuencia:freq,
-    duracion:gv("ind-dur")||null,
-    instrucciones:gv("ind-inst")||null,
-    estado:"Pendiente",activa:true
-  });
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("✓ Indicación registrada");
-  logBitacora("INDICACIÓN MÉDICA","Registró indicación: "+med,pid);
-  renderIndicaciones(document.getElementById("eb"));
-}
-window.marcarAdministrado=async function(id){
-  const u=STATE.userProfile||{};
-  // Modal para capturar datos de administración
-  const overlay=document.createElement("div");
-  overlay.id="modal-admin-med";
-  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:flex;align-items:center;justify-content:center";
-  overlay.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:440px;box-shadow:0 16px 40px #00000040">
-    <h3 style="font-size:15px;font-weight:700;color:#263238;margin-bottom:16px">✓ Registrar administración de medicamento</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      ${fld("Número de lote",`<input id="adm-lote" placeholder="Ej: ABC123456" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      ${fld("Fecha de caducidad",`<input id="adm-cad" type="date" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-    </div>
-    ${fld("Administrado por",`<input id="adm-quien" value="${`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim()}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button onclick="document.getElementById('modal-admin-med').remove()" style="background:#F5F5F5;border:1px solid ${BR};border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px">Cancelar</button>
-      <button onclick="confirmarAdministracion('${id}')" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">✓ Confirmar administración</button>
-    </div>
-  </div>`;
-  document.body.appendChild(overlay);
-}
-window.confirmarAdministracion=async function(id){
-  const lote=(document.getElementById("adm-lote")?.value||"").trim();
-  const cad=(document.getElementById("adm-cad")?.value||"").trim();
-  const quien=(document.getElementById("adm-quien")?.value||"").trim();
-  document.getElementById("modal-admin-med")?.remove();
-  loading(true,"Registrando...");
-  const {error}=await SB.from("indicaciones_medicas").update({
-    estado:"Administrado",
-    administrado_por:quien||null,
-    fecha_administracion:new Date().toISOString(),
-    lote:lote||null,
-    caducidad:cad||null
-  }).eq("id",id);
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("✓ Medicamento administrado registrado con lote y caducidad");
-  logBitacora("MEDICAMENTO ADMINISTRADO","Lote: "+(lote||"no indicado"),STATE.pat?.id);
-  renderIndicaciones(document.getElementById("eb"));
-}
-window.cancelarIndicacion=async function(id){
-  if(!await qpConfirm("¿Cancelar esta indicación? Esta acción no se puede deshacer.",{title:"Cancelar indicación",okLabel:"Sí, cancelar",danger:true}))return;
-  loading(true);
-  await SB.from("indicaciones_medicas").update({estado:"Cancelado",activa:false}).eq("id",id);
-  loading(false);
-  showToast("Indicación cancelada");
-  renderIndicaciones(document.getElementById("eb"));
-}
-
-// ── NOTAS DE ENFERMERÍA (NOM-004 Art. 7 Fracc. IV) ───────────
-async function renderEnfermeria(b){
-  const pid=STATE.pat?.id;if(!pid)return;
-  b.innerHTML=`<div style="text-align:center;padding:20px;color:${MU}"><span class="spin" style="font-size:18px">⚙️</span> Cargando...</div>`;
-  const {data}=await SB.from("notas_enfermeria").select("*")
-    .eq("paciente_id",pid).order("fecha",{ascending:false}).order("hora",{ascending:false});
-  const notas=data||[];
-  const TURNOS=["Matutino (07:00-15:00)","Vespertino (15:00-23:00)","Nocturno (23:00-07:00)","Especial / Procedimiento"];
-  const u=STATE.userProfile||{};
-  const enfNombre=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();
-  b.innerHTML=`
-  <div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="background:#6A1B9A;padding:9px 14px;display:flex;align-items:center;justify-content:space-between">
-        <b style="color:#fff;font-size:14px">🏥 NOTAS DE ENFERMERÍA (NOM-004)</b>
-        ${btn("➕ Nueva nota","mostrarFormEnfermeria()","ok",1)}
-      </div>
-      <div id="form-enfermeria" style="display:none;padding:14px;border-bottom:1px solid ${BR};background:#F8F9FA">
-        <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Nueva nota de enfermería</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-          ${fld("Fecha",`<input id="enf-fecha" type="date" value="${new Date().toISOString().split("T")[0]}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Hora",`<input id="enf-hora" type="time" value="${new Date().toTimeString().substring(0,5)}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Turno",`<select id="enf-turno" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${TURNOS.map(t=>`<option>${t}</option>`).join("")}</select>`)}
-        </div>
-        <p style="font-size:13px;font-weight:700;color:${MU};margin-bottom:8px;text-transform:uppercase">Signos vitales del turno (opcional)</p>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
-          ${fld("Temp. °C",`<input id="enf-temp" type="number" step="0.1" placeholder="36.5" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("FC lpm",`<input id="enf-fc" type="number" placeholder="72" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("FR rpm",`<input id="enf-fr" type="number" placeholder="16" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Sat. O₂ %",`<input id="enf-sat" type="number" step="0.1" placeholder="98" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Glucosa mg/dL",`<input id="enf-glu" type="number" placeholder="100" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        </div>
-        ${fld("Estado general del paciente",`<textarea id="enf-estado" rows="2" placeholder="Paciente consciente, orientado, colaborador..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;resize:vertical;font-family:inherit"></textarea>`)}
-        ${fld("Medicamentos administrados en el turno",`<textarea id="enf-meds" rows="2" placeholder="Paracetamol 500 mg VO 14:00 hrs — Lote: 12345..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;resize:vertical;font-family:inherit"></textarea>`)}
-        ${fld("Procedimientos y cuidados",`<textarea id="enf-proc" rows="2" placeholder="Curación herida, cambio venoclisis, toma de muestras..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;resize:vertical;font-family:inherit"></textarea>`)}
-        ${fld("Observaciones / Eventos del turno",`<textarea id="enf-obs" rows="2" placeholder="Incidencias, caídas, cambios en el estado del paciente, comunicaciones al médico..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;resize:vertical;font-family:inherit"></textarea>`)}
-        ${fld("Nombre del enfermero/a *",`<input id="enf-nombre" value="${enfNombre}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
-          ${btn("Cancelar","ocultarFormEnfermeria()","s",1)}
-          ${btn("💾 Guardar nota de enfermería","guardarNotaEnfermeria()","ok",1)}
-        </div>
-      </div>
-      ${notas.length===0?`<div style="text-align:center;padding:28px;color:${MU}">Sin notas de enfermería registradas.</div>`:
-      notas.map((n,i)=>{
-        const TURNO_COLS={"Matutino":"#E3F4FB","Vespertino":"#FFF8E1","Nocturno":"#EDE7F6","Especial":"#E8F5E9"};
-        const turnoKey=Object.keys(TURNO_COLS).find(k=>(n.turno||"").includes(k))||"Matutino";
-        const tc=TURNO_COLS[turnoKey];
-        return`<div style="border-bottom:1px solid ${BR};padding:12px 16px;background:${i%2?"#FAFAFA":"#fff"}">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="background:${tc};color:#263238;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700">${n.turno||"—"}</span>
-              <span style="font-size:14px;font-weight:700;color:${TX}">${n.fecha||""} ${n.hora||""}</span>
-            </div>
-            <span style="font-size:13px;color:${MU}">🏥 ${n.enfermero_nombre||"—"}</span>
-          </div>
-          ${[n.temperatura,n.frecuencia_cardiaca,n.frecuencia_respiratoria,n.saturacion_o2,n.glucosa].some(v=>v!=null)?
-          `<div style="background:#E3F4FB;border-radius:7px;padding:7px 12px;margin-bottom:8px;font-size:13px;color:#006BB6">
-            📊 Signos vitales:${n.temperatura?` T°${n.temperatura}°C`:""}${n.frecuencia_cardiaca?` FC:${n.frecuencia_cardiaca}`:""}${n.frecuencia_respiratoria?` FR:${n.frecuencia_respiratoria}`:""}${n.saturacion_o2?` Sat:${n.saturacion_o2}%`:""}${n.glucosa?` Glu:${n.glucosa} mg/dL`:""}
-          </div>`:""}
-          ${n.estado_general?`<p style="font-size:14px;color:${TX};margin-bottom:4px"><b>Estado general:</b> ${n.estado_general}</p>`:""}
-          ${n.medicamentos_administrados?`<p style="font-size:14px;color:${TX};margin-bottom:4px"><b>Medicamentos administrados:</b> ${n.medicamentos_administrados}</p>`:""}
-          ${n.procedimientos?`<p style="font-size:14px;color:${TX};margin-bottom:4px"><b>Procedimientos:</b> ${n.procedimientos}</p>`:""}
-          ${n.observaciones?`<p style="font-size:14px;color:${TX}"><b>Observaciones:</b> ${n.observaciones}</p>`:""}
-        </div>`;
-      }).join("")}
-    </div>
-  </div>`;
-}
-window.mostrarFormEnfermeria=function(){document.getElementById("form-enfermeria").style.display="block";}
-window.ocultarFormEnfermeria=function(){document.getElementById("form-enfermeria").style.display="none";}
-window.guardarNotaEnfermeria=async function(){
-  const pid=STATE.pat?.id;if(!pid)return;
-  const enfNom=(gv("enf-nombre")||"").trim();
-  if(!enfNom){showToast("El nombre del enfermero/a es obligatorio",false);return;}
-  const estadoGen=(gv("enf-estado")||"").trim();
-  const meds=(gv("enf-meds")||"").trim();
-  const obs=(gv("enf-obs")||"").trim();
-  if(!estadoGen&&!meds&&!obs){showToast("Escribe al menos el estado general o las observaciones",false);return;}
-  loading(true,"Guardando nota...");
-  const {error}=await SB.from("notas_enfermeria").insert({
-    paciente_id:pid,
-    enfermero_id:STATE.user?.id||null,
-    enfermero_nombre:enfNom,
-    fecha:gv("enf-fecha")||new Date().toISOString().split("T")[0],
-    hora:gv("enf-hora")||new Date().toTimeString().substring(0,5),
-    turno:gv("enf-turno")||"Matutino",
-    temperatura:parseFloat(gv("enf-temp"))||null,
-    frecuencia_cardiaca:parseInt(gv("enf-fc"))||null,
-    frecuencia_respiratoria:parseInt(gv("enf-fr"))||null,
-    saturacion_o2:parseFloat(gv("enf-sat"))||null,
-    glucosa:parseFloat(gv("enf-glu"))||null,
-    estado_general:estadoGen||null,
-    medicamentos_administrados:meds||null,
-    procedimientos:(gv("enf-proc")||"").trim()||null,
-    observaciones:obs||null
-  });
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("✓ Nota de enfermería guardada");
-  logBitacora("NOTA ENFERMERÍA","Turno: "+(gv("enf-turno")||"Matutino"),pid);
-  renderEnfermeria(document.getElementById("eb"));
-}
-
-// ── INBODY / COMPOSICIÓN CORPORAL ────────────────────────────
-
-// ══════════════════════════════════════════════════════════════════════════════
-// MÓDULO SEGUROS — INFORMES DE ASEGURADORA
-// ══════════════════════════════════════════════════════════════════════════════
-async function renderSeguros(b){
-  const p=STATE.pat||{};
-  const u=STATE.userProfile||{};
-  const nomPac=`${p.primer_nombre||""} ${p.segundo_nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.replace(/\s+/g," ").trim();
-  const edadNum=edadAnios?.(p.fecha_nacimiento)||"";
-  const medNom=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();
-  const medEsp=u.especialidad_1||"";
-  const medCed=u.cedula_esp_1||u.cedula_medico||"";
-  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"/");
-
-  b.innerHTML=`
-  <div style="max-width:900px;margin:0 auto;padding:14px" class="fade">
-    <!-- Header selector aseguradora -->
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000015;overflow:hidden;margin-bottom:16px">
-      <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div>
-          <p style="color:rgba(255,255,255,.75);font-size:11px;margin-bottom:2px;text-transform:uppercase">Módulo de informes</p>
-          <b style="color:#fff;font-size:15px">🏥 Informe médico para aseguradora</b>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <label style="color:rgba(255,255,255,.85);font-size:12px">Aseguradora:</label>
-          <select id="seg-aseguradora" onchange="renderSeguros(document.getElementById('eb'))" style="padding:6px 10px;border-radius:7px;border:none;font-size:13px;font-weight:600;background:#fff;color:#1B5E20;cursor:pointer">
-            <option value="metlife" selected>MetLife — CC-1-020 VER.7</option>
-            <option value="gnp" disabled>GNP — Próximamente</option>
-            <option value="axa" disabled>AXA — Próximamente</option>
-            <option value="mapfre" disabled>MAPFRE — Próximamente</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- Formulario MetLife -->
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000015;overflow:hidden">
-      <div style="background:#E8F5E9;padding:10px 16px;border-bottom:1px solid #C8E6C9;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <div>
-          <b style="color:#1B5E20;font-size:13px">MetLife — Informe Médico CC-1-020 VER.7</b>
-          <span style="background:#2E7D32;color:#fff;font-size:10px;padding:2px 7px;border-radius:20px;margin-left:8px">Pre-llenado desde expediente</span>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button onclick="cargarBorradorMetLife()" style="background:#fff;color:#1565C0;border:1.5px solid #90CAF9;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">📂 Abrir borrador</button>
-          <button onclick="guardarBorradorMetLife()" style="background:#fff;color:#1B5E20;border:1.5px solid #66BB6A;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">💾 Guardar borrador</button>
-          <button onclick="generarPDFMetLife()" style="background:#1B5E20;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ti ti-file-type-pdf"></i> Generar PDF</button>
-        </div>
-      </div>
-
-      <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
-        <!-- Info -->
-        <div style="background:#F1F8E9;border-left:3px solid #66BB6A;border-radius:0 6px 6px 0;padding:8px 12px;font-size:12px;color:#33691E">
-          📋 Los datos del paciente y médico se pre-llenan automáticamente. Completa los campos clínicos y genera el PDF oficial listo para firmar.
-        </div>
-
-        <!-- Sección 1: Datos del paciente -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">1. Datos del paciente</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
-              ${fld("Lugar y fecha",inp("ml_lugar_fecha","CIUDAD DE MÉXICO, "+hoy,"Ej: Ciudad de México, 24/06/2026"))}
-              ${fld("Nombre completo del paciente",`<input id="ml_nombre" value="${nomPac}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`,`col-span-2`)}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px">
-              ${fld("Edad",inp("ml_edad",edadNum+" AÑOS","Años"))}
-              ${fld("Sexo",sel("ml_sexo",["M","F","O"],"M"))}
-              ${fld("Causa reclamación",sel("ml_causa",["Enfermedad","Accidente","Embarazo","Segunda valoración"],"Enfermedad"))}
-              ${fld("Peso (kg)",inp("ml_peso",p.peso||"","51"))}
-              ${fld("Talla (cm)",inp("ml_talla",p.talla||"","152"))}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              ${fld("Fecha primera atención (DD/MM/AAAA)",inp("ml_fecha_aten","","16/01/2026"))}
-            </div>
-          </div>
-        </div>
-
-        <!-- Sección 2: Antecedentes -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">2. Antecedentes clínicos</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            ${fld("Historia clínica breve",`<textarea id="ml_hcb" rows="2" placeholder="Resumen de antecedentes relevantes..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("Antecedentes personales patológicos",`<textarea id="ml_app" rows="2" placeholder="DM2, HAS, etc." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("Antecedentes quirúrgicos",`<textarea id="ml_aqx" rows="2" placeholder="Cirugías previas..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div>
-                <label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:4px;display:block">Gineco-obstétricos (G/P/A/C)</label>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
-                  <input id="ml_g" placeholder="G" style="padding:8px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center;font-size:13px">
-                  <input id="ml_p_part" placeholder="P" style="padding:8px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center;font-size:13px">
-                  <input id="ml_a" placeholder="A" style="padding:8px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center;font-size:13px">
-                  <input id="ml_c" placeholder="C" style="padding:8px;border:1.5px solid ${BR};border-radius:7px;outline:none;text-align:center;font-size:13px">
-                </div>
-              </div>
-            </div>
-            ${fld("Afecciones adicionales no relacionadas con la reclamación",`<textarea id="ml_afec" rows="2" placeholder="Otras enfermedades..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-          </div>
-        </div>
-
-        <!-- Sección 3: Padecimiento actual -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">3. Padecimiento actual</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            ${fld("a) Signos y síntomas principales / evolución",`<textarea id="ml_signos" rows="3" placeholder="Descripción del cuadro clínico..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-              ${fld("Fecha inicio síntomas (DD/MM/AAAA)",inp("ml_fecha_inicio","","02/04/2026"))}
-              ${fld("Tipo padecimiento",sel("ml_tipo_pad",["Adquirido","Congénito","Agudo","Crónico"],"Adquirido"))}
-              ${fld("Tiempo de evolución",inp("ml_evolucion","","3 MESES Y 22 DÍAS"))}
-            </div>
-            ${fld("Causa / etiología del padecimiento",`<textarea id="ml_etiologia" rows="2" placeholder="Mecanismo de lesión o causa..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("c) Exploración física, estudios de laboratorio y gabinete",`<textarea id="ml_exploracion" rows="3" placeholder="Hallazgos de exploración física y estudios..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
-              ${fld("d) Diagnóstico etiológico definitivo",inp("ml_dx","",""))}
-              ${fld("Código CIE",inp("ml_cie","",""))}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-              ${fld("Fecha diagnóstico (DD/MM/AAAA)",inp("ml_fecha_dx","",""))}
-              ${fld("Fecha inicio tratamiento (DD/MM/AAAA)",inp("ml_fecha_tto","",""))}
-              ${fld("¿Relacionado con otro padecimiento?",sel("ml_rel_sel",["No","Sí"],"No"))}
-            </div>
-            ${fld("¿Cuál?",inp("ml_cual","","Solo si aplica"))}
-            ${fld("h) Tratamiento y/o intervención quirúrgica (CPT)",`<textarea id="ml_tto" rows="2" placeholder="Procedimiento realizado..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("i) Descripción de la técnica",`<textarea id="ml_tecnica" rows="2" placeholder="Técnica quirúrgica o terapéutica..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              ${fld("j) ¿Utilizó equipo especial?",sel("ml_equipo_sel",["No","Sí"],"No"))}
-              ${fld("Detallar equipo",inp("ml_equipo_det","",""))}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              ${fld("k) ¿Utilizó insumos / materiales?",sel("ml_insumos_sel",["No","Sí"],"No"))}
-              ${fld("Detallar insumos",inp("ml_insumos_det","",""))}
-            </div>
-            ${fld("l) Complicaciones",`<textarea id="ml_compl" rows="2" placeholder="Ninguna / detallar si aplica..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            ${fld("m) Estado actual del paciente",`<textarea id="ml_estado" rows="2" placeholder="Evolución clínica actual..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-            <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
-              ${fld("n) ¿Continuará tratamiento?",sel("ml_continua_sel",["Sí","No"],"Sí"))}
-              ${fld("Describir tratamiento y duración",inp("ml_tto_desc","","Ej: TERAPIA FÍSICA 10 SESIONES"))}
-            </div>
-            ${fld("o) Fecha probable de alta / prealta (DD/MM/AAAA)",inp("ml_fecha_alta","",""))}
-          </div>
-        </div>
-
-        <!-- Sección 4 & 5 -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">4. Hospitalización / 5. Observaciones</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px">
-              ${fld("Nombre del hospital",inp("ml_hospital","","Si aplica"))}
-              ${fld("Tipo ingreso",sel("ml_tipo_ing_sel",["Corta estancia / ambulatoria","Urgencia","Ingreso hospitalario"],"Corta estancia / ambulatoria"))}
-              ${fld("Fecha de ingreso (DD/MM/AAAA)",inp("ml_f_ing","",""))}
-              ${fld("Fecha de egreso (DD/MM/AAAA)",inp("ml_f_egr","",""))}
-            </div>
-            ${fld("5. Observaciones adicionales",`<textarea id="ml_obs" rows="2" placeholder="Comentarios adicionales..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;resize:vertical;font-family:inherit;font-size:13px"></textarea>`)}
-          </div>
-        </div>
-
-        <!-- Sección 7: Datos del médico -->
-        <div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
-          <div style="background:#F5F5F5;padding:8px 12px;border-bottom:1px solid #E0E0E0"><b style="font-size:12px;color:#1B5E20;text-transform:uppercase">7. Datos del médico</b></div>
-          <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-              ${fld("Tipo de atención",sel("ml_tipo_aten_sel",["Médico tratante","Cirujano principal","Interconsultante","Equipo quirúrgico","Segunda valoración"],"Médico tratante"))}
-              ${fld("Nombre completo",`<input id="ml_med_nom" value="${medNom}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("Especialidad",`<input id="ml_med_esp" value="${medEsp}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-            </div>
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
-              ${fld("Domicilio del consultorio",`<input id="ml_med_dir" value="${u.institucion_grado||'AV. INSURGENTES SUR 933 PISO 12, COL. NÁPOLES, BENITO JUÁREZ, CDMX'}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("Teléfono",`<input id="ml_med_tel" value="${u.telefono||'55 5682 4345'}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
-              ${fld("Cédula profesional especialidad",`<input id="ml_med_ced" value="${medCed}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("Número celular",`<input id="ml_med_cel" value="${u.telefono||''}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("RFC",`<input id="ml_med_rfc" value="${u.rfc||''}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-              ${fld("Correo electrónico",`<input id="ml_med_email" value="${u.email_real||u.email||''}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px">`)}
-            </div>
-          </div>
-        </div>
-
-        <!-- Botones finales -->
-        <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px">
-          <button onclick="guardarBorradorMetLife()" style="background:#fff;color:#1B5E20;border:1.5px solid #66BB6A;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer">💾 Guardar borrador</button>
-          <button onclick="generarPDFMetLife()" style="background:#1B5E20;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer">📄 Generar PDF MetLife</button>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-
-// Guardar borrador en anexos
-window.guardarBorradorMetLife=async function(){
-  const pid=STATE.pat?.id; if(!pid){showToast("No hay paciente activo",false);return;}
-  const campos={};
-  ["ml_lugar_fecha","ml_nombre","ml_edad","ml_sexo","ml_causa","ml_peso","ml_talla",
-   "ml_fecha_aten","ml_hcb","ml_app","ml_aqx","ml_g","ml_p_part","ml_a","ml_c","ml_afec",
-   "ml_signos","ml_fecha_inicio","ml_tipo_pad","ml_evolucion","ml_etiologia","ml_exploracion",
-   "ml_dx","ml_cie","ml_fecha_dx","ml_fecha_tto","ml_cual","ml_tto","ml_tecnica",
-   "ml_equipo_det","ml_insumos_det","ml_compl","ml_estado","ml_tto_desc","ml_fecha_alta",
-   "ml_hospital","ml_f_ing","ml_f_egr","ml_obs",
-   "ml_med_nom","ml_med_esp","ml_med_dir","ml_med_tel","ml_med_ced","ml_med_cel","ml_med_rfc","ml_med_email",
-   "ml_tipo_aten_sel","ml_equipo_sel","ml_insumos_sel","ml_continua_sel","ml_rel_sel","ml_tipo_ing_sel"
-  ].forEach(id=>{const el=document.getElementById(id);if(el)campos[id]=el.value;});
-  const prefijo="__METLIFE__:";
-  // Buscar si ya existe borrador
-  const {data:ex}=await SB.from("anexos").select("id").eq("paciente_id",pid).like("titulo","BORRADOR METLIFE%").limit(1);
-  const payload={paciente_id:pid,titulo:"BORRADOR METLIFE — "+new Date().toLocaleDateString("es-MX"),tipo_documento:"Informe seguro",origen:"generado",firmado:false,descripcion:prefijo+JSON.stringify(campos),fecha:new Date().toISOString().split("T")[0]};
-  if(ex?.length){
-    await SB.from("anexos").update(payload).eq("id",ex[0].id);
-  } else {
-    await SB.from("anexos").insert(payload);
-  }
-  showToast("✓ Borrador MetLife guardado en el expediente");
-};
-
-// Cargar borrador guardado en anexos
-window.cargarBorradorMetLife=async function(){
-  const pid=STATE.pat?.id;
-  if(!pid){showToast("No hay paciente activo",false);return;}
-  // Buscar todos los borradores de este paciente
-  const {data:borradores}=await SB.from("anexos")
-    .select("id,titulo,descripcion,fecha")
-    .eq("paciente_id",pid)
-    .like("titulo","BORRADOR METLIFE%")
-    .order("fecha",{ascending:false});
-  if(!borradores?.length){showToast("No hay borradores guardados para este paciente",false);return;}
-  // Si hay varios, mostrar selector; si hay uno, cargarlo directo
-  if(borradores.length===1){
-    _aplicarBorradorMetLife(borradores[0]);
-  } else {
-    // Modal selector
-    const overlay=document.createElement("div");
-    overlay.id="modal-borrador-ml";
-    overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
-    overlay.innerHTML=`
-    <div style="background:#fff;border-radius:12px;width:100%;max-width:460px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-      <div style="background:linear-gradient(135deg,#1565C0,#0D47A1);padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
-        <b style="color:#fff;font-size:14px">📂 Borradores guardados</b>
-        <button onclick="document.getElementById('modal-borrador-ml').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:15px">✕</button>
-      </div>
-      <div style="padding:14px;display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto">
-        ${borradores.map((b,i)=>`
-        <button onclick="document.getElementById('modal-borrador-ml').remove();_aplicarBorradorMetLife(${JSON.stringify(b).replace(/"/g,'&quot;')})"
-          style="background:#F8FBFC;border:1.5px solid #BBDEFB;border-radius:8px;padding:10px 14px;text-align:left;cursor:pointer;transition:background .15s"
-          onmouseover="this.style.background='#E3F2FD'" onmouseout="this.style.background='#F8FBFC'">
-          <div style="font-weight:700;font-size:13px;color:#1565C0">${b.titulo}</div>
-          <div style="font-size:11px;color:#78909C;margin-top:2px">Guardado el ${b.fecha}</div>
-        </button>`).join("")}
-      </div>
-      <div style="padding:10px 14px;border-top:1px solid #EEE;text-align:right">
-        <button onclick="document.getElementById('modal-borrador-ml').remove()" style="background:#F5F5F5;color:#546E7A;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:13px">Cancelar</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-  }
-};
-
-window._aplicarBorradorMetLife=function(borrador){
-  try{
-    const prefijo="__METLIFE__:";
-    const raw=borrador.descripcion||borrador.contenido||"";
-    const json=raw.startsWith(prefijo)?raw.slice(prefijo.length):raw;
-    const campos=JSON.parse(json);
-    // Rellenar todos los campos del formulario
-    Object.entries(campos).forEach(([id,val])=>{
-      const el=document.getElementById(id);
-      if(el)el.value=val||"";
-    });
-    showToast("✓ Borrador \""+borrador.titulo+"\" cargado");
-  }catch(e){
-    showToast("Error al cargar el borrador: "+e.message,false);
-  }
-};
-
-// Generar PDF con coordenadas calibradas para imágenes 1100×1423px → carta 215.9×279.4mm
-window.generarPDFMetLife=async function(){
-  loading(true,"Generando informe médico MetLife...");
-  try{
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
-    const PW=215.9,PH=279.4;
-
-    // Leer campos
-    const gv=id=>document.getElementById(id)?.value||"";
-
-    const d={
-      lugar_fecha: gv("ml_lugar_fecha"),
-      nombre:      gv("ml_nombre"),
-      edad:        gv("ml_edad"),
-      sexo:        gv("ml_sexo"),
-      causa:       gv("ml_causa"),
-      peso:        gv("ml_peso"),
-      talla:       gv("ml_talla"),
-      fecha_aten:  gv("ml_fecha_aten"),
-      hcb:         gv("ml_hcb"),
-      app:         gv("ml_app"),
-      aqx:         gv("ml_aqx"),
-      g:           gv("ml_g"),
-      p_part:      gv("ml_p_part"),
-      a:           gv("ml_a"),
-      c:           gv("ml_c"),
-      afec:        gv("ml_afec"),
-      signos:      gv("ml_signos"),
-      fecha_inicio:gv("ml_fecha_inicio"),
-      tipo_pad:    gv("ml_tipo_pad"),
-      evolucion:   gv("ml_evolucion"),
-      etiologia:   gv("ml_etiologia"),
-      exploracion: gv("ml_exploracion"),
-      dx:          gv("ml_dx"),
-      cie:         gv("ml_cie"),
-      fecha_dx:    gv("ml_fecha_dx"),
-      fecha_tto:   gv("ml_fecha_tto"),
-      rel:         gv("ml_rel_sel"),
-      cual:        gv("ml_cual"),
-      tto:         gv("ml_tto"),
-      tecnica:     gv("ml_tecnica"),
-      equipo:      gv("ml_equipo_sel"),
-      equipo_det:  gv("ml_equipo_det"),
-      insumos:     gv("ml_insumos_sel"),
-      insumos_det: gv("ml_insumos_det"),
-      compl:       gv("ml_compl"),
-      estado:      gv("ml_estado"),
-      continua:    gv("ml_continua_sel"),
-      tto_desc:    gv("ml_tto_desc"),
-      fecha_alta:  gv("ml_fecha_alta"),
-      hospital:    gv("ml_hospital"),
-      tipo_ing:    gv("ml_tipo_ing_sel"),
-      f_ing:       gv("ml_f_ing"),
-      f_egr:       gv("ml_f_egr"),
-      obs:         gv("ml_obs"),
-      med_nom:     gv("ml_med_nom"),
-      med_esp:     gv("ml_med_esp"),
-      med_dir:     gv("ml_med_dir"),
-      med_tel:     gv("ml_med_tel"),
-      med_ced:     gv("ml_med_ced"),
-      med_cel:     gv("ml_med_cel"),
-      med_rfc:     gv("ml_med_rfc"),
-      med_email:   gv("ml_med_email"),
-      tipo_aten:   gv("ml_tipo_aten_sel"),
-    };
-
-    // Cargar imágenes de fondo
-    async function imgToB64(url){
-      return new Promise(res=>{
-        const img=new Image();img.crossOrigin="anonymous";
-        img.onload=()=>{
-          const c=document.createElement("canvas");c.width=img.width;c.height=img.height;
-          c.getContext("2d").drawImage(img,0,0);
-          res(c.toDataURL("image/jpeg"));
-        };
-        img.onerror=()=>res(null);
-        img.src=url+"?t="+Date.now();
-      });
-    }
-    const BASE="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/metlife/";
-    const [p1,p2,p3,p4]=await Promise.all(["page-001.jpg","page-002.jpg","page-003-c.jpg","page-004.jpg"].map(f=>imgToB64(BASE+f)));
-
-    // Helper texto — no escribe si str está vacío
-    function T(str,x,y,maxW,fs=8.5,bold=false){
-      if(!str||!String(str).trim())return;
-      doc.setFontSize(fs);doc.setFont("helvetica",bold?"bold":"normal");
-      doc.setTextColor(0,0,0);
-      const lines=doc.splitTextToSize(String(str).toUpperCase(),maxW);
-      doc.text(lines,x,y);
-    }
-    // Helper split fecha DD/MM/AAAA → array
-
-    // Helper firma
-    async function loadFirma(url){
-      return new Promise(res=>{
-        const img=new Image();img.crossOrigin="anonymous";
-        img.onload=()=>{const c=document.createElement("canvas");c.width=img.width;c.height=img.height;c.getContext("2d").drawImage(img,0,0);res(c.toDataURL());};
-        img.onerror=()=>res(null);img.src=url;
-      });
-    }
-    const firmaUrl=STATE.userProfile?.firma_digital||STATE.medProfile?.firma_digital||null;
-    const firmaB64Ml=firmaUrl?await loadFirma(firmaUrl):null;
-
-    // Coordenadas exactas del AcroForm MetLife CC-1-020 VER.7
-    // rect_image_px (origen top-left, imagen 1100x1423px) → mm (origen top-left, carta 215.9x279.4mm)
-    // Fórmula: x_mm = x_px * 215.9/1100  |  y_mm = y_px * 279.4/1423
-    // Para texto: escribir en y_mm + h_mm*0.7 (baseline dentro del campo)
-
-    // ══ PÁGINA 1 ══
-    if(p1)doc.addImage(p1,"JPEG",0,0,PW,PH);
-    doc.setTextColor(0,0,0);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
-    const BL=0.72; // baseline factor dentro del campo
-    function F(x,y,w,h){return{x,y,w,h,by:y+h*BL};}
-
-    // Campos p1 con coordenadas AcroForm
-    const P1={
-      lugar_fecha: F(97.23,77.38,65.75,4.95),
-      D1:  F(171.9,77.87,6.69,4.48), M1: F(182.2,77.87,6.69,4.48), A1: F(192.5,77.69,12.44,4.63),
-      nombre: F(8.56,101.84,199.94,4.95),
-      EDAD: F(8.56,101.84,15.03,4.95),
-      MS:  F(61.57,102.10,4.49,4.34), F_:  F(61.57,108.80,4.49,4.34), O: F(61.69,116.30,4.49,4.34),
-      Acc: F(134.86,101.94,4.49,4.34), E: F(168.72,102.10,4.49,4.34),
-      EM:  F(198.75,102.10,4.49,4.34), SG:  F(198.75,108.76,4.49,4.34),
-      Peso: F(18.70,122.15,20.06,3.83), Talla: F(54.07,122.46,17.64,3.83),
-      D2: F(180.26,131.59,7.30,4.48), M2: F(189.93,131.43,7.30,4.48), A2: F(198.79,131.39,9.38,4.63),
-      hcb1: F(8.56,152.74,199.94,4.95), hcb2: F(8.56,158.25,199.94,4.95),
-      app1: F(8.56,169.64,199.94,4.95), app2: F(8.56,175.36,199.94,4.95),
-      aqx1: F(8.56,186.74,199.94,4.95), aqx2: F(8.56,192.46,199.94,4.95),
-      G: F(158.45,201.37,4.73,4.26), P_: F(173.45,201.37,4.73,4.26),
-      A_: F(188.42,201.37,4.73,4.26), C_: F(203.38,201.37,4.73,4.26),
-      afec1: F(8.56,229.06,199.94,4.91),
-    };
-
-    T(d.lugar_fecha, P1.lugar_fecha.x, P1.lugar_fecha.by, P1.lugar_fecha.w);
-    const[fa_d,fa_m,fa_a]=sF(d.fecha_aten);
-    T(fa_d, P1.D2.x, P1.D2.by, P1.D2.w);
-    T(fa_m, P1.M2.x, P1.M2.by, P1.M2.w);
-    T(fa_a, P1.A2.x, P1.A2.by, P1.A2.w);
-    T(d.nombre, P1.nombre.x, P1.nombre.by, P1.nombre.w, 8.5, true);
-    T(d.edad,   P1.EDAD.x,   P1.EDAD.by,   15.0);
-    // Sexo
-    const cb=(v,f)=>{if(v){doc.setFontSize(10);doc.setFont("helvetica","bold");doc.text("X",f.x+f.w/2,f.by,{align:"center"});doc.setFontSize(8.5);doc.setFont("helvetica","normal");}};
-    cb(d.sexo==="M", P1.MS); cb(d.sexo==="F", P1.F_); cb(d.sexo==="O", P1.O);
-    cb(d.causa==="Accidente", P1.Acc); cb(d.causa==="Enfermedad", P1.E);
-    cb(d.causa==="Embarazo", P1.EM); cb(d.causa==="Segunda valoración", P1.SG);
-    T(d.peso,  P1.Peso.x,  P1.Peso.by,  P1.Peso.w);
-    T(d.talla, P1.Talla.x, P1.Talla.by, P1.Talla.w);
-    // Fecha primera atención en D1/M1/A1
-    T(fa_d, P1.D1.x, P1.D1.by, P1.D1.w);
-    T(fa_m, P1.M1.x, P1.M1.by, P1.M1.w);
-    T(fa_a, P1.A1.x, P1.A1.by, P1.A1.w);
-    // HCB (split en 2 líneas)
-    {const L=doc.splitTextToSize((d.hcb||"").toUpperCase(),P1.hcb1.w);
-     if(L[0])T(L[0],P1.hcb1.x,P1.hcb1.by,P1.hcb1.w);
-     if(L[1])T(L[1],P1.hcb2.x,P1.hcb2.by,P1.hcb2.w);}
-    // APP
-    {const L=doc.splitTextToSize((d.app||"").toUpperCase(),P1.app1.w);
-     if(L[0])T(L[0],P1.app1.x,P1.app1.by,P1.app1.w);
-     if(L[1])T(L[1],P1.app2.x,P1.app2.by,P1.app2.w);}
-    // AQx
-    {const L=doc.splitTextToSize((d.aqx||"").toUpperCase(),P1.aqx1.w);
-     if(L[0])T(L[0],P1.aqx1.x,P1.aqx1.by,P1.aqx1.w);
-     if(L[1])T(L[1],P1.aqx2.x,P1.aqx2.by,P1.aqx2.w);}
-    // Gineco
-    T(d.g,     P1.G.x,  P1.G.by,  P1.G.w);
-    T(d.p_part,P1.P_.x, P1.P_.by, P1.P_.w);
-    T(d.a,     P1.A_.x, P1.A_.by, P1.A_.w);
-    T(d.c,     P1.C_.x, P1.C_.by, P1.C_.w);
-    // Afecciones
-    T(d.afec, P1.afec1.x, P1.afec1.by, P1.afec1.w);
-
-    // ══ PÁGINA 2 ══
-    doc.addPage();
-    if(p2)doc.addImage(p2,"JPEG",0,0,PW,PH);
-    doc.setTextColor(0,0,0);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
-
-    const P2={
-      s1: F(98.73,12.70,109.81,4.24), s2: F(8.40,17.69,200.16,4.24), s3: F(8.40,22.70,200.16,4.24),
-      D2F: F(93.78,28.59,6.22,4.48), M2F: F(102.85,28.59,6.22,4.48), A2F: F(112.46,28.47,11.38,4.59),
-      cong: F(74.17,39.11,4.49,4.34), ADQ: F(101.65,39.11,4.49,4.34),
-      AGU: F(124.85,39.11,4.49,4.34), CRON: F(151.01,39.11,4.49,4.34),
-      evol: F(40.51,44.81,60.16,4.24),
-      etio1: F(8.13,53.0,200.16,4.24), etio2: F(8.13,58.0,200.16,4.24),
-      expl1: F(8.13,69.5,200.16,4.24), expl2: F(8.13,74.5,200.16,4.24), expl3: F(8.13,79.5,200.16,4.24),
-      dx: F(62.98,84.80,84.32,4.24), cie: F(176.17,84.80,32.46,4.24),
-      D3: F(50.76,91.75,6.69,4.48), M3: F(60.43,91.75,6.69,4.48), A3: F(70.52,91.44,11.76,4.75),
-      D4: F(157.82,91.75,6.69,4.48), M4: F(167.66,91.75,6.69,4.48), A4: F(177.59,91.60,10.23,4.75),
-      SIACC: F(137.84,101.29,4.49,4.34), NOACC: F(150.78,101.29,4.49,4.34),
-      cual: F(103.5,106.5,155.9,4.24),
-      tto1: F(149.76,116.26,58.18,4.24), tto2: F(8.13,120.93,200.16,4.24), tto3: F(8.13,125.43,200.16,4.24),
-      tec1: F(53.35,130.96,154.94,4.24), tec2: F(8.13,135.97,200.16,4.24),
-      SIPROD: F(96.68,147.51,4.49,4.34), NOPROD: F(114.39,147.48,4.49,4.34),
-      eq_det: F(139.79,147.77,68.5,4.24),
-      SIPRODM: F(101.47,159.31,4.49,4.34), NOPRODM: F(119.41,159.47,4.49,4.34),
-      ins_det: F(145.12,159.75,63.16,4.24),
-      compl1: F(108.58,169.74,99.35,4.24), compl2: F(7.77,174.75,200.16,4.24),
-      est1: F(55.49,184.78,152.45,4.24), est2: F(7.77,189.77,200.16,4.24),
-      SIT: F(93.94,200.63,4.49,4.34), NOT: F(111.52,200.51,4.49,4.34),
-      tto_desc: F(75.64,206.14,132.29,4.24),
-      D5: F(68.73,218.26,5.83,4.48), M5: F(78.55,218.38,5.22,4.32), A5: F(87.05,218.49,9.28,4.46),
-      hosp: F(40.51,233.36,167.42,4.24),
-      URG: F(58.59,240.23,4.49,4.34), ING: F(106.65,240.23,4.49,4.34), CE: F(166.07,240.23,4.49,4.34),
-      D6: F(43.34,246.61,5.22,4.48), M6: F(53.52,246.61,5.22,4.48), A6: F(61.57,246.61,8.46,4.48),
-      D7: F(117.53,246.61,5.22,4.48), M7: F(126.73,246.61,5.22,4.48), A7: F(135.64,246.61,8.75,4.48),
-      obs1: F(121.16,261.16,87.09,4.24),
-    };
-
-    // Signos (3 líneas)
-    {const L=doc.splitTextToSize((d.signos||"").toUpperCase(),P2.s2.w);
-     if(L[0])T(L[0],P2.s1.x,P2.s1.by,P2.s1.w);
-     if(L[1])T(L[1],P2.s2.x,P2.s2.by,P2.s2.w);
-     if(L[2])T(L[2],P2.s3.x,P2.s3.by,P2.s3.w);}
-    const[fi_d,fi_m,fi_a]=sF(d.fecha_inicio);
-    T(fi_d,P2.D2F.x,P2.D2F.by,P2.D2F.w); T(fi_m,P2.M2F.x,P2.M2F.by,P2.M2F.w); T(fi_a,P2.A2F.x,P2.A2F.by,P2.A2F.w);
-    cb(d.tipo_pad==="Congénito",P2.cong); cb(d.tipo_pad==="Adquirido",P2.ADQ);
-    cb(d.tipo_pad==="Agudo",P2.AGU);     cb(d.tipo_pad==="Crónico",P2.CRON);
-    T(d.evolucion,P2.evol.x,P2.evol.by,P2.evol.w);
-    {const L=doc.splitTextToSize((d.etiologia||"").toUpperCase(),P2.etio1.w);
-     if(L[0])T(L[0],P2.etio1.x,P2.etio1.by,P2.etio1.w);
-     if(L[1])T(L[1],P2.etio2.x,P2.etio2.by,P2.etio2.w);}
-    {const L=doc.splitTextToSize((d.exploracion||"").toUpperCase(),P2.expl1.w);
-     if(L[0])T(L[0],P2.expl1.x,P2.expl1.by,P2.expl1.w);
-     if(L[1])T(L[1],P2.expl2.x,P2.expl2.by,P2.expl2.w);
-     if(L[2])T(L[2],P2.expl3.x,P2.expl3.by,P2.expl3.w);}
-    T(d.dx, P2.dx.x,P2.dx.by,P2.dx.w, 8.5, true);
-    T(d.cie,P2.cie.x,P2.cie.by,P2.cie.w, 8.5, true);
-    const[fdx_d,fdx_m,fdx_a]=sF(d.fecha_dx);
-    T(fdx_d,P2.D3.x,P2.D3.by,P2.D3.w); T(fdx_m,P2.M3.x,P2.M3.by,P2.M3.w); T(fdx_a,P2.A3.x,P2.A3.by,P2.A3.w);
-    const[ftt_d,ftt_m,ftt_a]=sF(d.fecha_tto);
-    T(ftt_d,P2.D4.x,P2.D4.by,P2.D4.w); T(ftt_m,P2.M4.x,P2.M4.by,P2.M4.w); T(ftt_a,P2.A4.x,P2.A4.by,P2.A4.w);
-    cb(d.rel==="Sí",P2.SIACC); cb(d.rel!=="Sí",P2.NOACC);
-    T(d.cual,P2.cual.x,P2.cual.by,P2.cual.w);
-    {const L=doc.splitTextToSize((d.tto||"").toUpperCase(),P2.tto2.w);
-     if(L[0])T(L[0],P2.tto1.x,P2.tto1.by,P2.tto1.w);
-     if(L[1])T(L[1],P2.tto2.x,P2.tto2.by,P2.tto2.w);
-     if(L[2])T(L[2],P2.tto3.x,P2.tto3.by,P2.tto3.w);}
-    {const L=doc.splitTextToSize((d.tecnica||"").toUpperCase(),P2.tec2.w);
-     if(L[0])T(L[0],P2.tec1.x,P2.tec1.by,P2.tec1.w);
-     if(L[1])T(L[1],P2.tec2.x,P2.tec2.by,P2.tec2.w);}
-    cb(d.equipo==="Sí",P2.SIPROD); cb(d.equipo!=="Sí",P2.NOPROD);
-    T(d.equipo_det,P2.eq_det.x,P2.eq_det.by,P2.eq_det.w);
-    cb(d.insumos==="Sí",P2.SIPRODM); cb(d.insumos!=="Sí",P2.NOPRODM);
-    T(d.insumos_det,P2.ins_det.x,P2.ins_det.by,P2.ins_det.w);
-    {const L=doc.splitTextToSize((d.compl||"").toUpperCase(),P2.compl2.w);
-     if(L[0])T(L[0],P2.compl1.x,P2.compl1.by,P2.compl1.w);
-     if(L[1])T(L[1],P2.compl2.x,P2.compl2.by,P2.compl2.w);}
-    {const L=doc.splitTextToSize((d.estado||"").toUpperCase(),P2.est2.w);
-     if(L[0])T(L[0],P2.est1.x,P2.est1.by,P2.est1.w);
-     if(L[1])T(L[1],P2.est2.x,P2.est2.by,P2.est2.w);}
-    cb(d.continua==="Sí",P2.SIT); cb(d.continua!=="Sí",P2.NOT);
-    T(d.tto_desc,P2.tto_desc.x,P2.tto_desc.by,P2.tto_desc.w);
-    const[falt_d,falt_m,falt_a]=sF(d.fecha_alta);
-    T(falt_d,P2.D5.x,P2.D5.by,P2.D5.w); T(falt_m,P2.M5.x,P2.M5.by,P2.M5.w); T(falt_a,P2.A5.x,P2.A5.by,P2.A5.w);
-    T(d.hospital,P2.hosp.x,P2.hosp.by,P2.hosp.w);
-    cb(d.tipo_ing==="Urgencia",P2.URG); cb(d.tipo_ing==="Ingreso hospitalario",P2.ING); cb(d.tipo_ing==="Corta estancia / ambulatoria",P2.CE);
-    const[fing_d,fing_m,fing_a]=sF(d.f_ing);
-    T(fing_d,P2.D6.x,P2.D6.by,P2.D6.w); T(fing_m,P2.M6.x,P2.M6.by,P2.M6.w); T(fing_a,P2.A6.x,P2.A6.by,P2.A6.w);
-    const[fegr_d,fegr_m,fegr_a]=sF(d.f_egr);
-    T(fegr_d,P2.D7.x,P2.D7.by,P2.D7.w); T(fegr_m,P2.M7.x,P2.M7.by,P2.M7.w); T(fegr_a,P2.A7.x,P2.A7.by,P2.A7.w);
-    T(d.obs,P2.obs1.x,P2.obs1.by,P2.obs1.w);
-
-    // ══ PÁGINA 3 ══
-    doc.addPage();
-    if(p3)doc.addImage(p3,"JPEG",0,0,PW,PH);
-    doc.setTextColor(0,0,0);doc.setFontSize(8.5);doc.setFont("helvetica","normal");
-
-    const P3={
-      MEDTRAT: F(100.83,144.77,4.49,4.34), CIRUP: F(140.79,144.77,4.49,4.34),
-      INTERCONS: F(178.29,144.77,4.49,4.34), EQUPQU: F(100.83,152.34,4.49,4.34),
-      SEGVA: F(140.79,152.34,4.49,4.34),
-      nom: F(8.07,159.55,137.55,4.79), esp: F(150.56,159.55,57.61,4.79),
-      dir: F(8.07,171.78,137.55,4.79), tel: F(150.34,171.78,50.42,4.79),
-      ced: F(8.07,184.35,52.54,4.79), cel: F(65.61,184.35,49.95,4.79), rfc: F(120.59,184.35,49.95,4.79),
-      email: F(8.07,194.89,47.54,4.28),
-      SIASE: F(105.69,218.20,4.49,4.34), NOASE: F(123.16,218.20,4.49,4.34),
-      SIPD: F(125.67,247.12,4.49,4.34), NOPD: F(143.00,247.12,4.49,4.34),
-    };
-
-    cb(d.tipo_aten==="Médico tratante",P3.MEDTRAT);
-    cb(d.tipo_aten==="Cirujano principal",P3.CIRUP);
-    cb(d.tipo_aten==="Interconsultante",P3.INTERCONS);
-    cb(d.tipo_aten==="Equipo quirúrgico",P3.EQUPQU);
-    cb(d.tipo_aten==="Segunda valoración",P3.SEGVA);
-    T(d.med_nom, P3.nom.x,P3.nom.by,P3.nom.w, 8.5, true);
-    T(d.med_esp, P3.esp.x,P3.esp.by,P3.esp.w);
-    T(d.med_dir, P3.dir.x,P3.dir.by,P3.dir.w);
-    T(d.med_tel, P3.tel.x,P3.tel.by,P3.tel.w);
-    T(d.med_ced, P3.ced.x,P3.ced.by,P3.ced.w, 8.5, true);
-    T(d.med_cel, P3.cel.x,P3.cel.by,P3.cel.w);
-    T(d.med_rfc, P3.rfc.x,P3.rfc.by,P3.rfc.w);
-    T(d.med_email,P3.email.x,P3.email.by,P3.email.w);
-    cb(d.convenio==="Sí",P3.SIASE); cb(d.convenio!=="Sí",P3.NOASE);
-    // Tabulador de pago (Sí por defecto)
-    cb(!d.tabulador||d.tabulador==="Sí",P3.SIPD); cb(d.tabulador==="No",P3.NOPD);
-    // Firma p3
-    if(firmaB64Ml){try{
-      const P3_FIRMA=F(8.07,255.0,137.55,15.0);
-      doc.addImage(firmaB64Ml,firmaB64Ml.includes("png")?"PNG":"JPEG",P3_FIRMA.x+30,P3_FIRMA.y,50,14);
-    }catch(e){}}
-
-    // ══ PÁGINA 4 ══
-    doc.addPage();
-    if(p4)doc.addImage(p4,"JPEG",0,0,PW,PH);
-    doc.setTextColor(0,0,0);
-    // Campo FIRMA (nombre del médico)
-    const P4firma=F(65.97,118.16,95.51,6.34);
-    T(d.med_nom, P4firma.x, P4firma.by, P4firma.w, 8.5, true);
-    // Firma imagen arriba de la línea
-    if(firmaB64Ml){try{doc.addImage(firmaB64Ml,firmaB64Ml.includes("png")?"PNG":"JPEG",83.0,103.0,50,16);}catch(e){}}
-
-    // Guardar en Supabase
-
-    const pid=STATE.pat?.id;
-    if(pid){
-      try{
-        const blob=doc.output("blob");
-        const path=`${pid}/seguros/MetLife_${Date.now()}.pdf`;
-        const {error:e2}=await SB.storage.from("expedientes").upload(path,blob,{contentType:"application/pdf",upsert:false});
-        if(!e2){
-          await SB.from("anexos").insert({
-            paciente_id:pid,
-            titulo:`INFORME METLIFE — ${new Date().toLocaleDateString("es-MX")}`,
-            tipo_documento:"Informe seguro",origen:"generado",firmado:false,
-            storage_path:path,fecha:new Date().toISOString().split("T")[0],
-          });
-        }
-      }catch(e){console.warn("No se pudo guardar en expediente:",e);}
-    }
-
-    const nom=(STATE.pat?.apellido_paterno||"paciente").replace(/\s/g,"_").substring(0,20);
-    doc.save(`MetLife_${nom}_${new Date().toISOString().split("T")[0]}.pdf`);
-    loading(false);
-    showToast("✓ PDF MetLife generado correctamente");
-  }catch(e){
-    loading(false);
-    console.error("Error PDF MetLife:",e);
-    showToast("Error al generar el PDF: "+e.message,false);
-  }
-};
 
 async function renderInBody(b){
   const pid=STATE.pat?.id;if(!pid)return;
@@ -16827,6 +14985,515 @@ window.verHistorialNota=async function(consultaId){
 }
 
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MÓDULO SEGUROS — INFORMES MÉDICOS ASEGURADORA (pdf-lib)
+// Llena los campos AcroForm directamente — sin coordenadas, sin imágenes
+// ══════════════════════════════════════════════════════════════════════════════
+
+const SEGUROS_BASE = "https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/seguros/";
+
+const SEGUROS_CONFIG = {
+  metlife:   {nombre:"MetLife",    color:"#003366", file:"metlife.pdf",   logo:"🏛️"},
+  gnp:       {nombre:"GNP",        color:"#C8102E", file:"gnp.pdf",       logo:"🔴"},
+  axa:       {nombre:"AXA",        color:"#00008F", file:"axa.pdf",       logo:"🔵"},
+  zurich:    {nombre:"Zurich",     color:"#1A1A2E", file:"zurich.pdf",     logo:"⚡"},
+  sura:      {nombre:"SURA",       color:"#FF6B00", file:"sura.pdf",      logo:"🟠"},
+  inbursa:   {nombre:"Inbursa",    color:"#0066CC", file:"inbursa.pdf",    logo:"💎"},
+  atlas:     {nombre:"Seguros Atlas", color:"#006633", file:"atlas.pdf",  logo:"🟢"},
+  monterrey: {nombre:"Monterrey",  color:"#8B0000", file:"monterrey.pdf", logo:"🔶"},
+  bxmas:     {nombre:"BX+ / Ve por Más", color:"#7DB928", file:"bxmas.pdf", logo:"➕"},
+};
+
+// Mapeo de campos clínicos → campos AcroForm por aseguradora
+const SEGUROS_FIELDS = {
+  metlife: {
+    tx:{
+      "Lugar y fecha":"lugar_fecha",
+      "D1":"fa_d","M1":"fa_m","A1":"fa_a",
+      "1 Datos del paciente":"nombre",
+      "EDAD":"edad","Peso":"peso","Talla":"talla",
+      "D2":"fa_d","M2":"fa_m","A2":"fa_a",
+      "Historia clínica breve 1":"hcb","Historia clínica breve 2":"",
+      "Antecedentes personales patológicos 1":"app","Antecedentes personales patológicos 2":"",
+      "Antecedentes quirúrgicos 1":"aqx","Antecedentes quirúrgicos 2":"",
+      "G":"g","P":"p_part","A":"a","C":"c",
+      "Mencione las afecciones más importantes que padezca el paciente aunque no tenga relación con la presente reclamación 1":"afec",
+      "a Principales signos síntomas y detalle de la evolución 1":"signos",
+      "a Principales signos síntomas y detalle de la evolución 2":"","a Principales signos síntomas y detalle de la evolución 3":"",
+      "D2F":"fi_d","M2F":"fi_m","A2F":"fi_a",
+      "Tiempo de evolución":"evolucion",
+      "Causa  etiología del padecimiento en caso de accidente describa tiempo modo y lugar donde ocurrió la lesión 1":"etiologia",
+      "Causa  etiología del padecimiento en caso de accidente describa tiempo modo y lugar donde ocurrió la lesión 2":"",
+      "Detallar resultados de exploración física estudios de laboratorio yo gabinete que demuestren el diagnóstico referido 1":"exploracion",
+      "Detallar resultados de exploración física estudios de laboratorio yo gabinete que demuestren el diagnóstico referido 2":"",
+      "Detallar resultados de exploración física estudios de laboratorio yo gabinete que demuestren el diagnóstico referido 3":"",
+      "d Diagnóstico etiológico definitivo":"dx","Código CIE":"cie",
+      "D3":"fdx_d","M3":"fdx_m","A3":"fdx_a",
+      "D4":"ftt_d","M4":"ftt_m","A4":"ftt_a",
+      "Cuál":"cual",
+      "h Indicar el tratamiento yo intervención quirúrgica especificar CPT sólo como referencia 1":"tto",
+      "h Indicar el tratamiento yo intervención quirúrgica especificar CPT sólo como referencia 2":"",
+      "i Descripción de la técnica 1":"tecnica","i Descripción de la técnica 2":"",
+      "Detallar":"equipo_det","Detallar_2":"insumos_det","Detallar22":"","Detallar_222":"",
+      "l En caso de presentarse complicaciones indicar cuáles fueron 1":"compl",
+      "l En caso de presentarse complicaciones indicar cuáles fueron 2":"",
+      "m Estado actual del paciente 1":"estado","m Estado actual del paciente 2":"",
+      "Describir tratamiento y duración del mismo 1":"tto_desc","Describir tratamiento y duración del mismo 2":"",
+      "D5":"falt_d","M5":"falt_m","A5":"falt_a",
+      "Nombre de hospital":"hospital",
+      "D6":"fing_d","M6":"fing_m","A6":"fing_a",
+      "En caso de tener observaciones o comentarios adicionales agregarla 1":"obs",
+      "Nombre completo_4":"med_nom","Especialidad_3":"med_esp",
+      "Domiclio consultorio":"med_dir","Teléfono del consultorio":"med_tel",
+      "Cédula profesional especialidad_5":"med_ced","Número celular_5":"med_cel",
+      "Registro Federal de Contribuyentes_5":"med_rfc","Correo electrónico_5":"med_email",
+      "FIRMA":"med_nom",
+    },
+    cb:{
+      "MS":{field:"sexo",val:"M"},"F":{field:"sexo",val:"F"},"O":{field:"sexo",val:"O"},
+      "Acc":{field:"causa",val:"Accidente"},"E":{field:"causa",val:"Enfermedad"},
+      "EM":{field:"causa",val:"Embarazo"},"SG":{field:"causa",val:"Segunda valoración"},
+      "cong":{field:"tipo_pad",val:"Congénito"},"ADQ":{field:"tipo_pad",val:"Adquirido"},
+      "AGU":{field:"tipo_pad",val:"Agudo"},"CRON":{field:"tipo_pad",val:"Crónico"},
+      "SIACC":{field:"rel",val:"Sí"},"NOACC":{field:"rel",val:"No"},
+      "SIPROD":{field:"equipo",val:"Sí"},"NOPROD":{field:"equipo",val:"No"},
+      "SIPRODM":{field:"insumos",val:"Sí"},"NOPRODM":{field:"insumos",val:"No"},
+      "SIT":{field:"continua",val:"Sí"},"NOT":{field:"continua",val:"No"},
+      "urgencia":{field:"tipo_ing",val:"Urgencia"},
+      "INGRESO":{field:"tipo_ing",val:"Ingreso hospitalario"},
+      "CORTAEST":{field:"tipo_ing",val:"Corta estancia / ambulatoria"},
+      "MEDTRAT":{field:"tipo_aten",val:"Médico tratante"},
+      "CIRUP":{field:"tipo_aten",val:"Cirujano principal"},
+      "INTERCONS":{field:"tipo_aten",val:"Interconsultante"},
+      "EQUPQU":{field:"tipo_aten",val:"Equipo quirúrgico"},
+      "SEGVA":{field:"tipo_aten",val:"Segunda valoración"},
+      "SIASE":{field:"convenio",val:"Sí"},"NOASE":{field:"convenio",val:"No"},
+      "SIPD":{field:"tabulador",val:"Sí"},"NOPD":{field:"tabulador",val:"No"},
+    }
+  },
+  axa: {
+    tx:{
+      "Lugar":"lugar_fecha","Fecha":"fecha",
+      "Apellido paterno":"ap_pat","Apellido materno":"ap_mat","Nombres":"nombres",
+      "Edad":"edad","Talla":"talla","Peso":"peso","Tensión arterial":"ta",
+      "Padecimiento actual principales signos síntomas y detalles de evolución":"signos",
+      "Causa o etiología del padecimiento en caso de accidente describa tiempo modo y lugar donde ocurrió la lesión":"etiologia",
+      "¿Cuál?_2":"cual",
+      "Diagnóstico indicando si es unilateral o bilateral derecho o izquierdo":"dx",
+      "Código ICD":"cie",
+      "Señale los datos relevantes de exploración física":"exploracion",
+      "Describe los estudios de laboratorio yo gabinete que realizaron para confirmar el diagnóstico con su interpretación":"exploracion",
+      "Tratamiento propuesto quirúrgico no quirúrgico":"tto",
+      "Nombre del médico":"med_nom","Especialidad":"med_esp",
+      "Cédula profesional":"med_ced","Cédula de especialidad":"med_ced_esp",
+      "RFC":"med_rfc","Domicilio":"med_dir","Teléfono":"med_tel",
+      "Tiempo de evolución_2":"evolucion",
+    },
+    cb:{
+      "Masculino":{field:"sexo",val:"M"},"Femenino":{field:"sexo",val:"F"},
+      "Enfermedad":{field:"causa",val:"Enfermedad"},"Accidente":{field:"causa",val:"Accidente"},
+      "Maternidad":{field:"causa",val:"Embarazo"},
+      "Congénito":{field:"tipo_pad",val:"Congénito"},"Adquirido":{field:"tipo_pad",val:"Adquirido"},
+      "Agudo":{field:"tipo_pad",val:"Agudo"},"Crónico":{field:"tipo_pad",val:"Crónico"},
+    }
+  },
+  zurich: {
+    tx:{
+      "NOMBRE":"nombre","EDAD":"edad","FECHA":"lugar_fecha",
+      "SINTOMAS 1":"signos","SINTOMAS 2":"","SINTOMAS 3":"",
+      "EVOLUCION":"evolucion","ETIOLOGIA":"etiologia",
+      "EXPLORACION FISICA 1":"exploracion","EXPLORACION FISICA 2":"",
+      "DIAGNOSTICO":"dx","CIE":"cie","TRATAMIENTO":"tto",
+      "COMPLICACIONES":"compl","ESTADO ACTUAL":"estado",
+      "HOSPITAL":"hospital","FECHA INGRESO":"f_ing",
+      "Nombre del Médico":"med_nom","Especialidad":"med_esp","RFC":"med_rfc",
+      "Cédula Profesional":"med_ced","Cédula de la Especialidad  Certificación":"med_ced_esp",
+      "Teléfono(s) para contacto":"med_tel","Teléfono celular":"med_cel",
+    },
+    cb:{
+      "F":{field:"sexo",val:"F"},"M":{field:"sexo",val:"M"},
+      "Accidente":{field:"causa",val:"Accidente"},
+      "Enfermedad":{field:"causa",val:"Enfermedad"},
+    }
+  },
+  sura: {
+    tx:{
+      "Apellido paterno materno y nombre del paciente":"nombre",
+      "Edad":"edad",
+      "Antecedentes personales patológicosRow1":"app",
+      "Antecedentes personales no patológicosRow1":"apnp",
+      "Antecedentes ginecoobstétricosRow1":"ago",
+      "Antecedentes perinatales si es necesarioRow1":"ap",
+      "Día":"fi_d",
+      "Signos y síntomas":"signos",
+      "Descripción del diagnóstico":"dx","Código CIE-10":"cie",
+      "Descripción del tratamiento":"tto",
+      "Apellido paterno materno y nombre del médico":"med_nom",
+      "Teléfono":"med_tel","Especialidad":"med_esp",
+      "Cédula profesional":"med_ced",
+    },
+    cb:{
+      "Sexo":{field:"sexo",val:"F"},"M":{field:"sexo",val:"M"},
+      "Embarazo":{field:"causa",val:"Embarazo"},
+      "Enfermedad":{field:"causa",val:"Enfermedad"},
+      "Accidente":{field:"causa",val:"Accidente"},
+      "Tipo de padecimiento Congénito":{field:"tipo_pad",val:"Congénito"},
+      "Adquirido":{field:"tipo_pad",val:"Adquirido"},
+      "Agudo":{field:"tipo_pad",val:"Agudo"},
+      "Crónico":{field:"tipo_pad",val:"Crónico"},
+    }
+  },
+  inbursa: {
+    tx:{
+      "44444444444444444444444":"nombre",
+      "5":"edad","6":"edad",
+      "14":"app","15":"apnp","16":"aqx","17":"ago",
+      "18":"signos","19":"fi_d","20":"dx","21":"cie",
+      "22":"tto","23":"compl","24":"estado","25":"obs",
+      "26":"med_nom","27":"med_esp","28":"med_rfc","29":"med_ced",
+    },
+    cb:{
+      "2":{field:"causa",val:"Embarazo"},"3":{field:"causa",val:"Enfermedad"},
+      "4":{field:"causa",val:"Accidente"},
+      "7":{field:"tipo_pad",val:"Congénito"},"8":{field:"tipo_pad",val:"Adquirido"},
+      "9":{field:"tipo_pad",val:"Agudo"},"10":{field:"tipo_pad",val:"Crónico"},
+    }
+  },
+  monterrey: {
+    tx:{
+      "Nombre":"nombre","Apellido_pat":"ap_pat","Apellido_mat":"ap_mat","Edad":"edad",
+      "Lugar":"lugar_fecha","Fecha":"fecha",
+      "APP":"app","APNP":"apnp","AQx":"aqx",
+      "F_sintomas_D":"fi_d","F_sintomas_M":"fi_m","F_sintomas_A":"fi_a",
+      "Evolucion":"evolucion","Diagnostico":"dx","Evol_tiempo":"evolucion",
+      "F_dx_D":"fdx_d","F_dx_M":"fdx_m","F_dx_A":"fdx_a",
+      "Cual":"cual","EF":"exploracion","Talla":"talla","Peso":"peso",
+      "Tto_quirurgico":"tto","Tto_medico":"tto","Tto_desc":"tto_desc",
+      "Compl_desc":"compl","Hospital":"hospital","Ciudad":"ciudad",
+      "Med_nombre":"med_nom","Med_ap_pat":"ap_pat_med","Med_ap_mat":"ap_mat_med",
+      "Med_especialidad":"med_esp","Med_email":"med_email","Med_tel":"med_tel",
+      "Med_cedula_prof":"med_ced","Med_cedula_esp":"med_ced_esp","Med_rfc":"med_rfc",
+    },
+    cb:{
+      "Accidente":{field:"causa",val:"Accidente"},
+      "Enfermedad":{field:"causa",val:"Enfermedad"},
+      "Embarazo":{field:"causa",val:"Embarazo"},
+      "Congenito":{field:"tipo_pad",val:"Congénito"},
+      "Adquirido":{field:"tipo_pad",val:"Adquirido"},
+      "Agudo":{field:"tipo_pad",val:"Agudo"},
+      "Cronico":{field:"tipo_pad",val:"Crónico"},
+      "Compl_si":{field:"compl_yn",val:"Sí"},"Compl_no":{field:"compl_yn",val:"No"},
+      "Urgencia":{field:"tipo_ing",val:"Urgencia"},
+      "Hospitalizacion":{field:"tipo_ing",val:"Ingreso hospitalario"},
+      "Corta_est":{field:"tipo_ing",val:"Corta estancia / ambulatoria"},
+      "Red_si":{field:"red",val:"Sí"},"Red_no":{field:"red",val:"No"},
+    }
+  },
+  atlas: {
+    tx:{
+      "Nombre_paciente":"nombre","Ref_cual":"cual_ref",
+      "APP":"app","APNP":"apnp","AGO":"ago","AP":"ap",
+      "Signos":"signos","F_inicio_D":"fi_d","F_inicio_M":"fi_m","F_inicio_A":"fi_a",
+      "CIE10":"cie","Diagnostico":"dx",
+      "F_dx_D":"fdx_d","F_dx_M":"fdx_m","F_dx_A":"fdx_a",
+      "Compl_desc":"compl","Observaciones":"obs","EF":"exploracion",
+      "Hospital":"hospital","F_ingreso_D":"fing_d","F_ingreso_M":"fing_m","F_ingreso_A":"fing_a",
+      "Med_nombre":"med_nom","Med_especialidad":"med_esp","Med_ced_esp":"med_ced_esp",
+      "Med_ced_prof":"med_ced","Med_presupuesto":"presupuesto",
+      "Med_domicilio":"med_dir","Med_tel":"med_tel",
+      "Med_anestesiologo":"anestesiologo","Med_ayudante":"ayudante",
+    },
+    cb:{
+      "Sexo_F":{field:"sexo",val:"F"},"Sexo_M":{field:"sexo",val:"M"},
+      "Prevencion":{field:"causa",val:"Prevención"},
+      "Embarazo":{field:"causa",val:"Embarazo"},
+      "Enfermedad":{field:"causa",val:"Enfermedad"},
+      "Accidente":{field:"causa",val:"Accidente"},
+      "Ref_si":{field:"referido",val:"Sí"},"Ref_no":{field:"referido",val:"No"},
+      "Congenito":{field:"tipo_pad",val:"Congénito"},
+      "Adquirido":{field:"tipo_pad",val:"Adquirido"},
+      "Agudo":{field:"tipo_pad",val:"Agudo"},
+      "Cronico":{field:"tipo_pad",val:"Crónico"},
+      "Compl_si":{field:"compl_yn",val:"Sí"},"Compl_no":{field:"compl_yn",val:"No"},
+      "Urgencia":{field:"tipo_ing",val:"Urgencia"},
+      "Hospitalizacion":{field:"tipo_ing",val:"Ingreso hospitalario"},
+      "Corta_est":{field:"tipo_ing",val:"Corta estancia / ambulatoria"},
+    }
+  },
+  bxmas: {
+    tx:{
+      "Nombre":"nombres","ApellidoPaterno":"ap_pat","ApellidoMaterno":"ap_mat","Edad":"edad",
+      "No de Póliza":"poliza",
+      "Antecedentes personales patológicos con fecha de inicio 1":"app",
+      "Antecedentes GinecoObstetricos 1":"ago",
+      "Principales signos y síntomas":"signos","Fecha de inicio (DD/MM/AAAA)_2":"fi",
+      "Código CIE-10":"cie","Descripción del diagnóstico":"dx",
+      "Código CPT4":"cpt","Descripción del tratamiento y/o intervención quirúrgica":"tto",
+      "Resultado de la exploración física y de los estudios realizados (anexar interpretaciones que confirmen diagnóstico)_2":"exploracion",
+      "Nombre del hospital":"hospital","Ciudad y estado":"ciudad",
+      "Nombre(s)_3":"med_nom","Apellido paterno_3":"ap_pat_med","Apellido materno_3":"ap_mat_med",
+      "Especialidad":"med_esp","Teléfono":"med_tel","Teléfono celular  radio":"med_cel",
+      "Cédula Profesional":"med_ced","Cédula de Especialidad  certificación":"med_ced_esp",
+      "No de proveedor":"med_proveedor","Email":"med_email",
+    },
+    cb:{
+      "undefined":{field:"sexo",val:"M"},"undefined_2":{field:"sexo",val:"F"},
+      "undefined_3":{field:"causa",val:"Embarazo"},
+      "undefined_4":{field:"causa",val:"Enfermedad"},
+      "undefined_5":{field:"causa",val:"Accidente"},
+    }
+  },
+};
+
+// ── pgSeguros — página principal ──────────────────────────────────────────────
+function pgSeguros(){
+  const b=RR();
+  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"/");
+  b.innerHTML=`
+  <div style="max-width:960px;margin:0 auto;padding:16px" class="fade">
+    <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <p style="color:rgba(255,255,255,.7);font-size:11px;text-transform:uppercase;margin-bottom:3px">Módulo de seguros</p>
+        <b style="color:#fff;font-size:17px">🏥 Informes médicos para aseguradora</b>
+        <p style="color:rgba(255,255,255,.75);font-size:12px;margin-top:3px">Selecciona la aseguradora. Los datos del paciente y médico se pre-llenan automáticamente.</p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+      ${Object.entries(SEGUROS_CONFIG).map(([key,cfg])=>`
+      <div onclick="pgSegurosForm('${key}')" style="background:#fff;border-radius:10px;box-shadow:0 1px 6px #00000015;padding:16px;cursor:pointer;border:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:12px"
+        onmouseover="this.style.borderColor='${cfg.color}';this.style.transform='translateY(-2px)'"
+        onmouseout="this.style.borderColor='transparent';this.style.transform='none'">
+        <div style="width:44px;height:44px;border-radius:50%;background:${cfg.color}15;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${cfg.logo}</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:#1F2933">${cfg.nombre}</div>
+          <div style="font-size:11px;color:#78909C;margin-top:2px">Informe médico</div>
+        </div>
+      </div>`).join("")}
+    </div>
+  </div>`;
+}
+
+// ── pgSegurosForm — formulario de una aseguradora ─────────────────────────────
+async function pgSegurosForm(key){
+  const cfg=SEGUROS_CONFIG[key];
+  const p=STATE.pat||{};
+  const u=STATE.userProfile||STATE.medProfile||{};
+  const nomPac=`${p.primer_nombre||""} ${p.segundo_nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.replace(/\s+/g," ").trim();
+  const apPat=p.apellido_paterno||""; const apMat=p.apellido_materno||"";
+  const nombres=`${p.primer_nombre||""} ${p.segundo_nombre||""}`.trim();
+  const edad=edadAnios?.(p.fecha_nacimiento)||"";
+  const medNom=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();
+  const medEsp=u.especialidad_1||""; const medCed=u.cedula_esp_1||u.cedula_medico||"";
+  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"/");
+  const hoyTxt=`CIUDAD DE MÉXICO, ${hoy}`;
+  const def=(v,fb="")=>v||fb;
+  const b=RR();
+
+  // Cargar borrador si existe
+  let bor={};
+  if(p.id){
+    const {data:bd}=await SB.from("anexos").select("descripcion,fecha").eq("paciente_id",p.id).like("titulo",`BORRADOR ${key.toUpperCase()}%`).order("fecha",{ascending:false}).limit(1);
+    if(bd?.[0]?.descripcion){try{bor=JSON.parse(bd[0].descripcion.replace("__SEG__:",""));}catch(e){}}
+  }
+  const g=k=>bor[k]!==undefined?bor[k]:"";
+
+  const f=(lbl,id,ph="",val="",rows=0)=>rows>0
+    ?`<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><textarea id="sg_${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;font-family:inherit;resize:vertical;outline:none">${val}</textarea></div>`
+    :`<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><input id="sg_${id}" value="${val}" placeholder="${ph}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;outline:none"></div>`;
+  const fsel=(lbl,id,opts,val)=>`<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><select id="sg_${id}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select></div>`;
+  const sec=(t)=>`<div style="background:${cfg.color};color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;padding:6px 12px;border-radius:6px;margin:14px 0 8px">${t}</div>`;
+  const grid=(n,...fs)=>`<div style="display:grid;grid-template-columns:repeat(${n},1fr);gap:10px">${fs.join("")}</div>`;
+
+  b.innerHTML=`
+  <div style="max-width:820px;margin:0 auto;padding:16px" class="fade">
+    <div style="background:${cfg.color};border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div>
+        <button onclick="pgSeguros()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px;margin-bottom:6px">← Volver</button>
+        <b style="color:#fff;font-size:15px;display:block">${cfg.logo} ${cfg.nombre} — Informe Médico</b>
+        <span style="color:rgba(255,255,255,.75);font-size:11px">Pre-llenado con datos del expediente · ${nomPac||"Sin paciente"}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="guardarBorradorSeguros('${key}')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4);border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">💾 Guardar</button>
+        <button onclick="generarPDFSeguros('${key}')" style="background:#fff;color:${cfg.color};border:none;border-radius:7px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer">📄 Generar PDF</button>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000015;padding:16px">
+      ${sec("Datos del paciente")}
+      ${grid(3,f("Nombre completo","nombre","",g("nombre")||nomPac),f("Edad","edad","",g("edad")||edad),fsel("Sexo","sexo",["M","F"],g("sexo")||(p.sexo==="Masculino"?"M":"F")))}
+      ${grid(3,f("Apellido paterno","ap_pat","",g("ap_pat")||apPat),f("Apellido materno","ap_mat","",g("ap_mat")||apMat),f("Nombre(s)","nombres","",g("nombres")||nombres))}
+      ${grid(4,f("Peso (kg)","peso","",g("peso")||p.peso||""),f("Talla (cm)","talla","",g("talla")||p.talla||""),fsel("Causa","causa",["Enfermedad","Accidente","Embarazo","Segunda valoración","Prevención"],g("causa")||"Enfermedad"),f("Lugar y fecha","lugar_fecha","",g("lugar_fecha")||hoyTxt))}
+      ${grid(2,f("Fecha 1ª atención (DD/MM/AAAA)","fecha_aten","16/01/2026",g("fecha_aten")||""),f("Poliza / Certificado","poliza","",g("poliza")||""))}
+
+      ${sec("Antecedentes")}
+      ${grid(2,f("APP — Ant. personales patológicos","app","DM2, HAS...",g("app")||"",3),f("APNP — Ant. personales no patológicos","apnp","",g("apnp")||"",3))}
+      ${grid(2,f("AQx — Ant. quirúrgicos","aqx","Cirugías previas...",g("aqx")||"",2),f("AGO — Gineco-obstétricos G/P/A/C","ago","",g("ago")||"",2))}
+      ${f("Afecciones adicionales no relacionadas","afec","",g("afec")||"",2)}
+
+      ${sec("Padecimiento actual")}
+      ${f("Signos y síntomas principales / evolución","signos","Descripción del cuadro clínico...",g("signos")||"",4)}
+      ${grid(4,f("Fecha inicio síntomas (DD/MM/AAAA)","fi","",g("fi")||""),f("Tiempo de evolución","evolucion","",g("evolucion")||""),fsel("Tipo padecimiento","tipo_pad",["Adquirido","Congénito","Agudo","Crónico"],g("tipo_pad")||"Adquirido"),f("Código CIE-10","cie","",g("cie")||""))}
+      ${f("Etiología / causa del padecimiento","etiologia","",g("etiologia")||"",3)}
+      ${f("Exploración física y estudios","exploracion","Hallazgos de exploración física y estudios...",g("exploracion")||"",4)}
+      ${grid(2,f("Diagnóstico definitivo","dx","",g("dx")||"",2),f("Tratamiento / intervención quirúrgica","tto","",g("tto")||"",2))}
+      ${grid(2,fsel("Continuará tratamiento","continua",["Sí","No"],g("continua")||"Sí"),f("Descripción del tratamiento continuo","tto_desc","",g("tto_desc")||""))}
+      ${grid(2,f("Complicaciones","compl","Ninguna / detallar...",g("compl")||"",2),f("Estado actual del paciente","estado","",g("estado")||"",2))}
+
+      ${sec("Hospitalización")}
+      ${grid(4,f("Hospital","hospital","",g("hospital")||""),fsel("Tipo ingreso","tipo_ing",["Corta estancia / ambulatoria","Urgencia","Ingreso hospitalario"],g("tipo_ing")||"Corta estancia / ambulatoria"),f("Fecha ingreso (DD/MM/AAAA)","f_ing","",g("f_ing")||""),f("Fecha egreso (DD/MM/AAAA)","f_egr","",g("f_egr")||""))}
+      ${f("Observaciones adicionales","obs","",g("obs")||"",2)}
+
+      ${sec("Datos del médico tratante")}
+      ${grid(3,f("Nombre completo del médico","med_nom","",g("med_nom")||medNom),f("Especialidad","med_esp","",g("med_esp")||medEsp),fsel("Tipo atención","tipo_aten",["Médico tratante","Cirujano principal","Interconsultante","Equipo quirúrgico","Segunda valoración"],g("tipo_aten")||"Médico tratante"))}
+      ${grid(3,f("Cédula profesional","med_ced","",g("med_ced")||medCed),f("Cédula especialidad","med_ced_esp","",g("med_ced_esp")||""),f("RFC","med_rfc","",g("med_rfc")||u.rfc||""))}
+      ${grid(3,f("Domicilio consultorio","med_dir","",g("med_dir")||"AV. INSURGENTES SUR 933 PISO 12, NÁPOLES, CDMX"),f("Teléfono","med_tel","",g("med_tel")||u.telefono||""),f("Correo electrónico","med_email","",g("med_email")||u.email_real||u.email||""))}
+      ${grid(2,fsel("¿Convenio con aseguradora?","convenio",["No seleccionado","Sí","No"],g("convenio")||"No seleccionado"),fsel("¿Acepta tabulador de pago directo?","tabulador",["No seleccionado","Sí","No"],g("tabulador")||"No seleccionado"))}
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;padding-bottom:20px">
+      <button onclick="guardarBorradorSeguros('${key}')" style="background:#fff;color:${cfg.color};border:1.5px solid ${cfg.color};border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer">💾 Guardar borrador</button>
+      <button onclick="generarPDFSeguros('${key}')" style="background:${cfg.color};color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer">📄 Generar PDF ${cfg.nombre}</button>
+    </div>
+  </div>`;
+}
+
+// ── Recolectar datos del formulario ───────────────────────────────────────────
+function sgGV(k){return document.getElementById("sg_"+k)?.value||"";}
+function sgRecolectar(){
+  const keys=["nombre","ap_pat","ap_mat","nombres","edad","sexo","peso","talla",
+    "causa","lugar_fecha","fecha_aten","poliza","app","apnp","aqx","ago","afec",
+    "signos","fi","evolucion","tipo_pad","cie","etiologia","exploracion","dx","tto",
+    "continua","tto_desc","compl","estado","hospital","tipo_ing","f_ing","f_egr","obs",
+    "med_nom","med_esp","tipo_aten","med_ced","med_ced_esp","med_rfc","med_dir","med_tel","med_email",
+    "convenio","tabulador"];
+  const d={};keys.forEach(k=>{d[k]=sgGV(k);});
+  // Split fecha en DD/MM/AAAA
+  const sF=s=>(s||"").includes("/")?s.split("/"):["","",""];
+  [d.fa_d,d.fa_m,d.fa_a]=sF(d.fecha_aten);
+  [d.fi_d,d.fi_m,d.fi_a]=sF(d.fi);
+  [d.fdx_d,d.fdx_m,d.fdx_a]=sF(d.fi); // fallback
+  [d.ftt_d,d.ftt_m,d.ftt_a]=["","",""];
+  [d.falt_d,d.falt_m,d.falt_a]=["","",""];
+  [d.fing_d,d.fing_m,d.fing_a]=sF(d.f_ing);
+  return d;
+}
+
+// ── Guardar borrador ──────────────────────────────────────────────────────────
+window.guardarBorradorSeguros=async function(key){
+  const pid=STATE.pat?.id;if(!pid){showToast("No hay paciente activo",false);return;}
+  const d=sgRecolectar();
+  const payload={paciente_id:pid,
+    titulo:`BORRADOR ${key.toUpperCase()} — ${new Date().toLocaleDateString("es-MX")}`,
+    tipo_documento:"Informe seguro",origen:"generado",firmado:false,
+    descripcion:"__SEG__:"+JSON.stringify(d),
+    fecha:new Date().toISOString().split("T")[0]};
+  const {data:ex}=await SB.from("anexos").select("id").eq("paciente_id",pid).like("titulo",`BORRADOR ${key.toUpperCase()}%`).limit(1);
+  if(ex?.length)await SB.from("anexos").update(payload).eq("id",ex[0].id);
+  else await SB.from("anexos").insert(payload);
+  showToast(`✓ Borrador ${SEGUROS_CONFIG[key].nombre} guardado`);
+};
+
+// ── Generar PDF con pdf-lib ────────────────────────────────────────────────────
+window.generarPDFSeguros=async function(key){
+  loading(true,`Generando informe ${SEGUROS_CONFIG[key].nombre}...`);
+  try{
+    // Cargar pdf-lib si no está
+    if(!window.PDFLib){
+      await new Promise((res,rej)=>{
+        const s=document.createElement("script");
+        s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
+        s.onload=res;s.onerror=rej;document.head.appendChild(s);
+      });
+    }
+    const {PDFDocument,rgb} = window.PDFLib;
+    const cfg=SEGUROS_CONFIG[key];
+    const d=sgRecolectar();
+    const fieldMap=SEGUROS_FIELDS[key]||{tx:{},cb:{}};
+
+    // Descargar PDF original
+    const url=SEGUROS_BASE+cfg.file;
+    const resp=await fetch(url);
+    if(!resp.ok)throw new Error(`No se pudo descargar el formato: ${cfg.file}. ¿Está subido en Supabase Storage assets/seguros/?`);
+    const pdfBytes=await resp.arrayBuffer();
+    const pdfDoc=await PDFDocument.load(pdfBytes,{ignoreEncryption:true});
+
+    const form=pdfDoc.getForm();
+    const fields=form.getFields();
+
+    // Helper seguro para setText
+    const setText=(fname,val)=>{
+      if(!val)return;
+      try{
+        const f=form.getTextField(fname);
+        if(f)f.setText(String(val).toUpperCase());
+      }catch(e){}
+    };
+    const setCheck=(fname,check,onVal)=>{
+      try{
+        const f=form.getCheckBox(fname);
+        if(!f)return;
+        const ov=onVal||"Yes";
+        if(check)f.check();else f.uncheck();
+      }catch(e){}
+    };
+
+    // Llenar campos texto
+    Object.entries(fieldMap.tx).forEach(([fname,dkey])=>{
+      if(!dkey)return;
+      setText(fname, d[dkey]||"");
+    });
+
+    // Llenar checkboxes
+    Object.entries(fieldMap.cb).forEach(([fname,{field,val}])=>{
+      const isChecked=d[field]===val;
+      setCheck(fname,isChecked);
+    });
+
+    // Firma digital como imagen (PNG)
+    const firmaUrl=STATE.userProfile?.firma_digital||STATE.medProfile?.firma_digital||null;
+    if(firmaUrl){
+      try{
+        const fr=await fetch(firmaUrl);
+        const fBytes=await fr.arrayBuffer();
+        const fImg=await pdfDoc.embedPng(fBytes).catch(()=>pdfDoc.embedJpg(fBytes));
+        const pages=pdfDoc.getPages();
+        const lastPage=pages[pages.length-1];
+        const {width,height}=lastPage.getSize();
+        lastPage.drawImage(fImg,{x:width*0.3,y:height*0.25,width:120,height:40});
+      }catch(e){}
+    }
+
+    // Guardar PDF
+    const outBytes=await pdfDoc.save();
+    const blob=new Blob([outBytes],{type:"application/pdf"});
+
+    // Guardar en Supabase
+    const pid=STATE.pat?.id;
+    if(pid){
+      try{
+        const path=`${pid}/seguros/${key}_${Date.now()}.pdf`;
+        const {error:e2}=await SB.storage.from("expedientes").upload(path,blob,{contentType:"application/pdf",upsert:false});
+        if(!e2)await SB.from("anexos").insert({
+          paciente_id:pid,titulo:`INFORME ${cfg.nombre.toUpperCase()} — ${new Date().toLocaleDateString("es-MX")}`,
+          tipo_documento:"Informe seguro",origen:"generado",firmado:false,
+          storage_path:path,fecha:new Date().toISOString().split("T")[0],
+        });
+      }catch(e){}
+    }
+
+    // Descargar
+    const nom=(d.nombre||"paciente").replace(/[^a-zA-Z0-9]/g,"_").substring(0,20);
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`${key}_${nom}_${new Date().toISOString().split("T")[0]}.pdf`;
+    a.click();
+    loading(false);
+    showToast(`✓ PDF ${cfg.nombre} generado`);
+  }catch(e){
+    loading(false);
+    console.error("Error PDF Seguros:",e);
+    showToast("Error: "+e.message,false);
+  }
+};
 </script>
 </body>
 </html>
