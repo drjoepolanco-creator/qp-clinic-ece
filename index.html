@@ -417,7 +417,7 @@ async function guardarConsultaSilencioso(){
 function nav(){
   // Título dinámico del tab
   const patNombre=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""} — `:"";
-  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",perfil:"Mi perfil — "};
+  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",seguros:"Seguros — ",perfil:"Mi perfil — "};
   document.title=`${pageTitles[STATE.page]||""}${patNombre}QP Clinic`;
   const u=STATE.userProfile;const p=STATE.pat;
   const online=navigator.onLine;
@@ -425,7 +425,7 @@ function nav(){
     <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
-    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     <div style="position:relative" id="nutri-menu-wrap">
       <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
       <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
@@ -439,7 +439,7 @@ function nav(){
       </div>
     </div>
     ${STATE.userProfile?.rol==="admin"?`
-    <button onclick="goSeguros()" style="background:transparent;border:none;color:rgba(255,255,255,.85);cursor:pointer;font-size:13px;font-weight:600;padding:6px 10px;border-radius:6px;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='transparent'"> Seguros</button>
+    <button
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
