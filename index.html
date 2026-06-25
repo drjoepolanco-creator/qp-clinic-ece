@@ -15290,13 +15290,94 @@ async function pgSegurosForm(key){
   const def=(v,fb="")=>v||fb;
   const b=RR();
 
+  // ── Auto-llenado desde expediente ─────────────────────────────────────────
+  // Construir valores pre-llenados desde STATE y Supabase
+  const auto={};
+  const pid=p.id;
+  if(pid){
+    // 1. APP desde STATE.patData (ya cargado en expediente)
+    const pd=STATE.patData||{};
+    const appKeys=Object.keys(pd).filter(k=>pd[k]&&!k.startsWith("oc_")&&!k.startsWith("sust"));
+    const appStr=appKeys.join(", ");
+    const appNotes=STATE.patOtrasNotes||"";
+    auto.app=[appStr,appNotes].filter(Boolean).join(". ")||"";
+
+    // 2. APNP desde STATE.antNoPatText
+    auto.apnp=STATE.antNoPatText||"";
+
+    // 3. AGO desde STATE.ginData
+    const g2=STATE.ginData||{};
+    const goStr=[];
+    if(g2.gestaciones&&g2.gestaciones!=="0")goStr.push(`G:${g2.gestaciones}`);
+    if(g2.partos&&g2.partos!=="Ninguno")goStr.push(`P:${g2.partos}`);
+    if(g2.abortos&&g2.abortos!=="Ninguno")goStr.push(`A:${g2.abortos}`);
+    if(g2.cesareas&&g2.cesareas!=="Ninguno")goStr.push(`C:${g2.cesareas}`);
+    if(g2.fum)goStr.push(`FUM:${g2.fum}`);
+    if(g2.ets)goStr.push(`ETS:${g2.ets}`);
+    auto.ago=goStr.join(" / ")||"";
+    // Valores separados G/P/A/C para aseguradoras que los tienen individual
+    auto.g_val=g2.gestaciones||"";
+    auto.p_val=g2.partos||"";
+    auto.a_val=g2.abortos||"";
+    auto.c_val=g2.cesareas||"";
+
+    // 4. Medicamentos actuales
+    auto.meds=[STATE.medText||"",STATE.medOtrosText||""].filter(Boolean).join(". ")||"";
+
+    // 5. Alergias
+    auto.alergias=STATE.alergs?.join(", ")||"";
+
+    // 6. Signos vitales más recientes
+    try{
+      const {data:sv}=await SB.from("signos_vitales")
+        .select("peso,talla,ta_sistolica,ta_diastolica,fecha")
+        .eq("paciente_id",pid)
+        .order("fecha",{ascending:false}).limit(1);
+      if(sv?.[0]){
+        if(sv[0].peso)auto.peso_sv=String(sv[0].peso);
+        if(sv[0].talla)auto.talla_sv=String(sv[0].talla);
+        if(sv[0].ta_sistolica&&sv[0].ta_diastolica)
+          auto.ta=`${sv[0].ta_sistolica}/${sv[0].ta_diastolica}`;
+      }
+    }catch(e){}
+
+    // 7. Última consulta — diagnóstico, signos/síntomas, plan
+    try{
+      const {data:uc}=await SB.from("consultas")
+        .select("analisis,subjetivo,objetivo,plan_terapeutico,fecha,created_at")
+        .eq("paciente_id",pid)
+        .order("created_at",{ascending:false}).limit(1);
+      if(uc?.[0]){
+        auto.dx_uc=uc[0].analisis||"";
+        auto.signos_uc=uc[0].subjetivo||"";
+        auto.estado_uc=uc[0].objetivo||"";
+        auto.tto_uc=uc[0].plan_terapeutico||"";
+      }
+    }catch(e){}
+  }
+  // Helper: valor final = borrador > auto > ""
+  // Se carga primero el auto, luego el borrador sobreescribe si existe
+
   // Cargar borrador si existe
   let bor={};
-  if(p.id){
-    const {data:bd}=await SB.from("anexos").select("descripcion,fecha").eq("paciente_id",p.id).like("titulo",`BORRADOR ${key.toUpperCase()}%`).order("fecha",{ascending:false}).limit(1);
+  if(pid){
+    const {data:bd}=await SB.from("anexos").select("descripcion,fecha").eq("paciente_id",pid).like("titulo",`BORRADOR ${key.toUpperCase()}%`).order("fecha",{ascending:false}).limit(1);
     if(bd?.[0]?.descripcion){try{bor=JSON.parse(bd[0].descripcion.replace("__SEG__:",""));}catch(e){}}
   }
-  const g=k=>bor[k]!==undefined?bor[k]:"";
+  // g(k): borrador tiene prioridad, luego auto, luego ""
+  const ALIAS={g:"g_val",p_part:"p_val",a:"a_val",c:"c_val",
+               app:"app",apnp:"apnp",ago:"ago",
+               peso:"peso_sv",talla:"talla_sv",
+               signos:"signos_uc",dx:"dx_uc",
+               estado:"estado_uc",tto:"tto_uc",tto_desc:"tto_uc"};
+  const g=k=>{
+    if(bor[k]!==undefined&&bor[k]!=="")return bor[k];
+    // Intentar con el alias de auto
+    const ak=ALIAS[k]||k;
+    if(auto[ak]!==undefined&&auto[ak]!=="")return auto[ak];
+    if(auto[k]!==undefined&&auto[k]!=="")return auto[k];
+    return "";
+  };
 
   const f=(lbl,id,ph="",val="",rows=0)=>rows>0
     ?`<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><textarea id="sg_${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;font-family:inherit;resize:vertical;outline:none">${val}</textarea></div>`
