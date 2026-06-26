@@ -217,7 +217,8 @@ function espInput(id,val,ph="Especialidad o escribe la tuya"){
 }
 const RR=()=>document.getElementById("R");
 function go(pg,ex={}){if(pg==="herramientas"&&!("toolActive"in ex))STATE.toolActive=null;Object.assign(STATE,{page:pg,...ex});draw();}
-function goSeguros(){STATE.page="seguros";draw();}
+function goSeguros(){if(!STATE.pat?.id){showToast("Selecciona un paciente primero",false);return;}STATE.page="seguros";draw();}
+function requirePaciente(fn){if(!STATE.pat?.id){showToast("Selecciona un paciente primero",false);return false;}fn();return true;}
 // ── BITÁCORA DE ACCESO (NOM-024) ─────────────────────────
 async function logBitacora(accion,detalle="",paciente_id=null){
   try{
@@ -3024,6 +3025,7 @@ window.toggleCfgMenu=function(){
   }
 }
 window.toggleNutriMenu=function(){
+  if(!STATE.pat?.id){showToast("Selecciona un paciente primero",false);return;}
   const m=document.getElementById("nutri-menu");
   if(!m)return;
   const visible=m.style.display==="block";
@@ -9861,7 +9863,9 @@ const HERR_CATALOGO=[
   ]}
 ];
 
+function _sinPacienteMsg(b,modulo){b.innerHTML=`<div style="max-width:520px;margin:80px auto;text-align:center;padding:40px 20px"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#B0BEC5" stroke-width="1.5" style="margin-bottom:16px"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><h2 style="color:#546E7A;font-size:18px;margin-bottom:8px">Sin paciente activo</h2><p style="color:#90A4AE;font-size:14px;line-height:1.5">Busca o selecciona un paciente para acceder al módulo de ${modulo}.</p><button onclick="go('buscar')" style="margin-top:20px;background:#006BB6;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">Buscar paciente</button></div>`;}
 async function pgHerramientas(){
+  if(!STATE.pat?.id){const b=RR();_sinPacienteMsg(b,"herramientas clínicas");return;}
   if(STATE.toolActive){renderHerramienta(STATE.toolActive);return;}
   const tarjeta=(g,t)=>`<button onclick="abrirHerramienta('${t.k}')" style="text-align:left;background:#fff;border:1px solid ${BR};border-left:4px solid ${g.color};border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;gap:12px;align-items:flex-start" onmouseover="this.style.boxShadow='0 4px 12px #00000018';this.style.transform='translateY(-1px)'" onmouseout="this.style.boxShadow='none';this.style.transform='none'">
     <span style="font-size:26px;flex-shrink:0">${t.icon}</span>
@@ -11640,6 +11644,7 @@ const US_PLANTILLAS = {
 
 // ── Render página principal Ultrasonido ──────────────────────────────────────
 async function pgUltrasonido(){
+  if(!STATE.pat?.id){const b=RR();_sinPacienteMsg(b,"ultrasonido");return;}
   const b=RR();
   const rol=STATE.userProfile?.rol||"";
   if(!["medico","admin"].includes(rol)){
@@ -13736,6 +13741,7 @@ const FAMEL_PLANTILLAS={
 const FAMEL_HORARIOS=["Desayuno","Colación","Comida","Colación","Cena","Opcional"];
 
 async function pgNutricion(){
+  if(!STATE.pat?.id){const b=RR();_sinPacienteMsg(b,"nutrición");return;}
   if((STATE.nutriModulo||"plantillas")==="calculo")return pgNutricionCalculo();
   return pgNutricionPlantillas();
 }
