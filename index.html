@@ -15284,14 +15284,17 @@ async function pgSegurosForm(key){
   const cfg=SEGUROS_CONFIG[key];
   const p=STATE.pat||{};
   const u=STATE.userProfile||STATE.medProfile||{};
-  const nomPac=`${p.primer_nombre||""} ${p.segundo_nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.replace(/\s+/g," ").trim();
-  const apPat=p.apellido_paterno||""; const apMat=p.apellido_materno||"";
-  const nombres=`${p.primer_nombre||""} ${p.segundo_nombre||""}`.trim();
+  const apPat=p.apellido_paterno||"";
+  const apMat=p.apellido_materno||"";
+  const nombres=(p.primer_nombre||p.nombre||"").trim();
+  const nombres2=(p.segundo_nombre||"").trim();
+  const nomPac=[nombres,nombres2,apPat,apMat].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
   const edad=edadAnios?.(p.fecha_nacimiento)||"";
   const medNom=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();
-  const medEsp=u.especialidad_1||""; const medCed=u.cedula_esp_1||u.cedula_medico||"";
-  const hoy=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"/");
-  const hoyTxt=`CIUDAD DE MÉXICO, ${hoy}`;
+  const medEsp=u.especialidad_1||"";
+  const medCedProf=u.cedula_medico||u.cedula||"";
+  const medCedEsp=u.cedula_esp_1||u.cedula_especialidad||"";
+  const medCed=medCedProf; // legacy alias
   const def=(v,fb="")=>v||fb;
   const b=RR();
 
@@ -15328,11 +15331,16 @@ async function pgSegurosForm(key){
 
     // 4. Medicamentos actuales
     auto.meds=[STATE.medText||"",STATE.medOtrosText||""].filter(Boolean).join(". ")||"";
+    // Nombre completo paciente (en auto para que g("nombre") lo encuentre)
+    auto.nombre=nomPac;
+    auto.ap_pat=apPat; auto.ap_mat=apMat; auto.nombres_pac=nombres;
 
     // 5. Alergias
     auto.alergias=STATE.alergs?.join(", ")||"";
 
-    // 6. Signos vitales más recientes
+    // 6. Signos vitales más recientes (fallback a datos del expediente)
+    auto.peso_sv=p.peso?String(p.peso):"";
+    auto.talla_sv=p.talla?String(p.talla):"";
     try{
       const {data:sv}=await SB.from("signos_vitales")
         .select("peso,talla,ta_sistolica,ta_diastolica,fecha")
@@ -15348,6 +15356,9 @@ async function pgSegurosForm(key){
 
     // RFC del médico
     auto.med_rfc = u.rfc||"";
+    // Cédulas separadas: profesional (lic) y especialidad (posgrado)
+    auto.med_ced_prof = u.cedula_medico||u.cedula||"";
+    auto.med_ced_esp_v = u.cedula_esp_1||u.cedula_especialidad||"";
 
     // 7. Última consulta — diagnóstico, signos/síntomas, plan
     try{
@@ -15357,7 +15368,9 @@ async function pgSegurosForm(key){
         .order("created_at",{ascending:false}).limit(1);
       if(uc?.[0]){
         auto.dx_uc=uc[0].analisis||"";
-        auto.signos_uc=uc[0].subjetivo||"";
+        auto.signos_uc=uc[0].subjetivo||"";        // motivo de consulta → signos/síntomas
+        auto.etiologia_uc=uc[0].subjetivo||"";     // también → etiología/causa
+        auto.exploracion_uc=uc[0].objetivo||"";    // exploración física
         auto.estado_uc=uc[0].objetivo||"";
         auto.tto_uc=uc[0].plan_terapeutico||"";
       }
@@ -15376,9 +15389,15 @@ async function pgSegurosForm(key){
   const ALIAS={g:"g_val",p_part:"p_val",a:"a_val",c:"c_val",
                app:"app",apnp:"apnp",ago:"ago",
                peso:"peso_sv",talla:"talla_sv",
-               signos:"signos_uc",dx:"dx_uc",
+               signos:"signos_uc",
+               etiologia:"etiologia_uc",
+               exploracion:"exploracion_uc",
+               dx:"dx_uc",
                estado:"estado_uc",tto:"tto_uc",tto_desc:"tto_uc",
-               med_rfc:"med_rfc"};
+               med_rfc:"med_rfc",
+               med_ced:"med_ced_prof",
+               med_ced_esp:"med_ced_esp_v",
+               nombre:"nombre",ap_pat:"ap_pat",ap_mat:"ap_mat",nombres:"nombres_pac"};
   const g=k=>{
     if(bor[k]!==undefined&&bor[k]!=="")return bor[k];
     // Intentar con el alias de auto
@@ -15435,7 +15454,7 @@ async function pgSegurosForm(key){
 
       ${sec("Datos del médico tratante")}
       ${grid(3,f("Nombre completo del médico","med_nom","",g("med_nom")||medNom),f("Especialidad","med_esp","",g("med_esp")||medEsp),fsel("Tipo atención","tipo_aten",["Médico tratante","Cirujano principal","Interconsultante","Equipo quirúrgico","Segunda valoración"],g("tipo_aten")||"Médico tratante"))}
-      ${grid(3,f("Cédula profesional","med_ced","",g("med_ced")||medCed),f("Cédula especialidad","med_ced_esp","",g("med_ced_esp")||""),f("RFC","med_rfc","",g("med_rfc")||u.rfc||""))}
+      ${grid(3,f("Cédula profesional (Lic.)","med_ced","",g("med_ced")||medCedProf),f("Cédula especialidad","med_ced_esp","",g("med_ced_esp")||medCedEsp),f("RFC","med_rfc","",g("med_rfc")||u.rfc||""))}
       ${grid(3,f("Domicilio consultorio","med_dir","",g("med_dir")||"AV. INSURGENTES SUR 933 PISO 12, NÁPOLES, CDMX"),f("Teléfono","med_tel","",g("med_tel")||u.telefono||""),f("Correo electrónico","med_email","",g("med_email")||u.email_real||u.email||""))}
       ${grid(2,fsel("¿Convenio con aseguradora?","convenio",["No seleccionado","Sí","No"],g("convenio")||"No seleccionado"),fsel("¿Acepta tabulador de pago directo?","tabulador",["No seleccionado","Sí","No"],g("tabulador")||"No seleccionado"))}
     </div>
