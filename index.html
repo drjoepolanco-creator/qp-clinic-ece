@@ -15258,7 +15258,7 @@ const SEGUROS_FIELDS = {
 };
 
 // ── pgSeguros — página principal ──────────────────────────────────────────────
-function pgSeguros(){
+window.pgSeguros=function(){
   if(!STATE.pat?.id){const b=RR();_sinPacienteMsg(b,"informes de aseguradora");return;}
   const b=RR();
   const nomPac=STATE.pat?`${STATE.pat.primer_nombre||""} ${STATE.pat.apellido_paterno||""}`.trim():"";
@@ -15287,7 +15287,7 @@ function pgSeguros(){
 }
 
 // ── pgSegurosForm — formulario de una aseguradora ─────────────────────────────
-async function pgSegurosForm(key){
+window.pgSegurosForm=async function(key){
   const cfg=SEGUROS_CONFIG[key];
   const p=STATE.pat||{};
   const u=STATE.userProfile||STATE.medProfile||{};
@@ -15474,7 +15474,7 @@ async function pgSegurosForm(key){
 
 // ── Recolectar datos del formulario ───────────────────────────────────────────
 function sgGV(k){return document.getElementById("sg_"+k)?.value||"";}
-function sgRecolectar(){
+window.sgRecolectar=function(){
   const keys=["nombre","ap_pat","ap_mat","nombres","edad","sexo","peso","talla",
     "causa","lugar_fecha","fecha_aten","poliza","app","apnp","aqx","ago","afec",
     "signos","fi","evolucion","tipo_pad","cie","etiologia","exploracion","dx","tto",
