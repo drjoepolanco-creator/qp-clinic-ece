@@ -15259,6 +15259,7 @@ const SEGUROS_FIELDS = {
 
 // ── pgSeguros — página principal ──────────────────────────────────────────────
 function pgSeguros(){
+  if(!STATE.pat?.id){const b=RR();_sinPacienteMsg(b,"informes de aseguradora");return;}
   const b=RR();
   const nomPac=STATE.pat?`${STATE.pat.primer_nombre||""} ${STATE.pat.apellido_paterno||""}`.trim():"";
   b.innerHTML=`
