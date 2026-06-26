@@ -1009,7 +1009,6 @@ window.guardarUsuario=async function(uid=""){
     // Formación académica (campos legacy = primera entrada, para compatibilidad)
     licenciatura:gv("mu_lic")||null,
     cedula_medico:cedMed||null,
-    rfc:document.getElementById("mu_rfc")?.value?.trim()||null,
     institucion_grado:gv("mu_igrado")||null,
     especialidad_1:_esps[0]?.nombre||null,
     cedula_esp_1:_esps[0]?.cedula||null,
@@ -1056,7 +1055,7 @@ window.guardarUsuario=async function(uid=""){
     showToast("✓ Usuario creado correctamente");
   } else {
     const {error:dbErr}=await SB.from("usuarios").update(profilePayload).eq("id",uid);
-    try{await SB.from("usuarios").update(jsonPayload).eq("id",uid);}catch(e){console.warn("Cols JSON:",e);}
+    try{await SB.from("usuarios").update({...jsonPayload,rfc:document.getElementById("mu_rfc")?.value?.trim()||null}).eq("id",uid);}catch(e){console.warn("Cols JSON/RFC:",e);}
     if(dbErr){loading(false);showToast("Error: "+dbErr.message,false);return;}
     if(pass){
       if(STATE.user?.id===uid){
@@ -1316,7 +1315,6 @@ window.guardarFormacionAcademica=async function(){
   const {error}=await SB.from("usuarios").update({
     licenciatura:gv("pf_lic")||null,
     cedula_medico:cedMed||null,
-    rfc:gv("pf_rfc")||null,
     institucion_grado:gv("pf_igrado")||null,
     especialidad_1:gv("pf_esp1")||null,
     cedula_esp_1:cedEsp1||null,
@@ -1329,6 +1327,8 @@ window.guardarFormacionAcademica=async function(){
   }).eq("id",uid);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
+  // Columna rfc (puede no existir aún en DB)
+  try{await SB.from("usuarios").update({rfc:gv("pf_rfc")||null}).eq("id",uid);}catch(e){console.warn("Col rfc:",e);}
   const {data:fresh}=await SB.from("usuarios").select("*").eq("id",uid).maybeSingle();
   if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
   showToast("✓ Formación académica guardada — aparecerá en tus recetas");
@@ -5861,7 +5861,6 @@ window.guardarInterconsulta=async function(){
     paciente_id:pid,
     medico_solicitante_id:STATE.user?.id||null,
     medico_interconsultante:medInter,
-    medico_interconsultante_id:medIdSel||null,
     especialidad,
     diagnostico,
     tratamiento:gv("ic_trat"),
@@ -5871,6 +5870,10 @@ window.guardarInterconsulta=async function(){
   }).select().single();
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
+  // Guardar medico_interconsultante_id si la columna existe
+  if(icData?.id&&medIdSel){
+    try{await SB.from("interconsultas").update({medico_interconsultante_id:medIdSel}).eq("id",icData.id);}catch(e){console.warn("Col medico_interconsultante_id:",e);}
+  }
 
   // Celular del médico interconsultante: ya viene cargado del selector (campo "telefono" en usuarios)
   let celMedInter=medTelSel||null;
