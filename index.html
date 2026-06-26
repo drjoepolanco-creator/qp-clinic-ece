@@ -15289,226 +15289,210 @@ window.pgSeguros=function(){
 // ── pgSegurosForm — formulario de una aseguradora ─────────────────────────────
 window.pgSegurosForm=async function(key){
   const cfg=SEGUROS_CONFIG[key];
-  const p=STATE.pat||{};
-  const u=STATE.userProfile||STATE.medProfile||{};
-  const apPat=p.apellido_paterno||"";
-  const apMat=p.apellido_materno||"";
-  const nombres=(p.primer_nombre||p.nombre||"").trim();
-  const nombres2=(p.segundo_nombre||"").trim();
-  const nomPac=[nombres,nombres2,apPat,apMat].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
-  const edad=edadAnios?.(p.fecha_nacimiento)||"";
-  const medNom=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();
-  const medEsp=u.especialidad_1||"";
-  const medCedProf=u.cedula_medico||u.cedula||"";
-  const medCedEsp=u.cedula_esp_1||u.cedula_especialidad||"";
-  const medCed=medCedProf; // legacy alias
-  const def=(v,fb="")=>v||fb;
+  if(!cfg){showToast("Aseguradora no reconocida: "+key,false);return;}
   const b=RR();
+  b.innerHTML=`<div style="padding:40px;text-align:center;color:#78909C">Cargando formulario ${cfg.nombre}…</div>`;
 
-  // ── Auto-llenado desde expediente ─────────────────────────────────────────
-  // Construir valores pre-llenados desde STATE y Supabase
-  const auto={};
-  const pid=p.id;
-  if(pid){
-    // 1. APP desde STATE.patData (ya cargado en expediente)
-    const pd=STATE.patData||{};
-    const appKeys=Object.keys(pd).filter(k=>pd[k]&&!k.startsWith("oc_")&&!k.startsWith("sust"));
-    const appStr=appKeys.join(", ");
-    const appNotes=STATE.patOtrasNotes||"";
-    auto.app=[appStr,appNotes].filter(Boolean).join(". ")||"SIN ANTECEDENTES PERSONALES PATOLÓGICOS DE IMPORTANCIA PARA EL PADECIMIENTO ACTUAL";
+  // ── Datos del paciente ────────────────────────────────────────────
+  const p=STATE.pat||{};
+  const pid=p.id||null;
+  const u=STATE.userProfile||STATE.medProfile||{};
+  const uid=u.id||STATE.user?.id||null;
 
-    // 2. APNP desde STATE.antNoPatText
-    auto.apnp=STATE.antNoPatText||"SIN ANTECEDENTES PERSONALES NO PATOLÓGICOS DE RELEVANCIA";
+  const apPat  = p.apellido_paterno||"";
+  const apMat  = p.apellido_materno||"";
+  const nomPre = (p.primer_nombre||p.nombre||"").trim();
+  const nomPre2= (p.segundo_nombre||"").trim();
+  const nomPac = [nomPre,nomPre2,apPat,apMat].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+  const edad   = edadAnios?.(p.fecha_nacimiento)||"";
+  const hoy    = new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"/");
+  const lugarFecha = `CIUDAD DE MÉXICO, ${hoy}`;
 
-    // 3. AGO desde STATE.ginData
-    const g2=STATE.ginData||{};
-    const goStr=[];
-    if(g2.gestaciones&&g2.gestaciones!=="0")goStr.push(`G:${g2.gestaciones}`);
-    if(g2.partos&&g2.partos!=="Ninguno")goStr.push(`P:${g2.partos}`);
-    if(g2.abortos&&g2.abortos!=="Ninguno")goStr.push(`A:${g2.abortos}`);
-    if(g2.cesareas&&g2.cesareas!=="Ninguno")goStr.push(`C:${g2.cesareas}`);
-    if(g2.fum)goStr.push(`FUM:${g2.fum}`);
-    if(g2.ets)goStr.push(`ETS:${g2.ets}`);
-    auto.ago=goStr.join(" / ")||"SIN ANTECEDENTES GINECO-OBSTÉTRICOS DE IMPORTANCIA";
-    // Valores separados G/P/A/C para aseguradoras que los tienen individual
-    auto.g_val=g2.gestaciones||"";
-    auto.p_val=g2.partos||"";
-    auto.a_val=g2.abortos||"";
-    auto.c_val=g2.cesareas||"";
+  // ── Datos del médico ──────────────────────────────────────────────
+  const medNom    = `${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();
+  const medEsp    = u.especialidad_1||"";
+  const medCedProf= u.cedula_medico||u.cedula||"";   // cédula licenciatura
+  const medCedEsp = u.cedula_esp_1||u.cedula_especialidad||""; // cédula especialidad
+  const medRfc    = u.rfc||"";
+  const medDir    = u.institucion_grado||"AV. INSURGENTES SUR 933 PISO 12, COL. NÁPOLES, BENITO JUÁREZ, CDMX";
+  const medTel    = u.telefono||"55 5682 4345";
+  const medEmail  = u.email_real||u.email||"";
 
-    // 4. Medicamentos actuales
-    auto.meds=[STATE.medText||"",STATE.medOtrosText||""].filter(Boolean).join(". ")||"";
-    // Nombre completo paciente (en auto para que g("nombre") lo encuentre)
-    auto.nombre=nomPac;
-    auto.ap_pat=apPat; auto.ap_mat=apMat; auto.nombres_pac=nombres;
-
-    // 5. Alergias
-    auto.alergias=STATE.alergs?.join(", ")||"";
-
-    // 6. Signos vitales más recientes (fallback a datos del expediente)
-    auto.peso_sv=p.peso?String(p.peso):"";
-    auto.talla_sv=p.talla?String(p.talla):"";
-    try{
-      const {data:sv}=await SB.from("signos_vitales")
-        .select("peso,talla,ta_sistolica,ta_diastolica,fecha")
-        .eq("paciente_id",pid)
-        .order("fecha",{ascending:false}).limit(1);
-      if(sv?.[0]){
-        if(sv[0].peso)auto.peso_sv=String(sv[0].peso);
-        if(sv[0].talla)auto.talla_sv=String(sv[0].talla);
-        if(sv[0].ta_sistolica&&sv[0].ta_diastolica)
-          auto.ta=`${sv[0].ta_sistolica}/${sv[0].ta_diastolica}`;
-      }
-    }catch(e){}
-
-    // RFC del médico
-    auto.med_rfc = u.rfc||"";
-    // Cédulas separadas: profesional (lic) y especialidad (posgrado)
-    auto.med_ced_prof = u.cedula_medico||u.cedula||"";
-    auto.med_ced_esp_v = u.cedula_esp_1||u.cedula_especialidad||"";
-
-    // 7. Última consulta — diagnóstico, signos/síntomas, plan
-    try{
-      const {data:uc}=await SB.from("consultas")
-        .select("analisis,subjetivo,objetivo,plan_terapeutico,fecha,created_at")
-        .eq("paciente_id",pid)
-        .order("created_at",{ascending:false}).limit(1);
-      if(uc?.[0]){
-        auto.dx_uc=uc[0].analisis||"";
-        auto.signos_uc=uc[0].subjetivo||"";        // motivo de consulta → signos/síntomas
-        auto.etiologia_uc=uc[0].subjetivo||"";     // también → etiología/causa
-        auto.exploracion_uc=uc[0].objetivo||"";    // exploración física
-        auto.estado_uc=uc[0].objetivo||"";
-        auto.tto_uc=uc[0].plan_terapeutico||"";
-      }
-    }catch(e){}
-  }
-  // Helper: valor final = borrador > auto > ""
-  // Se carga primero el auto, luego el borrador sobreescribe si existe
-
-  // Cargar borrador si existe
-  let bor={};
-  if(pid){
-    const {data:bd}=await SB.from("anexos").select("descripcion,fecha").eq("paciente_id",pid).like("titulo",`BORRADOR ${key.toUpperCase()}%`).order("fecha",{ascending:false}).limit(1);
-    if(bd?.[0]?.descripcion){try{bor=JSON.parse(bd[0].descripcion.replace("__SEG__:",""));}catch(e){}}
-  }
-  // g(k): borrador tiene prioridad, luego auto, luego ""
-  const ALIAS={g:"g_val",p_part:"p_val",a:"a_val",c:"c_val",
-               app:"app",apnp:"apnp",ago:"ago",
-               peso:"peso_sv",talla:"talla_sv",
-               signos:"signos_uc",
-               etiologia:"etiologia_uc",
-               exploracion:"exploracion_uc",
-               dx:"dx_uc",
-               estado:"estado_uc",tto:"tto_uc",tto_desc:"tto_uc",
-               med_rfc:"med_rfc",
-               med_ced:"med_ced_prof",
-               med_ced_esp:"med_ced_esp_v",
-               nombre:"nombre",ap_pat:"ap_pat",ap_mat:"ap_mat",nombres:"nombres_pac"};
-  const g=k=>{
-    if(bor[k]!==undefined&&bor[k]!=="")return bor[k];
-    // Intentar con el alias de auto
-    const ak=ALIAS[k]||k;
-    if(auto[ak]!==undefined&&auto[ak]!=="")return auto[ak];
-    if(auto[k]!==undefined&&auto[k]!=="")return auto[k];
-    return "";
+  // ── Auto-llenado desde STATE ──────────────────────────────────────
+  const auto={
+    nombre:   nomPac,
+    ap_pat:   apPat,
+    ap_mat:   apMat,
+    nombres:  nomPre,
+    edad:     edad,
+    peso:     p.peso?String(p.peso):"",
+    talla:    p.talla?String(p.talla):"",
+    lugar_fecha: lugarFecha,
+    med_nom:  medNom,
+    med_esp:  medEsp,
+    med_ced:  medCedProf,
+    med_ced_esp: medCedEsp,
+    med_rfc:  medRfc,
+    med_dir:  medDir,
+    med_tel:  medTel,
+    med_email:medEmail,
+    tipo_aten:"Médico tratante",
+    app: (()=>{
+      const pd=STATE.patData||{};
+      const keys=Object.keys(pd).filter(k=>pd[k]&&!k.startsWith("oc_")&&!k.startsWith("sust"));
+      return [keys.join(", "),STATE.patOtrasNotes||""].filter(Boolean).join(". ")||
+             "SIN ANTECEDENTES PERSONALES PATOLÓGICOS DE IMPORTANCIA PARA EL PADECIMIENTO ACTUAL";
+    })(),
+    apnp: STATE.antNoPatText||"SIN ANTECEDENTES PERSONALES NO PATOLÓGICOS DE RELEVANCIA",
+    ago: (()=>{
+      const g2=STATE.ginData||{};
+      const parts=[];
+      if(g2.gestaciones&&g2.gestaciones!=="0")parts.push(`G:${g2.gestaciones}`);
+      if(g2.partos&&g2.partos!=="Ninguno")parts.push(`P:${g2.partos}`);
+      if(g2.abortos&&g2.abortos!=="Ninguno")parts.push(`A:${g2.abortos}`);
+      if(g2.cesareas&&g2.cesareas!=="Ninguno")parts.push(`C:${g2.cesareas}`);
+      if(g2.fum)parts.push(`FUM:${g2.fum}`);
+      return parts.join(" / ")||"SIN ANTECEDENTES GINECO-OBSTÉTRICOS DE IMPORTANCIA";
+    })(),
+    g_val: (STATE.ginData||{}).gestaciones||"",
+    p_val: (STATE.ginData||{}).partos||"",
+    a_val: (STATE.ginData||{}).abortos||"",
+    c_val: (STATE.ginData||{}).cesareas||"",
+    afec:  "",
+    signos:"", etiologia:"", exploracion:"", dx:"", cie:"",
+    tto:"", tto_desc:"", estado:"", compl:"", obs:"",
+    fi:"", fecha_aten:"", evolucion:"", tipo_pad:"Adquirido",
+    continua:"Sí", tipo_ing:"Corta estancia / ambulatoria",
+    tipo_aten:"Médico tratante", causa:"Enfermedad",
+    hospital:"", f_ing:"", f_egr:""
   };
 
-  const f=(lbl,id,ph="",val="",rows=0)=>rows>0
-    ?`<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><textarea id="sg_${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;font-family:inherit;resize:vertical;outline:none">${val}</textarea></div>`
-    :`<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><input id="sg_${id}" value="${val}" placeholder="${ph}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;outline:none"></div>`;
-  const fsel=(lbl,id,opts,val)=>`<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><select id="sg_${id}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select></div>`;
-  const sec=(t)=>`<div style="background:${cfg.color};color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;padding:6px 12px;border-radius:6px;margin:14px 0 8px">${t}</div>`;
-  const grid=(n,...fs)=>`<div style="display:grid;grid-template-columns:repeat(${n},1fr);gap:10px">${fs.join("")}</div>`;
+  // ── Cargar de Supabase en paralelo ────────────────────────────────
+  if(pid){
+    const [svRes, ucRes, borRes] = await Promise.all([
+      SB.from("signos_vitales").select("peso,talla,ta_sistolica,ta_diastolica").eq("paciente_id",pid).order("fecha",{ascending:false}).limit(1).then(r=>r.data?.[0]||null).catch(()=>null),
+      SB.from("consultas").select("analisis,subjetivo,objetivo,plan_terapeutico").eq("paciente_id",pid).order("created_at",{ascending:false}).limit(1).then(r=>r.data?.[0]||null).catch(()=>null),
+      SB.from("anexos").select("descripcion,fecha").eq("paciente_id",pid).like("titulo",`BORRADOR ${key.toUpperCase()}%`).order("fecha",{ascending:false}).limit(1).then(r=>r.data?.[0]||null).catch(()=>null),
+    ]);
+    if(svRes){
+      if(svRes.peso) auto.peso=String(svRes.peso);
+      if(svRes.talla)auto.talla=String(svRes.talla);
+      if(svRes.ta_sistolica&&svRes.ta_diastolica)auto.ta=`${svRes.ta_sistolica}/${svRes.ta_diastolica}`;
+    }
+    if(ucRes){
+      auto.signos     = ucRes.subjetivo||"";
+      auto.etiologia  = ucRes.subjetivo||"";
+      auto.exploracion= ucRes.objetivo||"";
+      auto.estado     = ucRes.objetivo||"";
+      auto.dx         = ucRes.analisis||"";
+      auto.tto        = ucRes.plan_terapeutico||"";
+      auto.tto_desc   = ucRes.plan_terapeutico||"";
+    }
+    // Aplicar borrador encima de auto (borrador tiene prioridad)
+    if(borRes?.descripcion){
+      try{
+        const raw=borRes.descripcion.startsWith("__SEG__:")?borRes.descripcion.slice(8):borRes.descripcion;
+        const bor=JSON.parse(raw);
+        Object.keys(bor).forEach(k=>{if(bor[k]!=="")auto[k]=bor[k];});
+      }catch(e){}
+    }
+  }
+
+  // g(k) — leer valor del auto (ya tiene borrador mezclado)
+  const g=k=>auto[k]!==undefined?String(auto[k]):"";
+
+  // ── Helpers de render ─────────────────────────────────────────────
+  const C=cfg.color;
+  const fi=(lbl,id,ph,rows=0)=>{
+    const val=(g(id)||"").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+    return rows>0
+      ?`<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><textarea id="sg_${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;font-family:inherit;resize:vertical;outline:none">${(g(id)||"").replace(/</g,"&lt;")}</textarea></div>`
+      :`<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><input id="sg_${id}" value="${val}" placeholder="${ph}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;outline:none"></div>`;
+  };
+  const fs=(lbl,id,opts)=>{
+    const cur=g(id);
+    return `<div><label style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;margin-bottom:3px;display:block">${lbl}</label><select id="sg_${id}" style="width:100%;padding:9px 12px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;outline:none;background:#fff">${opts.map(o=>`<option${o===cur?" selected":""}>${o}</option>`).join("")}</select></div>`;
+  };
+  const sec=t=>`<div style="background:${C};color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;padding:7px 12px;border-radius:6px;margin:16px 0 8px">${t}</div>`;
+  const gr=(n,...fs2)=>`<div style="display:grid;grid-template-columns:repeat(${n},1fr);gap:10px">${fs2.join("")}</div>`;
 
   b.innerHTML=`
   <div style="max-width:820px;margin:0 auto;padding:16px" class="fade">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <button onclick="pgSeguros()" style="background:#fff;border:1.5px solid #E0E0E0;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;color:#546E7A">← Aseguradoras</button>
-      ${STATE.pat?`<button onclick="go('expediente')" style="background:#fff;border:1.5px solid #E0E0E0;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;color:#546E7A">← Expediente</button>`:""}
-      <div style="flex:1;min-width:200px">
-        <b style="font-size:14px;color:#1F2933">${cfg.nombre} — Informe Médico</b>
-        ${nomPac?`<span style="font-size:12px;color:#78909C;margin-left:8px">${nomPac}</span>`:""}
-      </div>
-      <button onclick="cargarBorradorSeguros('${key}')" style="background:#fff;color:#546E7A;border:1.5px solid #E0E0E0;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">Abrir borrador</button>
-      <button onclick="guardarBorradorSeguros('${key}')" style="background:#fff;color:#1B5E20;border:1.5px solid #A5D6A7;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">Guardar</button>
-      <button onclick="generarPDFSeguros('${key}')" style="background:${cfg.color};color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer">Generar PDF</button>
+      <button onclick="go('expediente')" style="background:#fff;border:1.5px solid #E0E0E0;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;color:#546E7A">← Expediente</button>
+      <div style="flex:1"><b style="font-size:14px;color:#1F2933">${cfg.nombre} — Informe Médico</b><span style="font-size:12px;color:#90A4AE;margin-left:8px">${nomPac}</span></div>
+      <button onclick="cargarBorradorSeguros('${key}')" style="background:#fff;color:#546E7A;border:1.5px solid #E0E0E0;border-radius:7px;padding:7px 13px;font-size:13px;cursor:pointer">Abrir borrador</button>
+      <button onclick="guardarBorradorSeguros('${key}')" style="background:#fff;color:#2E7D32;border:1.5px solid #A5D6A7;border-radius:7px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer">Guardar</button>
+      <button onclick="generarPDFSeguros('${key}')" style="background:${C};color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer">Generar PDF</button>
     </div>
+    ${auto.dx||auto.signos?`<div style="background:#E8F5E9;border-left:3px solid #66BB6A;padding:8px 12px;border-radius:0 6px 6px 0;font-size:12px;color:#2E7D32;margin-bottom:12px">✓ Datos cargados automáticamente desde el expediente. Revisa y ajusta antes de generar.</div>`:`<div style="background:#FFF8E1;border-left:3px solid #FFB300;padding:8px 12px;border-radius:0 6px 6px 0;font-size:12px;color:#E65100;margin-bottom:12px">Sin nota médica activa. Llena los campos clínicos manualmente.</div>`}
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000015;padding:16px">
+
       ${sec("Datos del paciente")}
-      ${grid(3,f("Nombre completo","nombre","",g("nombre")||nomPac),f("Edad","edad","",g("edad")||edad),fsel("Sexo","sexo",["M","F"],g("sexo")||(p.sexo==="Masculino"?"M":"F")))}
-      ${grid(3,f("Apellido paterno","ap_pat","",g("ap_pat")||apPat),f("Apellido materno","ap_mat","",g("ap_mat")||apMat),f("Nombre(s)","nombres","",g("nombres")||nombres))}
-      ${grid(4,f("Peso (kg)","peso","",g("peso")||p.peso||""),f("Talla (cm)","talla","",g("talla")||p.talla||""),fsel("Causa","causa",["Enfermedad","Accidente","Embarazo","Segunda valoración","Prevención"],g("causa")||"Enfermedad"),f("Lugar y fecha","lugar_fecha","",g("lugar_fecha")||hoyTxt))}
-      ${grid(2,f("Fecha 1ª atención (DD/MM/AAAA)","fecha_aten","16/01/2026",g("fecha_aten")||""),f("Poliza / Certificado","poliza","",g("poliza")||""))}
+      ${gr(3,fi("Nombre completo","nombre","",0),fi("Lugar y fecha","lugar_fecha","",0),fi("Edad","edad","",0))}
+      ${gr(4,fi("Apellido paterno","ap_pat","",0),fi("Apellido materno","ap_mat","",0),fs("Sexo","sexo",["M","F","Otro"]),fs("Causa reclamación","causa",["Enfermedad","Accidente","Embarazo","Segunda valoración"]))}
+      ${gr(4,fi("Peso (kg)","peso","",0),fi("Talla (cm)","talla","",0),fi("Fecha 1ª atención (DD/MM/AAAA)","fecha_aten","",0),fi("No. póliza / certificado","poliza","",0))}
 
       ${sec("Antecedentes")}
-      ${grid(2,f("APP — Ant. personales patológicos","app","DM2, HAS...",g("app")||"",3),f("APNP — Ant. personales no patológicos","apnp","",g("apnp")||"",3))}
-      ${grid(2,f("AQx — Ant. quirúrgicos","aqx","Cirugías previas...",g("aqx")||"",2),f("AGO — Gineco-obstétricos G/P/A/C","ago","",g("ago")||"",2))}
-      ${f("Afecciones adicionales no relacionadas","afec","",g("afec")||"",2)}
+      ${gr(2,fi("APP — Ant. personales patológicos","app","",3),fi("APNP — Ant. personales no patológicos","apnp","",3))}
+      ${gr(2,fi("AQx — Ant. quirúrgicos","aqx","Cirugías previas...",2),fi("AGO — Gineco-obstétricos","ago","G/P/A/C...",2))}
+      ${fi("Afecciones adicionales (no relacionadas con la reclamación)","afec","",2)}
 
       ${sec("Padecimiento actual")}
-      ${f("Signos y síntomas principales / evolución","signos","Descripción del cuadro clínico...",g("signos")||"",4)}
-      ${grid(4,f("Fecha inicio síntomas (DD/MM/AAAA)","fi","",g("fi")||""),f("Tiempo de evolución","evolucion","",g("evolucion")||""),fsel("Tipo padecimiento","tipo_pad",["Adquirido","Congénito","Agudo","Crónico"],g("tipo_pad")||"Adquirido"),f("Código CIE-10","cie","",g("cie")||""))}
-      ${f("Etiología / causa del padecimiento","etiologia","",g("etiologia")||"",3)}
-      ${f("Exploración física y estudios","exploracion","Hallazgos de exploración física y estudios...",g("exploracion")||"",4)}
-      ${grid(2,f("Diagnóstico definitivo","dx","",g("dx")||"",2),f("Tratamiento / intervención quirúrgica","tto","",g("tto")||"",2))}
-      ${grid(2,fsel("Continuará tratamiento","continua",["Sí","No"],g("continua")||"Sí"),f("Descripción del tratamiento continuo","tto_desc","",g("tto_desc")||""))}
-      ${grid(2,f("Complicaciones","compl","Ninguna / detallar...",g("compl")||"",2),f("Estado actual del paciente","estado","",g("estado")||"",2))}
+      ${fi("Signos y síntomas principales / evolución","signos","",4)}
+      ${gr(4,fi("Fecha inicio síntomas (DD/MM/AAAA)","fi","",0),fi("Tiempo de evolución","evolucion","",0),fs("Tipo padecimiento","tipo_pad",["Adquirido","Congénito","Agudo","Crónico"]),fi("Código CIE-10","cie","",0))}
+      ${fi("Etiología / causa del padecimiento","etiologia","",3)}
+      ${fi("Exploración física y estudios de laboratorio/gabinete","exploracion","",4)}
+      ${gr(2,fi("Diagnóstico definitivo","dx","",2),fi("Tratamiento / intervención quirúrgica","tto","",2))}
+      ${gr(2,fs("Continuará tratamiento","continua",["Sí","No"]),fi("Descripción del tratamiento continuo","tto_desc","",0))}
+      ${gr(2,fi("Complicaciones","compl","Ninguna / detallar...",2),fi("Estado actual del paciente","estado","",2))}
 
-      ${sec("Hospitalización")}
-      ${grid(4,f("Hospital","hospital","",g("hospital")||""),fsel("Tipo ingreso","tipo_ing",["Corta estancia / ambulatoria","Urgencia","Ingreso hospitalario"],g("tipo_ing")||"Corta estancia / ambulatoria"),f("Fecha ingreso (DD/MM/AAAA)","f_ing","",g("f_ing")||""),f("Fecha egreso (DD/MM/AAAA)","f_egr","",g("f_egr")||""))}
-      ${f("Observaciones adicionales","obs","",g("obs")||"",2)}
+      ${sec("Hospitalización y observaciones")}
+      ${gr(4,fi("Hospital","hospital","",0),fs("Tipo ingreso","tipo_ing",["Corta estancia / ambulatoria","Urgencia","Ingreso hospitalario"]),fi("Fecha ingreso (DD/MM/AAAA)","f_ing","",0),fi("Fecha egreso (DD/MM/AAAA)","f_egr","",0))}
+      ${fi("Observaciones adicionales","obs","",2)}
 
       ${sec("Datos del médico tratante")}
-      ${grid(3,f("Nombre completo del médico","med_nom","",g("med_nom")||medNom),f("Especialidad","med_esp","",g("med_esp")||medEsp),fsel("Tipo atención","tipo_aten",["Médico tratante","Cirujano principal","Interconsultante","Equipo quirúrgico","Segunda valoración"],g("tipo_aten")||"Médico tratante"))}
-      ${grid(3,f("Cédula profesional (Lic.)","med_ced","",g("med_ced")||medCedProf),f("Cédula especialidad","med_ced_esp","",g("med_ced_esp")||medCedEsp),f("RFC","med_rfc","",g("med_rfc")||u.rfc||""))}
-      ${grid(3,f("Domicilio consultorio","med_dir","",g("med_dir")||"AV. INSURGENTES SUR 933 PISO 12, NÁPOLES, CDMX"),f("Teléfono","med_tel","",g("med_tel")||u.telefono||""),f("Correo electrónico","med_email","",g("med_email")||u.email_real||u.email||""))}
-      ${grid(2,fsel("¿Convenio con aseguradora?","convenio",["No seleccionado","Sí","No"],g("convenio")||"No seleccionado"),fsel("¿Acepta tabulador de pago directo?","tabulador",["No seleccionado","Sí","No"],g("tabulador")||"No seleccionado"))}
+      ${gr(3,fi("Nombre completo del médico","med_nom","",0),fi("Especialidad","med_esp","",0),fs("Tipo atención","tipo_aten",["Médico tratante","Cirujano principal","Interconsultante","Equipo quirúrgico","Segunda valoración"]))}
+      ${gr(3,fi("Cédula profesional (Lic.)","med_ced","",0),fi("Cédula de especialidad","med_ced_esp","",0),fi("RFC","med_rfc","",0))}
+      ${gr(3,fi("Domicilio consultorio","med_dir","",0),fi("Teléfono","med_tel","",0),fi("Correo electrónico","med_email","",0))}
+      ${gr(2,fs("Convenio con aseguradora","convenio",["No seleccionado","Sí","No"]),fs("Acepta tabulador de pago directo","tabulador",["No seleccionado","Sí","No"]))}
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;padding-bottom:20px">
-      <button onclick="guardarBorradorSeguros('${key}')" style="background:#fff;color:${cfg.color};border:1.5px solid ${cfg.color};border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer"> Guardar borrador</button>
-      <button onclick="generarPDFSeguros('${key}')" style="background:${cfg.color};color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer"> Generar PDF ${cfg.nombre}</button>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;padding-bottom:24px">
+      <button onclick="cargarBorradorSeguros('${key}')" style="background:#fff;color:#546E7A;border:1.5px solid #E0E0E0;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer">Abrir borrador</button>
+      <button onclick="guardarBorradorSeguros('${key}')" style="background:#fff;color:#2E7D32;border:1.5px solid #A5D6A7;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer">Guardar borrador</button>
+      <button onclick="generarPDFSeguros('${key}')" style="background:${C};color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer">Generar PDF ${cfg.nombre}</button>
     </div>
   </div>`;
-}
+};
 
-// ── Recolectar datos del formulario ───────────────────────────────────────────
-function sgGV(k){return document.getElementById("sg_"+k)?.value||"";}
-window.sgRecolectar=function(){
-  const keys=["nombre","ap_pat","ap_mat","nombres","edad","sexo","peso","talla",
-    "causa","lugar_fecha","fecha_aten","poliza","app","apnp","aqx","ago","afec",
-    "signos","fi","evolucion","tipo_pad","cie","etiologia","exploracion","dx","tto",
-    "continua","tto_desc","compl","estado","hospital","tipo_ing","f_ing","f_egr","obs",
-    "med_nom","med_esp","tipo_aten","med_ced","med_ced_esp","med_rfc","med_dir","med_tel","med_email",
-    "convenio","tabulador"];
-  const d={};keys.forEach(k=>{d[k]=sgGV(k);});
-  // Split fecha en DD/MM/AAAA
-  const sF=s=>(s||"").includes("/")?s.split("/"):["","",""];
-  [d.fa_d,d.fa_m,d.fa_a]=sF(d.fecha_aten);
-  [d.fi_d,d.fi_m,d.fi_a]=sF(d.fi);
-  [d.fdx_d,d.fdx_m,d.fdx_a]=sF(d.fi); // fallback
-  [d.ftt_d,d.ftt_m,d.ftt_a]=["","",""];
-  [d.falt_d,d.falt_m,d.falt_a]=["","",""];
-  [d.fing_d,d.fing_m,d.fing_a]=sF(d.f_ing);
-  return d;
-}
 
 // ── Guardar borrador ──────────────────────────────────────────────────────────
 window.guardarBorradorSeguros=async function(key){
-  const pid=STATE.pat?.id;if(!pid){showToast("No hay paciente activo",false);return;}
-  const d=sgRecolectar();
-  const payload={paciente_id:pid,
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("No hay paciente activo",false);return;}
+  const campos={};
+  ["nombre","ap_pat","ap_mat","edad","sexo","causa","peso","talla","lugar_fecha",
+   "fecha_aten","poliza","app","apnp","aqx","ago","afec",
+   "signos","fi","evolucion","tipo_pad","cie","etiologia","exploracion",
+   "dx","tto","continua","tto_desc","compl","estado","hospital","tipo_ing","f_ing","f_egr","obs",
+   "med_nom","med_esp","tipo_aten","med_ced","med_ced_esp","med_rfc","med_dir","med_tel","med_email",
+   "convenio","tabulador","g_val","p_val","a_val","c_val"
+  ].forEach(id=>{const el=document.getElementById("sg_"+id);if(el)campos[id]=el.value;});
+  const payload={
+    paciente_id:pid,
     titulo:`BORRADOR ${key.toUpperCase()} — ${new Date().toLocaleDateString("es-MX")}`,
     tipo_documento:"Informe seguro",origen:"generado",firmado:false,
-    descripcion:"__SEG__:"+JSON.stringify(d),
-    fecha:new Date().toISOString().split("T")[0]};
+    descripcion:"__SEG__:"+JSON.stringify(campos),
+    fecha:new Date().toISOString().split("T")[0]
+  };
   const {data:ex}=await SB.from("anexos").select("id").eq("paciente_id",pid).like("titulo",`BORRADOR ${key.toUpperCase()}%`).limit(1);
-  if(ex?.length)await SB.from("anexos").update(payload).eq("id",ex[0].id);
+  if(ex?.length) await SB.from("anexos").update(payload).eq("id",ex[0].id);
   else await SB.from("anexos").insert(payload);
-  showToast(`✓ Borrador ${SEGUROS_CONFIG[key].nombre} guardado`);
+  showToast(`✓ Borrador ${SEGUROS_CONFIG[key]?.nombre||key} guardado`);
 };
 
-// Cargar borrador guardado
+// ── Cargar borrador ───────────────────────────────────────────────────────────
 window.cargarBorradorSeguros=async function(key){
   const pid=STATE.pat?.id;
   if(!pid){showToast("No hay paciente activo",false);return;}
@@ -15519,8 +15503,7 @@ window.cargarBorradorSeguros=async function(key){
     .order("fecha",{ascending:false})
     .limit(5);
   if(!bd?.length){showToast("No hay borradores guardados para esta aseguradora",false);return;}
-  // Si hay uno, cargarlo directo; si hay varios, mostrar selector
-  const aplicar=(b)=>{
+  const aplicar=b=>{
     try{
       const raw=b.descripcion||"";
       const json=raw.startsWith("__SEG__:")?raw.slice(8):raw;
@@ -15530,20 +15513,19 @@ window.cargarBorradorSeguros=async function(key){
         if(el)el.value=val||"";
       });
       showToast(`✓ Borrador "${b.titulo}" cargado`);
-    }catch(e){showToast("Error al cargar borrador: "+e.message,false);}
+    }catch(e){showToast("Error al cargar borrador",false);}
   };
   if(bd.length===1){aplicar(bd[0]);return;}
-  // Selector modal
   const ov=document.createElement("div");
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
   ov.innerHTML=`<div style="background:#fff;border-radius:10px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <div style="background:#37474F;padding:11px 16px;display:flex;justify-content:space-between;align-items:center">
       <b style="color:#fff;font-size:13px">Borradores guardados</b>
-      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1">✕</button>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer">✕</button>
     </div>
     <div style="padding:12px;display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto">
       ${bd.map((b,i)=>`<button id="_sgb_${i}" style="background:#F8F9FA;border:1.5px solid #E0E0E0;border-radius:7px;padding:9px 12px;text-align:left;cursor:pointer">
-        <div style="font-weight:600;font-size:13px;color:#263238">${b.titulo}</div>
+        <div style="font-weight:600;font-size:13px">${b.titulo}</div>
         <div style="font-size:11px;color:#90A4AE;margin-top:1px">${b.fecha}</div>
       </button>`).join("")}
     </div>
@@ -15552,11 +15534,10 @@ window.cargarBorradorSeguros=async function(key){
   bd.forEach((b,i)=>{document.getElementById("_sgb_"+i).onclick=()=>{ov.remove();aplicar(b);};});
 };
 
-// ── Generar PDF con pdf-lib ────────────────────────────────────────────────────
+// ── Generar PDF con pdf-lib ───────────────────────────────────────────────────
 window.generarPDFSeguros=async function(key){
-  loading(true,`Generando informe ${SEGUROS_CONFIG[key].nombre}...`);
+  loading(true,`Generando informe ${SEGUROS_CONFIG[key]?.nombre||key}...`);
   try{
-    // Cargar pdf-lib si no está
     if(!window.PDFLib){
       await new Promise((res,rej)=>{
         const s=document.createElement("script");
@@ -15564,79 +15545,55 @@ window.generarPDFSeguros=async function(key){
         s.onload=res;s.onerror=rej;document.head.appendChild(s);
       });
     }
-    const {PDFDocument,rgb} = window.PDFLib;
+    const {PDFDocument}=window.PDFLib;
     const cfg=SEGUROS_CONFIG[key];
-    const d=sgRecolectar();
-    const fieldMap=SEGUROS_FIELDS[key]||{tx:{},cb:{}};
-
-    // Descargar PDF original
-    const url=SEGUROS_BASE+cfg.file;
-    const resp=await fetch(url);
-    if(!resp.ok)throw new Error(`No se pudo descargar el formato: ${cfg.file}. ¿Está subido en Supabase Storage assets/seguros/?`);
+    const gv=id=>document.getElementById("sg_"+id)?.value||"";
+    const d={
+      nombre:gv("nombre"),ap_pat:gv("ap_pat"),ap_mat:gv("ap_mat"),
+      edad:gv("edad"),sexo:gv("sexo"),causa:gv("causa"),
+      peso:gv("peso"),talla:gv("talla"),lugar_fecha:gv("lugar_fecha"),
+      fecha_aten:gv("fecha_aten"),poliza:gv("poliza"),
+      app:gv("app"),apnp:gv("apnp"),aqx:gv("aqx"),ago:gv("ago"),afec:gv("afec"),
+      signos:gv("signos"),fi:gv("fi"),evolucion:gv("evolucion"),
+      tipo_pad:gv("tipo_pad"),cie:gv("cie"),
+      etiologia:gv("etiologia"),exploracion:gv("exploracion"),
+      dx:gv("dx"),tto:gv("tto"),continua:gv("continua"),tto_desc:gv("tto_desc"),
+      compl:gv("compl"),estado:gv("estado"),
+      hospital:gv("hospital"),tipo_ing:gv("tipo_ing"),
+      f_ing:gv("f_ing"),f_egr:gv("f_egr"),obs:gv("obs"),
+      med_nom:gv("med_nom"),med_esp:gv("med_esp"),tipo_aten:gv("tipo_aten"),
+      med_ced:gv("med_ced"),med_ced_esp:gv("med_ced_esp"),med_rfc:gv("med_rfc"),
+      med_dir:gv("med_dir"),med_tel:gv("med_tel"),med_email:gv("med_email"),
+      convenio:gv("convenio"),tabulador:gv("tabulador"),
+    };
+    const resp=await fetch(SEGUROS_BASE+cfg.file);
+    if(!resp.ok)throw new Error(`No se encontró el archivo ${cfg.file} en Supabase Storage (assets/seguros/). Súbelo primero.`);
     const pdfBytes=await resp.arrayBuffer();
     const pdfDoc=await PDFDocument.load(pdfBytes,{ignoreEncryption:true});
-
     const form=pdfDoc.getForm();
-    const fields=form.getFields();
-
-    // Helper seguro para setText
-    const setText=(fname,val)=>{
-      if(!val)return;
-      try{
-        const f=form.getTextField(fname);
-        if(f)f.setText(String(val).toUpperCase());
-      }catch(e){}
-    };
-    const setCheck=(fname,check,onVal)=>{
-      try{
-        const f=form.getCheckBox(fname);
-        if(!f)return;
-        const ov=onVal||"Yes";
-        if(check)f.check();else f.uncheck();
-      }catch(e){}
-    };
-
-    // Llenar campos texto
-    Object.entries(fieldMap.tx).forEach(([fname,dkey])=>{
-      if(!dkey)return;
-      setText(fname, d[dkey]||"");
-    });
-
-    // Llenar checkboxes
-    Object.entries(fieldMap.cb).forEach(([fname,{field,val}])=>{
-      const isChecked=d[field]===val;
-      setCheck(fname,isChecked);
-    });
-
-    // Guardar PDF
+    const fieldMap=SEGUROS_FIELDS[key]||{tx:{},cb:{}};
+    const setTx=(name,val)=>{if(!val)return;try{form.getTextField(name)?.setText(String(val).toUpperCase());}catch(e){}};
+    const setCb=(name,check)=>{try{const f=form.getCheckBox(name);check?f.check():f.uncheck();}catch(e){}};
+    Object.entries(fieldMap.tx||{}).forEach(([fname,dkey])=>{if(dkey&&d[dkey])setTx(fname,d[dkey]);});
+    Object.entries(fieldMap.cb||{}).forEach(([fname,{field,val}])=>setCb(fname,d[field]===val));
     const outBytes=await pdfDoc.save();
     const blob=new Blob([outBytes],{type:"application/pdf"});
-
-    // Guardar en Supabase
+    // Guardar en expediente
     const pid=STATE.pat?.id;
     if(pid){
       try{
         const path=`${pid}/seguros/${key}_${Date.now()}.pdf`;
-        const {error:e2}=await SB.storage.from("expedientes").upload(path,blob,{contentType:"application/pdf",upsert:false});
-        if(!e2)await SB.from("anexos").insert({
-          paciente_id:pid,titulo:`INFORME ${cfg.nombre.toUpperCase()} — ${new Date().toLocaleDateString("es-MX")}`,
-          tipo_documento:"Informe seguro",origen:"generado",firmado:false,
-          storage_path:path,fecha:new Date().toISOString().split("T")[0],
-        });
+        const {error:se}=await SB.storage.from("expedientes").upload(path,blob,{contentType:"application/pdf",upsert:false});
+        if(!se)await SB.from("anexos").insert({paciente_id:pid,titulo:`INFORME ${cfg.nombre.toUpperCase()} — ${new Date().toLocaleDateString("es-MX")}`,tipo_documento:"Informe seguro",origen:"generado",firmado:false,storage_path:path,fecha:new Date().toISOString().split("T")[0]});
       }catch(e){}
     }
-
-    // Descargar
-    const nom=(d.nombre||"paciente").replace(/[^a-zA-Z0-9]/g,"_").substring(0,20);
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
+    const nom=(d.ap_pat||"paciente").replace(/[^a-zA-Z0-9]/g,"_").slice(0,15);
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);
     a.download=`${key}_${nom}_${new Date().toISOString().split("T")[0]}.pdf`;
     a.click();
-    loading(false);
-    showToast(`✓ PDF ${cfg.nombre} generado`);
+    loading(false);showToast(`✓ PDF ${cfg.nombre} generado`);
   }catch(e){
-    loading(false);
-    console.error("Error PDF Seguros:",e);
+    loading(false);console.error("Error PDF Seguros:",e);
     showToast("Error: "+e.message,false);
   }
 };
