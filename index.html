@@ -3692,36 +3692,33 @@ window.guardarNuevoPac=async function(){
     firmo_consentimiento:d.ncons||false,
     created_by:session.user.id,
   };
-  // ── Detección de pacientes duplicados ─────────────────────
+
+  // ── Detección de pacientes duplicados ─────────────────────────
   loading(false);
   const {data:dupData}=await SB.from("pacientes")
-    .select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular")
-    .eq("activo",true)
-    .ilike("apellido_paterno",apP)
-    .ilike("nombre",nom);
+    .select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento")
+    .eq("activo",true).ilike("apellido_paterno",apP).ilike("nombre",nom);
   if(dupData&&dupData.length>0){
-    // Construir descripción de duplicados
     const listaDup=dupData.map(d=>{
       const ap=`${d.nombre} ${d.apellido_paterno}${d.apellido_materno?" "+d.apellido_materno:""}`;
       const fn=d.fecha_nacimiento?` · Nac: ${d.fecha_nacimiento.split("-").reverse().join("/")}` :"";
       const exp=d.numero_expediente?` · Exp: ${d.numero_expediente}`:"";
-      return `• ${ap}${fn}${exp}`;
+      return`• ${ap}${fn}${exp}`;
     }).join("\n");
-    // Modal personalizado de duplicado — no usa qpConfirm estándar para poder mostrar detalle rico
     const continuar=await new Promise(res=>{
-      let _r=null;
+      let _r=res;
       const overlay=document.createElement("div");
       overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px";
       overlay.innerHTML=`
         <div style="background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:500px;width:100%;overflow:hidden;animation:fd .15s ease">
           <div style="background:#7F5900;padding:14px 18px;display:flex;align-items:center;gap:10px">
             <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:26px;border-radius:3px;background:#fff;padding:1px">
-            <span style="color:#fff;font-size:14px;font-weight:700">⚠️ Paciente posiblemente registrado</span>
+            <span style="color:#fff;font-size:14px;font-weight:700">⚠️ Paciente posiblemente ya registrado</span>
           </div>
           <div style="padding:18px">
             <p style="font-size:14px;color:#263238;line-height:1.6;margin-bottom:10px">Ya existe${dupData.length>1?" un paciente registrado":" pacientes registrados"} con el mismo nombre:</p>
             <div style="background:#FFF8E6;border:1px solid #F59E0B;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#7F5900;line-height:1.8;white-space:pre-line">${listaDup}</div>
-            <p style="font-size:13px;color:#546E7A;margin-bottom:16px">¿Desea registrar un <strong>nuevo paciente de todas formas</strong> (puede ser homónimo), o prefiere <strong>buscar el expediente existente</strong>?</p>
+            <p style="font-size:13px;color:#546E7A;margin-bottom:16px">¿Registrar <strong>nuevo paciente de todas formas</strong> (puede ser homónimo), o <strong>ver el expediente existente</strong>?</p>
             <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
               <button id="_dup_buscar" style="padding:8px 14px;border:1.5px solid #CFD8DC;border-radius:8px;background:#fff;color:#546E7A;cursor:pointer;font-size:13px;font-weight:600">🔍 Ver expediente existente</button>
               <button id="_dup_nuevo" style="padding:8px 16px;border:none;border-radius:8px;background:#006BB6;color:#fff;cursor:pointer;font-size:13px;font-weight:700">➕ Registrar de todas formas</button>
@@ -3729,12 +3726,10 @@ window.guardarNuevoPac=async function(){
           </div>
         </div>`;
       document.body.appendChild(overlay);
-      document.getElementById("_dup_buscar").onclick=()=>{document.body.removeChild(overlay);_r&&_r("buscar");};
-      document.getElementById("_dup_nuevo").onclick=()=>{document.body.removeChild(overlay);_r&&_r("nuevo");};
-      _r=res;
+      document.getElementById("_dup_buscar").onclick=()=>{document.body.removeChild(overlay);_r("buscar");};
+      document.getElementById("_dup_nuevo").onclick=()=>{document.body.removeChild(overlay);_r("nuevo");};
     });
     if(continuar==="buscar"){go("buscar");return;}
-    // Si eligió "nuevo", continúa el registro
   }
 
   loading(true,"Registrando paciente...");
@@ -11373,7 +11368,6 @@ window.editarFisio=async function(id){
   // La renderFisioVer ya muestra el form con los datos
   renderFisio(document.getElementById("eb"));
 }
-// ── PDF DE PRESCRIPCIÓN DE FISIOTERAPIA ──────────────────────────────────────
 window.generarPDFFisio=async function(){
   const {jsPDF}=window.jspdf;
   if(!jsPDF){showToast("jsPDF no disponible",false);return;}
@@ -11388,53 +11382,58 @@ window.generarPDFFisio=async function(){
   try{
     const p=STATE.pat||{};
     const med=STATE.medProfile||STATE.userProfile||{};
-
-    // Recolectar datos del formulario (o de la prescripción guardada)
     const gv2=(id)=>{const e=document.getElementById(id);return e?String(e.value||"").trim():"";};
+
+    // ── Recolectar todos los campos ────────────────────────────────
     const nomPac=gv2("ft_nom")||[p.nombre,p.apellido_paterno,p.apellido_materno].filter(Boolean).join(" ")||"—";
-    const fnac=gv2("ft_fnac")||p.fecha_nacimiento||"";
-    const edad=gv2("ft_edad")||calcEdad(p.fecha_nacimiento)||"—";
+    const fnac  =gv2("ft_fnac")||p.fecha_nacimiento||"";
+    const edad  =gv2("ft_edad")||calcEdad(p.fecha_nacimiento)||"—";
     const numExp=gv2("ft_exp")||p.numero_expediente||"—";
     const fechaPresc=gv2("ft_fecha")||new Date().toISOString().split("T")[0];
-    const medTratante=gv2("ft_med")||[med.titulo||"Dr.",med.nombre,med.apellidos].filter(Boolean).join(" ").trim();
-    const fisio=gv2("ft_fisio")||"—";
-    const dx=gv2("ft_dx")||"—";
-    const region=gv2("ft_region")||"—";
-    const lat=document.querySelector("input[name='ft_lat']:checked")?.value||"N/A";
-    const eva=gv2("ft_eva")||"0";
-    const evol=gv2("ft_evol")||"—";
-    const sint=gv2("ft_sint")||"";
-    const obj=gv2("ft_obj")||"";
-    const params=gv2("ft_params")||"";
-    const hep=gv2("ft_hep")||"";
-    const nses=gv2("ft_nses")||"";
-    const freq=gv2("ft_freq")||"";
+    const medTrat=gv2("ft_med")||[med.titulo||"Dr.",med.nombre,med.apellidos].filter(Boolean).join(" ").trim()||"—";
+    const fisio  =gv2("ft_fisio")||"";
+    const dx     =gv2("ft_dx")||"";
+    const region =gv2("ft_region")||"";
+    const lat    =document.querySelector("input[name='ft_lat']:checked")?.value||"N/A";
+    const eva    =gv2("ft_eva")||"0";
+    const evol   =gv2("ft_evol")||"";
+    const sint   =gv2("ft_sint")||"";
+    const obj    =gv2("ft_obj")||"";
+    const params =gv2("ft_params")||"";
+    const hep    =gv2("ft_hep")||"";
+    const nses   =gv2("ft_nses")||"";
+    const freq   =document.querySelector("input[name='ft_freq']:checked")?.value||gv2("ft_freq")||"";
     const finicio=gv2("ft_finicio")||"";
-    const falta=gv2("ft_falta")||"";
-    const contra=gv2("ft_contra")||"";
-    const reev=gv2("ft_reev")||"";
+    const falta  =gv2("ft_falta")||"";
+    const contra =gv2("ft_contra")||"";
+    const reev   =gv2("ft_reev")||"";
     const evaAlta=gv2("ft_eva_alta")||"";
     const evolNota=gv2("ft_evol_nota")||"";
 
-    // Recoger checkboxes de tratamiento
+    // Limitaciones funcionales
+    const limKeys=["marcha","laboral","deportiva","avd_bas","avd_ins"];
+    const limLabel={marcha:"Marcha",laboral:"Actividad laboral",deportiva:"Actividad deportiva",avd_bas:"AVD básicas",avd_ins:"AVD instrumentales"};
+    const limSel=limKeys.filter(k=>document.getElementById(`ft_lim_${k}`)?.checked);
+
+    // Sesiones completadas
+    const sesComp=STATE.fisioSesiones||[];
+    const totalSes=parseInt(nses)||20;
+
+    // Checkboxes tratamiento
     const grupos={
       ag:["tens","ultrasonido","laser","radiofrecuencia","compresion","crioterapia","termoterapia"],
       man:["masoterapia","movilizacion","manipulacion","miofascial","puncion","vendaje","drenaje"],
       ej:["estiramiento","fortalecimiento","propiocepcion","postural","cadena","aerobico","pliometria","readaptacion","pilates"],
-      neu:["marcha","sensoriomotriz","avd","cognitiva"],
-      lim:["marcha","laboral","deportiva","avd_bas","avd_ins"]
+      neu:["marcha","sensoriomotriz","avd","cognitiva"]
     };
     const etiq={
       ag:{tens:"TENS",ultrasonido:"Ultrasonido",laser:"Láser",radiofrecuencia:"Radiofrecuencia",compresion:"Compresión neumática",crioterapia:"Crioterapia",termoterapia:"Termoterapia (calor)"},
       man:{masoterapia:"Masoterapia",movilizacion:"Movilización articular",manipulacion:"Manipulación",miofascial:"Técnicas miofasciales",puncion:"Punción seca",vendaje:"Vendaje neuromuscular",drenaje:"Drenaje linfático"},
       ej:{estiramiento:"Estiramiento",fortalecimiento:"Fortalecimiento",propiocepcion:"Propiocepción / Equilibrio",postural:"Reeducación postural",cadena:"Cadena cinética",aerobico:"Ejercicio aeróbico",pliometria:"Pliometría",readaptacion:"Readaptación deportiva",pilates:"Pilates terapéutico"},
-      neu:{marcha:"Reeducación de marcha",sensoriomotriz:"Estimulación sensoriomotriz",avd:"AVD – independencia",cognitiva:"Rehabilitación cognitiva"},
-      lim:{marcha:"Marcha",laboral:"Actividad laboral",deportiva:"Actividad deportiva",avd_bas:"AVD básicas",avd_ins:"AVD instrumentales"}
+      neu:{marcha:"Reeducación de la marcha",sensoriomotriz:"Estimulación sensoriomotriz",avd:"AVD – independencia",cognitiva:"Rehabilitación cognitiva"}
     };
-    const seleccionados={};
-    Object.keys(grupos).forEach(g=>{
-      seleccionados[g]=grupos[g].filter(k=>{const e=document.getElementById(`ft_${g}_${k}`);return e?.checked;}).map(k=>etiq[g][k]);
-    });
+    const sel={};
+    Object.keys(grupos).forEach(g=>{sel[g]=grupos[g].map(k=>({k,v:etiq[g][k],checked:!!document.getElementById(`ft_${g}_${k}`)?.checked}));});
 
     const medNom=[med.titulo||"Dr.",med.nombre,med.apellidos].filter(Boolean).join(" ").trim();
     const credLine1=[med.licenciatura||"Médico Cirujano",med.institucion_grado?med.institucion_grado.split(" — ")[0]:"",med.cedula_medico?"Céd. Prof. "+med.cedula_medico:""].filter(Boolean).join(" · ");
@@ -11446,15 +11445,15 @@ window.generarPDFFisio=async function(){
     if(med.firma_digital){try{const r=await fetch(med.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}}
 
     // ── PALETA ─────────────────────────────────────────────────────
-    const AZ="#0B6FB3",DARKBLUE="#064C8B",AZLT="#EAF6FB",PALE="#F4FAFD",
-          ALRED="#B42318",ALREDBG="#FFF1F0",GRNTX="#155724",GRNBG="#D4EDDA",
-          BRD="#D7E3EA",TXT="#1F2933",SEC="#5F6B73";
+    const AZ="#0B6FB3",DK="#064C8B",PALE="#F4FAFD",BRD="#D7E3EA",
+          TXT="#1F2933",SEC="#5F6B73",ALRED="#B42318",ALBG="#FFF1F0",
+          GRN="#2E7D32",GRNBG="#D4EDDA",AMB="#B7791F",AMBBG="#FFF8E6";
 
-    // ── HTML→Canvas ───────────────────────────────────────────────
+    // ── Helpers render ─────────────────────────────────────────────
     const CW_PX=720,HCSC=3,PX_PER_MM=CW_PX*HCSC/189.9;
     const renderHTML=async(html)=>{
       const wrap=document.createElement("div");
-      wrap.style.cssText=`position:fixed;left:-9999px;top:0;width:${CW_PX}px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:${TXT};line-height:1.32;box-sizing:border-box`;
+      wrap.style.cssText=`position:fixed;left:-9999px;top:0;width:${CW_PX}px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:${TXT};line-height:1.35;box-sizing:border-box`;
       wrap.innerHTML=html;document.body.appendChild(wrap);
       await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
       const cv=await html2canvas(wrap,{scale:HCSC,useCORS:true,backgroundColor:"#fff",logging:false,imageTimeout:10000,allowTaint:true});
@@ -11480,132 +11479,190 @@ window.generarPDFFisio=async function(){
       }
     };
 
-    // ── Helpers ───────────────────────────────────────────────────
-    const secBar=(t,col=AZ)=>`<div style="background:${col};padding:6px 12px;border-radius:4px 4px 0 0;margin-top:11px"><b style="color:#fff;font-size:10.5px;letter-spacing:.2px">${t}</b></div>`;
-    const secBox=(html,bg)=>`<div style="background:${bg||"#fff"};border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px"><div style="font-size:9.5px;color:${TXT};line-height:1.55">${html}</div></div>`;
-    const chip=(txt,active=true)=>active?`<span style="display:inline-block;background:${AZLT};color:${AZ};border:1px solid #B3D9F0;border-radius:14px;padding:2px 9px;font-size:8.5px;font-weight:600;margin:2px">${txt}</span>`:"";
-    const infoRow=(label,val)=>val&&val.trim()&&val!=="—"?`<div style="display:flex;gap:8px;margin-bottom:4px"><span style="font-size:8px;color:${SEC};font-weight:700;text-transform:uppercase;min-width:110px;flex-shrink:0">${label}</span><span style="font-size:9px;color:${TXT}">${val}</span></div>`:"";
-    const fechaFmt=(f)=>{if(!f)return"";try{return f.split("-").reverse().join("/");}catch(e){return f;}};
+    // ── Helpers HTML ───────────────────────────────────────────────
+    const fechaFmt=f=>{if(!f)return"";try{return f.split("-").reverse().join("/");}catch(e){return f;}};
+    const secBar=(t,col=AZ)=>`<div style="background:${col};padding:6px 12px;border-radius:4px 4px 0 0;margin-top:10px"><b style="color:#fff;font-size:10px;letter-spacing:.3px;text-transform:uppercase">${t}</b></div>`;
+    const secWrap=(inner,bg="#fff")=>`<div style="background:${bg};border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:10px 13px">${inner}</div>`;
+    // Etiqueta + valor (siempre visible aunque esté vacío)
+    const campo=(label,val,opts={})=>{
+      const vacio=!val||val==="—"||val==="0";
+      const color=vacio?"#B0BEC5":TXT;
+      const display=vacio?(opts.placeholder||"—"):val;
+      return `<div style="margin-bottom:${opts.mb||8}px">
+        <div style="font-size:7px;color:${SEC};font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">${label}</div>
+        <div style="font-size:${opts.fs||9.5}px;color:${color};${opts.bold?"font-weight:700;":""}">${display}</div>
+      </div>`;
+    };
+    const lineaHoriz=`<div style="border-bottom:1px solid #E0E0E0;margin:7px 0"></div>`;
+    // Checkbox visual (siempre muestra todos)
+    const chkItem=(checked,label)=>`<span style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;font-size:8.5px;color:${checked?AZ:SEC}">
+      <span style="display:inline-block;width:11px;height:11px;border:1.5px solid ${checked?AZ:"#B0BEC5"};border-radius:2px;background:${checked?AZ:"#fff"};flex-shrink:0;text-align:center;line-height:9px;color:#fff;font-size:9px">${checked?"✓":""}</span>${label}</span>`;
+    // Radio visual
+    const radioItem=(checked,label)=>`<span style="display:inline-flex;align-items:center;gap:4px;margin:2px 8px 2px 0;font-size:8.5px;color:${checked?AZ:SEC}">
+      <span style="display:inline-block;width:11px;height:11px;border:1.5px solid ${checked?AZ:"#B0BEC5"};border-radius:50%;background:${checked?AZ:"#fff"};flex-shrink:0"></span>${label}</span>`;
+    // Área de texto grande
+    const textArea=(label,val,minH=28)=>`<div style="margin-bottom:8px">
+      <div style="font-size:7px;color:${SEC};font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">${label}</div>
+      <div style="min-height:${minH}px;border:1px solid ${BRD};border-radius:3px;padding:5px 8px;font-size:9px;color:${val?TXT:"#B0BEC5"};line-height:1.5;background:#FAFAFA">${val?val.replace(/\n/g,"<br>"):"&nbsp;"}</div>
+    </div>`;
 
-    // ── HEADER ────────────────────────────────────────────────────
+    // ── HEADER ─────────────────────────────────────────────────────
     const headerHTML=`
     <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
       <div style="flex:1;min-width:0">
-        <div style="font-size:14.5px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic Especialistas en Salud Integral</div>
-        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:5px">Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX, C.P. 03810 &nbsp;|&nbsp; Tel. 55 5682 4345 / 56 4423 7028 &nbsp;|&nbsp; qpclinic.org</div>
+        <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic Especialistas en Salud Integral</div>
+        <div style="font-size:7.5px;color:rgba(255,255,255,.85);margin-bottom:5px">Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX, C.P. 03810 &nbsp;|&nbsp; Tel. 55 5682 4345 / 56 4423 7028 &nbsp;|&nbsp; qpclinic.org</div>
         <div style="border-top:1px solid rgba(255,255,255,.35);margin:5px 0"></div>
-        <div style="font-size:10.5px;font-weight:bold;color:#fff;margin-bottom:1px">${medNom}</div>
-        <div style="font-size:7.6px;color:rgba(255,255,255,.85)">${credLine1}</div>
-        ${credLine2?`<div style="font-size:7.6px;color:rgba(255,255,255,.85)">${credLine2}</div>`:""}
+        <div style="font-size:10px;font-weight:bold;color:#fff;margin-bottom:1px">${medNom}</div>
+        <div style="font-size:7.2px;color:rgba(255,255,255,.85)">${credLine1}</div>
+        ${credLine2?`<div style="font-size:7.2px;color:rgba(255,255,255,.85)">${credLine2}</div>`:""}
       </div>
       ${logoB64?`<div style="background:#fff;border-radius:4px;padding:5px;flex-shrink:0"><img src="${logoB64}" style="height:36px;display:block;object-fit:contain"></div>`:""}
     </div>
-    <div style="background:${DARKBLUE};padding:6px 12px;text-align:center">
-      <b style="color:#fff;font-size:11px;letter-spacing:.4px">PRESCRIPCIÓN DE FISIOTERAPIA Y REHABILITACIÓN</b>
+    <div style="background:${DK};padding:6px 12px;text-align:center">
+      <b style="color:#fff;font-size:11px;letter-spacing:.5px">PRESCRIPCIÓN DE FISIOTERAPIA Y REHABILITACIÓN</b>
     </div>`;
 
-    // ── DATOS DEL PACIENTE ─────────────────────────────────────────
-    const pacHTML=`
-    <div style="background:${PALE};border:1px solid ${BRD};border-radius:0 0 4px 4px;padding:8px 12px">
-      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:5px">
-        <div style="flex:2"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Paciente</div><div style="font-size:10px;font-weight:700;color:${TXT}">${nomPac}</div></div>
-        <div style="flex:0.8"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Expediente</div><div style="font-size:10px;font-weight:700;color:${TXT}">${numExp}</div></div>
-        <div style="flex:0.8"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Fecha presc.</div><div style="font-size:9px;font-weight:600;color:${TXT}">${fechaFmt(fechaPresc)}</div></div>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <div style="flex:1"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Fecha de nacimiento</div><div style="font-size:9px;color:${TXT}">${fechaFmt(fnac)||"—"}</div></div>
-        <div style="flex:0.6"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Edad</div><div style="font-size:9px;color:${TXT}">${edad}</div></div>
-        <div style="flex:1.2"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Médico tratante</div><div style="font-size:9px;color:${TXT}">${medTratante}</div></div>
-        <div style="flex:1.2"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Fisioterapeuta asignado</div><div style="font-size:9px;color:${TXT}">${fisio}</div></div>
-      </div>
-    </div>`;
+    // ── 1. DATOS DEL PACIENTE ──────────────────────────────────────
+    const evaNum=parseInt(eva)||0;
+    const evaCol=evaNum>=7?ALRED:evaNum>=4?AMB:GRN;
+    const evaBg =evaNum>=7?ALBG:evaNum>=4?AMBBG:GRNBG;
 
-    // ── DIAGNÓSTICO ────────────────────────────────────────────────
-    const dxLineas=dx.split("\n").map(l=>l.trim()).filter(Boolean);
+    const sec1=secBar("1. Datos del paciente")+secWrap(`
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:4px">
+        ${campo("Paciente",nomPac,{bold:true,fs:10})}
+        ${campo("No. expediente",numExp,{bold:true})}
+        ${campo("Fecha de prescripción",fechaFmt(fechaPresc))}
+      </div>
+      ${lineaHoriz}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+        ${campo("Fecha de nacimiento",fechaFmt(fnac))}
+        ${campo("Edad",edad)}
+        ${campo("Médico tratante",medTrat)}
+        ${campo("Fisioterapeuta asignado",fisio)}
+      </div>`);
+
+    // ── 2. DIAGNÓSTICO CIE-10 ──────────────────────────────────────
+    const dxLineas=(dx||"").split("\n").map(l=>l.trim()).filter(Boolean);
     const dxFilas=dxLineas.map(l=>{const m=l.match(/^([A-Z]\d{2}(?:\.\d{1,3})?)\s*[\-–—:]?\s*(.*)$/);return m?{cie:m[1],desc:m[2]||l}:{cie:"",desc:l};});
     const tieneCie=dxFilas.some(d=>d.cie);
-    const dxHTML=secBar("DIAGNÓSTICO CIE-10")+(tieneCie?`
-      <table style="width:100%;border-collapse:collapse;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px">
+    const sec2=secBar("Diagnóstico CIE-10")+(dxLineas.length&&tieneCie?
+      `<table style="width:100%;border-collapse:collapse;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px">
         ${dxFilas.map((d,i)=>`<tr style="background:${i%2===0?"#fff":PALE}">
-          <td style="padding:5px 11px;width:18%;font-weight:700;font-size:9.2px;color:${TXT};border-bottom:1px solid ${BRD}">${d.cie||""}</td>
-          <td style="padding:5px 11px;font-size:9.2px;color:${TXT};border-bottom:1px solid ${BRD}">${d.desc}</td>
+          <td style="padding:5px 10px;width:16%;font-weight:700;font-size:9px;color:${TXT};border-bottom:1px solid ${BRD};vertical-align:top">${d.cie||""}</td>
+          <td style="padding:5px 10px;font-size:9px;color:${TXT};border-bottom:1px solid ${BRD}">${d.desc}</td>
         </tr>`).join("")}
-      </table>`:secBox(dx.replace(/\n/g,"<br>")));
+      </table>`:
+      dxLineas.length?secWrap(`<div style="font-size:9px;color:${TXT};line-height:1.5">${dx.replace(/\n/g,"<br>")}</div>`):
+      secWrap(`<div style="font-size:9px;color:#B0BEC5;min-height:22px">&nbsp;</div>`));
 
-    // ── REGIÓN Y EVA ──────────────────────────────────────────────
-    const evaNum=parseInt(eva)||0;
-    const evaColor=evaNum>=7?ALRED:evaNum>=4?"#B7791F":"#155724";
-    const regionHTML=secBar("REGIÓN ANATÓMICA Y EVALUACIÓN DE DOLOR")+`
-    <div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px;display:flex;gap:20px;flex-wrap:wrap">
-      ${infoRow("Región afectada",region)}
-      ${infoRow("Lateralidad",lat)}
-      <div style="display:flex;gap:8px;align-items:center"><span style="font-size:8px;color:${SEC};font-weight:700;text-transform:uppercase">EVA inicial</span><span style="background:${evaNum>=7?ALREDBG:evaNum>=4?"#FFF8E6":"#D4EDDA"};color:${evaColor};padding:2px 10px;border-radius:12px;font-size:10px;font-weight:700">${eva}/10</span></div>
-      ${evol?infoRow("Tiempo de evolución",evol):""}
+    // ── 3. EVALUACIÓN FUNCIONAL ────────────────────────────────────
+    const sec3=secBar("2. Evaluación funcional")+secWrap(`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:6px">
+        <div>
+          <div style="font-size:7px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:4px">Región anatómica afectada</div>
+          <div style="font-size:9.5px;color:${region?TXT:"#B0BEC5"}">${region||"—"}</div>
+        </div>
+        <div>
+          <div style="font-size:7px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:4px">Lateralidad</div>
+          <div>${["Derecha","Izquierda","Bilateral","N/A"].map(v=>radioItem(lat===v,v)).join("")}</div>
+        </div>
+        <div>
+          <div style="font-size:7px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:4px">Dolor EVA inicial</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="background:${evaBg};color:${evaCol};padding:3px 12px;border-radius:14px;font-size:11px;font-weight:700;border:1px solid ${evaCol}40">${eva}/10</span>
+            <span style="font-size:8px;color:${evaCol}">${evaNum>=7?"Dolor intenso":evaNum>=4?"Dolor moderado":"Dolor leve / sin dolor"}</span>
+          </div>
+        </div>
+      </div>
+      ${lineaHoriz}
+      <div style="margin-bottom:6px">${campo("Tiempo de evolución",evol)}</div>
+      ${textArea("Síntomas y signos clínicos principales",sint,30)}
+      ${textArea("Objetivo del tratamiento",obj,30)}
+      <div style="margin-top:4px">
+        <div style="font-size:7px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:4px">Limitación funcional</div>
+        <div>${limKeys.map(k=>chkItem(limSel.includes(k),limLabel[k])).join("")}</div>
+      </div>`);
+
+    // ── 4. PLAN DE TRATAMIENTO ─────────────────────────────────────
+    const grupoLabels={ag:"⚡ Agentes físicos / Electroterapia",man:"🙌 Terapia manual",ej:"🏋️ Ejercicio terapéutico",neu:"🧠 Terapia neurológica / ocupacional"};
+    let tratInner="";
+    Object.keys(grupos).forEach(g=>{
+      tratInner+=`<div style="margin-bottom:8px">
+        <div style="font-size:7px;color:${AZ};font-weight:700;text-transform:uppercase;margin-bottom:4px">${grupoLabels[g]}</div>
+        <div>${sel[g].map(({checked,v})=>chkItem(checked,v)).join("")}</div>
+      </div>`;
+    });
+    const sec4=secBar("3. Plan de tratamiento")+secWrap(
+      tratInner+lineaHoriz+
+      textArea("Parámetros específicos / Medio físico",params,28)+
+      textArea("Plan de ejercicios en casa (HEP)",hep,28));
+
+    // ── 5. DOSIFICACIÓN ────────────────────────────────────────────
+    const freqOpts=["No especificada","1 vez/semana","2 veces/semana","3 veces/semana","4 veces/semana","5 veces/semana","Diario"];
+    const sec5=secBar("4. Dosificación")+secWrap(`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:6px">
+        ${campo("Número de sesiones",nses)}
+        ${campo("Fecha de inicio",fechaFmt(finicio))}
+        ${campo("Fecha estimada de alta",fechaFmt(falta))}
+      </div>
+      <div style="margin-bottom:6px">
+        <div style="font-size:7px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:4px">Frecuencia semanal</div>
+        <div>${freqOpts.map(f=>radioItem(freq===f,f)).join("")}</div>
+      </div>
+      ${textArea("Precauciones / Contraindicaciones",contra,contra?0:22)}`);
+
+    // ── 6. CONTROL DE SESIONES ─────────────────────────────────────
+    const maxSes=Math.max(totalSes,20);
+    const sesRows=[];
+    for(let i=0;i<maxSes;i+=4){
+      sesRows.push(`<tr>${[0,1,2,3].map(j=>{
+        const n=i+j+1;if(n>maxSes)return`<td></td><td></td>`;
+        const done=sesComp.includes(n);
+        return`<td style="padding:3px 6px;font-size:8px;color:${SEC};font-weight:700;text-align:center;border-right:1px solid ${BRD}">${n}</td>
+               <td style="padding:3px 8px;font-size:8px;color:${done?GRN:TXT};font-weight:${done?700:400};border-right:1px solid ${BRD};min-width:80px">${done?"✓ Realizada":"—"}</td>`;
+      }).join("")}</tr>`);
+    }
+    const sec6=secBar("5. Control de sesiones")+`
+    <div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:${PALE}">
+          ${["#","Estado","#","Estado","#","Estado","#","Estado"].map(h=>`<th style="padding:4px 6px;font-size:7px;font-weight:700;color:${SEC};text-transform:uppercase;text-align:${h==="#"?"center":"left"};border-right:1px solid ${BRD};border-bottom:1px solid ${BRD}">${h}</th>`).join("")}
+        </tr></thead>
+        <tbody>${sesRows.map((r,i)=>`<tr style="background:${i%2?"#FAFAFA":"#fff"}">${r.replace(/<tr>/g,"")}</tr>`).join("")}</tbody>
+      </table>
     </div>`;
 
-    // ── SÍNTOMAS Y OBJETIVOS ───────────────────────────────────────
-    const sintObjHTML=(sint||obj)?secBar("SÍNTOMAS Y OBJETIVOS TERAPÉUTICOS")+`
-    <div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px">
-      ${sint?`<div style="margin-bottom:6px"><div style="font-size:8px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:3px">Síntomas principales</div><div style="font-size:9.5px;color:${TXT};line-height:1.5">${sint.replace(/\n/g,"<br>")}</div></div>`:""}
-      ${obj?`<div><div style="font-size:8px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:3px">Objetivos terapéuticos</div><div style="font-size:9.5px;color:${TXT};line-height:1.5">${obj.replace(/\n/g,"<br>")}</div></div>`:""}
-    </div>`:"";
-
-    const page1HTML=headerHTML+pacHTML+dxHTML+regionHTML+sintObjHTML;
-
-    // ── TÉCNICAS DE TRATAMIENTO ────────────────────────────────────
-    const grupoLabels={ag:"Agentes físicos / Electroterapia",man:"Terapia manual",ej:"Ejercicio terapéutico",neu:"Neurorehabilitación",lim:"Limitaciones funcionales"};
-    const colGroup={ag:AZ,man:"#00695C",ej:"#1565C0",neu:"#6A1B9A",lim:"#BF360C"};
-    let trat2HTML=secBar("PLAN DE TRATAMIENTO",DARKBLUE)+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:10px 13px">`;
-    Object.keys(grupos).forEach(g=>{
-      const activos=seleccionados[g];
-      if(activos.length>0){
-        trat2HTML+=`<div style="margin-bottom:8px"><div style="font-size:8px;color:${colGroup[g]};font-weight:700;text-transform:uppercase;margin-bottom:4px">${grupoLabels[g]}</div><div>${activos.map(a=>chip(a)).join("")}</div></div>`;
-      }
-    });
-    trat2HTML+="</div>";
-
-    // ── PARÁMETROS Y HEP ─────────────────────────────────────────
-    const paramHepHTML=(params||hep)?secBar("PARÁMETROS Y PROGRAMA EN CASA")+`
-    <div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px">
-      ${params?`<div style="margin-bottom:6px"><div style="font-size:8px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:3px">Parámetros técnicos</div><div style="font-size:9.5px;color:${TXT};line-height:1.5">${params.replace(/\n/g,"<br>")}</div></div>`:""}
-      ${hep?`<div><div style="font-size:8px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:3px">Programa en casa (HEP)</div><div style="font-size:9.5px;color:${TXT};line-height:1.5">${hep.replace(/\n/g,"<br>")}</div></div>`:""}
-    </div>`:"";
-
-    // ── PLAN DE SESIONES ──────────────────────────────────────────
-    const planSesHTML=(nses||freq||finicio||falta||contra)?secBar("PLAN DE SESIONES")+`
-    <div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px;display:flex;flex-wrap:wrap;gap:14px">
-      ${infoRow("No. de sesiones",nses)}
-      ${infoRow("Frecuencia",freq)}
-      ${infoRow("Fecha de inicio",fechaFmt(finicio))}
-      ${infoRow("Fecha estimada de alta",fechaFmt(falta))}
-      ${contra?`<div style="width:100%"><div style="font-size:8px;color:${ALRED};font-weight:700;text-transform:uppercase;margin-bottom:3px">⚠ Contraindicaciones</div><div style="font-size:9.5px;color:${ALRED};background:${ALREDBG};border-radius:4px;padding:4px 8px;line-height:1.5">${contra.replace(/\n/g,"<br>")}</div></div>`:""}
-    </div>`:"";
-
-    // ── EVOLUCIÓN ─────────────────────────────────────────────────
-    const evolHTML=(reev||evaAlta||evolNota)?secBar("EVOLUCIÓN Y REEVALUACIÓN","#2E7D32")+`
-    <div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px">
-      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:${evolNota?6:0}px">
-        ${infoRow("Fecha de reevaluación",fechaFmt(reev))}
-        ${evaAlta?`<div style="display:flex;gap:8px;align-items:center"><span style="font-size:8px;color:${SEC};font-weight:700;text-transform:uppercase">EVA al alta</span><span style="background:${GRNBG};color:${GRNTX};padding:2px 10px;border-radius:12px;font-size:10px;font-weight:700">${evaAlta}/10</span></div>`:""}
+    // ── 7. EVOLUCIÓN ───────────────────────────────────────────────
+    const evaAltaNum=parseInt(evaAlta)||0;
+    const evaAltaCol=evaAltaNum>=7?ALRED:evaAltaNum>=4?AMB:GRN;
+    const sec7=secBar("6. Evolución y reevaluación","#2E7D32")+secWrap(`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:6px">
+        ${campo("Fecha de reevaluación",fechaFmt(reev))}
+        <div>
+          <div style="font-size:7px;color:${SEC};font-weight:700;text-transform:uppercase;margin-bottom:4px">EVA al alta / reevaluación</div>
+          ${evaAlta?`<span style="background:${GRNBG};color:${evaAltaCol};padding:3px 12px;border-radius:14px;font-size:11px;font-weight:700;border:1px solid ${evaAltaCol}40">${evaAlta}/10</span>`:`<span style="color:#B0BEC5;font-size:9px">—</span>`}
+        </div>
       </div>
-      ${evolNota?`<div style="font-size:9.5px;color:${TXT};line-height:1.5">${evolNota.replace(/\n/g,"<br>")}</div>`:""}
-    </div>`:"";
+      ${textArea("Notas de evolución / reevaluación",evolNota,30)}`);
 
-    // ── FIRMA ─────────────────────────────────────────────────────
+    // ── FIRMA ──────────────────────────────────────────────────────
     const firmaFecha=new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
-    const firmaHTML=`
-    <div style="margin-top:13px;background:#fff;border:1px solid ${BRD};border-radius:4px;padding:16px 20px;text-align:center">
-      ${firmaB64?`<img src="${firmaB64}" style="height:34px;object-fit:contain;margin-bottom:6px"><br>`:`<div style="height:38px"></div>`}
+    const secFirma=`
+    <div style="margin-top:12px;background:#fff;border:1px solid ${BRD};border-radius:4px;padding:16px 20px;text-align:center">
+      ${firmaB64?`<img src="${firmaB64}" style="height:34px;object-fit:contain;margin-bottom:6px"><br>`:`<div style="height:36px"></div>`}
       <div style="border-top:1.3px solid ${TXT};width:45%;margin:0 auto 8px"></div>
       <div style="font-size:10px;font-weight:700;color:${TXT}">${medNom}</div>
-      <div style="font-size:8.5px;color:${SEC};margin-top:2px">Céd. Prof. ${med.cedula_medico||"—"} &nbsp;|&nbsp; Céd. Esp. ${med.cedula_esp_1||"—"}</div>
-      ${firmaB64?`<div style="font-size:7px;color:${SEC};font-style:italic;margin-top:6px">Prescripción firmada digitalmente el ${firmaFecha} por ${medNom}</div>`:""}
+      <div style="font-size:8px;color:${SEC};margin-top:2px">Céd. Prof. ${med.cedula_medico||"—"} &nbsp;|&nbsp; Céd. Esp. ${med.cedula_esp_1||"—"}</div>
+      ${firmaB64?`<div style="font-size:7px;color:${SEC};font-style:italic;margin-top:5px">Prescripción firmada digitalmente el ${firmaFecha} por ${medNom}</div>`:""}
     </div>`;
 
-    const page2HTML=trat2HTML+paramHepHTML+planSesHTML+evolHTML+firmaHTML;
+    // ── RENDER: página 1 → secciones 1-3, página 2 → 4-7 + firma ──
+    const page1HTML=headerHTML+sec1+sec2+sec3;
+    const page2HTML=sec4+sec5+sec6+sec7+secFirma;
 
     const cv1=await renderHTML(page1HTML);await canvasToPDFPages(cv1);
-    if(page2HTML.trim()){const cv2=await renderHTML(page2HTML);await canvasToPDFPages(cv2);}
+    const cv2=await renderHTML(page2HTML);await canvasToPDFPages(cv2);
 
     const total=pages.length;
     for(let i=0;i<pages.length;i++){
@@ -11624,147 +11681,6 @@ window.generarPDFFisio=async function(){
     console.error("generarPDFFisio:",err);
     showToast("Error al generar PDF: "+err.message,false);
   }
-};
-
-// ── UNIFICAR / FUSIONAR EXPEDIENTES DUPLICADOS ───────────────────────────────
-window.abrirModalUnificar=function(){
-  const overlay=document.createElement("div");
-  overlay.id="modal-unificar";
-  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto";
-  overlay.innerHTML=`
-    <div style="background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:760px;width:100%;overflow:hidden;animation:fd .15s ease">
-      <div style="background:#005089;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:10px">
-          <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:26px;border-radius:3px;background:#fff;padding:1px">
-          <span style="color:#fff;font-size:14px;font-weight:700">🔀 Unificar expedientes duplicados</span>
-        </div>
-        <button onclick="document.getElementById('modal-unificar').remove()" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1">×</button>
-      </div>
-      <div style="padding:18px">
-        <p style="font-size:13px;color:#546E7A;margin-bottom:14px;line-height:1.6">Busca el paciente duplicado, selecciona cuál expediente es el <strong>principal</strong> (se conserva) y cuál es el <strong>secundario</strong> (sus datos clínicos se migran al principal y luego se desactiva).</p>
-        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-          <div style="flex:1;min-width:160px">
-            <label style="font-size:12px;font-weight:600;color:#546E7A;text-transform:uppercase;display:block;margin-bottom:5px">Buscar paciente</label>
-            <input id="unif-q" placeholder="Nombre o apellido..." oninput="buscarParaUnificar()" style="width:100%;padding:10px 13px;border:1.5px solid #CFD8DC;border-radius:8px;outline:none;font-size:14px">
-          </div>
-        </div>
-        <div id="unif-resultados" style="margin-bottom:14px"></div>
-        <div id="unif-seleccionados" style="display:none;background:#F4FAFD;border:1px solid #D7E3EA;border-radius:10px;padding:14px;margin-bottom:14px">
-          <p style="font-size:12px;font-weight:700;color:#005089;text-transform:uppercase;margin-bottom:10px">Expedientes seleccionados</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div>
-              <p style="font-size:12px;font-weight:700;color:#2E7D32;margin-bottom:6px">✅ Principal (se conserva)</p>
-              <div id="unif-principal-card" style="background:#D4EDDA;border:1.5px solid #2E7D32;border-radius:8px;padding:10px 12px;font-size:13px"></div>
-            </div>
-            <div>
-              <p style="font-size:12px;font-weight:700;color:#C62828;margin-bottom:6px">🗂 Secundario (se migra y desactiva)</p>
-              <div id="unif-secundario-card" style="background:#FEECEC;border:1.5px solid #C62828;border-radius:8px;padding:10px 12px;font-size:13px"></div>
-            </div>
-          </div>
-          <div style="margin-top:14px;background:#FFF8E6;border:1px solid #F59E0B;border-radius:8px;padding:10px 13px;font-size:12px;color:#7F5900;line-height:1.7">
-            <strong>⚠️ Lo que se migrará del secundario al principal:</strong><br>
-            Consultas · Antecedentes · Alergias · Fisioterapia · Notas · Imágenes · Vacunas · Pagos · Interconsultas · Anexos
-          </div>
-          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
-            <button onclick="document.getElementById('modal-unificar').remove()" style="padding:8px 14px;border:1.5px solid #CFD8DC;border-radius:8px;background:#fff;color:#546E7A;cursor:pointer;font-size:13px;font-weight:600">Cancelar</button>
-            <button onclick="ejecutarUnificacion()" style="padding:8px 18px;border:none;border-radius:8px;background:#C62828;color:#fff;cursor:pointer;font-size:13px;font-weight:700">🔀 Unificar expedientes</button>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  STATE._unifPrincipal=null;STATE._unifSecundario=null;
-};
-
-window._unifPrincipal=null;window._unifSecundario=null;
-
-window.buscarParaUnificar=debounce(async function(){
-  const q=document.getElementById("unif-q")?.value.trim();
-  if(!q||q.length<2){document.getElementById("unif-resultados").innerHTML="";return;}
-  const {data}=await SB.from("pacientes").select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico,created_at").eq("activo",true).or(`nombre.ilike.%${q}%,apellido_paterno.ilike.%${q}%,apellido_materno.ilike.%${q}%`).order("apellido_paterno").limit(20);
-  const res=document.getElementById("unif-resultados");if(!res)return;
-  if(!data||data.length===0){res.innerHTML=`<p style="font-size:13px;color:#90A4AE;padding:8px">Sin resultados para "${q}"</p>`;return;}
-  // Guardar mapa id→paciente en STATE para evitar JSON inline en onclick
-  STATE._unifMap={};
-  data.forEach(p=>{STATE._unifMap[p.id]=p;});
-  res.innerHTML=`<p style="font-size:12px;color:#546E7A;margin-bottom:8px;font-weight:600">${data.length} resultado(s) — haz clic en "Principal" o "Secundario" para cada paciente:</p>
-  <div style="background:#fff;border:1px solid #CFD8DC;border-radius:8px;overflow:hidden">
-  ${data.map(p=>{
-    const nomC=`${p.nombre} ${p.apellido_paterno}${p.apellido_materno?" "+p.apellido_materno:""}`;
-    const fn=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
-    const exp=p.numero_expediente||"—";
-    return `<div style="padding:9px 12px;border-bottom:1px solid #E0E0E0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <div>
-        <span style="font-weight:700;font-size:13px">${nomC}</span>
-        <span style="font-size:12px;color:#546E7A;margin-left:8px">Exp: ${exp} · Nac: ${fn} · ${p.sexo_biologico||"—"}</span>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
-        <button onclick="selUnifPac('principal','${p.id}')" style="padding:5px 11px;border:1.5px solid #2E7D32;border-radius:6px;background:#D4EDDA;color:#1B5E20;cursor:pointer;font-size:12px;font-weight:700">✅ Principal</button>
-        <button onclick="selUnifPac('secundario','${p.id}')" style="padding:5px 11px;border:1.5px solid #C62828;border-radius:6px;background:#FEECEC;color:#C62828;cursor:pointer;font-size:12px;font-weight:700">🗂 Secundario</button>
-      </div>
-    </div>`;
-  }).join("")}
-  </div>`;
-},300);
-
-window.selUnifPac=function(rol,id){
-  const p=STATE._unifMap?.[id];
-  if(!p){showToast("Paciente no encontrado en el mapa de búsqueda",false);return;}
-  const nomC=`<strong>${p.nombre} ${p.apellido_paterno}${p.apellido_materno?" "+p.apellido_materno:""}</strong><br><span style="font-size:12px;color:#546E7A">Exp: ${p.numero_expediente||"—"} · ${p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—"}</span>`;
-  if(rol==="principal"){
-    STATE._unifPrincipal=p;
-    const card=document.getElementById("unif-principal-card");
-    if(card)card.innerHTML=nomC;
-  } else {
-    STATE._unifSecundario=p;
-    const card=document.getElementById("unif-secundario-card");
-    if(card)card.innerHTML=nomC;
-  }
-  if(STATE._unifPrincipal&&STATE._unifSecundario){
-    if(STATE._unifPrincipal.id===STATE._unifSecundario.id){
-      showToast("El principal y secundario no pueden ser el mismo paciente",false);
-      STATE._unifSecundario=null;
-      const card=document.getElementById("unif-secundario-card");
-      if(card)card.innerHTML="";
-      return;
-    }
-    const sel=document.getElementById("unif-seleccionados");
-    if(sel)sel.style.display="block";
-  }
-};
-
-window.ejecutarUnificacion=async function(){
-  const pri=STATE._unifPrincipal,sec=STATE._unifSecundario;
-  if(!pri||!sec){showToast("Selecciona ambos expedientes",false);return;}
-  const conf=await qpConfirm(
-    `¿Unificar expediente de ${sec.nombre} ${sec.apellido_paterno} (secundario) → ${pri.nombre} ${pri.apellido_paterno} (principal)?\n\nTodos los registros del secundario se migrarán al principal. El expediente secundario quedará desactivado. Esta acción no se puede deshacer.`,
-    {title:"Unificar expedientes",okLabel:"🔀 Confirmar unificación",danger:true}
-  );
-  if(!conf)return;
-  loading(true,"Migrando expediente...");
-  const sid=sec.id,pid=pri.id;
-  // Tablas a migrar (actualizar paciente_id)
-  const tablas=["consultas","antecedentes_patologicos","antecedentes_no_patologicos","antecedentes_gineco","alergias","medicamentos_usados","interconsultas","anexos","vacunas","fisioterapia_prescripciones","fisioterapia_notas","signos_vitales","imagenes_expediente","pagos","anotaciones","antecedentes_familiares"];
-  const errores=[];
-  for(const tabla of tablas){
-    try{
-      const {error}=await SB.from(tabla).update({paciente_id:pid}).eq("paciente_id",sid);
-      if(error&&!error.message.includes("does not exist"))errores.push(`${tabla}: ${error.message}`);
-    }catch(e){}
-  }
-  // Desactivar expediente secundario
-  await SB.from("pacientes").update({activo:false,notas_admin:`[UNIFICADO→${pid}] ${new Date().toISOString()}`}).eq("id",sid);
-  loading(false);
-  document.getElementById("modal-unificar")?.remove();
-  STATE._unifPrincipal=null;STATE._unifSecundario=null;
-  if(errores.length>0){
-    showToast(`Unificación completada con ${errores.length} aviso(s). Ver consola.`,false);
-    console.warn("Errores de unificación:",errores);
-  } else {
-    showToast("✅ Expedientes unificados correctamente");
-  }
-  await logBitacora("UNIFICAR_EXPEDIENTE",`Secundario ${sid} → Principal ${pid}`);
-  cargarPacientes();
 };
 
 
@@ -16035,6 +15951,135 @@ window.generarPDFSeguros=async function(key){
     loading(false);console.error("Error PDF Seguros:",e);
     showToast("Error: "+e.message,false);
   }
+};
+
+// ── UNIFICAR / FUSIONAR EXPEDIENTES DUPLICADOS (solo admin) ──────────────────
+window.abrirModalUnificar=function(){
+  if(STATE.userProfile?.rol!=="admin"){showToast("Solo administradores pueden unificar expedientes",false);return;}
+  const overlay=document.createElement("div");
+  overlay.id="modal-unificar";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto";
+  overlay.innerHTML=`
+    <div style="background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:760px;width:100%;overflow:hidden;animation:fd .15s ease">
+      <div style="background:#005089;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:26px;border-radius:3px;background:#fff;padding:1px">
+          <span style="color:#fff;font-size:14px;font-weight:700">🔀 Unificar expedientes duplicados</span>
+        </div>
+        <button onclick="document.getElementById('modal-unificar').remove()" style="background:transparent;border:none;color:#fff;font-size:22px;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="padding:18px">
+        <p style="font-size:13px;color:#546E7A;margin-bottom:14px;line-height:1.6">Busca al paciente duplicado. Marca cuál expediente es el <strong>Principal</strong> (se conserva) y cuál el <strong>Secundario</strong> (sus datos clínicos se migran al principal y se desactiva).</p>
+        <div style="margin-bottom:14px">
+          <label style="font-size:12px;font-weight:600;color:#546E7A;text-transform:uppercase;display:block;margin-bottom:5px">Buscar paciente</label>
+          <input id="unif-q" placeholder="Nombre o apellido..." oninput="buscarParaUnificar()" style="width:100%;padding:10px 13px;border:1.5px solid #CFD8DC;border-radius:8px;outline:none;font-size:14px">
+        </div>
+        <div id="unif-resultados" style="margin-bottom:14px"></div>
+        <div id="unif-seleccionados" style="display:none;background:#F4FAFD;border:1px solid #D7E3EA;border-radius:10px;padding:14px;margin-bottom:14px">
+          <p style="font-size:12px;font-weight:700;color:#005089;text-transform:uppercase;margin-bottom:10px">Expedientes seleccionados</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <p style="font-size:12px;font-weight:700;color:#2E7D32;margin-bottom:6px">✅ Principal (se conserva)</p>
+              <div id="unif-principal-card" style="background:#D4EDDA;border:1.5px solid #2E7D32;border-radius:8px;padding:10px 12px;font-size:13px;min-height:44px"></div>
+            </div>
+            <div>
+              <p style="font-size:12px;font-weight:700;color:#C62828;margin-bottom:6px">🗂 Secundario (se migra y desactiva)</p>
+              <div id="unif-secundario-card" style="background:#FEECEC;border:1.5px solid #C62828;border-radius:8px;padding:10px 12px;font-size:13px;min-height:44px"></div>
+            </div>
+          </div>
+          <div style="margin-top:12px;background:#FFF8E6;border:1px solid #F59E0B;border-radius:8px;padding:10px 13px;font-size:12px;color:#7F5900;line-height:1.7">
+            <strong>⚠️ Se migrarán del secundario al principal:</strong><br>
+            Consultas · Antecedentes · Alergias · Fisioterapia · Notas · Imágenes · Vacunas · Pagos · Interconsultas · Anexos
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+            <button onclick="document.getElementById('modal-unificar').remove()" style="padding:8px 14px;border:1.5px solid #CFD8DC;border-radius:8px;background:#fff;color:#546E7A;cursor:pointer;font-size:13px;font-weight:600">Cancelar</button>
+            <button onclick="ejecutarUnificacion()" style="padding:8px 18px;border:none;border-radius:8px;background:#C62828;color:#fff;cursor:pointer;font-size:13px;font-weight:700">🔀 Unificar expedientes</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  STATE._unifPrincipal=null;STATE._unifSecundario=null;STATE._unifMap={};
+};
+
+window.buscarParaUnificar=debounce(async function(){
+  const q=document.getElementById("unif-q")?.value.trim();
+  if(!q||q.length<2){document.getElementById("unif-resultados").innerHTML="";return;}
+  const {data}=await SB.from("pacientes")
+    .select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,sexo_biologico")
+    .eq("activo",true)
+    .or(`nombre.ilike.%${q}%,apellido_paterno.ilike.%${q}%,apellido_materno.ilike.%${q}%`)
+    .order("apellido_paterno").limit(20);
+  const res=document.getElementById("unif-resultados");if(!res)return;
+  if(!data||data.length===0){res.innerHTML=`<p style="font-size:13px;color:#90A4AE;padding:8px">Sin resultados para "${q}"</p>`;return;}
+  STATE._unifMap={};
+  data.forEach(p=>{STATE._unifMap[p.id]=p;});
+  res.innerHTML=`<p style="font-size:12px;color:#546E7A;margin-bottom:8px;font-weight:600">${data.length} resultado(s) — selecciona Principal y Secundario:</p>
+  <div style="background:#fff;border:1px solid #CFD8DC;border-radius:8px;overflow:hidden">
+  ${data.map(p=>{
+    const nomC=`${p.nombre} ${p.apellido_paterno}${p.apellido_materno?" "+p.apellido_materno:""}`;
+    const fn=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
+    return`<div style="padding:9px 12px;border-bottom:1px solid #E0E0E0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div>
+        <span style="font-weight:700;font-size:13px">${nomC}</span>
+        <span style="font-size:12px;color:#546E7A;margin-left:8px">Exp: ${p.numero_expediente||"—"} · ${fn} · ${p.sexo_biologico||"—"}</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button onclick="selUnifPac('principal','${p.id}')" style="padding:5px 11px;border:1.5px solid #2E7D32;border-radius:6px;background:#D4EDDA;color:#1B5E20;cursor:pointer;font-size:12px;font-weight:700">✅ Principal</button>
+        <button onclick="selUnifPac('secundario','${p.id}')" style="padding:5px 11px;border:1.5px solid #C62828;border-radius:6px;background:#FEECEC;color:#C62828;cursor:pointer;font-size:12px;font-weight:700">🗂 Secundario</button>
+      </div>
+    </div>`;
+  }).join("")}
+  </div>`;
+},300);
+
+window.selUnifPac=function(rol,id){
+  const p=(STATE._unifMap||{})[id];
+  if(!p){showToast("Paciente no encontrado",false);return;}
+  const nomC=`<strong>${p.nombre} ${p.apellido_paterno}${p.apellido_materno?" "+p.apellido_materno:""}</strong><br><span style="font-size:12px;color:#546E7A">Exp: ${p.numero_expediente||"—"} · ${p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—"}</span>`;
+  if(rol==="principal"){
+    STATE._unifPrincipal=p;
+    const c=document.getElementById("unif-principal-card");if(c)c.innerHTML=nomC;
+  } else {
+    STATE._unifSecundario=p;
+    const c=document.getElementById("unif-secundario-card");if(c)c.innerHTML=nomC;
+  }
+  if(STATE._unifPrincipal&&STATE._unifSecundario){
+    if(STATE._unifPrincipal.id===STATE._unifSecundario.id){
+      showToast("El principal y secundario no pueden ser el mismo paciente",false);
+      STATE._unifSecundario=null;
+      const c=document.getElementById("unif-secundario-card");if(c)c.innerHTML="";
+      return;
+    }
+    const s=document.getElementById("unif-seleccionados");if(s)s.style.display="block";
+  }
+};
+
+window.ejecutarUnificacion=async function(){
+  const pri=STATE._unifPrincipal,sec=STATE._unifSecundario;
+  if(!pri||!sec){showToast("Selecciona ambos expedientes",false);return;}
+  const conf=await qpConfirm(
+    `¿Unificar expediente de ${sec.nombre} ${sec.apellido_paterno} (secundario) → ${pri.nombre} ${pri.apellido_paterno} (principal)?\n\nTodos los registros del secundario se migrarán al principal y el expediente secundario quedará desactivado. Esta acción no se puede deshacer.`,
+    {title:"Unificar expedientes",okLabel:"🔀 Confirmar unificación",danger:true}
+  );
+  if(!conf)return;
+  loading(true,"Migrando expediente...");
+  const sid=sec.id,pid=pri.id;
+  const tablas=["consultas","antecedentes_patologicos","antecedentes_no_patologicos","antecedentes_gineco","alergias","medicamentos_usados","interconsultas","anexos","vacunas","fisioterapia_prescripciones","fisioterapia_notas","signos_vitales","imagenes_expediente","pagos","anotaciones","antecedentes_familiares"];
+  const errores=[];
+  for(const tabla of tablas){
+    try{const {error}=await SB.from(tabla).update({paciente_id:pid}).eq("paciente_id",sid);
+      if(error&&!error.message.includes("does not exist"))errores.push(`${tabla}: ${error.message}`);
+    }catch(e){}
+  }
+  await SB.from("pacientes").update({activo:false,notas_admin:`[UNIFICADO→${pid}] ${new Date().toISOString()}`}).eq("id",sid);
+  loading(false);
+  document.getElementById("modal-unificar")?.remove();
+  STATE._unifPrincipal=null;STATE._unifSecundario=null;
+  if(errores.length>0){showToast(`Unificación completada con ${errores.length} aviso(s)`,false);console.warn("Errores:",errores);}
+  else{showToast("✅ Expedientes unificados correctamente");}
+  await logBitacora("UNIFICAR_EXPEDIENTE",`Secundario ${sid} → Principal ${pid}`);
+  cargarPacientes();
 };
 </script>
 </body>
