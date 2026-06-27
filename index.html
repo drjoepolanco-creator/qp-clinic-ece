@@ -3859,7 +3859,7 @@ window.setET=function(t){
   else if(t==="ficha")STATE.ficTab="gen";
   else if(t==="cons")STATE.consTab=null;
   else if(t==="anexos")STATE.anexoTab="docs";
-  else if(t==="fisio")STATE.fisioTab="notas";
+  else if(t==="fisio")STATE.fisioTab=null;
   pgExp();
 }
 function renderEB(){
@@ -11075,17 +11075,17 @@ window.cerrarEnfermeria=function(){
 // ── FISIOTERAPIA ──────────────────────────────────────────
 async function renderFisio(b){
   const pid=STATE.pat?.id;if(!pid)return;
-  if(!STATE.fisioTab)STATE.fisioTab="notas";
   const {data:prescs}=await SB.from("fisioterapia_prescripciones").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
-  const {data:notas}=await SB.from("fisioterapia_notas").select("*").eq("paciente_id",pid).order("created_at",{ascending:false});
   const lista=prescs||[];
+  // Si el tab activo era "notas" o no está seteado, apuntar a la primera prescripción o a "nueva"
+  if(!STATE.fisioTab||STATE.fisioTab==="notas"){
+    STATE.fisioTab=lista.length>0?"p"+lista[0].id:"nueva";
+    if(lista.length>0)STATE.fisioSesiones=lista[0].sesiones_completadas||[];
+  }
   const tabSt=(activo)=>`padding:10px 16px;border:none;cursor:pointer;font-size:13px;font-weight:${activo?700:500};color:${activo?P:MU};background:${activo?"#E3F4FB":"transparent"};border-bottom:2px solid ${activo?P:"transparent"};display:flex;align-items:center;gap:6px;white-space:nowrap`;
   b.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;align-items:center;padding:0 4px;background:#FAFAFA">
-        <button onclick="STATE.fisioTab='notas';renderFisio(document.getElementById('eb'))" style="${tabSt(STATE.fisioTab==='notas')}">
-          <i class="ti ti-notes" style="font-size:16px" aria-hidden="true"></i> Notas
-        </button>
         ${lista.map((p,i)=>`<button onclick="STATE.fisioTab='p${p.id}';STATE.fisioSesiones=${JSON.stringify(p.sesiones_completadas||[])};renderFisio(document.getElementById('eb'))" style="${tabSt(STATE.fisioTab==='p'+p.id)}">
           <i class="ti ti-clipboard-text" style="font-size:15px" aria-hidden="true"></i>
           Prescripción ${lista.length-i}
@@ -11096,40 +11096,11 @@ async function renderFisio(b){
         </button>
       </div>
       <div>
-        ${STATE.fisioTab==="notas"?renderFisioNotas(notas||[]):
-          STATE.fisioTab==="nueva"?renderFisioForm(null,pid):
+        ${STATE.fisioTab==="nueva"?renderFisioForm(null,pid):
           lista.some(p=>"p"+p.id===STATE.fisioTab)?renderFisioVer(lista.find(p=>"p"+p.id===STATE.fisioTab),pid):
           `<p style="text-align:center;padding:24px;color:${MU}">Selecciona una pestaña</p>`}
       </div>
     </div>
-  </div>`;
-}
-function renderFisioNotas(notas){
-  return`<div>
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
-      <div style="background:${PD};padding:8px 14px"><b style="color:#fff;font-size:14px">📝 Notas del fisioterapeuta</b></div>
-      <div style="padding:14px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-          ${fld("Fisioterapeuta",`<input id="fn_ft" value="${STATE.userProfile?`${STATE.userProfile.titulo||""} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-          ${fld("Sesión #",`<input id="fn_ses" type="number" min="1" placeholder="Número de sesión" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-        </div>
-        ${fld("Nota de evolución / observaciones de la sesión",ta("fn_nota","","Evolución del paciente, respuesta al tratamiento, cambios realizados, observaciones...",5))}
-        <div class="sticky-save">${btn("💾 Guardar nota","guardarNotaFisio()","ok",1)}</div>
-      </div>
-    </div>
-    ${notas.length>0?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="background:#F8F9FA;padding:8px 14px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">Historial de notas (${notas.length})</b></div>
-      ${notas.map(n=>`<div style="padding:12px 14px;border-bottom:1px solid ${BR}">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div>
-            <span style="font-size:14px;font-weight:700;color:${P}">${n.fisioterapeuta||"Fisioterapeuta"}</span>
-            ${n.num_sesion?`<span style="background:${PL};color:${P};padding:1px 7px;border-radius:20px;font-size:14px;margin-left:8px">Sesión ${n.num_sesion}</span>`:""}
-          </div>
-          <span style="font-size:14px;color:${MU}">${n.created_at?new Date(n.created_at).toLocaleDateString("es-MX"):""}</span>
-        </div>
-        <p style="font-size:14px;color:${TX};line-height:1.6">${n.nota||""}</p>
-      </div>`).join("")}
-    </div>`:""}
   </div>`;
 }
 function renderFisioForm(presc,pid){
@@ -11344,21 +11315,6 @@ window.guardarFisio=async function(pid,editId=""){
   STATE.fisioTab="p"+res.data.id;
   STATE.fisioSesiones=res.data.sesiones_completadas||[];
   showToast("✓ Prescripción guardada");
-  setET("fisio");
-}
-window.guardarNotaFisio=async function(){
-  const pid=STATE.pat?.id;if(!pid)return;
-  const nota=gv("fn_nota");if(!nota.trim()){showToast("Escribe la nota antes de guardar",false);return;}
-  loading(true,"Guardando nota...");
-  await SB.from("fisioterapia_notas").insert({
-    paciente_id:pid,
-    fisioterapeuta:gv("fn_ft"),
-    num_sesion:parseInt(gv("fn_ses"))||null,
-    nota,
-  });
-  loading(false);
-  showToast("✓ Nota guardada");
-  STATE.fisioTab="notas";
   setET("fisio");
 }
 window.editarFisio=async function(id){
