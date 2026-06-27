@@ -707,6 +707,7 @@ async function pgMedicos(){
         <p style="font-size:13px;color:${MU}">${u.length} usuario(s) registrado(s) en el sistema</p>
       </div>
       <div style="display:flex;gap:8px">
+        ${btn("🔀 Unificar expedientes","abrirModalUnificar()","s",1)}
         ${btn("➕ Nuevo usuario","abrirModalUsuario()","p",1)}
         ${btn("← Volver","go('agenda')","s",1)}
       </div>
@@ -3054,10 +3055,7 @@ async function pgBuscar(){
   <div style="max-width:960px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <h2 style="font-size:18px;font-weight:800;color:${TX}">Buscar Paciente</h2>
-      <div style="display:flex;gap:8px">
-        ${btn("🔀 Unificar expedientes","abrirModalUnificar()","s",1)}
-        ${btn("➕ Nuevo paciente","go('nuevo')","p",1)}
-      </div>
+      ${btn("➕ Nuevo paciente","go('nuevo')","p",1)}
     </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
       <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -11686,6 +11684,9 @@ window.buscarParaUnificar=debounce(async function(){
   const {data}=await SB.from("pacientes").select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico,created_at").eq("activo",true).or(`nombre.ilike.%${q}%,apellido_paterno.ilike.%${q}%,apellido_materno.ilike.%${q}%`).order("apellido_paterno").limit(20);
   const res=document.getElementById("unif-resultados");if(!res)return;
   if(!data||data.length===0){res.innerHTML=`<p style="font-size:13px;color:#90A4AE;padding:8px">Sin resultados para "${q}"</p>`;return;}
+  // Guardar mapa id→paciente en STATE para evitar JSON inline en onclick
+  STATE._unifMap={};
+  data.forEach(p=>{STATE._unifMap[p.id]=p;});
   res.innerHTML=`<p style="font-size:12px;color:#546E7A;margin-bottom:8px;font-weight:600">${data.length} resultado(s) — haz clic en "Principal" o "Secundario" para cada paciente:</p>
   <div style="background:#fff;border:1px solid #CFD8DC;border-radius:8px;overflow:hidden">
   ${data.map(p=>{
@@ -11698,30 +11699,37 @@ window.buscarParaUnificar=debounce(async function(){
         <span style="font-size:12px;color:#546E7A;margin-left:8px">Exp: ${exp} · Nac: ${fn} · ${p.sexo_biologico||"—"}</span>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
-        <button onclick="selUnifPac('principal',${JSON.stringify(JSON.stringify(p))})" style="padding:5px 11px;border:1.5px solid #2E7D32;border-radius:6px;background:#D4EDDA;color:#1B5E20;cursor:pointer;font-size:12px;font-weight:700">✅ Principal</button>
-        <button onclick="selUnifPac('secundario',${JSON.stringify(JSON.stringify(p))})" style="padding:5px 11px;border:1.5px solid #C62828;border-radius:6px;background:#FEECEC;color:#C62828;cursor:pointer;font-size:12px;font-weight:700">🗂 Secundario</button>
+        <button onclick="selUnifPac('principal','${p.id}')" style="padding:5px 11px;border:1.5px solid #2E7D32;border-radius:6px;background:#D4EDDA;color:#1B5E20;cursor:pointer;font-size:12px;font-weight:700">✅ Principal</button>
+        <button onclick="selUnifPac('secundario','${p.id}')" style="padding:5px 11px;border:1.5px solid #C62828;border-radius:6px;background:#FEECEC;color:#C62828;cursor:pointer;font-size:12px;font-weight:700">🗂 Secundario</button>
       </div>
     </div>`;
   }).join("")}
   </div>`;
 },300);
 
-window.selUnifPac=function(rol,jsonStr){
-  const p=JSON.parse(jsonStr);
+window.selUnifPac=function(rol,id){
+  const p=STATE._unifMap?.[id];
+  if(!p){showToast("Paciente no encontrado en el mapa de búsqueda",false);return;}
   const nomC=`<strong>${p.nombre} ${p.apellido_paterno}${p.apellido_materno?" "+p.apellido_materno:""}</strong><br><span style="font-size:12px;color:#546E7A">Exp: ${p.numero_expediente||"—"} · ${p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—"}</span>`;
   if(rol==="principal"){
     STATE._unifPrincipal=p;
-    document.getElementById("unif-principal-card").innerHTML=nomC;
+    const card=document.getElementById("unif-principal-card");
+    if(card)card.innerHTML=nomC;
   } else {
     STATE._unifSecundario=p;
-    document.getElementById("unif-secundario-card").innerHTML=nomC;
+    const card=document.getElementById("unif-secundario-card");
+    if(card)card.innerHTML=nomC;
   }
   if(STATE._unifPrincipal&&STATE._unifSecundario){
     if(STATE._unifPrincipal.id===STATE._unifSecundario.id){
       showToast("El principal y secundario no pueden ser el mismo paciente",false);
-      STATE._unifSecundario=null;document.getElementById("unif-secundario-card").innerHTML="";return;
+      STATE._unifSecundario=null;
+      const card=document.getElementById("unif-secundario-card");
+      if(card)card.innerHTML="";
+      return;
     }
-    document.getElementById("unif-seleccionados").style.display="block";
+    const sel=document.getElementById("unif-seleccionados");
+    if(sel)sel.style.display="block";
   }
 };
 
