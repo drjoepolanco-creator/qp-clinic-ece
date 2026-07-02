@@ -16214,75 +16214,117 @@ function getSubcat(grupo,lugar,condiciones,sexo,exp){
 }
 
 // ── Seleccionar ejercicio del banco (filtrado por contraindicaciones) ─────────
-function elegirEjercicio(grupo,subcat,contrainds,mesNum,diaNum,ejercicioIdx){
+function elegirEjercicio(grupo,subcat,contrainds,mesNum,semNum,diaNum,posIdx){
   const banco=EJ_BANCO[grupo];
   if(!banco) return null;
   const lista=banco[subcat]||banco[Object.keys(banco)[0]]||[];
   const permitidos=lista.filter(ej=>!contrainds.some(c=>EJ_CONTRAIND[c]?.includes(ej)));
   if(!permitidos.length) return lista[0]||"(seleccionar ejercicio)";
-  // Rotar según mes para progresión/variación
-  const offset=(mesNum-1)*3+(diaNum*ejercicioIdx)%3;
-  return permitidos[offset%permitidos.length];
+  // Variabilidad real: cada combinación mes+semana+día+posición da un ejercicio diferente
+  // El mes rota el bloque de ejercicios completo para que mes 2 ≠ mes 1
+  // La semana dentro del mes varía el accesorio (no el principal)
+  const esAccesorio=posIdx>=2;
+  const baseOffset=(mesNum-1)*7; // desplaza 7 posiciones por mes → variedad total
+  const semOffset=esAccesorio?(semNum-1)*2:0; // accesorios rotan por semana
+  const diaOffset=diaNum*3;
+  const idx=(baseOffset+semOffset+diaOffset+posIdx)%permitidos.length;
+  return permitidos[idx];
 }
 
-// ── Calcular S×R×RER según semana, experiencia y objetivo ────────────────────
+// ── Dosis: S×R×Intensidad con progresión real semana a semana ─────────────────
+// Basado en: ACSM Guidelines 2022, Israetel et al. MEV/MRV, Schoenfeld 2021
 function calcDosis(semana,exp,objetivo,orden){
-  // orden: 1=compuesto principal, 2=compuesto secundario, 3+=accesorio
-  const esComp=orden<=2;
-  // Series base por semana (progresión lineal)
-  const seriesBase=exp<=1?[2,2,3,3]:[2,3,3,4];
-  const s=seriesBase[semana-1]+(esComp?0:0);
-  // Reps según objetivo
-  let r,rer,descanso;
+  // Progresión de series: aumentan linealmente semana a semana
+  // Semana 1=acumulación, 2=desarrollo, 3=pico, 4=deload ligero
+  const progSeries={
+    fuerza:       [[3,4,5,3],[2,3,4,2],[2,3,3,2]],
+    hipertrofia:  [[3,4,4,3],[3,4,4,3],[2,3,3,2]],
+    recomposicion:[[3,4,4,3],[3,4,4,3],[2,3,3,2]],
+    perdida_grasa:[[3,3,4,3],[3,3,4,3],[2,3,3,2]],
+    salud_general:[[2,3,3,2],[2,3,3,2],[2,2,3,2]],
+    terapeutico:  [[2,2,3,2],[2,2,3,2],[2,2,2,2]],
+  };
+  const idx=orden<=1?0:orden<=2?1:2;
+  const prog=progSeries[objetivo]||progSeries.salud_general;
+  const s=prog[idx][semana-1];
+
+  // Repeticiones y RIR (Repetitions In Reserve = equivalente al RER español)
+  // Fuerza: 1-5 reps, alta intensidad
+  // Hipertrofia: 6-15 reps zona óptima (Schoenfeld 2010, 2021)
+  // Salud: 12-20 reps baja-mod intensidad
+  let r,rir,descanso,tempo,intensidad;
   if(objetivo==="fuerza"){
-    r=orden===1?5:orden===2?6:8;
-    rer=orden===1?"3-4 RER":orden===2?"2-3 RER":"1-2 RER";
-    descanso=orden===1?"3-5 min":orden===2?"2-3 min":"1-2 min";
+    const repsFuerza=[[5,5,4,5],[6,5,5,6],[8,6,5,8]];
+    r=repsFuerza[idx][semana-1];
+    rir=orden===1?"RIR 3-4":"RIR 2-3";
+    intensidad=orden===1?"80-85% RM":"70-75% RM";
+    descanso=orden===1?"3-5 minutos":orden===2?"2-3 minutos":"90 segundos";
+    tempo="2-1-2";
   } else if(objetivo==="hipertrofia"||objetivo==="recomposicion"){
-    r=orden===1?8:orden===2?10:12;
-    rer=orden===1?"2-3 RER":orden===2?"1-2 RER":"0-1 RER";
-    descanso=orden===1?"2-3 min":orden===2?"1-2 min":"1-2 min";
-  } else { // salud_general, terapeutico, perdida_grasa
-    r=orden===1?12:orden===2?12:15;
-    rer=orden===1?"2-3 RER":orden===2?"1-2 RER":"0-1 RER";
-    descanso=orden===1?"1-2 min":"1 min";
+    const repsHiper=[[8,8,6,8],[10,10,8,10],[12,12,10,12]];
+    r=repsHiper[idx][semana-1];
+    rir=semana<=2?"RIR 2-3":semana===3?"RIR 1-2":"RIR 2-3";
+    intensidad=orden===1?"70-75% RM":orden===2?"65-70% RM":"60-65% RM";
+    descanso=orden===1?"90-120 segundos":orden===2?"60-90 segundos":"60 segundos";
+    tempo="2-0-1";
+  } else if(objetivo==="perdida_grasa"){
+    const repsPG=[[12,12,10,12],[12,15,12,12],[15,15,12,15]];
+    r=repsPG[idx][semana-1];
+    rir="RIR 1-2";
+    intensidad="60-65% RM";
+    descanso=orden===1?"60-90 segundos":"45-60 segundos";
+    tempo="2-0-1";
+  } else { // salud_general, terapeutico
+    const repsSal=[[12,12,10,12],[12,15,12,12],[15,15,12,15]];
+    r=repsSal[idx][semana-1];
+    rir="RIR 2-3";
+    intensidad="50-60% RM";
+    descanso="60-90 segundos";
+    tempo=exp<=1?"3-1-3":"2-0-2";
   }
-  // Tempo: varía por etapa
-  const tempo=exp<=1?"2-0-2":"1-0-1";
-  return {s,r,rer,descanso,tempo};
+  return {s,r,rir,intensidad,descanso,tempo};
 }
 
-// ── Generar plan completo de 4 semanas ────────────────────────────────────────
+// ── Generar plan de UNA semana (la prescripción mensual) ─────────────────────
+// Un plan mensual = 1 semana de estructura + progresión indicada en notas
+// La variedad viene del mes (mesNum) y de la selección de ejercicios
 function generarPlan(cfg){
-  const {exp,recup,estres,novedad,dieta,objetivo,lugar,dias,condiciones,sexo,mesNum}=cfg;
+  const {exp,recup,estres,novedad,dieta,objetivo,lugar,dias,condiciones,sexo,mesNum,tipoCardio}=cfg;
   const split=getSplit(dias);
   const factor=calcFactorVMR(recup,estres,novedad,dieta);
   const contrainds=condiciones;
   const plan={split:split.nombre,semanas:[],volumen:{}};
-  // Calcular volumen semanal por grupo
+
+  // Volumen semanal por grupo
   Object.entries(VME_VMR).forEach(([g,{vme,vmr_base}])=>{
     const vmr=Math.round(vmr_base*factor);
     plan.volumen[g]={vme,vmr,semanal:Math.max(vme,Math.min(vmr,vme+Math.round((vmr-vme)*0.5)))};
   });
-  // Generar 4 semanas
+
+  // Generar 4 semanas con PROGRESIÓN real: los ejercicios son los mismos pero
+  // las series/reps/intensidad aumentan semana a semana, y los accesorios varían
   for(let sem=1;sem<=4;sem++){
     const semObj={semana:sem,dias:[]};
     split.dias.forEach((dia,dIdx)=>{
       const diaObj={dia:dia.id,ejercicios:[]};
+      let posCount=0;
       dia.grupos.forEach((grupo,gIdx)=>{
         const subcat=getSubcat(grupo,lugar,condiciones,sexo,exp);
         if(!subcat) return;
-        // Número de ejercicios por grupo según día (1-3 según volumen y día)
-        const nEj=dIdx%2===0?1:2;
+        // Ejercicios por grupo: 1 principal + 1 accesorio si el día lo permite
+        const nEj=(dIdx%2===0&&sem<=2)?1:2;
         for(let ei=0;ei<nEj;ei++){
-          const ej=elegirEjercicio(grupo,subcat,contrainds,mesNum,dIdx,gIdx*10+ei);
+          // Principal (ei=0) siempre igual en el mes → consistencia para medir progreso
+          // Accesorio (ei=1) varía por semana → estímulo nuevo cada semana
+          const ej=elegirEjercicio(grupo,subcat,contrainds,mesNum,ei===0?0:sem,dIdx,gIdx*5+ei);
           if(!ej) continue;
-          const orden=(ei===0&&gIdx===0)?1:(ei===0?2:3);
+          const orden=gIdx===0&&ei===0?1:ei===0?2:3;
           const dosis=calcDosis(sem,exp,objetivo,orden);
-          // Letra para superseries
           const num=diaObj.ejercicios.length+1;
-          const label=ei===0?String(num):`${num}${String.fromCharCode(65+ei-1)}`;
-          diaObj.ejercicios.push({num:label,grupo,ejercicio:ej,...dosis,peso:0,nota:""});
+          // Superserie: mismo número con letra si comparten descanso
+          const label=ei===0?String(num):`${num}${String.fromCharCode(64+ei)}`;
+          diaObj.ejercicios.push({num:label,grupo,ejercicio:ej,...dosis,peso:"___",nota:""});
+          posCount++;
         }
       });
       semObj.dias.push(diaObj);
@@ -16292,22 +16334,81 @@ function generarPlan(cfg){
   return plan;
 }
 
-// ── Calcular protocolo cardio ─────────────────────────────────────────────────
-function calcCardio(objetivo,condiciones,diasSemana){
+// ── Protocolo cardio detallado con HIIT y continuo ───────────────────────────
+function calcCardio(objetivo,condiciones,diasSemana,tipoCardio,exp){
   const esDM2=condiciones.includes("DM2 / Prediabetes");
   const esHTA=condiciones.includes("HTA (Hipertensión)");
-  const esTerapeutico=condiciones.includes("Obesidad grado III")||condiciones.includes("Rehabilitación postquirúrgica (rodilla)");
-  if(objetivo==="fuerza") return {tipo:"Cardio complementario",detalle:"2-3 veces/semana, 20-30 min, caminata o bicicleta, percepción de esfuerzo 5-6/10"};
-  if(objetivo==="perdida_grasa"||objetivo==="recomposicion"){
-    return {tipo:"HIIT + Cardio en ayunas",detalle:"3 días HIIT: 1 min PE 9 × 2 min PE 4-5 (×5 intervalos). 3 días cardio continuo: 30 min bicicleta/banda sin fin, PE 6-7."};
+  const esObes=condiciones.includes("Obesidad grado III");
+  const esRehab=condiciones.includes("Rehabilitación postquirúrgica (rodilla)");
+  const esTerapeutico=esObes||esRehab;
+
+  // Equipos según contexto
+  const equipoHIIT=esTerapeutico||esHTA?"bicicleta estacionaria o elíptica":"elíptica, bicicleta o banda sin fin";
+  const equipoCont=esTerapeutico?"bicicleta estacionaria":"bicicleta, elíptica o banda sin fin";
+
+  // Protocolo HIIT base (varía por objetivo y mes/experiencia)
+  const hiitIntervalos=exp<=2?"4 intervalos":exp<=3?"5 intervalos":"6 intervalos";
+  const hiitAlta=esHTA?"7/10":"9/10";
+  const hiitBaja=esHTA?"4/10":"4-5/10";
+  const hiitTiempoAlta=exp<=2?"30 segundos":exp<=3?"1 minuto":"90 segundos";
+  const hiitTiempoBaja=exp<=2?"90 segundos":exp<=3?"2 minutos":"2 minutos";
+
+  // Protocolo continuo base
+  const contMinutos=esTerapeutico?20:objetivo==="perdida_grasa"?40:30;
+  const contPE=esHTA||esTerapeutico?"5-6/10":objetivo==="perdida_grasa"?"6-7/10":"6/10";
+
+  // Distribución semanal
+  const diasHIIT=objetivo==="fuerza"?1:objetivo==="perdida_grasa"?3:2;
+  const diasCont=Math.min(diasSemana-diasHIIT, objetivo==="perdida_grasa"?3:2);
+
+  if(esTerapeutico||esRehab){
+    return {
+      tipo:"Ejercicio cardiopulmonar de baja intensidad",
+      frecuencia:`${diasCont+diasHIIT} veces por semana`,
+      protocolos:[{
+        nombre:"Entrenamiento continuo",
+        dias:`${diasCont+diasHIIT} días por semana`,
+        equipo:equipoCont,
+        detalle:`Realizar ${contMinutos} minutos a una percepción de esfuerzo de ${contPE}. Incrementar 5 minutos cada semana según tolerancia.`
+      }],
+      notas:"Monitorear frecuencia cardíaca. Suspender ante mareo, disnea excesiva o dolor."
+    };
   }
-  if(esDM2||esHTA){
-    return {tipo:"Cardio aeróbico moderado",detalle:"5-6 veces/semana, 30-45 min, bicicleta o caminata, PE 5-6/10. Preferir post-comida para DM2."};
+
+  if(objetivo==="fuerza"){
+    return {
+      tipo:"Ejercicio cardiopulmonar complementario",
+      frecuencia:"2-3 veces por semana (días de descanso del entrenamiento de fuerza)",
+      protocolos:[{
+        nombre:"Entrenamiento continuo",
+        dias:"2-3 días por semana",
+        equipo:equipoCont,
+        detalle:`Realizar 20-30 minutos a una percepción de esfuerzo de 5-6/10. Evitar exceso de cardio que interfiera con la recuperación muscular.`
+      }],
+      notas:"Prioridad: recuperación entre sesiones de fuerza. El cardio es complementario."
+    };
   }
-  if(esTerapeutico){
-    return {tipo:"Cardio de baja intensidad",detalle:"3-4 veces/semana, 20-30 min, caminata o bicicleta estacionaria, PE 4-5/10. Incrementar 5 min cada semana."};
-  }
-  return {tipo:"Cardio continuo",detalle:"3-4 veces/semana, 30 min, bicicleta o banda sin fin, PE 6/10."};
+
+  // Para hipertrofia, recomposición, pérdida de grasa, salud general
+  return {
+    tipo:tipoCardio==="solo_continuo"?"Entrenamiento cardiopulmonar continuo":tipoCardio==="solo_hiit"?"Entrenamiento por intervalos de alta intensidad (HIIT)":"Entrenamiento cardiopulmonar mixto (HIIT + continuo)",
+    frecuencia:`${diasHIIT+diasCont} veces por semana`,
+    protocolos:[
+      ...(tipoCardio!=="solo_continuo"?[{
+        nombre:"HIIT — Intervalos de alta intensidad",
+        dias:`${diasHIIT} ${diasHIIT===1?"día":"días"} por semana`,
+        equipo:equipoHIIT,
+        detalle:`Realizar ${hiitIntervalos}:\n• ${hiitTiempoAlta} a una percepción de esfuerzo de ${hiitAlta}\n• ${hiitTiempoBaja} a una percepción de esfuerzo de ${hiitBaja}\nRepetir ${hiitIntervalos}.\nCalentamiento previo: 5 min percepción de esfuerzo 4/10.\nEnfriamiento posterior: 5 min percepción de esfuerzo 3/10.`
+      }]:[]),
+      ...(tipoCardio!=="solo_hiit"&&diasCont>0?[{
+        nombre:"Entrenamiento continuo de estado estable",
+        dias:`${diasCont} ${diasCont===1?"día":"días"} por semana`,
+        equipo:equipoCont,
+        detalle:`Realizar ${contMinutos} minutos a una percepción de esfuerzo de ${contPE}.\n${esDM2?"Preferir realizarlo después de las comidas para mejor control glucémico.":""}`
+      }]:[]),
+    ],
+    notas:`${esDM2?"Monitorear glucemia antes y después del ejercicio. ":""}${esHTA?"No exceder percepción de esfuerzo 7/10. Monitorear presión arterial. ":""}Tomar 250 mL de agua cada 15 minutos.`
+  };
 }
 
 // ── Página principal del módulo ───────────────────────────────────────────────
@@ -16363,6 +16464,11 @@ function renderEjercicioForm(){
             <option value="fuerza">Fuerza máxima / Rendimiento</option>
             <option value="salud_general">Salud general / Sedentario</option>
             <option value="terapeutico">Terapéutico / Enfermedad crónica</option>
+          </select>`)}
+          ${fld("Tipo de ejercicio cardiovascular",`<select id="ej_cardio" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;background:#fff">
+            <option value="mixto">HIIT + Continuo (recomendado)</option>
+            <option value="solo_hiit">Solo HIIT</option>
+            <option value="solo_continuo">Solo continuo (estado estable)</option>
           </select>`)}
         </div>
         <!-- Condiciones clínicas -->
@@ -16429,7 +16535,7 @@ function renderEjercicioHistorial(planes){
   return`<div style="padding:18px">
     ${planes.map((item,idx)=>{
       let meta={objetivo:"—",semanas:"—",split:"—"};
-      try{const c=JSON.parse(item.contenido.replace("__EJERCICIO__:",""));meta=c.meta||meta;}catch(e){}
+      try{const c=JSON.parse(item.descripcion.replace("__EJERCICIO__:",""));meta=c.meta||meta;}catch(e){}
       return`<div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div>
           <div style="font-size:14px;font-weight:700;color:${TX}">Prescripción #${planes.length-idx} — ${meta.objetivo||"—"}</div>
@@ -16457,17 +16563,17 @@ window.generarPrescripcionEjercicio=async function(){
     exp:gi("ej_exp"),recup:gi("ej_recup"),estres:gi("ej_estres"),
     novedad:gi("ej_novedad"),dieta:gi("ej_dieta"),
     objetivo:gv2("ej_objetivo"),lugar:gv2("ej_lugar"),
+    tipoCardio:gv2("ej_cardio")||"mixto",
     dias:gi("ej_dias"),condiciones,
     sexo:STATE.pat?.sexo_biologico||"M",
     mesNum:gi("ej_mes"),
   };
-  loading(true,"Generando plan de 4 semanas...");
+  loading(true,"Generando prescripción...");
   await new Promise(r=>setTimeout(r,400));
   const plan=generarPlan(cfg);
-  const cardio=calcCardio(cfg.objetivo,condiciones,cfg.dias);
+  const cardio=calcCardio(cfg.objetivo,condiciones,cfg.dias,cfg.tipoCardio,cfg.exp);
   STATE._ejPlanActual={plan,cfg,cardio};
   loading(false);
-  // Mostrar en pestaña resultado
   STATE.ejTab="resultado";
   pgEjercicio();
 };
@@ -16477,7 +16583,7 @@ async function pgEjercicio(){
   const b=RR();
   if(!STATE.pat?.id){_sinPacienteMsg(b,"prescripción de ejercicio");return;}
   const pid=STATE.pat.id;
-  const {data:prevPlan}=await SB.from("anexos").select("id,created_at,contenido").eq("paciente_id",pid).like("contenido","__EJERCICIO__%").order("created_at",{ascending:false}).limit(6);
+  const {data:prevPlan}=await SB.from("anexos").select("id,created_at,descripcion").eq("paciente_id",pid).like("descripcion","__EJERCICIO__%").order("created_at",{ascending:false}).limit(6);
   const planes=prevPlan||[];
   const tabs=["nuevo","historial"];
   if(STATE._ejPlanActual) tabs.splice(1,0,"resultado");
@@ -16537,9 +16643,15 @@ function renderPlanEjercicio({plan,cfg,cardio}){
     </div>
     <!-- Cardio -->
     <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:14px 18px;margin-top:14px">
-      <div style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:6px">🚴 Protocolo cardiopulmonar</div>
-      <div style="font-size:13px;font-weight:600;color:#1B5E20;margin-bottom:4px">${cardio.tipo}</div>
-      <div style="font-size:13px;color:#2E7D32;line-height:1.6">${cardio.detalle}</div>
+      <div style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:8px">🚴 ${cardio.tipo}</div>
+      <div style="font-size:13px;color:#1B5E20;margin-bottom:6px;font-weight:600">Frecuencia: ${cardio.frecuencia}</div>
+      ${(cardio.protocolos||[]).map(proto=>`
+      <div style="background:#fff;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:#2E7D32;margin-bottom:4px">${proto.nombre} — ${proto.dias}</div>
+        <div style="font-size:13px;color:#1B5E20;font-weight:600;margin-bottom:3px">Equipo: ${proto.equipo}</div>
+        <div style="font-size:12px;color:#2E7D32;white-space:pre-line;line-height:1.7">${proto.detalle}</div>
+      </div>`).join("")}
+      ${cardio.notas?`<div style="font-size:12px;color:#1B5E20;font-style:italic;margin-top:4px">⚠️ ${cardio.notas}</div>`:""}
     </div>
     <!-- Volumen por grupo -->
     <div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px 18px;margin-top:14px">
@@ -16743,9 +16855,10 @@ window.renderPlanSemana=function(sem){
             <th style="padding:6px 8px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:52px"></th>
             <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:left;width:36px">#</th>
             <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:left">Ejercicio</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:50px">S×R</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:80px">RER</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:70px">Descanso</th>
+            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:52px">Series × Reps</th>
+            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:90px">Intensidad</th>
+            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:80px">RIR</th>
+            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:90px">Descanso</th>
             <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:70px">Tempo</th>
             <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:80px">Peso (kg)</th>
           </tr>
@@ -16763,11 +16876,12 @@ window.renderPlanSemana=function(sem){
                 <div style="font-size:11px;color:#90A4AE;text-transform:capitalize">${ej.grupo.replace(/_/g," ")}</div>
               </td>
               <td style="padding:7px 10px;text-align:center;font-size:13px;font-weight:700;color:#006BB6">${ej.s}×${ej.r}</td>
-              <td style="padding:7px 10px;text-align:center;font-size:12px;color:#546E7A">${ej.rer}</td>
-              <td style="padding:7px 10px;text-align:center;font-size:12px;color:#546E7A">${ej.descanso}</td>
-              <td style="padding:7px 10px;text-align:center;font-size:12px;color:#546E7A">${ej.tempo}</td>
+              <td style="padding:7px 10px;text-align:center;font-size:11px;color:#546E7A">${ej.intensidad||"—"}</td>
+              <td style="padding:7px 10px;text-align:center;font-size:11px;color:#546E7A">${ej.rir||ej.rer||"—"}</td>
+              <td style="padding:7px 10px;text-align:center;font-size:11px;color:#546E7A">${ej.descanso}</td>
+              <td style="padding:7px 10px;text-align:center;font-size:11px;color:#546E7A">${ej.tempo}</td>
               <td style="padding:7px 10px;text-align:center">
-                <input type="number" placeholder="0" min="0" step="0.5" style="width:66px;padding:4px 6px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:13px;text-align:center;outline:none">
+                <input type="number" placeholder="___" min="0" step="0.5" style="width:66px;padding:4px 6px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:13px;text-align:center;outline:none">
               </td>
             </tr>`;
           }).join("")}
@@ -16789,9 +16903,12 @@ window.guardarPrescripcionEjercicio=async function(){
   loading(true,"Guardando prescripción...");
   const {error}=await SB.from("anexos").insert({
     paciente_id:pid,
+    titulo:`PRESCRIPCIÓN EJERCICIO — Mes ${cfg.mesNum} — ${new Date().toLocaleDateString("es-MX")}`,
     tipo_documento:"Prescripción de ejercicio",
-    nombre_archivo:`Prescripcion_Ejercicio_Mes${cfg.mesNum}_${new Date().toISOString().split("T")[0]}`,
-    contenido:"__EJERCICIO__:"+JSON.stringify(payload),
+    origen:"generado",
+    firmado:false,
+    descripcion:"__EJERCICIO__:"+JSON.stringify(payload),
+    fecha:new Date().toISOString().split("T")[0],
     created_by:STATE.userProfile?.id||null,
   });
   loading(false);
@@ -16805,11 +16922,11 @@ window.guardarPrescripcionEjercicio=async function(){
 // ── Ver plan guardado ────────────────────────────────────────────────────────
 window.verPlanEjercicio=async function(id){
   loading(true,"Cargando prescripción...");
-  const {data,error}=await SB.from("anexos").select("contenido,created_at").eq("id",id).single();
+  const {data,error}=await SB.from("anexos").select("descripcion,created_at").eq("id",id).single();
   loading(false);
   if(error||!data){showToast("No se pudo cargar",false);return;}
   try{
-    const payload=JSON.parse(data.contenido.replace("__EJERCICIO__:",""));
+    const payload=JSON.parse(data.descripcion.replace("__EJERCICIO__:",""));
     STATE._ejPlanActual=payload;
     STATE._ejSemana=1;
     STATE.ejTab="resultado";
