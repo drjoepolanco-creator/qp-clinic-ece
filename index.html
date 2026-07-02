@@ -5935,6 +5935,7 @@ window.guardarInterconsulta=async function(){
   const nomPac=p?`${p.nombre||""} ${p.apellido_paterno||""}`.trim():"Paciente";
   const solicitante=STATE.userProfile?`${STATE.userProfile.titulo||"Dr."} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():"El médico solicitante";
   const urgente=prioridad==="Urgente"||prioridad==="Inmediata";
+  STATE._waInter={nomPac,medInter,solicitante,especialidad,diagnostico:diagnostico||'',motivos:motivos||'',prioridad,esRecordatorio:false};
 
   const overlay=document.createElement("div");
   overlay.id="modal-wa-inter";
@@ -5971,7 +5972,7 @@ window.guardarInterconsulta=async function(){
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="enviarWAInterconsulta('${nomPac.replace(/'/g,"\\'")}','${medInter.replace(/'/g,"\\'")}','${solicitante.replace(/'/g,"\\'")}','${especialidad.replace(/'/g,"\\'")}','${diagnostico.substring(0,60).replace(/'/g,"\\'")}','${motivos.substring(0,60).replace(/'/g,"\\'")}','${prioridad}')" 
+        <button onclick="enviarWAInterconsulta()" 
           style="flex:1;padding:10px;background:#25D366;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;min-width:140px">
           💬 Enviar por WhatsApp
         </button>
@@ -6009,6 +6010,7 @@ window.reenviarWAInterconsulta=async function(icId){
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
   const solicitante=medSol?`${medSol.titulo||"Dr."} ${medSol.nombre||""} ${medSol.apellidos||""}`.trim():(STATE.userProfile?`${STATE.userProfile.titulo||"Dr."} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():"El médico solicitante");
   const urgente=ic.prioridad==="Urgente (hoy)"||ic.prioridad==="Emergencia (inmediata)";
+  STATE._waInter={nomPac,medInter:ic.medico_interconsultante||'',solicitante,especialidad:ic.especialidad||'',diagnostico:ic.diagnostico||'',motivos:ic.motivos||'',prioridad:ic.prioridad||'',esRecordatorio:true};
 
   document.getElementById("modal-inter-ver")?.remove();
   document.getElementById("modal-wa-inter")?.remove();
@@ -6049,7 +6051,7 @@ window.reenviarWAInterconsulta=async function(icId){
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="enviarWAInterconsulta('${nomPac.replace(/'/g,"\\'")}','${(ic.medico_interconsultante||"").replace(/'/g,"\\'")}','${solicitante.replace(/'/g,"\\'")}','${(ic.especialidad||"").replace(/'/g,"\\'")}','${(ic.diagnostico||"").substring(0,60).replace(/'/g,"\\'")}','${(ic.motivos||"").substring(0,60).replace(/'/g,"\\'")}','${ic.prioridad||""}',true)" 
+        <button onclick="enviarWAInterconsulta()" 
           style="flex:1;padding:10px;background:#25D366;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;min-width:140px">
           💬 Reenviar recordatorio
         </button>
@@ -6062,10 +6064,20 @@ window.reenviarWAInterconsulta=async function(icId){
   document.body.appendChild(overlay);
 }
 
-window.enviarWAInterconsulta=async function(nomPac,medInter,solicitante,especialidad,diagnostico,motivos,prioridad,esRecordatorio){
+window.enviarWAInterconsulta=async function(){
   const cel=(document.getElementById("wa-inter-cel")?.value||"").replace(/\D/g,"");
   const pais=document.getElementById("wa-inter-pais")?.value||"52";
   if(!cel){showToast("Ingresa el celular del especialista",false);return;}
+
+  const d=STATE._waInter||{};
+  const nomPac=d.nomPac||"Paciente";
+  const medInter=d.medInter||"";
+  const solicitante=d.solicitante||"El médico solicitante";
+  const especialidad=d.especialidad||"";
+  const diagnostico=d.diagnostico||"";
+  const motivos=d.motivos||"";
+  const prioridad=d.prioridad||"";
+  const esRecordatorio=d.esRecordatorio||false;
 
   const urgente=prioridad==="Urgente"||prioridad==="Inmediata"||prioridad==="Emergencia (inmediata)";
   const celFinal=cel.length===10?pais+cel:cel;
