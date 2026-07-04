@@ -16914,7 +16914,6 @@ window.guardarPrescripcionEjercicio=async function(){
     firmado:false,
     descripcion:"__EJERCICIO__:"+JSON.stringify(payload),
     fecha:new Date().toISOString().split("T")[0],
-    created_by:STATE.userProfile?.id||null,
   });
   loading(false);
   if(error){showToast("Error al guardar: "+error.message,false);return;}
