@@ -16231,106 +16231,93 @@ function elegirEjercicio(grupo,subcat,contrainds,mesNum,semNum,diaNum,posIdx){
   return permitidos[idx];
 }
 
-// ── Dosis: S×R×Intensidad con progresión real semana a semana ─────────────────
-// Basado en: ACSM Guidelines 2022, Israetel et al. MEV/MRV, Schoenfeld 2021
-function calcDosis(semana,exp,objetivo,orden){
-  // Progresión de series: aumentan linealmente semana a semana
-  // Semana 1=acumulación, 2=desarrollo, 3=pico, 4=deload ligero
-  const progSeries={
-    fuerza:       [[3,4,5,3],[2,3,4,2],[2,3,3,2]],
-    hipertrofia:  [[3,4,4,3],[3,4,4,3],[2,3,3,2]],
-    recomposicion:[[3,4,4,3],[3,4,4,3],[2,3,3,2]],
-    perdida_grasa:[[3,3,4,3],[3,3,4,3],[2,3,3,2]],
-    salud_general:[[2,3,3,2],[2,3,3,2],[2,2,3,2]],
-    terapeutico:  [[2,2,3,2],[2,2,3,2],[2,2,2,2]],
-  };
-  const idx=orden<=1?0:orden<=2?1:2;
-  const prog=progSeries[objetivo]||progSeries.salud_general;
-  const s=prog[idx][semana-1];
-
-  // Repeticiones y RIR (Repetitions In Reserve = equivalente al RER español)
-  // Fuerza: 1-5 reps, alta intensidad
-  // Hipertrofia: 6-15 reps zona óptima (Schoenfeld 2010, 2021)
-  // Salud: 12-20 reps baja-mod intensidad
-  let r,rir,descanso,tempo,intensidad;
+// ── Dosificación según ACSM 11ª edición (FITT-VP) ─────────────────────────────
+// Fuerza: 2-6 reps, 80-90% RM · Hipertrofia: 8-12 reps, 70-85% RM
+// Salud/terapéutico: 10-15 reps, 50-70% RM · Resistencia muscular: 15-20 reps
+// Progresión ACSM: aumentar carga 2-10% cuando pueda completar 1-2 reps extra
+// en dos sesiones consecutivas. Prescripción única mensual.
+function calcDosis(exp,objetivo,orden){
+  // orden: 1=compuesto principal, 2=compuesto secundario, 3=accesorio
+  let s,r,rir,intensidad,descanso,tempo;
   if(objetivo==="fuerza"){
-    const repsFuerza=[[5,5,4,5],[6,5,5,6],[8,6,5,8]];
-    r=repsFuerza[idx][semana-1];
-    rir=orden===1?"RIR 3-4":"RIR 2-3";
-    intensidad=orden===1?"80-85% RM":"70-75% RM";
-    descanso=orden===1?"3-5 minutos":orden===2?"2-3 minutos":"90 segundos";
+    s=orden===1?4:orden===2?3:3;
+    r=orden===1?5:orden===2?6:8;
+    rir="RIR 2-3";
+    intensidad=orden===1?"80-85% RM":"75-80% RM";
+    descanso=orden===1?"3-5 minutos":orden===2?"2-3 minutos":"2 minutos";
     tempo="2-1-2";
   } else if(objetivo==="hipertrofia"||objetivo==="recomposicion"){
-    const repsHiper=[[8,8,6,8],[10,10,8,10],[12,12,10,12]];
-    r=repsHiper[idx][semana-1];
-    rir=semana<=2?"RIR 2-3":semana===3?"RIR 1-2":"RIR 2-3";
-    intensidad=orden===1?"70-75% RM":orden===2?"65-70% RM":"60-65% RM";
-    descanso=orden===1?"90-120 segundos":orden===2?"60-90 segundos":"60 segundos";
-    tempo="2-0-1";
+    s=orden===1?4:3;
+    r=orden===1?8:orden===2?10:12;
+    rir="RIR 1-3";
+    intensidad=orden===1?"70-80% RM":orden===2?"65-75% RM":"60-70% RM";
+    descanso=orden===1?"2-3 minutos":"60-90 segundos";
+    tempo="2-0-2";
   } else if(objetivo==="perdida_grasa"){
-    const repsPG=[[12,12,10,12],[12,15,12,12],[15,15,12,15]];
-    r=repsPG[idx][semana-1];
+    s=3;
+    r=orden===1?10:orden===2?12:15;
     rir="RIR 1-2";
-    intensidad="60-65% RM";
-    descanso=orden===1?"60-90 segundos":"45-60 segundos";
+    intensidad="60-70% RM";
+    descanso=orden===1?"90 segundos":"60 segundos";
     tempo="2-0-1";
   } else { // salud_general, terapeutico
-    const repsSal=[[12,12,10,12],[12,15,12,12],[15,15,12,15]];
-    r=repsSal[idx][semana-1];
+    s=orden===1?3:2;
+    r=orden===1?10:12;
     rir="RIR 2-3";
-    intensidad="50-60% RM";
-    descanso="60-90 segundos";
+    intensidad="50-65% RM";
+    descanso="90 segundos";
     tempo=exp<=1?"3-1-3":"2-0-2";
   }
   return {s,r,rir,intensidad,descanso,tempo};
 }
 
-// ── Generar plan de UNA semana (la prescripción mensual) ─────────────────────
-// Un plan mensual = 1 semana de estructura + progresión indicada en notas
-// La variedad viene del mes (mesNum) y de la selección de ejercicios
+// ── Generar plan MENSUAL único según ACSM ─────────────────────────────────────
+// Una sola estructura semanal que se repite todo el mes.
+// La progresión es por CARGA (2-10% según ACSM), no por cambiar ejercicios.
 function generarPlan(cfg){
-  const {exp,recup,estres,novedad,dieta,objetivo,lugar,dias,condiciones,sexo,mesNum,tipoCardio}=cfg;
+  const {exp,recup,estres,novedad,dieta,objetivo,lugar,dias,condiciones,sexo,mesNum}=cfg;
   const split=getSplit(dias);
   const factor=calcFactorVMR(recup,estres,novedad,dieta);
   const contrainds=condiciones;
-  const plan={split:split.nombre,semanas:[],volumen:{}};
+  const plan={split:split.nombre,sesiones:[],volumen:{},progresion:{}};
 
-  // Volumen semanal por grupo
+  // Volumen semanal objetivo por grupo (Israetel MEV/MRV ajustado)
   Object.entries(VME_VMR).forEach(([g,{vme,vmr_base}])=>{
     const vmr=Math.round(vmr_base*factor);
     plan.volumen[g]={vme,vmr,semanal:Math.max(vme,Math.min(vmr,vme+Math.round((vmr-vme)*0.5)))};
   });
 
-  // Generar 4 semanas con PROGRESIÓN real: los ejercicios son los mismos pero
-  // las series/reps/intensidad aumentan semana a semana, y los accesorios varían
-  for(let sem=1;sem<=4;sem++){
-    const semObj={semana:sem,dias:[]};
-    split.dias.forEach((dia,dIdx)=>{
-      const diaObj={dia:dia.id,ejercicios:[]};
-      let posCount=0;
-      dia.grupos.forEach((grupo,gIdx)=>{
-        const subcat=getSubcat(grupo,lugar,condiciones,sexo,exp);
-        if(!subcat) return;
-        // Ejercicios por grupo: 1 principal + 1 accesorio si el día lo permite
-        const nEj=(dIdx%2===0&&sem<=2)?1:2;
-        for(let ei=0;ei<nEj;ei++){
-          // Principal (ei=0) siempre igual en el mes → consistencia para medir progreso
-          // Accesorio (ei=1) varía por semana → estímulo nuevo cada semana
-          const ej=elegirEjercicio(grupo,subcat,contrainds,mesNum,ei===0?0:sem,dIdx,gIdx*5+ei);
-          if(!ej) continue;
-          const orden=gIdx===0&&ei===0?1:ei===0?2:3;
-          const dosis=calcDosis(sem,exp,objetivo,orden);
-          const num=diaObj.ejercicios.length+1;
-          // Superserie: mismo número con letra si comparten descanso
-          const label=ei===0?String(num):`${num}${String.fromCharCode(64+ei)}`;
-          diaObj.ejercicios.push({num:label,grupo,ejercicio:ej,...dosis,peso:"___",nota:""});
-          posCount++;
-        }
-      });
-      semObj.dias.push(diaObj);
+  // Nota de progresión ACSM según objetivo
+  plan.progresion={
+    regla:"Cuando pueda completar 1-2 repeticiones adicionales a las prescritas en la última serie durante dos sesiones consecutivas, incrementar la carga 2-10% (menor incremento en tren superior, mayor en tren inferior).",
+    semanal:"Semanas 1-2: familiarización con las cargas. Semanas 3-4: aplicar los incrementos según la regla de progresión.",
+    registro:"Anotar el peso utilizado en cada ejercicio para dar seguimiento objetivo a la progresión."
+  };
+
+  // Generar UNA sesión por día de entrenamiento (estructura mensual fija)
+  split.dias.forEach((dia,dIdx)=>{
+    const sesion={dia:dia.id,ejercicios:[]};
+    dia.grupos.forEach((grupo,gIdx)=>{
+      const subcat=getSubcat(grupo,lugar,condiciones,sexo,exp);
+      if(!subcat) return;
+      // Ejercicios por grupo: balance tren superior/inferior equilibrado
+      // Grupos grandes (cuádriceps, glúteo, pecho, espalda) → 2 ejercicios
+      // Grupos pequeños (bíceps, tríceps, pantorrilla, trapecio) → 1 ejercicio
+      const grande=["cuadriceps","gluteo","pectorales","espalda_alta"].includes(grupo);
+      const nEj=grande?2:1;
+      for(let ei=0;ei<nEj;ei++){
+        const ej=elegirEjercicio(grupo,subcat,contrainds,mesNum,ei,dIdx,gIdx*5+ei);
+        if(!ej) continue;
+        const orden=gIdx===0&&ei===0?1:ei===0?2:3;
+        const dosis=calcDosis(exp,objetivo,orden);
+        const num=sesion.ejercicios.length+1;
+        sesion.ejercicios.push({num:String(num),grupo,ejercicio:ej,...dosis,peso:"___",nota:""});
+      }
     });
-    plan.semanas.push(semObj);
-  }
+    plan.sesiones.push(sesion);
+  });
+  // Compatibilidad con visor/PDF antiguos
+  plan.semanas=[{semana:1,dias:plan.sesiones}];
   return plan;
 }
 
@@ -16473,7 +16460,7 @@ function renderEjercicioForm(){
         </div>
         <!-- Condiciones clínicas -->
         <div style="background:#FFF8E6;border:1px solid #F59E0B;border-radius:10px;padding:14px">
-          <div style="font-size:11px;font-weight:700;color:#7F5900;text-transform:uppercase;margin-bottom:10px;letter-spacing:.4px">⚕️ Condiciones clínicas (contraindicaciones)</div>
+          <div style="font-size:11px;font-weight:700;color:#7F5900;text-transform:uppercase;margin-bottom:10px;letter-spacing:.4px">Condiciones clínicas (contraindicaciones)</div>
           ${Object.keys(EJ_CONTRAIND).map(chkCond).join("")}
         </div>
       </div>
@@ -16489,7 +16476,7 @@ function renderEjercicioForm(){
         </div>
         <!-- Cuestionario bienestar -->
         <div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px">
-          <div style="font-size:11px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:10px;letter-spacing:.4px">📊 Cuestionario de bienestar (0–30 pts)</div>
+          <div style="font-size:11px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:10px;letter-spacing:.4px">Cuestionario de bienestar (0–30 puntos)</div>
           ${["Fatiga","Calidad de sueño","Dolor muscular","Nivel de estrés","Estado de ánimo","Vulnerabilidad a lesiones"].map((item,i)=>`
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
             <span style="font-size:12px;color:${TX};min-width:160px">${item}</span>
@@ -16506,7 +16493,7 @@ function renderEjercicioForm(){
     </div>
     <!-- Botón generar -->
     <div style="margin-top:18px;display:flex;justify-content:center">
-      ${btn("🏋️ Generar prescripción de ejercicio","generarPrescripcionEjercicio()","ok",1)}
+      ${btn("Generar prescripción de ejercicio","generarPrescripcionEjercicio()","ok",1)}
     </div>
   </div>`;
 }
@@ -16542,8 +16529,8 @@ function renderEjercicioHistorial(planes){
           <div style="font-size:12px;color:${MU};margin-top:2px">${new Date(item.created_at).toLocaleDateString("es-MX",{year:"numeric",month:"long",day:"numeric"})} · ${meta.split||"—"} · ${meta.dias_semana||"—"} días/semana</div>
         </div>
         <div style="display:flex;gap:6px">
-          ${btn("👁 Ver plan",`verPlanEjercicio('${item.id}')`, "p",1)}
-          ${btn("📄 PDF",`pdfPlanEjercicio('${item.id}')`, "s",1)}
+          ${btn("Ver plan",`verPlanEjercicio('${item.id}')`, "p",1)}
+          ${btn("PDF",`pdfPlanEjercicio('${item.id}')`, "s",1)}
         </div>
       </div>`;
     }).join("")}
@@ -16585,8 +16572,6 @@ async function pgEjercicio(){
   const pid=STATE.pat.id;
   const {data:prevPlan}=await SB.from("anexos").select("id,created_at,descripcion").eq("paciente_id",pid).like("descripcion","__EJERCICIO__%").order("created_at",{ascending:false}).limit(6);
   const planes=prevPlan||[];
-  const tabs=["nuevo","historial"];
-  if(STATE._ejPlanActual) tabs.splice(1,0,"resultado");
   if(!STATE.ejTab||(!STATE._ejPlanActual&&STATE.ejTab==="resultado")) STATE.ejTab=planes.length>0?"historial":"nuevo";
   const tabSt=(a)=>`padding:10px 18px;border:none;cursor:pointer;font-size:14px;font-weight:${a?700:500};color:${a?P:MU};background:${a?"#E3F4FB":"transparent"};border-bottom:2px solid ${a?P:"transparent"}`;
   const p=STATE.pat;
@@ -16595,14 +16580,15 @@ async function pgEjercicio(){
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="background:${PD};padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div>
-          <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">🏋️ Prescripción de Ejercicio</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Prescripción de Ejercicio</div>
           <div style="font-size:16px;font-weight:700;color:#fff">${nomPac}</div>
         </div>
+        <button onclick="go('expediente')" style="padding:8px 16px;border:1.5px solid rgba(255,255,255,.4);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:13px;font-weight:600">← Regresar al expediente</button>
       </div>
       <div style="border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;padding:0 4px;background:#FAFAFA">
-        <button onclick="STATE.ejTab='nuevo';renderEB&&renderEB()" style="${tabSt(STATE.ejTab==='nuevo')}">➕ Nueva prescripción</button>
-        ${STATE._ejPlanActual?`<button onclick="STATE.ejTab='resultado'" style="${tabSt(STATE.ejTab==='resultado')}">📋 Plan generado</button>`:""}
-        ${planes.length>0?`<button onclick="STATE.ejTab='historial'" style="${tabSt(STATE.ejTab==='historial')}">🗂 Historial (${planes.length})</button>`:""}
+        <button onclick="STATE.ejTab='nuevo';renderEB&&renderEB()" style="${tabSt(STATE.ejTab==='nuevo')}">Nueva prescripción</button>
+        ${STATE._ejPlanActual?`<button onclick="STATE.ejTab='resultado'" style="${tabSt(STATE.ejTab==='resultado')}">Plan generado</button>`:""}
+        ${planes.length>0?`<button onclick="STATE.ejTab='historial'" style="${tabSt(STATE.ejTab==='historial')}">Historial (${planes.length})</button>`:""}
       </div>
       <div id="ej-content">
         ${STATE.ejTab==="nuevo"?renderEjercicioForm():
@@ -16615,35 +16601,52 @@ async function pgEjercicio(){
 
 function renderPlanEjercicio({plan,cfg,cardio}){
   const objLabel={hipertrofia:"Hipertrofia",perdida_grasa:"Pérdida de grasa",recomposicion:"Recomposición corporal",fuerza:"Fuerza máxima",salud_general:"Salud general",terapeutico:"Terapéutico"};
-  const col={1:"#006BB6",2:"#2E7D32",3:"#B07800",4:"#7B1FA2"};
-  // Semana activa (default 1)
-  if(STATE._ejSemana===undefined) STATE._ejSemana=1;
-  const sem=plan.semanas[STATE._ejSemana-1];
-  const semTabBtn=(s)=>`<button onclick="STATE._ejSemana=${s};document.getElementById('plan-tabla').innerHTML=renderPlanSemana(STATE._ejPlanActual.plan.semanas[${s}-1])" style="padding:6px 14px;border:1.5px solid ${STATE._ejSemana===s?"#006BB6":"#CFD8DC"};border-radius:20px;background:${STATE._ejSemana===s?"#006BB6":"#fff"};color:${STATE._ejSemana===s?"#fff":"#546E7A"};cursor:pointer;font-size:13px;font-weight:600">Semana ${s}</button>`;
+  // Estructura mensual única: sesiones (compatibilidad con planes viejos que usan semanas[0].dias)
+  const sesiones=plan.sesiones||plan.semanas?.[0]?.dias||[];
+  const prog=plan.progresion||{};
 
   return`<div style="padding:18px">
-    <!-- Header plan -->
+    <!-- Encabezado del plan -->
     <div style="background:#F4FAFD;border:1px solid #B3D9F0;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between">
       <div>
-        <div style="font-size:14px;font-weight:700;color:#006BB6;margin-bottom:4px">${plan.split}</div>
-        <div style="font-size:13px;color:#546E7A">${objLabel[cfg.objetivo]||cfg.objetivo} · Mes ${cfg.mesNum} · ${cfg.dias} días/semana · ${cfg.lugar==="gym"?"Gimnasio":"Casa"}</div>
+        <div style="font-size:14px;font-weight:700;color:${P};margin-bottom:4px">${plan.split} — Prescripción mensual</div>
+        <div style="font-size:13px;color:${MU}">${objLabel[cfg.objetivo]||cfg.objetivo} · Mes ${cfg.mesNum} del programa · ${cfg.dias} días por semana · ${cfg.lugar==="gym"?"Gimnasio":"Casa"}</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${btn("💾 Guardar prescripción","guardarPrescripcionEjercicio()","ok",1)}
-        ${btn("📄 Descargar PDF","pdfPrescripcionEjercicio()","s",1)}
+        ${btn("Guardar prescripción","guardarPrescripcionEjercicio()","ok",1)}
+        ${btn("Descargar PDF","pdfPrescripcionEjercicio()","s",1)}
       </div>
     </div>
-    <!-- Tabs semanas -->
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      ${[1,2,3,4].map(s=>semTabBtn(s)).join("")}
+
+    <!-- Principio FITT-VP del ACSM -->
+    <div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px 18px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px;letter-spacing:.4px">Prescripción según principio FITT-VP (Colegio Americano de Medicina del Deporte)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+        <div style="background:#F8F9FA;border-radius:8px;padding:10px 12px"><div style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:3px">Frecuencia</div><div style="font-size:13px;color:${TX};font-weight:600">${cfg.dias} días/semana</div></div>
+        <div style="background:#F8F9FA;border-radius:8px;padding:10px 12px"><div style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:3px">Intensidad</div><div style="font-size:13px;color:${TX};font-weight:600">${cfg.objetivo==="fuerza"?"75-85% RM":cfg.objetivo==="hipertrofia"||cfg.objetivo==="recomposicion"?"60-80% RM":"50-70% RM"}</div></div>
+        <div style="background:#F8F9FA;border-radius:8px;padding:10px 12px"><div style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:3px">Tiempo</div><div style="font-size:13px;color:${TX};font-weight:600">45-70 min/sesión</div></div>
+        <div style="background:#F8F9FA;border-radius:8px;padding:10px 12px"><div style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:3px">Tipo</div><div style="font-size:13px;color:${TX};font-weight:600">Fuerza + Cardiovascular</div></div>
+      </div>
     </div>
-    <!-- Tabla plan -->
+
+    <!-- Regla de progresión ACSM -->
+    <div style="background:#EDE7F6;border:1px solid #B39DDB;border-radius:10px;padding:14px 18px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:#4527A0;text-transform:uppercase;margin-bottom:6px;letter-spacing:.4px">Progresión durante el mes</div>
+      <div style="font-size:13px;color:#311B92;line-height:1.8">
+        ${prog.regla||"Cuando pueda completar 1-2 repeticiones adicionales a las prescritas en la última serie durante dos sesiones consecutivas, incrementar la carga 2-10%."}<br>
+        ${prog.semanal?`<b>Ritmo sugerido:</b> ${prog.semanal}<br>`:""}
+        ${prog.registro?`<b>Registro:</b> ${prog.registro}`:""}
+      </div>
+    </div>
+
+    <!-- Plan de sesiones (estructura mensual) -->
     <div id="plan-tabla">
-      ${renderPlanSemana(sem)}
+      ${renderPlanSemana({dias:sesiones})}
     </div>
+
     <!-- Cardio -->
     <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:14px 18px;margin-top:14px">
-      <div style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:8px">🚴 ${cardio.tipo}</div>
+      <div style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:8px">${cardio.tipo}</div>
       <div style="font-size:13px;color:#1B5E20;margin-bottom:6px;font-weight:600">Frecuencia: ${cardio.frecuencia}</div>
       ${(cardio.protocolos||[]).map(proto=>`
       <div style="background:#fff;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:8px">
@@ -16651,28 +16654,30 @@ function renderPlanEjercicio({plan,cfg,cardio}){
         <div style="font-size:13px;color:#1B5E20;font-weight:600;margin-bottom:3px">Equipo: ${proto.equipo}</div>
         <div style="font-size:12px;color:#2E7D32;white-space:pre-line;line-height:1.7">${proto.detalle}</div>
       </div>`).join("")}
-      ${cardio.notas?`<div style="font-size:12px;color:#1B5E20;font-style:italic;margin-top:4px">⚠️ ${cardio.notas}</div>`:""}
+      ${cardio.notas?`<div style="font-size:12px;color:#1B5E20;font-style:italic;margin-top:4px">${cardio.notas}</div>`:""}
     </div>
+
     <!-- Volumen por grupo -->
     <div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px 18px;margin-top:14px">
-      <div style="font-size:12px;font-weight:700;color:#546E7A;text-transform:uppercase;margin-bottom:10px">📊 Volumen semanal por grupo muscular</div>
+      <div style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Volumen semanal por grupo muscular</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px">
         ${Object.entries(plan.volumen).map(([g,{vme,vmr,semanal}])=>`
         <div style="background:#F8F9FA;border-radius:8px;padding:8px 10px">
-          <div style="font-size:11px;font-weight:700;color:#546E7A;text-transform:capitalize;margin-bottom:4px">${g.replace("_"," ")}</div>
-          <div style="font-size:12px;color:#263238">VME: <b>${vme}</b> · VMR: <b>${vmr}</b> · Objetivo: <b style="color:#006BB6">${semanal}</b> series</div>
+          <div style="font-size:11px;font-weight:700;color:${MU};text-transform:capitalize;margin-bottom:4px">${g.replace(/_/g," ")}</div>
+          <div style="font-size:12px;color:${TX}">Mínimo: <b>${vme}</b> · Máximo: <b>${vmr}</b> · Objetivo: <b style="color:${P}">${semanal}</b> series</div>
         </div>`).join("")}
       </div>
     </div>
+
     <!-- Precauciones -->
     <div style="background:#FFF3E0;border:1px solid #FFB74D;border-radius:10px;padding:14px 18px;margin-top:14px">
-      <div style="font-size:12px;font-weight:700;color:#E65100;text-transform:uppercase;margin-bottom:8px">⚠️ Precauciones generales</div>
+      <div style="font-size:12px;font-weight:700;color:#E65100;text-transform:uppercase;margin-bottom:8px">Precauciones generales</div>
       <div style="font-size:13px;color:#BF360C;line-height:1.8">
-        • Realizar calentamiento de 10 min: movilización articular activa + estiramientos activos-asistidos (8 seg).<br>
+        • Realizar calentamiento de 10 minutos: movilización articular activa + estiramientos activos-asistidos (8 segundos).<br>
         • Realizar los ejercicios en el orden indicado.<br>
         • Detener la actividad en caso de: mareo, náusea, vómito, fatiga excesiva, dolor de cabeza, dolor en el pecho, falta excesiva de aire, dolor muscular o articular.<br>
         • Tomar 250 mL de agua cada 15 minutos a temperatura ambiente durante el entrenamiento.<br>
-        • Enfriamiento: estiramientos activos-asistidos inhibitorios (12 seg), 10 min, músculos ejercitados.<br>
+        • Enfriamiento: estiramientos activos-asistidos inhibitorios (12 segundos), 10 minutos, músculos ejercitados.<br>
         • Dormir 8 horas diariamente.
         ${cfg.condiciones.length>0?`<br>• <b>Condiciones especiales:</b> ${cfg.condiciones.join(", ")}.`:""}
       </div>
@@ -17085,32 +17090,36 @@ window.pdfPrescripcionEjercicio=async function(){
       </div>`;
     };
 
-    // Generar páginas: una por semana, una sub-sección por día
-    for(let s=0;s<4;s++){
-      const semData=plan.semanas[s];
-      // Cabecera de semana (header + datos + semana label en 1 HTML)
-      let semCabHTML=headerHTML+datosHTML+calHTML;
-      semCabHTML+=`<div style="background:#005089;padding:6px 12px;border-radius:4px;margin-top:8px"><b style="color:#fff;font-size:10px;letter-spacing:.3px">SEMANA ${s+1} DE 4 — ${s===0?"Acumulación":s===1?"Desarrollo":s===2?"Intensificación":"Descarga activa"}</b></div>`;
+    // Generar páginas: plan MENSUAL único, una sección por día de entrenamiento
+    const sesiones=plan.sesiones||plan.semanas?.[0]?.dias||[];
+    const prog=plan.progresion||{};
+    const progHTML=`<div style="background:#EDE7F6;border:1px solid #B39DDB;border-radius:4px;padding:7px 12px;margin-top:7px">
+      <b style="font-size:8.5px;color:#4527A0;text-transform:uppercase;display:block;margin-bottom:2px">Progresión durante el mes (ACSM)</b>
+      <div style="font-size:7.5px;color:#311B92;line-height:1.7">${prog.regla||"Cuando pueda completar 1-2 repeticiones adicionales a las prescritas en la última serie durante dos sesiones consecutivas, incrementar la carga 2-10%."}${prog.semanal?`<br><b>Ritmo sugerido:</b> ${prog.semanal}`:""}</div>
+    </div>`;
 
-      // Agrupar días en páginas
-      for(const dia of semData.dias){
-        let diaHTML=semCabHTML;
-        diaHTML+=`<div style="margin-top:8px;border:1px solid ${BRD};border-radius:6px;overflow:hidden">
-          <div style="background:#EAF6FB;padding:5px 12px;border-bottom:1px solid ${BRD}">
-            <b style="font-size:9.5px;color:#005089">Día ${dia.dia}</b>
-            <span style="font-size:8px;color:${SEC};margin-left:8px">${dia.ejercicios.length} ejercicios</span>
-          </div>`;
-        const bloques=await Promise.all(dia.ejercicios.map((ej,i)=>ejBlock(ej,i,s+1)));
-        diaHTML+=bloques.join("")+"</div>";
-        diaHTML+=cardioHtml;
-        diaHTML+=`<div style="background:#FFF3E0;border:1px solid #FFB74D;border-radius:4px;padding:6px 12px;margin-top:6px">
-          <b style="font-size:8px;color:#E65100;text-transform:uppercase;display:block;margin-bottom:2px">Enfriamiento — 10 minutos</b>
-          <div style="font-size:7.5px;color:#BF360C;line-height:1.6">Estiramientos activos-asistidos inhibitorios (12 segundos), músculos ejercitados del día. Respiración diafragmática 5 minutos.</div>
+    let cabHTML=headerHTML+datosHTML+calHTML+progHTML;
+    let primeraPagina=true;
+    for(const dia of sesiones){
+      let diaHTML=cabHTML;
+      diaHTML+=`<div style="margin-top:8px;border:1px solid ${BRD};border-radius:6px;overflow:hidden">
+        <div style="background:#EAF6FB;padding:5px 12px;border-bottom:1px solid ${BRD}">
+          <b style="font-size:9.5px;color:#005089">Día ${dia.dia}</b>
+          <span style="font-size:8px;color:${SEC};margin-left:8px">${dia.ejercicios.length} ejercicios · misma estructura todo el mes</span>
         </div>`;
-        const cv=await renderHTML(diaHTML);
-        await canvasToPDFPages(cv);
-        // Después del primer día de la semana, limpiar cabecera para días siguientes
-        semCabHTML=`<div style="background:#005089;padding:5px 12px;border-radius:4px;margin-bottom:6px"><b style="color:#fff;font-size:9px">SEMANA ${s+1} — continuación</b></div>`;
+      const bloques=await Promise.all(dia.ejercicios.map((ej,i)=>ejBlock(ej,i,1)));
+      diaHTML+=bloques.join("")+"</div>";
+      diaHTML+=cardioHtml;
+      diaHTML+=`<div style="background:#FFF3E0;border:1px solid #FFB74D;border-radius:4px;padding:6px 12px;margin-top:6px">
+        <b style="font-size:8px;color:#E65100;text-transform:uppercase;display:block;margin-bottom:2px">Enfriamiento — 10 minutos</b>
+        <div style="font-size:7.5px;color:#BF360C;line-height:1.6">Estiramientos activos-asistidos inhibitorios (12 segundos), músculos ejercitados del día. Respiración diafragmática 5 minutos.</div>
+      </div>`;
+      const cv=await renderHTML(diaHTML);
+      await canvasToPDFPages(cv);
+      // Después de la primera página, cabecera reducida
+      if(primeraPagina){
+        cabHTML=`<div style="background:#005089;padding:5px 12px;border-radius:4px;margin-bottom:6px"><b style="color:#fff;font-size:9px">PRESCRIPCIÓN DE EJERCICIO — ${nomPac} — continuación</b></div>`;
+        primeraPagina=false;
       }
     }
 
