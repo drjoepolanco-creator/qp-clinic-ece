@@ -7981,6 +7981,42 @@ function pgConsulta(){
   </div>`;
   // Iniciar autoguardado (30s) si la nota no está cerrada
   if(!STATE.consultaActual?.bloqueada) iniciarAutoguardado();
+
+  // ── Carga automática de signos vitales del día (triage de enfermería) ──
+  // Al abrir cualquier nota (nueva o existente), si los campos de signos
+  // vitales están vacíos, buscar el registro de signos_vitales de HOY y
+  // llenarlos automáticamente sin que el médico tenga que ir al módulo.
+  (async()=>{
+    try{
+      const pid=STATE.pat?.id;if(!pid)return;
+      const tempField=document.getElementById("cs_temp");
+      if(!tempField)return;
+      // Solo autocargar si los campos principales están vacíos
+      const yaLlenos=["cs_temp","cs_fc","cs_tas","cs_peso"].some(id=>{
+        const e=document.getElementById(id);return e&&String(e.value||"").trim()!=="";
+      });
+      if(yaLlenos)return;
+      const hoy=new Date().toISOString().split("T")[0];
+      const {data:svRows}=await SB.from("signos_vitales").select("*").eq("paciente_id",pid).gte("fecha",hoy).order("fecha",{ascending:false}).limit(1);
+      const sv=svRows?.[0];if(!sv)return;
+      const setIf=(id,val)=>{
+        const e=document.getElementById(id);
+        if(e&&String(e.value||"").trim()===""&&val!==null&&val!==undefined&&val!=="")e.value=val;
+      };
+      setIf("cs_temp",sv.temperatura);
+      setIf("cs_fc",sv.frecuencia_cardiaca);
+      setIf("cs_fr",sv.frecuencia_respiratoria);
+      setIf("cs_sat",sv.saturacion_o2);
+      setIf("cs_peso",sv.peso);
+      setIf("cs_talla",sv.talla);
+      setIf("cs_imc",sv.imc);
+      setIf("cs_tas",sv.presion_sistolica);
+      setIf("cs_tad",sv.presion_diastolica);
+      setIf("cs_glu",sv.glucosa);
+      const hora=sv.fecha?new Date(sv.fecha).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}):"";
+      showToast(`Signos vitales de enfermería cargados automáticamente${hora?" ("+hora+")":""}`);
+    }catch(e){console.warn("Autocarga de signos vitales:",e.message);}
+  })();
 }
 // ── MOTIVOS COMUNES ───────────────────────────────────────
 window.toggleMotivos=function(){
