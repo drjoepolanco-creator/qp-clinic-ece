@@ -452,27 +452,32 @@ async function generarYGuardarPDF(docKey, sigImg, isLast=true){
       doc.text(credLine2,14,28);
     }
 
-    // TÍTULO Y FECHA (sin encimar)
+    // TÍTULO Y FECHA (fecha en línea propia debajo del título)
     doc.setTextColor(26,35,126);
     doc.setFontSize(12);doc.setFont("helvetica","bold");
-    doc.text(nombre.toUpperCase(),105,44,{align:"center",maxWidth:170});
+    const tituloLines=doc.splitTextToSize(nombre.toUpperCase(),170);
+    let ty=44;
+    tituloLines.forEach(tl=>{doc.text(tl,105,ty,{align:"center"});ty+=6;});
     doc.setTextColor(84,110,122);
     doc.setFontSize(8);doc.setFont("helvetica","normal");
-    doc.text(`Ciudad de México, ${hoy}`,195,44,{align:"right"});
+    doc.text(`Ciudad de México, ${hoy}`,105,ty,{align:"center"});
+    ty+=4;
 
     // SEPARADOR Y PACIENTE
     doc.setDrawColor(207,216,220);doc.setLineWidth(0.3);
-    doc.line(14,48,196,48);
+    doc.line(14,ty,196,ty);
+    ty+=6;
     doc.setTextColor(26,35,126);doc.setFontSize(9);doc.setFont("helvetica","bold");
-    doc.text("Paciente: ",14,54);
+    doc.text("Paciente: ",14,ty);
     doc.setTextColor(38,50,56);doc.setFont("helvetica","normal");
-    doc.text(nomPac,38,54);
+    doc.text(nomPac,38,ty);
+    ty+=8;
 
     // CONTENIDO
     doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(38,50,56);
     const texto=getDocTexto(docKey,pac,med);
     const lines=doc.splitTextToSize(texto,178);
-    let y=62;
+    let y=ty;
     for(const line of lines){
       if(y>242){doc.addPage();y=16;}
       const isHeader=line===line.toUpperCase()&&line.trim().length>3&&!line.match(/^\d/);
