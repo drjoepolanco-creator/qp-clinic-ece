@@ -264,49 +264,59 @@ window.dictarCampo=function(fieldId){
     showToast("Tu navegador no soporta dictado por voz. Usa Google Chrome.",false);return;
   }
   const btn=document.getElementById("mic_"+fieldId);
-  // Si ya está activo en este campo, detener
+  // Si ya está activo en este campo, detener MANUALMENTE
   if(_dictActive===fieldId&&_dictRecog){
+    _dictRecog._manualStop=true;
     _dictRecog.stop();return;
   }
   // Si hay otro campo activo, detenerlo
-  if(_dictRecog){_dictRecog.stop();}
+  if(_dictRecog){_dictRecog._manualStop=true;_dictRecog.stop();}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   _dictRecog=new SR();
   _dictRecog.lang="es-MX";
   _dictRecog.continuous=true;
   _dictRecog.interimResults=true;
+  _dictRecog._manualStop=false;
   _dictActive=fieldId;
   // Estado visual: activo
   if(btn){btn.textContent="⏹";btn.style.background="#FFEBEE";btn.style.borderColor="#E53935";btn.style.color="#E53935";}
-  let interim="";
   const ta=document.getElementById(fieldId);
   const base=ta?ta.value:"";
-  _dictRecog.onresult=function(e){
-    interim="";
-    let final="";
+  // Acumulador persistente: conserva TODO lo dictado aunque haya pausas largas
+  let acumulado="";
+  const rec=_dictRecog;
+  rec.onresult=function(e){
+    let interim="";
     for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal)final+=e.results[i][0].transcript;
+      if(e.results[i].isFinal)acumulado+=e.results[i][0].transcript+" ";
       else interim+=e.results[i][0].transcript;
     }
     if(ta){
-      ta.value=base+(base&&final?" ":"")+final+(interim?` [${interim}]`:"");
+      ta.value=base+(base&&acumulado?" ":"")+acumulado+(interim?`[${interim}]`:"");
       ta.scrollTop=ta.scrollHeight;
     }
   };
-  _dictRecog.onend=function(){
-    // Limpiar el [interim] residual
+  rec.onend=function(){
+    // Si NO fue detenido con el botón (pausa larga / corte automático de Chrome),
+    // reiniciar el reconocimiento conservando todo lo acumulado
+    if(!rec._manualStop&&_dictActive===fieldId){
+      try{rec.start();return;}catch(err){/* si falla el reinicio, finalizar */}
+    }
+    // Fin real: limpiar el [interim] residual
     if(ta)ta.value=ta.value.replace(/\s?\[.*?\]$/,"");
     if(btn){btn.textContent="🎤";btn.style.background="none";btn.style.borderColor=BR;btn.style.color=MU;}
-    _dictActive=null;_dictRecog=null;
+    if(_dictRecog===rec){_dictActive=null;_dictRecog=null;}
     showToast("✓ Dictado finalizado");
   };
-  _dictRecog.onerror=function(e){
+  rec.onerror=function(e){
+    // "no-speech" y "aborted" durante pausas NO deben terminar el dictado
+    if(e.error==="no-speech"||e.error==="aborted")return;
     if(btn){btn.textContent="🎤";btn.style.background="none";btn.style.borderColor=BR;btn.style.color=MU;}
-    _dictActive=null;_dictRecog=null;
-    if(e.error!=="aborted")showToast("Error de micrófono: "+e.error,false);
+    if(_dictRecog===rec){_dictActive=null;_dictRecog=null;}
+    showToast("Error de micrófono: "+e.error,false);
   };
-  _dictRecog.start();
-  showToast("🎤 Dictando — habla ahora. Clic en ⏹ para detener");
+  rec.start();
+  showToast("🎤 Dictando — habla con pausas si lo necesitas. Clic en ⏹ para detener");
 }
 function fld(l,inner,req=0){return`<div style="display:flex;flex-direction:column;gap:5px"><label class="fld-label">${l}${req?`<span style="color:${DA}"> *</span>`:""}</label>${inner}</div>`;}
 function gv(id){const e=document.getElementById(id);return e?e.value:"";}
@@ -3079,53 +3089,47 @@ async function cargarPacientes(q=""){
     const r=await base();
     data=r.data||[]; error=r.error;
   } else {
-    // Normalizar: quitar tildes/diacríticos
+    // ── Búsqueda insensible a tildes (bidireccional) ──
+    // "aaron" encuentra "Aarón" y "Aarón" encuentra "Aaron"
     const sinTilde=t=>t.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-    const qOrig=q.trim();
-    const qNorm=sinTilde(qOrig);  // sin acentos: "aaron", "gonzales"
+    const sane=t=>t.replace(/[,()%]/g,"");  // caracteres que rompen el .or() de Supabase
+    const qOrig=sane(q.trim());
+    const qNorm=sinTilde(qOrig);
 
-    // Query 1: término tal como fue escrito
-    const filtros1=[
-      `nombre.ilike.%${qOrig}%`,
-      `apellido_paterno.ilike.%${qOrig}%`,
-      `apellido_materno.ilike.%${qOrig}%`,
-      `curp.ilike.%${qOrig}%`,
-    ].join(",");
-
-    // Query 2: término sin acentos (busca "gonzales" → encuentra "Gonzáles" si BD guarda sin acento)
-    // También: sustituir vocales con variantes acentuadas para búsqueda invertida
-    // "aaron" → buscar también "aarón" etc.
-    const agregarAcentos=t=>t
-      .replace(/a/gi,s=>s==="A"?"[AÁ]":"[aá]")
-      .replace(/e/gi,s=>s==="E"?"[EÉ]":"[eé]")
-      .replace(/i/gi,s=>s==="I"?"[IÍ]":"[ií]")
-      .replace(/o/gi,s=>s==="O"?"[OÓ]":"[oó]")
-      .replace(/u/gi,s=>s==="U"?"[UÚ]":"[uú]")
-      .replace(/n/gi,s=>s==="N"?"[NÑ]":"[nñ]");
-
-    // Supabase no soporta regex en ilike, así que hacemos dos queries separadas
-    // y combinamos los resultados en JS
-    const promises=[base().or(filtros1)];
-
-    // Solo agregar segunda query si el término normalizado es diferente al original
-    if(qNorm.toLowerCase()!==qOrig.toLowerCase()){
-      const filtros2=[
-        `nombre.ilike.%${qNorm}%`,
-        `apellido_paterno.ilike.%${qNorm}%`,
-        `apellido_materno.ilike.%${qNorm}%`,
-      ].join(",");
-      promises.push(base().or(filtros2));
+    // Generar variantes: por cada vocal del término sin tildes, una versión
+    // con esa vocal acentuada (en español solo se acentúa una vocal por palabra);
+    // por cada "n", una versión con "ñ"
+    const ACC={a:"á",e:"é",i:"í",o:"ó",u:"ú",A:"Á",E:"É",I:"Í",O:"Ó",U:"Ú"};
+    const variantes=new Set([qOrig,qNorm]);
+    const low=qNorm;
+    for(let i=0;i<low.length&&variantes.size<14;i++){
+      const ch=low[i];
+      if(ACC[ch])variantes.add(low.slice(0,i)+ACC[ch]+low.slice(i+1));
+      if(ch==="n")variantes.add(low.slice(0,i)+"ñ"+low.slice(i+1));
+      if(ch==="N")variantes.add(low.slice(0,i)+"Ñ"+low.slice(i+1));
     }
 
-    const results=await Promise.all(promises);
-    error=results.find(r=>r.error)?.error||null;
+    // Construir una sola query .or() con todas las variantes en los 3 campos de nombre
+    const filtros=[];
+    variantes.forEach(v=>{
+      filtros.push(`nombre.ilike.%${v}%`);
+      filtros.push(`apellido_paterno.ilike.%${v}%`);
+      filtros.push(`apellido_materno.ilike.%${v}%`);
+    });
+    filtros.push(`curp.ilike.%${qOrig}%`);
 
-    // Combinar y deduplicar por id
+    const r=await base().or(filtros.join(","));
+    error=r.error||null;
+
+    // Filtro fino en cliente: comparar normalizados (garantiza coincidencia exacta sin tildes)
+    const qCmp=qNorm.toLowerCase();
+    const matchNorm=p=>{
+      const full=sinTilde(`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""} ${p.curp||""}`).toLowerCase();
+      return full.includes(qCmp);
+    };
     const seen=new Set();
-    for(const r of results){
-      for(const p of (r.data||[])){
-        if(!seen.has(p.id)){seen.add(p.id);data.push(p);}
-      }
+    for(const p of (r.data||[])){
+      if(!seen.has(p.id)&&matchNorm(p)){seen.add(p.id);data.push(p);}
     }
     // Ordenar por apellido_paterno
     data.sort((a,b)=>(a.apellido_paterno||"").localeCompare(b.apellido_paterno||"","es"));
@@ -8135,7 +8139,15 @@ window.toggleGrabacion=function(){
       const live=document.getElementById("transcripcion-live");
       if(live)live.innerHTML=(_transcripcion+"<span style='color:#90A4AE;'>"+interim+"</span>")||"Escuchando...";
     };
-    _recognition.onerror=function(e){showToast("Error de micrófono: "+e.error,false);_grabando=false;};
+    _recognition.onend=function(){
+      // Si sigue grabando (no se apretó Detener), reiniciar automáticamente
+      // para que las pausas largas no corten la grabación
+      if(_grabando&&_recognition){try{_recognition.start();}catch(err){}}
+    };
+    _recognition.onerror=function(e){
+      if(e.error==="no-speech"||e.error==="aborted")return;
+      showToast("Error de micrófono: "+e.error,false);_grabando=false;
+    };
     _recognition.start();
     _grabando=true;
     _segundos=0;
