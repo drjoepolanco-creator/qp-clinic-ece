@@ -11147,11 +11147,11 @@ async function renderFisio(b){
   b.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;align-items:center;padding:0 4px;background:#FAFAFA">
-        ${lista.map((p,i)=>`<button onclick="STATE.fisioTab='p${p.id}';STATE.fisioSesiones=${JSON.stringify(p.sesiones_completadas||[])};renderFisio(document.getElementById('eb'))" style="${tabSt(STATE.fisioTab==='p'+p.id)}">
+        ${(()=>{STATE._fisioSesMap=STATE._fisioSesMap||{};return lista.map((p,i)=>{STATE._fisioSesMap[p.id]=p.sesiones_completadas||[];return`<button onclick="STATE.fisioTab='p${p.id}';STATE.fisioSesiones=STATE._fisioSesMap['${p.id}']||[];renderFisio(document.getElementById('eb'))" style="${tabSt(STATE.fisioTab==='p'+p.id)}">
           <i class="ti ti-clipboard-text" style="font-size:15px" aria-hidden="true"></i>
           Prescripción ${lista.length-i}
           <span style="font-size:12px;opacity:.7">${(p.fecha||p.created_at?.split("T")[0]||"")}</span>
-        </button>`).join("")}
+        </button>`;}).join("");})()}
         <button onclick="STATE.fisioTab='nueva';STATE.fisioSesiones=[];renderFisio(document.getElementById('eb'))" style="${tabSt(STATE.fisioTab==='nueva')}">
           <i class="ti ti-plus" style="font-size:15px" aria-hidden="true"></i> Nueva prescripción
         </button>
@@ -12152,7 +12152,7 @@ window.usCargarPlantilla=function(){
         </div>
         <div>
           <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">Médico radiólogo</label>
-          <input id="us_medico" value="${med.titulo||"Dra."} ${med.nombre||""} ${med.apellidos||""}".trim()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+          <input id="us_medico" value="${`${med.titulo||"Dra."} ${med.nombre||""} ${med.apellidos||""}`.trim()}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
         </div>
       </div>
     </div>
@@ -16665,9 +16665,9 @@ async function pgEjercicio(){
         <button onclick="go('expediente')" style="padding:8px 16px;border:1.5px solid rgba(255,255,255,.4);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:13px;font-weight:600">← Regresar al expediente</button>
       </div>
       <div style="border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;padding:0 4px;background:#FAFAFA">
-        <button onclick="STATE.ejTab='nuevo';renderEB&&renderEB()" style="${tabSt(STATE.ejTab==='nuevo')}">Nueva prescripción</button>
-        ${STATE._ejPlanActual?`<button onclick="STATE.ejTab='resultado'" style="${tabSt(STATE.ejTab==='resultado')}">Plan generado</button>`:""}
-        ${planes.length>0?`<button onclick="STATE.ejTab='historial'" style="${tabSt(STATE.ejTab==='historial')}">Historial (${planes.length})</button>`:""}
+        <button onclick="STATE.ejTab='nuevo';pgEjercicio()" style="${tabSt(STATE.ejTab==='nuevo')}">Nueva prescripción</button>
+        ${STATE._ejPlanActual?`<button onclick="STATE.ejTab='resultado';pgEjercicio()" style="${tabSt(STATE.ejTab==='resultado')}">Plan generado</button>`:""}
+        ${planes.length>0?`<button onclick="STATE.ejTab='historial';pgEjercicio()" style="${tabSt(STATE.ejTab==='historial')}">Historial (${planes.length})</button>`:""}
       </div>
       <div id="ej-content">
         ${STATE.ejTab==="nuevo"?renderEjercicioForm():
