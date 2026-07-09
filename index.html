@@ -4454,7 +4454,19 @@ window.actualizarAdic=function(key,val){STATE.patData[key]=val;
     if(el&&!isNaN(it)){el.textContent="IT: "+Math.round(it*10)/10;}
   }
 }
-window.toggleAlerg=function(a){saveABTextareas();STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];}
+window.toggleAlerg=function(a){saveABTextareas();STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];guardarAlergiasAuto();}
+
+// ── Guardado automático de alergias (debounce para ráfagas de clics) ─────────
+let _alSaveTimer=null;
+window.guardarAlergiasAuto=function(){
+  const pid=STATE.pat?.id;if(!pid)return;
+  clearTimeout(_alSaveTimer);
+  _alSaveTimer=setTimeout(async()=>{
+    const {error}=await SB.from("alergias").upsert({paciente_id:pid,lista:STATE.alergs,otros:STATE.alOtrosText||""},{onConflict:"paciente_id"});
+    if(error){showToast("Error al guardar alergias: "+error.message,false);return;}
+    showToast("✓ Alergias guardadas automáticamente");
+  },600);
+}
 
 // ── CURP: validador oficial RENAPO ───────────────────────────────────────────
 window.validarCURP=function(fieldId){
@@ -4519,6 +4531,9 @@ window.agregarOtraAlergia=function(){
   if(!STATE.alergs.includes(nueva))STATE.alergs.push(nueva);
   inp.value="";
   renderAB();
+  guardarAlergiasAuto();
+  // Devolver el foco al campo para capturar varias alergias seguidas
+  setTimeout(()=>{const e=document.getElementById("al-otra");if(e)e.focus();},50);
 }
 window.insertPlantilla=function(txt){const o=document.getElementById("pat-otras");if(o){o.value=(o.value?o.value+"\n\n":"")+txt;STATE.patOtrasNotes=o.value;}}
 window.addDiscap=async function(){
@@ -4703,7 +4718,7 @@ function renderAB(){
         <div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden;max-height:420px;overflow-y:auto">
           ${lista.map(a=>{const sel=STATE.alergs.includes(a);return`<div onclick="toggleAlerg('${a.replace(/'/g,"\\'")}');renderAB()" style="padding:8px 13px;border-bottom:1px solid ${BR};cursor:pointer;background:${sel?PL:'#fff'};color:${sel?P:'#263238'};font-weight:${sel?700:400};font-size:14px;display:flex;align-items:center;gap:8px"><span style="font-size:14px">${sel?'✅':'⬜'}</span>${a}</div>`;}).join("")}
         </div>
-        <p style="font-size:14px;color:${MU};margin-top:8px;padding:6px 10px;background:#F8F9FA;border-radius:6px">💡 Haz clic en cualquier alergia para agregarla o quitarla del registro</p>`}
+        <p style="font-size:14px;color:${MU};margin-top:8px;padding:6px 10px;background:#F8F9FA;border-radius:6px">Haz clic en cualquier alergia para agregarla o quitarla — se guarda automáticamente</p>`}
       </div>
       <div>
         <div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:8px;padding:14px;margin-bottom:10px;min-height:200px">
@@ -4715,12 +4730,12 @@ function renderAB(){
           </div>`).join("")}
         </div>
         <div style="margin-bottom:10px">
-          ${fld("Otras alergias no listadas",`<input id="al-otra" placeholder="Escriba y presione Agregar..." style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-          <button onclick="agregarOtraAlergia()" style="width:100%;margin-top:6px;padding:7px;background:${P};color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600">+ Agregar alergia manual</button>
+          ${fld("Otras alergias no listadas",`<input id="al-otra" placeholder="Escriba y presione Enter — se guarda automáticamente" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarOtraAlergia();}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+          <button onclick="agregarOtraAlergia()" style="width:100%;margin-top:6px;padding:7px;background:${P};color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600">+ Agregar y guardar</button>
         </div>
-        <div style="display:flex;gap:8px">
-          ${btn("💾 Guardar alergias","guardarAnt()","ok",1)}
-          <button onclick="STATE.alergs=[];renderAB()" style="padding:4px 10px;background:#fff;color:${DA};border:1.5px solid ${DA};border-radius:7px;cursor:pointer;font-size:14px;font-weight:600">Limpiar todo</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <p style="flex:1;font-size:13px;color:#2E7D32;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:7px;padding:7px 12px;margin:0">Cada clic se guarda automáticamente en el expediente</p>
+          <button onclick="if(confirm('¿Eliminar todas las alergias registradas del paciente?')){STATE.alergs=[];renderAB();guardarAlergiasAuto();}" style="padding:7px 10px;background:#fff;color:${DA};border:1.5px solid ${DA};border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap">Limpiar todo</button>
         </div>
       </div>
     </div>`;
