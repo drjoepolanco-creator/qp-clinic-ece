@@ -12073,7 +12073,7 @@ window.usCargarPlantilla=function(){
 
   STATE.usActivo={cat,tipo,plantilla,imagenes:[],imagenesB64:[]};
 
-  // Módulo especial BI-RADS para Ultrasonido Mamario
+  // Módulo especial BI-RADS (diagrama de marcado de lesiones) para Ultrasonido Mamario
   if(tipo==="Ultrasonido Mamario"){
     usBiradsBadge();
   }
@@ -12084,31 +12084,39 @@ window.usCargarPlantilla=function(){
   const fb=document.getElementById("us-form-body");
   if(!fb)return;
 
-  const camposHTML=plantilla.campos.map(c=>{
-    if(c.tipo==="select")return`
-      <div>
-        <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">${c.label}</label>
-        <select id="${c.id}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px">
-          ${(c.ops||[]).map(o=>`<option>${o}</option>`).join("")}
-        </select>
-      </div>`;
-    if(c.tipo==="textarea")return`
-      <div style="grid-column:1/-1">
-        <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">${c.label}</label>
-        <textarea id="${c.id}" rows="3" placeholder="${c.ph||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;resize:vertical;font-family:inherit"></textarea>
-      </div>`;
-    return`
-      <div>
-        <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">${c.label}</label>
-        <input id="${c.id}" type="text" placeholder="${c.ph||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
-      </div>`;
-  }).join("");
+  // Mapeo tipo de estudio → plantilla de texto (autocarga)
+  const TIPO_A_TEXTO={
+    "Ultrasonido Mamario":"ultrasonido_mamario",
+    "Biopsia por Aguja Fina Guiada por Ultrasonido":"biopsia_aguja_fina",
+    "Ultrasonido de Abdomen Superior":"abdomen_superior",
+    "Ultrasonido de Abdomen Completo Femenino":"abdomen_completo_femenino",
+    "Ultrasonido de Abdomen Completo Masculino":"abdomen_completo_masculino",
+    "Ultrasonido Renal y Vesical":"renal_vesical",
+    "Ultrasonido Vesicoprostatico":"vesicoprostatico",
+    "Ultrasonido Pélvico":"pelvico",
+    "Ultrasonido Transvaginal":"transvaginal",
+    "Ultrasonido Hepatobiliar con Elastografía":"hepatobiliar_elastografia",
+    "Ultrasonido de Cuello / Tiroides":"cuello",
+    "Ultrasonido Testicular":"testicular",
+    "Ultrasonido de Pared Abdominal / Región Inguinal":"pared_abdominal_inguinal",
+    "Ultrasonido de Hombro":"hombro",
+    "Ultrasonido de Rodilla":"rodilla",
+    "Ultrasonido de Tobillo":"tobillo",
+    "Ultrasonido de Muñeca":"muneca",
+    "Ultrasonido de Manos":"manos",
+    "Ultrasonido de Rodilla / Codo":"codo",
+    "Ultrasonido MSK General / Músculo":"musculo",
+    "Ultrasonido MSK Región Inguinofemoral":"inguinofemoral",
+    "Ultrasonido Doppler Venoso":"doppler_venoso",
+    "Ultrasonido Doppler Arterial":"doppler_arterial",
+  };
+  const textoAuto=US_TEXTOS[TIPO_A_TEXTO[tipo]]||"";
 
   fb.innerHTML=`
   <div style="padding:20px">
     <!-- Datos del reporte -->
     <div style="background:#F8FAFB;border-radius:10px;padding:14px;margin-bottom:16px">
-      <p style="font-size:12px;font-weight:700;color:${P};text-transform:uppercase;margin-bottom:10px">📋 ${tipo.toUpperCase()}</p>
+      <p style="font-size:12px;font-weight:700;color:${P};text-transform:uppercase;margin-bottom:10px">${tipo.toUpperCase()}</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
         <div>
           <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;display:block;margin-bottom:4px">Paciente</label>
@@ -12137,44 +12145,13 @@ window.usCargarPlantilla=function(){
       </div>
     </div>
 
-    <!-- Campos de la plantilla -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px">
-      ${camposHTML}
-    </div>
-
-    <!-- Subir imágenes del ultrasonido -->
-    <div id="us-drop-zone" style="background:#F0F7FF;border:2px dashed #90CAF9;border-radius:12px;padding:16px;margin-bottom:16px;transition:border-color .2s,background .2s"
-      ondragover="event.preventDefault();this.style.borderColor='#006BB6';this.style.background='#E3F2FD'"
-      ondragleave="this.style.borderColor='#90CAF9';this.style.background='#F0F7FF'"
-      ondrop="event.preventDefault();this.style.borderColor='#90CAF9';this.style.background='#F0F7FF';usAgregarImagenes({files:event.dataTransfer.files})">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
-            <p style="font-size:14px;font-weight:700;color:${P};margin:0">📷 Imágenes del ultrasonido</p>
-            <button onclick="usModalInstrucciones()" style="background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer">ℹ️ Instrucciones</button>
-          </div>
-          <p style="font-size:12px;color:${MU}">Hasta 30 imágenes. <b>Arrastra las tarjetas para reordenarlas.</b> Si marcaste lesiones en el diagrama, vincula cada imagen a su lesión correspondiente.</p>
-        </div>
-        <label style="background:${P};color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:14px;font-weight:700;display:inline-block">
-          + Agregar imágenes <input id="us-img-input" type="file" accept="image/*,.jpg,.JPG,.jpeg,.png" multiple style="display:none" onchange="usAgregarImagenes(this)">
-        </label>
-      </div>
-      <div id="us-img-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;min-height:60px">
-        <div style="border:2px dashed #B0BEC5;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80px;color:#90A4AE;font-size:13px;gap:6px">
-          <span style="font-size:28px">📂</span>
-          <span>Arrastra imágenes aquí</span>
-        </div>
-      </div>
-      <p id="us-img-count" style="font-size:12px;color:${MU};margin-top:8px">0 imágenes cargadas</p>
-    </div>
-
-    <!-- Descripción del ultrasonido con selector de plantillas de texto -->
+    <!-- Reporte del ultrasonido (plantilla de texto libre editable) -->
     <div style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
-        <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase">Descripción del ultrasonido</label>
+        <label style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase">Reporte del ultrasonido</label>
         <div style="display:flex;gap:6px;align-items:center">
           <select id="us-plantilla-texto" style="padding:6px 10px;border:1.5px solid ${BR};border-radius:7px;font-size:12px;outline:none;background:#fff;max-width:240px">
-            <option value="">— Cargar plantilla de texto —</option>
+            <option value="">— Cargar otra plantilla —</option>
             <optgroup label="Mama / Biopsia">
               <option value="biopsia_aguja_fina">Biopsia por Aguja Fina Guiada por US</option>
               <option value="ultrasonido_mamario">Ultrasonido Mamario</option>
@@ -12231,15 +12208,39 @@ window.usCargarPlantilla=function(){
           <button onclick="document.getElementById('us_hallazgos_extra').value=''" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;cursor:pointer;font-size:12px" title="Limpiar">✕</button>
         </div>
       </div>
-      <textarea id="us_hallazgos_extra" rows="10" placeholder="Selecciona una plantilla de texto arriba, o escribe directamente la descripción del ultrasonido..." style="width:100%;padding:12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13px;resize:vertical;font-family:inherit;line-height:1.6"></textarea>
+      <textarea id="us_hallazgos_extra" rows="22" placeholder="Escribe o edita el reporte del ultrasonido..." style="width:100%;padding:14px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:13.5px;resize:vertical;font-family:inherit;line-height:1.7">${textoAuto}</textarea>
+      <p style="font-size:12px;color:${MU};margin-top:5px">La plantilla se cargó automáticamente. Edita los campos marcados con ____ y ajusta los hallazgos según el estudio.</p>
     </div>
 
-    ${plantilla.nota?`<div style="background:#E8F5E9;border-left:4px solid #4CAF50;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#2E7D32">📌 ${plantilla.nota}</div>`:""}
+    <!-- Subir imágenes del ultrasonido -->
+    <div id="us-drop-zone" style="background:#F0F7FF;border:2px dashed #90CAF9;border-radius:12px;padding:16px;margin-bottom:16px;transition:border-color .2s,background .2s"
+      ondragover="event.preventDefault();this.style.borderColor='#006BB6';this.style.background='#E3F2FD'"
+      ondragleave="this.style.borderColor='#90CAF9';this.style.background='#F0F7FF'"
+      ondrop="event.preventDefault();this.style.borderColor='#90CAF9';this.style.background='#F0F7FF';usAgregarImagenes({files:event.dataTransfer.files})">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+            <p style="font-size:14px;font-weight:700;color:${P};margin:0">Imágenes del ultrasonido</p>
+            <button onclick="usModalInstrucciones()" style="background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer">Instrucciones</button>
+          </div>
+          <p style="font-size:12px;color:${MU}">Hasta 30 imágenes. <b>Arrastra las tarjetas para reordenarlas.</b> Si marcaste lesiones en el diagrama, vincula cada imagen a su lesión correspondiente.</p>
+        </div>
+        <label style="background:${P};color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:14px;font-weight:700;display:inline-block">
+          + Agregar imágenes <input id="us-img-input" type="file" accept="image/*,.jpg,.JPG,.jpeg,.png" multiple style="display:none" onchange="usAgregarImagenes(this)">
+        </label>
+      </div>
+      <div id="us-img-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;min-height:60px">
+        <div style="border:2px dashed #B0BEC5;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80px;color:#90A4AE;font-size:13px;gap:6px">
+          <span>Arrastra imágenes aquí</span>
+        </div>
+      </div>
+      <p id="us-img-count" style="font-size:12px;color:${MU};margin-top:8px">0 imágenes cargadas</p>
+    </div>
 
     <!-- Botones -->
     <div style="display:flex;gap:10px;flex-wrap:wrap;padding-top:12px;border-top:1px solid ${BR}">
-      <button onclick="generarPDFUltrasonido()" style="background:linear-gradient(135deg,${P},#004c82);color:#fff;border:none;border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer">📄 Generar PDF</button>
-      <button onclick="guardarBorradorUS()" style="background:#fff;color:${P};border:1.5px solid ${P};border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer"> Guardar borrador</button>
+      <button onclick="generarPDFUltrasonido()" style="background:linear-gradient(135deg,${P},#004c82);color:#fff;border:none;border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer">Generar PDF</button>
+      <button onclick="guardarBorradorUS()" style="background:#fff;color:${P};border:1.5px solid ${P};border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer">Guardar borrador</button>
       <button onclick="pgUltrasonido()" style="background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:9px;padding:11px 16px;font-size:14px;cursor:pointer">← Cambiar plantilla</button>
     </div>
   </div>`;
@@ -12618,17 +12619,38 @@ window.generarPDFUltrasonido=async function(){
         <div style="font-size:10px;font-weight:bold;color:${TXT}">${v}</div>
       </div>`).join("")}
     </div>
-    ${datos.us_motivo||datos.us_dc?secBar("DATOS CLÍNICOS")+secBox([datos.us_motivo?"<b>Motivo:</b> "+datos.us_motivo:"",datos.us_dc?"<b>Datos clínicos:</b> "+datos.us_dc:""].filter(Boolean).join("<br>")):""}
-    ${secBar("TÉCNICA")}
-    ${secBox(`Se realizó ${tipo.toLowerCase()} utilizando transductor ${transductor}, en escala de grises y Doppler color.`)}
-    ${hallazgosFilas.length?secBar("HALLAZGOS")+`
-    <table style="width:100%;border-collapse:collapse;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px">
-      ${hallazgosFilas.map((h,i)=>`<tr style="background:${i%2===0?BG:"#fff"}">
-        <td style="padding:7px 12px;width:38%;font-weight:bold;font-size:10px;color:${SEC};vertical-align:top;border-bottom:1px solid ${BRD};word-break:break-word">${h.l}</td>
-        <td style="padding:7px 12px;font-size:10.5px;color:${TXT};vertical-align:top;border-bottom:1px solid ${BRD};word-break:break-word">${h.v}</td>
-      </tr>`).join("")}
-    </table>`:""}
-    ${tipo==="Ultrasonido Mamario"&&datos.us_birads?`<div style="page-break-inside:avoid">`+secBar("CONCLUSIÓN / IMPRESIÓN DIAGNÓSTICA")+secBox(`<b>BI-RADS ${datos.us_birads}</b>${datos.us_impresion&&datos.us_impresion.trim()?"<br>"+datos.us_impresion:""}`)+((datos.us_recom&&datos.us_recom.trim())||plantilla?.nota?secBar("RECOMENDACIONES")+secBox([datos.us_recom,plantilla?.nota].filter(Boolean).join("<br><br>")):"")+"</div>":(datos.us_impresion&&datos.us_impresion.trim()?`<div style="page-break-inside:avoid">`+secBar("IMPRESIÓN DIAGNÓSTICA")+secBox(datos.us_impresion.split("\n").filter(Boolean).map(l=>`<div style="margin-bottom:4px">• ${l}</div>`).join(""))+((datos.us_recom&&datos.us_recom.trim())||plantilla?.nota?secBar("RECOMENDACIONES")+secBox([datos.us_recom,plantilla?.nota].filter(Boolean).join("<br><br>")):"")+"</div>":((datos.us_recom&&datos.us_recom.trim())||plantilla?.nota?`<div style="page-break-inside:avoid">`+secBar("RECOMENDACIONES")+secBox([datos.us_recom,plantilla?.nota].filter(Boolean).join("<br><br>"))+"</div>":""))}
+    ${(()=>{
+      // ── Render del reporte de texto libre con formato profesional ──
+      const raw=(datos.hallazgos_extra||"").trim();
+      if(!raw) return secBar("REPORTE")+secBox("<i>Sin contenido — escriba el reporte en el editor.</i>");
+      const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      const HEADERS=["hallazgos","conclusión","conclusion","mama derecha","mama izquierda","técnica","tecnica","indicación del estudio","indicacion del estudio","comparación con estudios previos","comparacion con estudios previos","recomendación","recomendacion","recuerde","impresión diagnóstica","impresion diagnostica"];
+      const html=raw.split("\n").map(line=>{
+        const t=line.trim();
+        if(!t) return `<div style="height:7px"></div>`;
+        const lower=t.toLowerCase().replace(/:$/,"").replace(/:.*/,"");
+        const idxColon=t.indexOf(":");
+        // Encabezado de sección (línea corta que es solo un header conocido)
+        if(HEADERS.some(h=>t.toLowerCase().startsWith(h))&&idxColon!==-1){
+          const label=esc(t.slice(0,idxColon+1));
+          const rest=esc(t.slice(idxColon+1)).trim();
+          if(!rest||t.toLowerCase().replace(":","").trim()==="hallazgos")
+            return `<div style="font-size:11px;font-weight:bold;color:#023E8A;margin-top:6px;margin-bottom:2px">${label}</div>`;
+          return `<div style="margin-bottom:2px"><b style="color:#023E8A">${label}</b> ${rest}</div>`;
+        }
+        // Viñetas
+        if(t.startsWith("•")||t.startsWith("-")){
+          const body=esc(t.replace(/^[•\-]\s*/,""));
+          const iC=body.indexOf(":");
+          if(iC>0&&iC<40) return `<div style="padding-left:14px;margin-bottom:2px">• <b>${body.slice(0,iC+1)}</b>${body.slice(iC+1)}</div>`;
+          return `<div style="padding-left:14px;margin-bottom:2px">• ${body}</div>`;
+        }
+        // Línea "Etiqueta: valor" (datos del encabezado del reporte)
+        if(idxColon>0&&idxColon<45) return `<div style="margin-bottom:2px"><b>${esc(t.slice(0,idxColon+1))}</b>${esc(t.slice(idxColon+1))}</div>`;
+        return `<div style="margin-bottom:2px">${esc(t)}</div>`;
+      }).join("");
+      return secBar(tipo.toUpperCase())+secBox(html);
+    })()}
     `;
 
     // ── Firma HTML ────────────────────────────────────────────
@@ -13136,29 +13158,38 @@ Impresión diagnóstica:
 
 Recuerde: Llevar el presente estudio en su siguiente cita y estudios de control.`,
 
-ultrasonido_mamario:`Indicación del estudio: ____
-Datos clínicos relevantes: ____
-Antecedente heredofamiliar de Ca de mama: ____. No contamos con estudios previos para comparar.
-Técnica: Se realizó ultrasonido mamario bilateral utilizando transductor lineal de alta frecuencia, en escala de grises y Doppler color.
+ultrasonido_mamario:`Fecha del estudio: ____.
+Nombre y apellidos de la paciente: ____.
+Edad: ____ años.  Fecha de nacimiento: ____.
+Correo: ____ Teléfono: ____.
+
+Indicación del estudio: ____
+
+Comparación con estudios previos: No contamos con ultrasonido previo para comparar.
+
+Técnica: Se realizó ultrasonido mamario bilateral, con transductor lineal de alta frecuencia MHz. Inclusión de Doppler color.
 
 Hallazgos:
-Ecotextura de fondo: ____
 
-Hallazgos nodulares (Hallazgos masa):
-Mama derecha: No se identifican masas circunscritas.
-Mama izquierda: No se identifican masas circunscritas.
+Composición del tejido (Ecotextura de fondo): Homogéneo Fibroglandular.
 
-Hallazgos no masa (HNM):
-Sin alteraciones de la ecogenicidad. Sin distorsión de la arquitectura mamaria. Sin calcificaciones.
+Mama derecha:
+• Masas: Sin nódulos circunscritos.
+• Hallazgos No Masas (HNM): Sin alteraciones de la ecogenicidad.
+• Axila: Ganglios con hilio graso preservado y corteza <3 mm.
 
-Piel de grosor y ecogenicidad normal. Regiones retroareolares y retromamarias sin alteraciones.
+Mama izquierda:
+• Nódulos: Sin nódulos circunscritos.
+• Hallazgos No Masa (HNM): Sin alteraciones de la ecogenicidad.
+• Elastografía: Aplicable solo a la lesión descrita: Blanda / Dura.
+• Axila: Ganglios con hilio graso preservado y corteza <3 mm.
 
-Axilas: Ganglios axilares bilaterales (niveles I, II, III) de características morfológicas benignas, con hilio graso preservado y corteza <3 mm.
-
-Conclusión / Impresión diagnóstica:
-BI-RADS ____ (____).
+Conclusión:
+____
+BIRADS ____ (____).
 Recomendación: En ausencia de sintomatología se sugiere control anual.
-Recuerde: Este estudio deberá conservarse y presentarse en su próxima cita para análisis radiológico comparativo.`,
+
+Recuerde: Llevar el presente estudio en su siguiente cita y estudios de control.`,
 
 testicular:`Datos clínicos: ____
 Técnica: Se realizó estudio utilizando transductor lineal, en escala de grises y Doppler color.
