@@ -1,0 +1,33 @@
+{
+  "name": "QP Clinic — Expediente Clínico Electrónico",
+  "short_name": "QP Clinic ECE",
+  "description": "Expediente Clínico Electrónico de QP Clinic Especialistas en Salud Integral",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F4FAFD",
+  "theme_color": "#005089",
+  "lang": "es-MX",
+  "categories": ["medical", "health", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

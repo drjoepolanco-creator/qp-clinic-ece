@@ -2,8 +2,16 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>QP Clinic — Expediente Clínico</title>
+<!-- PWA: instalable como aplicación móvil -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#005089">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="QP Clinic ECE">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="icon" type="image/jpeg" href="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -17377,6 +17385,14 @@ function getImgUrlPDF(nombreEj,grupo,SB_IMG){
   const folder=grupoFolder[grupo]||grupoFolder[grupo?.replace("_alta","")];
   if(folder){const cat=folder.split("/").pop();return`${SB_IMG}/${folder}/${cat}_001.webp`;}
   return null;
+}
+</script>
+<script>
+// PWA: registro del service worker para instalación como aplicación móvil
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("/sw.js").catch(()=>{});
+  });
 }
 </script>
 </body>
