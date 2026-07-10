@@ -46,6 +46,75 @@ input,select,textarea,button{font-family:inherit;font-size:14px}
 .form-section-body{padding:18px}
 /* Field labels bigger */
 .fld-label{font-size:12px;font-weight:600;color:#546E7A;text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px;display:block}
+
+/* ════════════════════════════════════════════════════════════
+   CAPA MÓVIL — adapta el ECE a teléfonos (PWA)
+   La misma aplicación, con layout reorganizado en pantallas
+   angostas. No modifica la experiencia de escritorio.
+   ════════════════════════════════════════════════════════════ */
+@media (max-width:820px){
+  /* iOS hace zoom automático al enfocar campos con letra <16px — evitarlo */
+  input,select,textarea{font-size:16px !important}
+
+  /* Barra de navegación superior: scroll horizontal con todos los módulos */
+  #topnav{
+    overflow-x:auto !important;overflow-y:hidden !important;
+    padding:0 8px !important;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  #topnav::-webkit-scrollbar{display:none}
+  #topnav>*{flex-shrink:0}
+
+  /* Menús desplegables del nav (Nutrición, Configuración): ancho de pantalla */
+  #nutri-menu,#cfg-menu{left:8px !important;right:8px !important;min-width:0 !important;max-width:calc(100vw - 16px)}
+
+  /* Expediente: el menú lateral se convierte en barra horizontal scrolleable */
+  div:has(> #eb){flex-direction:column !important}
+  div:has(> #eb)>div:first-child{
+    width:100% !important;
+    display:flex !important;flex-direction:row !important;
+    overflow-x:auto !important;overflow-y:hidden !important;
+    border-right:none !important;border-bottom:2px solid #CFD8DC;
+    padding:4px 6px !important;gap:2px;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    flex-shrink:0;
+  }
+  div:has(> #eb)>div:first-child::-webkit-scrollbar{display:none}
+  div:has(> #eb)>div:first-child button{
+    width:auto !important;white-space:nowrap;
+    border-left:none !important;border-radius:8px;
+    padding:8px 12px !important;flex-shrink:0;
+  }
+  div:has(> #eb)>div:first-child>div{display:contents !important}
+
+  /* Formularios: una columna en pantallas angostas */
+  [style*="grid-template-columns"]{grid-template-columns:1fr !important}
+
+  /* Contenido y tarjetas: usar todo el ancho, menos padding */
+  #eb{overflow-x:hidden !important}
+  [style*="max-width:1100px"],[style*="max-width:1000px"],[style*="max-width:900px"]{padding:8px !important}
+
+  /* Tablas (planes de ejercicio, reportes, historial): scroll horizontal propio */
+  table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+  table thead,table tbody,table tr{white-space:nowrap}
+
+  /* Toasts: ancho de pantalla abajo */
+  #toast-container{left:10px !important;right:10px !important;bottom:10px !important}
+
+  /* Modales de confirmación: pantalla casi completa */
+  #qp-confirm-overlay>div{max-width:calc(100vw - 24px) !important;width:100% !important}
+
+  /* Encabezados con muchos botones: permitir salto de línea */
+  [style*="justify-content:space-between"]{flex-wrap:wrap}
+}
+
+/* Pantallas muy angostas: compactar aún más */
+@media (max-width:420px){
+  body{font-size:13.5px}
+  #topnav button{padding:0 8px !important;font-size:13px !important}
+}
 </style>
 </head>
 <body>
@@ -440,7 +509,7 @@ function nav(){
   document.title=`${pageTitles[STATE.page]||""}${patNombre}QP Clinic`;
   const u=STATE.userProfile;const p=STATE.pat;
   const online=navigator.onLine;
-  return`<div style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
+  return`<div id="topnav" style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
     <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
       <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
