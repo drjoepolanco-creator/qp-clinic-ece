@@ -141,7 +141,8 @@ input,select,textarea,button{font-family:inherit;font-size:14px}
 const { createClient } = supabase;
 const SB = createClient(
   'https://ebukjdxeekhzeurmhgkj.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidWtqZHhlZWtoemV1cm1oZ2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDI3NDAsImV4cCI6MjA5NDM3ODc0MH0.eXaNf2lXjU8_q0CeYz8CHUBZJftp9_JZY153uZFWYVQ'
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidWtqZHhlZWtoemV1cm1oZ2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDI3NDAsImV4cCI6MjA5NDM3ODc0MH0.eXaNf2lXjU8_q0CeYz8CHUBZJftp9_JZY153uZFWYVQ',
+  {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}}
 );
 
 // ── RED DE SEGURIDAD GLOBAL: token JWT corrupto ───────────────────────────────
@@ -456,6 +457,7 @@ function iniciarAutoguardado(){
     if(!tieneContenido)return;
     const ind=document.getElementById("autosave-indicator");
     if(ind){ind.textContent="Guardando...";ind.style.color="rgba(255,255,255,.6)";}
+    _respaldarNotaLocal(); // respaldo local instantáneo (sobrevive a cortes de red/sesión)
     await guardarConsultaSilencioso();
     if(ind){
       ind.textContent="✓ Guardado automáticamente";ind.style.color="rgba(255,255,255,.75)";
@@ -499,8 +501,12 @@ async function guardarConsultaSilencioso(){
       payload.hora_inicio=ahora.toTimeString().substring(0,5);
       res=await SB.from("consultas").insert(payload).select().single();
     }
-    if(res?.data&&!res?.error)STATE.consultaActual=res.data;
-  }catch(e){/* silencioso */}
+    if(res?.data&&!res?.error){
+      STATE.consultaActual=res.data;
+      // La nota quedó guardada en Supabase: el respaldo local ya no es necesario
+      try{localStorage.removeItem("qp_nota_backup_"+pid);}catch(e){}
+    }
+  }catch(e){/* silencioso — el respaldo local queda como red de seguridad */}
 }
 function nav(){
   // Título dinámico del tab
@@ -8080,6 +8086,29 @@ function pgConsulta(){
   // Iniciar autoguardado (30s) si la nota no está cerrada
   if(!STATE.consultaActual?.bloqueada) iniciarAutoguardado();
 
+  // ── Recuperar respaldo local de emergencia si existe ──
+  // Si una sesión anterior se cerró con una nota sin guardar, ofrecer recuperarla
+  (function(){
+    try{
+      const pid=STATE.pat?.id;if(!pid)return;
+      const raw=localStorage.getItem("qp_nota_backup_"+pid);
+      if(!raw)return;
+      const backup=JSON.parse(raw);
+      if(!backup?.campos||!Object.keys(backup.campos).length)return;
+      // ¿Los campos actuales están vacíos? Solo ofrecer si no hay nota nueva escrita
+      const yaHayTexto=_camposNotaIds().some(id=>{const e=document.getElementById(id);return e&&String(e.value||"").trim().length>15;});
+      if(yaHayTexto){localStorage.removeItem("qp_nota_backup_"+pid);return;}
+      const fechaBk=new Date(backup.fecha).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+      qpConfirm(`Se encontró una nota de este paciente que quedó sin guardar (${fechaBk}). ¿Deseas recuperar su contenido?`,{title:"Nota sin guardar recuperada",okLabel:"Recuperar nota"}).then(ok=>{
+        if(ok){
+          Object.entries(backup.campos).forEach(([id,val])=>{const e=document.getElementById(id);if(e)e.value=val;});
+          showToast("Nota recuperada — revísala y guárdala");
+        }
+        localStorage.removeItem("qp_nota_backup_"+pid);
+      });
+    }catch(e){}
+  })();
+
   // ── Carga automática de signos vitales del día (triage de enfermería) ──
   // Al abrir cualquier nota (nueva o existente), si los campos de signos
   // vitales están vacíos, buscar el registro de signos_vitales de HOY y
@@ -15366,15 +15395,17 @@ function resetTimerInactividad(){
   if(!STATE.user)return;
   clearTimeout(_timerInact);clearTimeout(_timerWarn);clearInterval(_timerCd);
   document.getElementById("modal-inactividad")?.remove();
-  _timerWarn=setTimeout(()=>{
+  _timerWarn=setTimeout(function warnFn(){
     // No mostrar si hay otro modal de mayor prioridad abierto (firma, análisis, etc.)
     const hayModalCritico=document.getElementById("modal-lab-ia")||
       document.getElementById("modal-birads-editor")||
       document.getElementById("modal-wa-inter")||
       document.getElementById("modal-firma-global");
-    if(hayModalCritico){
-      // Posponer la advertencia 5 minutos más
-      _timerWarn=setTimeout(arguments.callee,5*60*1000);
+    // No cerrar sesión si el médico está en una nota de consulta con contenido:
+    // podría estar leyendo/pensando. Se pospone la advertencia.
+    const enConsultaActiva=STATE.page==="consulta"&&_hayContenidoEnNota();
+    if(hayModalCritico||enConsultaActiva){
+      _timerWarn=setTimeout(warnFn,5*60*1000);
       return;
     }
     const div=document.createElement("div");
@@ -15396,11 +15427,27 @@ function resetTimerInactividad(){
     },1000);
   },INACT_WARN);
   _timerInact=setTimeout(async()=>{
+    // Última protección: si hay nota con contenido, respaldar antes de cerrar
+    if(STATE.page==="consulta"&&_hayContenidoEnNota())_respaldarNotaLocal();
     document.getElementById("modal-inactividad")?.remove();
     showToast("Sesión cerrada por inactividad — NOM-024-SSA3-2012");
     await new Promise(r=>setTimeout(r,1500));
     cerrarSesion();
   },INACT_OUT);
+}
+
+// ¿Hay contenido escrito en la nota de consulta actual?
+function _camposNotaIds(){return ["cs_subj","cs_expl","cs_anal","cs_trat","cs_lab","cs_gab","cs_plan","cs_alerg"];}
+function _hayContenidoEnNota(){
+  return _camposNotaIds().some(id=>{const e=document.getElementById(id);return e&&String(e.value||"").trim().length>15;});
+}
+// Respaldo local de emergencia de la nota (recuperable al reabrir)
+function _respaldarNotaLocal(){
+  try{
+    const backup={pid:STATE.pat?.id,fecha:new Date().toISOString(),campos:{}};
+    _camposNotaIds().forEach(id=>{const e=document.getElementById(id);if(e&&e.value)backup.campos[id]=e.value;});
+    if(Object.keys(backup.campos).length)localStorage.setItem("qp_nota_backup_"+(STATE.pat?.id||"x"),JSON.stringify(backup));
+  }catch(e){}
 }
 
 // ── 2. VALIDACIÓN DE CONTRASEÑA ROBUSTA (NOM-024) ────────────
