@@ -4012,6 +4012,7 @@ function renderFB(){
       ${fld("¿Indígena?",sel("fe_indig",INDIGENA,p.indigena||"Seleccione un valor"))}
       ${fld("Ocupación",inp("fe_oc",p.ocupacion||""))}
       ${fld("Escolaridad",sel("fe_esc",ESCOLARIDAD,p.escolaridad||"Sin indicar"))}
+      ${fld("Religión",sel("fe_rel",["Sin indicar","Católica","Cristiana / Evangélica","Testigo de Jehová","Judía","Musulmana","Budista","Otra","Ninguna","Prefiere no decir"],p.religion||"Sin indicar"))}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
       ${fld("Celular",inp("fe_cel",p.celular||"","55XXXXXXXX","tel"))}
@@ -4369,6 +4370,7 @@ window.guardarFicha=async function(){
     indigena:gv("fe_indig")||null,
     ocupacion:gv("fe_oc")||null,
     escolaridad:gv("fe_esc")||null,
+    religion:gv("fe_rel")||null,
     celular:gv("fe_cel")||null,
     telefono_principal:gv("fe_tel")||null,
     correo:gv("fe_mail")||null,
@@ -6378,8 +6380,8 @@ window.abrirModalFirmaGlobal=function(){
         El paciente recibirá un enlace por WhatsApp para leer y firmar los documentos desde su celular. Los documentos firmados se guardan automáticamente en el expediente.
       </div>`}
       <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#1B5E20">
-        📱 <b>Se enviará desde:</b> WhatsApp QP Clinic <b>+52 5644237028</b><br>
-        <span style="font-size:14px">Asegúrese de abrir desde el celular con ese número</span>
+        <b>Se enviará desde: su WhatsApp</b><br>
+        <span style="font-size:14px">Al continuar se abrirá su WhatsApp con el mensaje y el enlace listos para enviar al paciente</span>
       </div>
       <p style="font-size:14px;font-weight:700;color:#546E7A;margin-bottom:10px;text-transform:uppercase">Documentos para firma — ${esMenor?`${nomPac} <span style="font-size:12px;font-weight:400">(firmará: ${nomFirmante})</span>`:nomPac}</p>
       <div style="background:#F8F9FA;border-radius:8px;padding:10px;margin-bottom:14px">
