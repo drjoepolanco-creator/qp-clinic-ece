@@ -1,5 +1,6 @@
 // /api/ia-medica.js — QP Clinic ECE
 // Vercel Serverless Function (CommonJS)
+// v2: max_tokens ampliado, reparación de JSON truncado, maxDuration 60s
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -60,13 +61,26 @@ Reglas:
       const r1 = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "pdfs-2024-09-25" },
-        body: JSON.stringify({ model: "claude-opus-4-6", max_tokens: 4096, messages: [{ role: "user", content: [contentBlock, { type: "text", text: prompt }] }] }),
+        body: JSON.stringify({ model: "claude-opus-4-6", max_tokens: 8192, messages: [{ role: "user", content: [contentBlock, { type: "text", text: prompt }] }] }),
       });
       if (!r1.ok) { const t = await r1.text(); return res.status(500).json({ error: `API ${r1.status}: ${t.substring(0,300)}` }); }
       const d1 = await r1.json();
       const raw1 = (d1?.content?.[0]?.text || "").trim();
-      const parsed1 = parseJSON(raw1);
-      if (!parsed1) return res.status(500).json({ error: "No se pudo parsear respuesta IA", raw: raw1.substring(0,500) });
+      const truncado = d1?.stop_reason === "max_tokens";
+      let parsed1 = parseJSON(raw1);
+      // Si la respuesta llegó truncada por longitud, reparar el JSON
+      // recuperando todos los analitos completos hasta el punto de corte
+      if (!parsed1 && truncado) parsed1 = repararJSONTruncado(raw1);
+      if (!parsed1) return res.status(500).json({
+        error: truncado
+          ? "El laboratorio es demasiado extenso y la respuesta se cortó. Intente de nuevo o divida el PDF."
+          : "No se pudo interpretar la respuesta de la IA. Intente de nuevo.",
+        stop_reason: d1?.stop_reason || null,
+        raw: raw1.substring(0,500)
+      });
+      if (truncado && parsed1.resumen_clinico) {
+        parsed1.resumen_clinico += " [Nota: el documento es muy extenso; algunos analitos del final podrían no haberse incluido. Verifique contra el PDF original.]";
+      }
 
       // Construir texto_nota en Node.js (no en el JSON de Claude)
       const fechaStr = parsed1.fecha || new Date().toISOString().split("T")[0];
@@ -150,6 +164,37 @@ Formato exacto:
   } catch (e) { return res.status(500).json({ error: e.message }); }
 };
 
+// Repara un JSON cortado por límite de tokens: recorta hasta el último
+// objeto completo y cierra los corchetes/llaves que quedaron abiertos.
+function repararJSONTruncado(raw) {
+  if (!raw) return null;
+  const s = raw.indexOf("{");
+  if (s === -1) return null;
+  let t = raw.slice(s);
+  // Recortar hasta el último cierre de objeto completo (último analito íntegro)
+  const last = t.lastIndexOf("}");
+  if (last === -1) return null;
+  t = t.slice(0, last + 1);
+  // Quitar coma colgante final si la hay
+  t = t.replace(/,\s*$/, "");
+  // Balancear llaves y corchetes ignorando los que están dentro de strings
+  let braces = 0, brackets = 0, inStr = false, esc = false;
+  for (const ch of t) {
+    if (esc) { esc = false; continue; }
+    if (ch === "\\") { esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === "{") braces++;
+    else if (ch === "}") braces--;
+    else if (ch === "[") brackets++;
+    else if (ch === "]") brackets--;
+  }
+  let fix = t;
+  while (brackets > 0) { fix += "]"; brackets--; }
+  while (braces > 0) { fix += "}"; braces--; }
+  try { return JSON.parse(fix); } catch { return null; }
+}
+
 function parseJSON(raw) {
   if (!raw) return null;
   let p = null;
@@ -167,3 +212,6 @@ function parseJSON(raw) {
   if (s2 !== -1 && e2 > s2 && try_(noMd.substring(s2, e2 + 1))) return p;
   return null;
 }
+
+// Vercel: permitir hasta 60 segundos (PDFs de laboratorio extensos)
+module.exports.config = { maxDuration: 60 };
