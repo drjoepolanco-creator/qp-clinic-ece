@@ -525,9 +525,8 @@ const BRANDING={
 };
 function sedeUsuario(){return STATE.userProfile?.sede||"clinic";}
 function sedeActiva(){
-  const su=sedeUsuario();
-  if(su==="ambas"){return STATE.sedeActiva||(function(){try{return localStorage.getItem("qp_sede_activa");}catch(e){return null;}})()||"clinic";}
-  return su==="surgery"?"surgery":"clinic";
+  if(puedeCambiarSede()){return STATE.sedeActiva||(function(){try{return localStorage.getItem("qp_sede_activa");}catch(e){return null;}})()||"clinic";}
+  return sedeUsuario()==="surgery"?"surgery":"clinic";
 }
 function brand(){return BRANDING[sedeActiva()]||BRANDING.clinic;}
 window.setSedeActiva=function(s){STATE.sedeActiva=s;try{localStorage.setItem("qp_sede_activa",s);}catch(e){}draw();}
@@ -537,12 +536,16 @@ window.togglePickerSede=function(){STATE.sedePicker=!STATE.sedePicker;draw();}
 function logoSwitcherHTML(){
   const puede=puedeCambiarSede();
   if(!STATE.userProfile) return '<img src="'+BRANDING.clinic.logo+'" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">';
-  let chosen=STATE.sedeActiva;try{chosen=chosen||localStorage.getItem("qp_sede_activa");}catch(e){}
-  if(puede&&(STATE.sedePicker||!chosen)){
-    const one=(s)=>'<img src="'+BRANDING[s].logo+'" alt="'+BRANDING[s].nombre+'" title="Usar '+BRANDING[s].nombre+'" onclick="elegirSede(\''+s+'\')" style="height:32px;border-radius:4px;background:#fff;padding:2px;cursor:pointer;'+(sedeActiva()===s?"outline:2px solid "+BRANDING[s].acento+";outline-offset:1px":"opacity:.5;filter:grayscale(.5)")+'">';
-    return '<div style="display:flex;align-items:center;gap:8px">'+one("clinic")+one("surgery")+'</div>';
-  }
-  return '<img src="'+brand().logo+'" alt="'+brand().nombre+'" title="'+(puede?"Cambiar de unidad":brand().nombre)+'" '+(puede?'onclick="togglePickerSede()" ':'')+'style="height:32px;border-radius:4px;background:#fff;padding:2px;'+(puede?"cursor:pointer":"")+'">';
+  const otra=sedeActiva()==="surgery"?"clinic":"surgery";
+  return '<img src="'+brand().logo+'" alt="'+brand().nombre+'" title="'+(puede?("Cambiar a "+BRANDING[otra].nombre):brand().nombre)+'" '+(puede?'onclick="toggleSede()" ':'')+'style="height:32px;border-radius:4px;background:#fff;padding:2px;'+(puede?"cursor:pointer":"")+'">';
+}
+function sedeHome(s){return s==="surgery"?"quirofano":"agenda";}
+window.toggleSede=function(){
+  const nxt=sedeActiva()==="surgery"?"clinic":"surgery";
+  STATE.sedeActiva=nxt;STATE.sedePicker=false;
+  try{localStorage.setItem("qp_sede_activa",nxt);}catch(e){}
+  try{sessionStorage.setItem("qp_sede_confirmada","1");}catch(e){}
+  go(sedeHome(nxt));
 }
 
 function nav(){
@@ -554,7 +557,7 @@ function nav(){
   const online=navigator.onLine;
   return`<div id="topnav" style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
     <div style="display:flex;align-items:center;gap:8px;margin-right:16px">${logoSwitcherHTML()}</div>
-    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].filter(([k])=>{const _sa=sedeActiva();if(k==="quirofano"&&_sa==="clinic")return false;if(k==="ultrasonido"&&_sa==="surgery")return false;return true;}).map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].filter(([k])=>{const _sa=sedeActiva();if(k==="quirofano"&&_sa==="clinic")return false;if((k==="ultrasonido"||k==="agenda")&&_sa==="surgery")return false;return true;}).map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     ${sedeActiva()!=="surgery"?`<div style="position:relative" id="nutri-menu-wrap">
       <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
       <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
@@ -7536,7 +7539,7 @@ window.entrarSede=function(s){
   STATE.sedeActiva=s;STATE.sedePicker=false;
   try{localStorage.setItem("qp_sede_activa",s);}catch(e){}
   try{sessionStorage.setItem("qp_sede_confirmada","1");}catch(e){}
-  go("agenda");
+  go(sedeHome(s));
 }
 
 async function pgQuirofano(){
@@ -15968,7 +15971,7 @@ window.asignarObjetivoCalorico=async function(kcal,tipo){
       STATE.userProfile=prof;STATE.medProfile=prof;
       iniciarTimerInactividad();
       {let _sc=null;try{_sc=sessionStorage.getItem("qp_sede_confirmada");}catch(e){}
-      go(_sc?"agenda":"selsede");}
+      go(_sc?(sedeActiva()==="surgery"?"quirofano":"agenda"):"selsede");}
     } else {
       go("login");
     }
