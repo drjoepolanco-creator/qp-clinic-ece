@@ -1902,7 +1902,7 @@ function leerDatosClinicos(){
     "dc_receptor","dc_especialidad_ref","dc_tipo_ref","dc_dx_ref","dc_motivo_ref","dc_resumen_ref",
     "dc_cond_traslado","dc_medio_traslado","dc_acomp_traslado","dc_estudios_ref","dc_meds_traslado",
     // Preanestésica
-    "dc_asa_anest","dc_rcri","dc_mets_anest","dc_pronostico_anest",
+    "dc_asa_anest","dc_rcri","dc_mets_anest","dc_pronostico_anest","dc_raq","dc_raq_sub",
     "dc_mallampati","dc_apertura_bucal","dc_dist_tm","dc_movilidad_cerv","dc_denticion","dc_vad","dc_plan_vad",
     "dc_ecg_preanest","dc_rx_torax_preanest","dc_lab_preanest",
     "dc_alerg_anest","dc_meds_anest","dc_anest_prev","dc_anest_prev_det","dc_ayuno_sol","dc_ayuno_liq",
@@ -1930,7 +1930,7 @@ function leerDatosClinicos(){
   // Checkboxes
   const CHKS=["dc_ci_cirujano","dc_ci_anestesia","dc_ci_transfusion","dc_lateral_marcado",
     "dc_ci_alta","dc_responsiva_firmada","dc_ci_anest_firmado","dc_ci_transfusion_anest",
-    "dc_hubo_relevo","dc_alt_aldrete","dc_alt_respiracion","dc_alt_dolor","dc_alt_nausea","dc_alt_temperatura","dc_alt_conciencia"];
+    "dc_hubo_relevo","dc_raq_urg","dc_alt_aldrete","dc_alt_respiracion","dc_alt_dolor","dc_alt_nausea","dc_alt_temperatura","dc_alt_conciencia"];
   CHKS.forEach(id=>{const v=chk(id);if(v)obj[id.replace(/^dc_/,"")]=v;});
   // Aldrete
   const aldIds=["a_actividad","a_respiracion","a_circulacion","a_conciencia","a_color"];
@@ -2314,6 +2314,13 @@ function renderSeccionEspecial(tipo,d){
           ${fld("RCRI (Revised Cardiac Risk Index)",SEL("dc_rcri",[["0 — Bajo (<1%)","0 — Riesgo muy bajo (<1%)"],["1 — Bajo (~1%)","1 — Riesgo bajo (~1%)"],["2 — Moderado (~7%)","2 — Riesgo moderado (~7%)"],["≥3 — Alto (>11%)","≥3 — Riesgo alto (>11%)"]],d.rcri||"0 — Bajo (<1%)"))}
           ${fld("Capacidad funcional (METs)",SEL("dc_mets_anest",[["≥10 METs — Excelente","≥10 METs — Excelente"],["7-9 METs — Buena","7–9 METs — Buena"],["4-6 METs — Moderada","4–6 METs — Moderada"],["<4 METs — Deficiente","<4 METs — Deficiente / no evaluable"]],d.mets_anest||"4-6 METs — Moderada"))}
           ${fld("Pronóstico anestésico",SEL("dc_pronostico_anest",[["Favorable","Favorable"],["Reservado","Reservado"],["De alto riesgo","De alto riesgo — requiere medidas especiales"]],d.pronostico_anest||"Favorable"))}
+        </div>
+
+        ${H("Riesgo Anestésico Quirúrgico (RAQ)","#004D99")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Grado RAQ",SEL("dc_raq",[["","—"],["E1","E1 — Paciente sano"],["E2","E2 — Enfermedad sistémica leve"],["E3","E3 — Enfermedad sistémica grave"],["E4","E4 — Amenaza constante para la vida"],["E5","E5 — Moribundo"]],d.raq||""))}
+          ${fld("Subclase",SEL("dc_raq_sub",[["","—"],["A","A — Programada / electiva"],["B","B — Urgente"]],d.raq_sub||""))}
+          <div style="display:flex;align-items:flex-end">${CHK("dc_raq_urg","Urgencia (U)",d.raq_urg)}</div>
         </div>
 
         ${H("Evaluación de vía aérea (NOM-006 Art. 9.4)","#004D99")}
@@ -7846,7 +7853,8 @@ window.abrirAnestesia=async function(epId){
   let pac=null;
   if(ep?.paciente_id){const {data:pp}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("id",ep.paciente_id).single();pac=pp;}
   const {data:sig}=await SB.from("registro_anestesico_signos").select("*").eq("episodio_id",epId).order("minuto",{ascending:true}).order("t",{ascending:true});
-  STATE._qxEp=ep;STATE._qxPacEp=pac;STATE._qxSignos=sig||[];STATE.qxView="anestesia";
+  const {data:farm}=await SB.from("registro_anestesico_farmacos").select("*").eq("episodio_id",epId).order("minuto",{ascending:true});
+  STATE._qxEp=ep;STATE._qxPacEp=pac;STATE._qxSignos=sig||[];STATE._qxFarmacos=farm||[];STATE.qxView="anestesia";
   loading(false);
   draw();
 }
@@ -7943,6 +7951,30 @@ function renderAnestesia(){
         ${btn('<i class="ti ti-plus"></i> Agregar registro',"guardarSignoAnest()","ok",1)}
       </div>
     </div>`:""}
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
+      <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}"><i class="ti ti-vaccine"></i> Medicamentos, agentes y soluciones</b></div>
+      ${editable?`<div style="padding:12px;border-bottom:1px solid ${BR};background:#F8F9FA;overflow-x:auto">
+        <div style="display:grid;grid-template-columns:80px 160px 1fr 100px 120px auto;gap:8px;align-items:end;min-width:740px">
+          ${fld("Minuto",`<input id="anf-min" type="number" placeholder="0" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          ${fld("Tipo",`<select id="anf-tipo" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="agente">Agente anestésico</option><option value="medicamento">Medicamento</option><option value="liquido">Solución / líquido</option><option value="sangre">Hemoderivado</option></select>`)}
+          ${fld("Nombre",`<input id="anf-nombre" placeholder="Propofol, fentanilo, Hartmann..." style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          ${fld("Dosis",`<input id="anf-dosis" placeholder="200 mg" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+          ${fld("Vía",`<select id="anf-via" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>IV</option><option>IM</option><option>Inhalada</option><option>Epidural</option><option>Subaracnoidea</option><option>VO</option><option>Otra</option></select>`)}
+          ${btn('<i class="ti ti-plus"></i> Agregar',"guardarFarmacoAnest()","ok",1)}
+        </div>
+      </div>`:""}
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:600px">
+        <thead><tr style="background:${PL}">${["Min","Tipo","Nombre","Dosis","Vía",""].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
+        <tbody>${((STATE._qxFarmacos||[]).length===0)?`<tr><td colspan="6" style="padding:14px;text-align:center;color:${MU};font-size:13px">Sin medicamentos registrados.</td></tr>`:[...(STATE._qxFarmacos||[])].sort((a,b)=>(a.minuto??0)-(b.minuto??0)).map((f,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+          <td style="padding:7px 10px;font-size:13px;font-weight:700;color:${TX}">${f.minuto??"—"}'</td>
+          <td style="padding:7px 10px;font-size:12px;color:${MU}">${({agente:"Agente",medicamento:"Medicamento",liquido:"Solución",sangre:"Hemoderivado"})[f.tipo]||f.tipo||"—"}</td>
+          <td style="padding:7px 10px;font-size:13px;color:${TX}">${f.nombre||"—"}</td>
+          <td style="padding:7px 10px;font-size:13px;color:${TX}">${f.dosis||"—"}</td>
+          <td style="padding:7px 10px;font-size:13px;color:${TX}">${f.via||"—"}</td>
+          <td style="padding:7px 10px">${editable?`<button onclick="borrarFarmacoAnest('${f.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;color:${DA};font-size:15px"><i class="ti ti-trash"></i></button>`:""}</td>
+        </tr>`).join("")}</tbody>
+      </table></div>
+    </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:${PL}">${["Min","TA","Pulso","Temp","SpO2","FR","EtCO2","Tiempo",""].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
@@ -7989,6 +8021,32 @@ window.guardarSignoAnest=async function(){
   abrirAnestesia(ep.id);
 }
 
+window.guardarFarmacoAnest=async function(){
+  const ep=STATE._qxEp;if(!ep){showToast("Episodio no cargado",false);return;}
+  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
+  const min=parseFloat(gv("anf-min"));
+  const nombre=(gv("anf-nombre")||"").trim();
+  if(isNaN(min)){showToast("Indique el minuto",false);return;}
+  if(!nombre){showToast("Indique el nombre del medicamento o agente",false);return;}
+  const payload={episodio_id:ep.id,minuto:Math.round(min),tipo:gv("anf-tipo")||"medicamento",nombre,dosis:(gv("anf-dosis")||"").trim()||null,via:gv("anf-via")||null};
+  loading(true,"Guardando...");
+  const {error}=await SB.from("registro_anestesico_farmacos").insert(payload);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("Medicamento agregado");
+  logBitacora("REGISTRO ANESTÉSICO","Fármaco: "+nombre,ep.paciente_id);
+  abrirAnestesia(ep.id);
+}
+window.borrarFarmacoAnest=async function(id){
+  const ep=STATE._qxEp;if(!ep)return;
+  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
+  loading(true,"Eliminando...");
+  const {error}=await SB.from("registro_anestesico_farmacos").delete().eq("id",id);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("Eliminado");
+  abrirAnestesia(ep.id);
+}
 window.borrarSignoAnest=async function(id){
   const ep=STATE._qxEp;if(!ep)return;
   if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
