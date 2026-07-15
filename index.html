@@ -142,7 +142,7 @@ const { createClient } = supabase;
 const SB = createClient(
   'https://ebukjdxeekhzeurmhgkj.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidWtqZHhlZWtoemV1cm1oZ2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDI3NDAsImV4cCI6MjA5NDM3ODc0MH0.eXaNf2lXjU8_q0CeYz8CHUBZJftp9_JZY153uZFWYVQ',
-  {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}}
+  {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}
 );
 
 // ── RED DE SEGURIDAD GLOBAL: token JWT corrupto ───────────────────────────────
@@ -603,6 +603,7 @@ function pgLogin(){
             <i class="ti ti-login" aria-hidden="true"></i> Entrar al sistema
           </button>
           <div id="login-error" style="display:none;background:#FFEBEE;color:${DA};padding:9px 13px;border-radius:7px;font-size:13px;text-align:center;border-left:3px solid ${DA}"></div>
+          <p style="text-align:center;margin-top:4px"><span onclick="olvideContrasena()" style="color:${P};cursor:pointer;font-size:13px;text-decoration:underline">¿Olvidaste tu contraseña?</span></p>
         </div>
         <p style="text-align:center;font-size:12px;color:#90A4AE;margin-top:20px">Al ingresar acepta los <span onclick="abrirLegal('terminos')" style="color:${P};cursor:pointer;text-decoration:underline">Términos y Condiciones</span> y el <span onclick="abrirLegal('privacidad')" style="color:${P};cursor:pointer;text-decoration:underline">Aviso de Privacidad</span></p>
         <p style="text-align:center;font-size:12px;color:${AC};margin-top:6px;font-style:italic">"Ciencia, calidez y compromiso"</p>
@@ -737,6 +738,81 @@ Sitio web: www.qpclinic.org</p>
 <h3 style="font-size:14px;font-weight:700;color:#006BB6;margin:14px 0 6px">VIII. AUTORIDAD</h3>
 <p>Si considera que su derecho a la protección de datos personales ha sido vulnerado, puede acudir al <strong>Instituto Nacional de Transparencia, Acceso a la Información y Protección de Datos Personales (INAI)</strong>, www.inai.org.mx</p>
 <p style="margin-top:16px;padding:10px;background:#E8F5E9;border-radius:7px;color:#2E7D32;font-size:14px">✅ Última actualización: Mayo 2026 | Este aviso cumple con la LFPDPPP y su Reglamento, la NOM-004-SSA3-2012 y la NOM-024-SSA3-2012.</p>`;
+// ── Recuperación de contraseña ────────────────────────────────────────────────
+// El propio usuario recibe un enlace por correo y define su nueva contraseña.
+// Es el único método seguro: la clave pública del navegador no permite (ni debe
+// permitir) que un administrador cambie la contraseña de otra persona.
+window.olvideContrasena=async function(){
+  let dato=(gv("lu")||"").trim().toLowerCase();
+  if(!dato){
+    showLoginError("Escribe tu usuario o correo arriba y vuelve a pulsar el enlace");
+    document.getElementById("lu")?.focus();return;
+  }
+  let email=dato;
+  // Si escribió un username, resolver su correo real desde el perfil
+  if(!dato.includes("@")){
+    const {data:u}=await SB.from("usuarios").select("email").eq("username",dato).maybeSingle();
+    if(!u?.email){
+      showLoginError("No encontramos ese usuario. Escribe tu correo electrónico completo.");
+      return;
+    }
+    email=u.email;
+  }
+  const lb=document.getElementById("login-btn");
+  if(lb){lb.disabled=true;lb.innerHTML='<span class="spin">⚙️</span> Enviando...';}
+  const {error}=await SB.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+"/#recuperar"});
+  if(lb){lb.disabled=false;lb.innerHTML='<i class="ti ti-login" aria-hidden="true"></i> Entrar al sistema';}
+  if(error){showLoginError("No se pudo enviar el correo: "+error.message);return;}
+  const e=document.getElementById("login-error");
+  if(e){
+    e.style.display="block";
+    e.style.background="#E8F5E9";e.style.color="#1B5E20";e.style.borderLeftColor="#2E7D32";
+    e.innerHTML=`Enviamos un enlace a <b>${email}</b>. Revisa tu correo (incluida la carpeta de spam) y define tu nueva contraseña.`;
+  }
+}
+
+// Pantalla para definir la nueva contraseña tras abrir el enlace del correo
+window.pantallaNuevaContrasena=function(){
+  const b=RR();
+  b.innerHTML=`<div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:14px;box-shadow:0 4px 18px #00000018;padding:26px;max-width:380px;width:100%">
+      <h2 style="font-size:17px;font-weight:800;color:${PD};margin-bottom:6px">Define tu nueva contraseña</h2>
+      <p style="font-size:13px;color:${MU};margin-bottom:16px">Elige una contraseña segura para tu cuenta del expediente.</p>
+      <label class="fld-label">Nueva contraseña</label>
+      <input id="np1" type="password" autocomplete="new-password" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;margin-bottom:10px">
+      <label class="fld-label">Confirmar contraseña</label>
+      <input id="np2" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')guardarNuevaContrasena()" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;margin-bottom:14px">
+      <button onclick="guardarNuevaContrasena()" style="width:100%;padding:12px;background:${P};color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer">Guardar contraseña</button>
+      <div id="np-msg" style="display:none;margin-top:10px;padding:9px 13px;border-radius:7px;font-size:13px;text-align:center"></div>
+    </div>
+  </div>`;
+}
+window.guardarNuevaContrasena=async function(){
+  const p1=gv("np1"),p2=gv("np2");
+  const msg=document.getElementById("np-msg");
+  const err=(t)=>{if(msg){msg.style.display="block";msg.style.background="#FFEBEE";msg.style.color=DA;msg.textContent=t;}};
+  if(!p1||!p2)return err("Escribe la contraseña dos veces");
+  if(p1!==p2)return err("Las contraseñas no coinciden");
+  const v=validarContrasena(p1);
+  if(v)return err("Contraseña insegura: "+v);
+  const {error}=await SB.auth.updateUser({password:p1});
+  if(error)return err("No se pudo guardar: "+error.message);
+  if(msg){msg.style.display="block";msg.style.background="#E8F5E9";msg.style.color="#1B5E20";msg.textContent="Contraseña actualizada. Entrando al sistema...";}
+  setTimeout(async()=>{
+    const {data:{session}}=await SB.auth.getSession();
+    if(session?.user){
+      STATE.user=session.user;
+      const {data:prof}=await SB.from("usuarios").select("*").eq("id",session.user.id).maybeSingle();
+      STATE.userProfile=prof;STATE.medProfile=prof;
+      history.replaceState(null,"",window.location.pathname);
+      go("agenda");
+    } else {
+      history.replaceState(null,"",window.location.pathname);
+      go("login");
+    }
+  },1200);
+}
+
 window.doLogin=async function(){
   let usuario=gv("lu").trim().toLowerCase();
   const pass=gv("lp");
@@ -1159,7 +1235,17 @@ window.guardarUsuario=async function(uid=""){
         if(passErr)showToast("Perfil guardado. Error de contraseña: "+passErr.message,false);
         else showToast("✓ Usuario y contraseña actualizados");
       } else {
-        showToast("✓ Perfil guardado. La contraseña solo puede cambiarla el propio usuario desde su perfil.");
+        // Por seguridad, ningún administrador puede fijar la contraseña de otra
+        // persona desde el navegador. Se envía un enlace de restablecimiento
+        // al correo del profesionista para que él defina su propia contraseña.
+        const {data:u}=await SB.from("usuarios").select("email").eq("id",uid).maybeSingle();
+        if(u?.email){
+          const {error:reErr}=await SB.auth.resetPasswordForEmail(u.email,{redirectTo:window.location.origin+"/#recuperar"});
+          if(reErr)showToast("Perfil guardado. No se pudo enviar el restablecimiento: "+reErr.message,false);
+          else showToast("Perfil guardado. Se envió un enlace de restablecimiento a "+u.email);
+        } else {
+          showToast("Perfil guardado. Este usuario no tiene correo registrado para restablecer su contraseña.",false);
+        }
       }
     } else {
       showToast("✓ Usuario actualizado correctamente");
@@ -1202,13 +1288,13 @@ window.resetPasswordUsuario=async function(uid){
           <button onclick="enviarCorreoReset('${u.email}',this)" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:700">📧 Enviar correo de recuperación</button>
         </div>
         <div style="background:#FFF8E1;border-radius:8px;padding:14px">
-          <p style="font-size:12px;color:#E65100;font-weight:700;margin-bottom:8px">⚡ Opción 2 — Contraseña temporal generada</p>
-          <p style="font-size:12px;color:#546E7A;margin-bottom:10px">Comparte esta contraseña con el usuario de forma segura (mensaje directo). El usuario deberá cambiarla desde su perfil.</p>
+          <p style="font-size:12px;color:#E65100;font-weight:700;margin-bottom:8px">Opción 2 — Contraseña temporal sugerida (requiere aplicarla en Supabase)</p>
+          <p style="font-size:12px;color:#546E7A;margin-bottom:10px">Esta contraseña <b>todavía NO está activa</b>. Es solo una sugerencia segura que debes aplicar manualmente en el panel de Supabase y luego comunicar al usuario por un medio privado.</p>
           <div style="display:flex;gap:8px;align-items:center;background:#fff;border:2px solid #FFB300;border-radius:8px;padding:10px 14px">
             <code id="tmp-pass-${uid}" style="font-size:18px;font-weight:700;color:#E65100;letter-spacing:2px;flex:1">${tmp}</code>
             <button onclick="navigator.clipboard.writeText('${tmp}').then(()=>showToast('✓ Contraseña copiada'))" style="background:#FF8F00;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:700">Copiar</button>
           </div>
-          <p style="font-size:11px;color:#9E9E9E;margin-top:8px">⚠️ Esta contraseña es solo para comunicar al usuario. Para aplicarla en Supabase, el admin debe ir a: <b>Supabase → Authentication → Users → buscar usuario → Edit → Change password</b></p>
+          <p style="font-size:11px;color:#9E9E9E;margin-top:8px">Para aplicarla: <b>Supabase → Authentication → Users → buscar ${u.email} → menú ⋮ → Reset password</b>. Por seguridad, el navegador no puede fijar la contraseña de otra persona; por eso se recomienda la Opción 1.</p>
         </div>
       </div>
     </div>`;
@@ -1217,7 +1303,7 @@ window.resetPasswordUsuario=async function(uid){
 window.enviarCorreoReset=async function(email,btn){
   if(btn){btn.disabled=true;btn.textContent="Enviando...";}
   const {error}=await SB.auth.resetPasswordForEmail(email,{
-    redirectTo:window.location.origin+"/index.html"
+    redirectTo:window.location.origin+"/#recuperar"
   });
   if(error){showToast("Error: "+error.message,false);}
   else{showToast("✓ Correo de recuperación enviado a "+email);}
@@ -15316,6 +15402,13 @@ window.asignarObjetivoCalorico=async function(kcal,tipo){
 
   // ── Escuchar cambios de sesión ────────────────────────────
   SB.auth.onAuthStateChange((event,session)=>{
+    if(event==="PASSWORD_RECOVERY"){
+      // El usuario abrió el enlace de recuperación enviado a su correo
+      STATE.user=session?.user||null;
+      detenerTimerInactividad();
+      pantallaNuevaContrasena();
+      return;
+    }
     if(event==="SIGNED_OUT"){
       STATE.user=null;STATE.userProfile=null;
       detenerTimerInactividad();go("login");
