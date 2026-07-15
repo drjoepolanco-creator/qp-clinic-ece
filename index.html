@@ -1847,6 +1847,8 @@ window.actualizarTipoNota=function(tipo){
   if(STATE.consultaActual)STATE.consultaActual.tipo_nota=tipo;
   const sec=document.getElementById("seccion-especial");
   if(sec)sec.innerHTML=renderSeccionEspecial(tipo,STATE.consultaActual?.datos_clinicos||{});
+  const _oc=CAMPOS_OCULTOS_NOTA[tipo]||[];
+  ["subj","expl","anal","trat","lab","gab","plan","prono"].forEach(k=>{const el=document.getElementById("cardsoap-"+k);if(el)el.style.display=_oc.includes(k)?"none":"";});
   // Re-init GCS if urgencias
   if(tipo==="Nota de urgencias")actualizarGCS();
 }
@@ -1954,6 +1956,7 @@ window.actualizarAldrete=function(campo,valor){
   const cont=document.querySelector(".aldrete-badge-container");
   if(cont)cont.innerHTML=`<b style="font-size:18px;color:${col}">Aldrete: ${total}/10 — ${lbl}</b><p style="font-size:12px;color:#546E7A;margin-top:4px">Puntaje mínimo para alta de UCPA: 9 puntos</p>`;
 }
+const CAMPOS_OCULTOS_NOTA={"Nota preoperatoria":["subj","expl","anal","trat","lab","gab","plan","prono"],"Nota posoperatoria":["subj","expl","anal","trat","lab","gab","plan","prono"],"Nota de valoración preanestésica":["subj","expl","anal","trat","lab","gab","plan","prono"],"Nota de anestesia transoperatoria":["subj","expl","anal","trat","lab","gab","plan","prono"],"Nota postanestésica":["subj","expl","anal","trat","lab","gab","plan","prono"],"Nota de egreso":["subj","expl","anal","trat","lab","gab","plan","prono"]};
 function renderSeccionEspecial(tipo,d){
   d=d||{};
   const SI=`width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px`;
@@ -2106,7 +2109,7 @@ function renderSeccionEspecial(tipo,d){
   if(tipo==="Nota preoperatoria"){
     return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#F3E5F5,#fff)">
-        <b style="font-size:14px;color:#6A1B9A">🔪 Nota Preoperatoria (NOM-004-SSA3-2012 Art. 10)</b>
+        <b style="font-size:14px;color:#6A1B9A">Nota Preoperatoria (NOM-004-SSA3-2012 Art. 10)</b>
       </div>
       <div style="padding:14px">
         ${H("Datos del acto quirúrgico planeado","#6A1B9A")}
@@ -8571,7 +8574,7 @@ async function pgConsulta(){
         <div id="seccion-especial" style="grid-column:span 2">
           ${renderSeccionEspecial(c.tipo_nota||"Nota de evolución",c.datos_clinicos||{})}
         </div>
-        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
+        <div id="cardsoap-subj" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('subj')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🎤 Subjetivo (motivos de consulta)</b>
             <span onclick="toggleMotivos()" style="font-size:14px;color:${AC};cursor:pointer;font-weight:600">📋 Motivos comunes ▾</span>
@@ -8598,7 +8601,7 @@ async function pgConsulta(){
             ${(()=>{const ev=c.eva_dolor??0;const col=ev>=7?"#C62828":ev>=4?"#E65100":"#2E7D32";const bg=ev>=7?"#FFEBEE":ev>=4?"#FFF3E0":"#E8F5E9";const lbl=ev>=8?"Dolor muy severo (8-10)":ev>=6?"Dolor severo (6-7)":ev>=4?"Dolor moderado (4-5)":ev>=2?"Dolor leve (2-3)":ev>0?"Dolor mínimo (1)":"Sin dolor (0)";return fld(`🩹 EVA — Escala Visual Analógica del dolor`,`<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><input type="range" id="cs_eva" min="0" max="10" step="1" value="${ev}" oninput="actualizarEVA(this.value)" style="flex:1;height:6px;accent-color:${col}"><div id="cs_eva_num" style="min-width:52px;text-align:center;font-size:20px;font-weight:800;color:${col}">${ev}/10</div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:${MU};padding:0 2px"><span>0 Sin dolor</span><span>5 Moderado</span><span>10 Insoportable</span></div><div id="cs_eva_lbl" style="font-size:12px;font-weight:700;text-align:center;margin-top:6px;padding:3px 10px;border-radius:20px;background:${bg};color:${col}">${lbl}</div>`)})()}
           </div>
         </div>
-        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;display:flex;flex-direction:column">
+        <div id="cardsoap-expl" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;display:flex;flex-direction:column${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('expl')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
             <b style="font-size:14px;color:${TX}">🫀 Exploración física</b>
             <span style="font-size:14px;color:${MU};background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA puede sugerir en este campo</span>
@@ -8610,7 +8613,7 @@ async function pgConsulta(){
             </div>
           </div>
         </div>
-        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
+        <div id="cardsoap-anal" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('anal')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🔍 Análisis / Diagnóstico</b>
             <div style="display:flex;align-items:center;gap:8px">
@@ -8623,7 +8626,7 @@ async function pgConsulta(){
           <div id="diagnosticos-ia" style="display:none;padding:8px 12px;border-bottom:1px solid ${BR};background:#F3E5F5"></div>
           <div style="padding:12px">${ta("cs_anal",c.analisis||"","Diagnóstico(s) con código CIE-10...",8)}</div>
         </div>
-        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
+        <div id="cardsoap-trat" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('trat')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
             <b style="font-size:14px;color:${TX}">💊 Tratamiento</b>
             <div style="display:flex;gap:6px;align-items:center;position:relative">
@@ -8634,25 +8637,25 @@ async function pgConsulta(){
           </div>
           <div style="padding:12px">${ta("cs_trat",c.tratamiento||"","Medicamentos, dosis, medidas generales...",8)}</div>
         </div>
-        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
+        <div id="cardsoap-lab" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('lab')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🔬 Laboratorio</b>
             <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
           </div>
           <div style="padding:12px">${ta("cs_lab",c.laboratorio||"","BH, QS, EGO, PCR...",6)}</div>
         </div>
-        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
+        <div id="cardsoap-gab" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('gab')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">📡 Estudios de gabinete</b>
             <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
           </div>
           <div style="padding:12px">${ta("cs_gab",c.gabinete||"","RX, USG, IRM...",6)}</div>
         </div>
-        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2">
+        <div id="cardsoap-plan" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('plan')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">📋 Plan</b></div>
           <div style="padding:12px">${ta("cs_plan",c.plan||"","Seguimiento, indicaciones de alarma, actividad deportiva...",6)}</div>
         </div>
-        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2">
+        <div id="cardsoap-prono" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('prono')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E8EAF6,#fff)">
             <b style="font-size:14px;color:#3949AB">🎯 Pronóstico</b>
           </div>
