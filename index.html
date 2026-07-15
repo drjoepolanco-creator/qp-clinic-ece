@@ -2613,8 +2613,7 @@ function renderSeccionEspecial(tipo,d){
 
 // ── Registro temporal transanestésico ─────────────────────
 window.agregarRegistroTrans=function(){
-  const hora=document.getElementById("tr_hora")?.value||"";
-  if(!hora){showToast("Ingresa la hora del registro",false);return;}
+  const hora=document.getElementById("tr_hora")?.value||new Date().toTimeString().substring(0,5);
   const reg={
     hora,
     ta:document.getElementById("tr_ta")?.value||"",
@@ -2629,6 +2628,7 @@ window.agregarRegistroTrans=function(){
   if(!STATE.consultaActual.datos_clinicos)STATE.consultaActual.datos_clinicos={};
   if(!STATE.consultaActual.datos_clinicos.registros_trans)STATE.consultaActual.datos_clinicos.registros_trans=[];
   STATE.consultaActual.datos_clinicos.registros_trans.push(reg);
+  if(typeof guardarConsultaSilencioso==="function")guardarConsultaSilencioso();
   // Limpiar campos
   ["tr_hora","tr_ta","tr_fc","tr_spo2","tr_etco2","tr_temp","tr_fr","tr_nota"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   // Re-render la fila en la tabla sin recargar todo
@@ -16281,7 +16281,9 @@ function resetTimerInactividad(){
   if(!STATE.user)return;
   clearTimeout(_timerInact);clearTimeout(_timerWarn);clearInterval(_timerCd);
   document.getElementById("modal-inactividad")?.remove();
+  if(sedeActiva()==="surgery")return;   // QP Surgery: sin cierre por inactividad
   _timerWarn=setTimeout(function warnFn(){
+    if(sedeActiva()==="surgery")return;
     // No mostrar si hay otro modal de mayor prioridad abierto (firma, análisis, etc.)
     const hayModalCritico=document.getElementById("modal-lab-ia")||
       document.getElementById("modal-birads-editor")||
@@ -16313,6 +16315,7 @@ function resetTimerInactividad(){
     },1000);
   },INACT_WARN);
   _timerInact=setTimeout(async()=>{
+    if(sedeActiva()==="surgery")return;
     // Última protección: si hay nota con contenido, respaldar antes de cerrar
     if(STATE.page==="consulta"&&_hayContenidoEnNota())_respaldarNotaLocal();
     document.getElementById("modal-inactividad")?.remove();
