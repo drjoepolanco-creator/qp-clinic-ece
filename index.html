@@ -1849,6 +1849,7 @@ window.actualizarTipoNota=function(tipo){
   if(sec)sec.innerHTML=renderSeccionEspecial(tipo,STATE.consultaActual?.datos_clinicos||{});
   const _oc=CAMPOS_OCULTOS_NOTA[tipo]||[];
   ["subj","eva","expl","anal","trat","lab","gab","plan","prono"].forEach(k=>{const el=document.getElementById("cardsoap-"+k);if(el)el.style.display=_oc.includes(k)?"none":"";});
+  const _ia=document.getElementById("btn-ia-nota");if(_ia)_ia.style.display=(CAMPOS_OCULTOS_NOTA[tipo])?"none":"inline-flex";
   // Re-init GCS if urgencias
   if(tipo==="Nota de urgencias")actualizarGCS();
 }
@@ -1872,6 +1873,7 @@ window.actualizarGCS=function(){
   const disp=document.getElementById("gcs_total");
   if(disp){disp.textContent=`GCS: ${t}/15 — ${interp}`;disp.style.color=col;disp.style.background=t<=8?"#FFEBEE":t<=12?"#FFF3E0":t<=14?"#FFF8E1":"#E8F5E9";}
 }
+window.onSelOtro=function(id){const s=document.getElementById(id);const inp=document.getElementById(id+"__otro");if(s&&inp)inp.style.display=(s.value==="__OTRO__")?"block":"none";};
 function leerDatosClinicos(){
   const gv2=(id)=>document.getElementById(id)?.value||"";
   const chk=(id)=>document.getElementById(id)?.checked||false;
@@ -1923,7 +1925,7 @@ function leerDatosClinicos(){
     "dc_cond_egreso_ucpa","dc_destino_ucpa","dc_indicaciones_piso","dc_obs_postanest"
   ];
   const obj={};
-  CAMPOS.forEach(id=>{const v=gv2(id);if(v)obj[id.replace(/^dc_/,"")]=v;});
+  CAMPOS.forEach(id=>{let v=gv2(id);if(v==="__OTRO__")v=gv2(id+"__otro");if(v)obj[id.replace(/^dc_/,"")]=v;});
   // GCS total
   const go=parseInt(gv2("gcs_o")||4),gv3=parseInt(gv2("gcs_v")||5),gm=parseInt(gv2("gcs_m")||6);
   if(gv2("gcs_o"))obj.gcs_total=go+gv3+gm;
@@ -1960,7 +1962,7 @@ const CAMPOS_OCULTOS_NOTA={"Nota preoperatoria":["subj","eva","expl","anal","tra
 function renderSeccionEspecial(tipo,d){
   d=d||{};
   const SI=`width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px`;
-  const SEL=(id,opts,val="")=>`<select id="${id}" style="${SI};background:#fff;cursor:pointer">${opts.map(([v,l])=>`<option value="${v||l}" ${(val===v||val===l)?"selected":""}>${l}</option>`).join("")}</select>`;
+  const SEL=(id,opts,val="")=>{const _isP=opts.some(([v,l])=>(val===v||val===l));const _otro=val&&!_isP;return `<select id="${id}" onchange="onSelOtro('${id}')" style="${SI};background:#fff;cursor:pointer">${opts.map(([v,l])=>`<option value="${v||l}" ${(val===v||val===l)?"selected":""}>${l}</option>`).join("")}<option value="__OTRO__" ${_otro?"selected":""}>Otro (especificar)…</option></select><input id="${id}__otro" placeholder="Especifique…" value="${_otro?String(val).replace(/"/g,"&quot;"):""}" style="${SI};margin-top:6px;display:${_otro?"block":"none"}">`;};
   const TA=(id,val,ph,rows=3)=>`<textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-family:inherit;font-size:14px;resize:vertical">${val||""}</textarea>`;
   const INP=(id,val,ph,tp="text")=>`<input id="${id}" type="${tp}" value="${val||""}" placeholder="${ph}" style="${SI}">`;
   const H=(txt,c="#263238")=>`<div style="background:${c}15;border-left:3px solid ${c};padding:8px 12px;margin-bottom:12px;border-radius:0 8px 8px 0"><b style="font-size:13px;color:${c};text-transform:uppercase">${txt}</b></div>`;
@@ -8709,21 +8711,21 @@ async function pgConsulta(){
     </div>
     <div style="background:#fff;border-bottom:1px solid ${BR};padding:7px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <!-- Tipo de nota -->
-      <select id="cs_tipo_nota" onchange="actualizarTipoNota(this.value)" style="padding:5px 10px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;font-weight:700;color:${P};background:#fff;cursor:pointer;outline:none">
+      <select id="cs_tipo_nota" onchange="actualizarTipoNota(this.value)" title="Tipo de nota" style="padding:7px 13px;border:none;border-radius:8px;font-size:14px;font-weight:800;color:#fff;background:${PD};cursor:pointer;outline:none;box-shadow:0 1px 3px #00000026">
         ${["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
       </select>
       <div style="width:1px;height:24px;background:${BR}"></div>
-      <button onclick="abrirModalIA()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">🤖 Generar nota con IA</button>
-      ${c.bloqueada?`<span style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">🔒 Nota cerrada — solo lectura</span>`:!puedeEditarNotaMedica()?`<span style="background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">Solo lectura — la nota médica la elabora el médico tratante</span>`:`${btn("💾 Guardar","guardarConsulta()","ok",1)}
-      <button onclick="firmarNota()" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">✍️ Firmar y cerrar nota</button>
-      <span id="autosave-indicator" style="font-size:12px;color:rgba(255,255,255,.6);margin-left:4px"></span>`}
-      <button onclick="descargarNotaPDF()" style="background:#37474F;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📄 PDF nota</button>
-      ${c.id?`<button onclick="verHistorialNota('${c.id}')" style="background:#7B1FA2;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🕐 Historial</button>`:""}
-      ${(c.tipo_nota||"").includes("referencia")||gv("cs_tipo_nota").includes("referencia")?`<button onclick="imprimirHojaReferencia()" style="background:#00695C;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🏥 Hoja de Referencia</button>`:""}
-      ${btn("✕ Cerrar","cerrarConsulta()","d",1)}
-      <button onclick="showRecipe('receta')" style="background:#1B5E20;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">💊 Receta</button>
-      <button onclick="showRecipe('lab')" style="background:#006BB6;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🔬 Sol. Lab</button>
-      <button onclick="showRecipe('gab')" style="background:#6A1B9A;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📡 Sol. Gabinete</button>
+      <button id="btn-ia-nota" onclick="abrirModalIA()" title="Generar nota con IA" style="background:#fff;color:#6A1B9A;border:1.5px solid #E1BEE7;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;align-items:center;gap:6px;display:${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""])?'none':'inline-flex'}"><i class="ti ti-sparkles"></i> Nota con IA</button>
+      ${c.bloqueada?`<span style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">🔒 Nota cerrada — solo lectura</span>`:!puedeEditarNotaMedica()?`<span style="background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">Solo lectura — la nota médica la elabora el médico tratante</span>`:`<button onclick="guardarConsulta()" style="background:${P};color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-device-floppy"></i> Guardar</button>
+      <button onclick="firmarNota()" style="background:${SU};color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-writing-sign"></i> Firmar y cerrar</button>
+      <span id="autosave-indicator" style="font-size:12px;color:${MU};margin-left:4px"></span>`}
+      <button onclick="descargarNotaPDF()" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-file-text"></i> PDF nota</button>
+      ${c.id?`<button onclick="verHistorialNota('${c.id}')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-history"></i> Historial</button>`:""}
+      ${(c.tipo_nota||"").includes("referencia")||gv("cs_tipo_nota").includes("referencia")?`<button onclick="imprimirHojaReferencia()" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-building-hospital"></i> Referencia</button>`:""}
+      <button onclick="cerrarConsulta()" style="background:#fff;color:${DA};border:1.5px solid #E9C6C6;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-x"></i> Cerrar</button>
+      <button onclick="showRecipe('receta')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-prescription"></i> Receta</button>
+      <button onclick="showRecipe('lab')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-flask"></i> Sol. Lab</button>
+      <button onclick="showRecipe('gab')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-x-ray"></i> Sol. Gabinete</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px;background:#F0F4F8">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1600px;margin:0 auto">
@@ -8749,7 +8751,7 @@ async function pgConsulta(){
           <div style="padding:12px">${ta("cs_alerg",c.alergias_nota||(STATE.alergs.length?STATE.alergs.join(", "):"Sin alergias conocidas"),"",5)}</div>
         </div>
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
-          <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">💓 Signos vitales y datos antropométricos</b></div>
+          <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">💓 Signos vitales y datos antropométricos${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""])?" iniciales":""}</b></div>
           <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
             ${[["Temp. (°C)","cs_temp",vs.temp],["Peso (kg)","cs_peso",vs.peso],["F. Cardíaca (lat/min)","cs_fc",vs.fc],["Talla (m)","cs_talla",vs.talla],["F. Respiratoria (r/min)","cs_fr",vs.fr],["Sat. O₂ (%)","cs_sat",vs.sat],["Pres. Sistólica (mmHg)","cs_tas",vs.tas],["Pres. Diastólica (mmHg)","cs_tad",vs.tad],["Glucosa (mg/dL)","cs_glu",vs.glu],["IMC","cs_imc",vs.imc]].map(([l,id,val])=>`<div>${fld(l,`<input id="${id}" value="${val}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>`).join("")}
           </div>
@@ -9749,9 +9751,10 @@ window.descargarNotaPDF=async function(){
     const credLine2=[med.especialidad_1,med.institucion_esp_1?med.institucion_esp_1.split(" — ")[0].split(" · ")[0]:"",med.cedula_esp_1?"Céd. Esp. "+med.cedula_esp_1:""].filter(Boolean).join(" · ");
 
     // Logo y firma
+    const B=brand();
     let logoB64=null,firmaB64=null;
     try{
-      const r=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");
+      const r=await fetch(B.logo);
       const bl=await r.blob();
       logoB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
     }catch(e){}
@@ -9786,8 +9789,8 @@ window.descargarNotaPDF=async function(){
       doc.setFillColor(238,244,248);doc.rect(0,PH-FH,PW,FH,"F");
       doc.setDrawColor(215,227,234);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
       doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(5.9);
-      const direccion="Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX, C.P. 03810";
-      doc.text(`${direccion}  |  Tel: 55 5682 4345 / 56 4423 7028  |  Cel: 55 8767 3104  |  qpclinic.org  |  NOM-004-SSA3-2012  |  Página ${pg} de ${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});
+      const direccion=B.direccion||"";
+      doc.text(`${direccion}${B.tel?"  |  Tel: "+B.tel:""}${B.web?"  |  "+B.web:""}${B.licencia?"  |  "+B.licencia:""}  |  NOM-004-SSA3-2012  |  Página ${pg} de ${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});
     };
 
     const AVAIL_H=PH-FH-ML;
@@ -9824,8 +9827,8 @@ window.descargarNotaPDF=async function(){
     const headerHTML=`
     <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
       <div style="flex:1;min-width:0">
-        <div style="font-size:14.5px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic Especialistas en Salud Integral</div>
-        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:5px">Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX, C.P. 03810 &nbsp;|&nbsp; Tel. 55 5682 4345 / 56 4423 7028 &nbsp;|&nbsp; qpclinic.org</div>
+        <div style="font-size:14.5px;font-weight:bold;color:#fff;margin-bottom:2px">${B.razon}</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:5px">${B.direccion}${B.tel?" &nbsp;|&nbsp; Tel. "+B.tel:""}${B.web?" &nbsp;|&nbsp; "+B.web:""}${B.licencia?" &nbsp;|&nbsp; "+B.licencia:""}</div>
         <div style="border-top:1px solid rgba(255,255,255,.35);margin:5px 0"></div>
         <div style="font-size:10.5px;font-weight:bold;color:#fff;margin-bottom:1px">${medNom}</div>
         <div style="font-size:7.6px;color:rgba(255,255,255,.85)">${credLine1}</div>
