@@ -316,7 +316,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano,"selsede":pgSelSede};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -520,8 +520,8 @@ async function guardarConsultaSilencioso(){
 }
 // ── BRANDING DINÁMICO POR SEDE (QP Clinic / QP Surgery Clinic) ──
 const BRANDING={
-  clinic:{nombre:"QP Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",acento:"#006BB6",razon:"QP Clinic — Especialistas en Salud Integral"},
-  surgery:{nombre:"QP Surgery Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",acento:"#1F8FE8",razon:"QP Surgery Clinic"}
+  clinic:{nombre:"QP Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",acento:"#006BB6",razon:"QP Clinic, S.C.",direccion:"Insurgentes Sur 933, Piso 12, Col. Nápoles, C.P. 03810, CDMX",rfc:"QCL230518J66",tel:"5644237028",web:"www.qpclinic.org"},
+  surgery:{nombre:"QP Surgery Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",acento:"#1F8FE8",razon:"QP Surgery Clinic S.C.",direccion:"Boulevard Adolfo Ruiz Cortines No. 3332, Int. 816 y 801, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México",licencia:"Licencia Sanitaria 26-AM-09-010-0002",autorizacion:"Actos quirúrgicos (cirugía ambulatoria)",rfc:"",tel:"",web:""}
 };
 function sedeUsuario(){return STATE.userProfile?.sede||"clinic";}
 function sedeActiva(){
@@ -840,7 +840,7 @@ window.guardarNuevaContrasena=async function(){
       const {data:prof}=await SB.from("usuarios").select("*").eq("id",session.user.id).maybeSingle();
       STATE.userProfile=prof;STATE.medProfile=prof;
       history.replaceState(null,"",window.location.pathname);
-      go("agenda");
+      go("selsede");
     } else {
       history.replaceState(null,"",window.location.pathname);
       go("login");
@@ -876,7 +876,7 @@ window.doLogin=async function(){
   STATE.userProfile=prof;
   STATE.medProfile=prof; // alias para recetas y documentos
   logBitacora("INICIO DE SESIÓN","Login exitoso",null);
-  go("agenda");
+  go("selsede");
 }
 function showLoginError(msg){
   const e=document.getElementById("login-error");
@@ -3050,7 +3050,7 @@ const CI_CATALOGO={
     texto:(p,med,fecha)=>[
       `En la Ciudad de México, a ${fecha}, yo ${p}:`,
       "",
-      "CONSIENTO la administración de anestesia para el procedimiento quirúrgico o médico indicado, a cargo del médico anestesiólogo de QP Clinic.",
+      "CONSIENTO la administración de anestesia para el procedimiento quirúrgico o médico indicado, a cargo del médico anestesiólogo tratante.",
       "",
       "HE SIDO INFORMADO de:\n   • El tipo de anestesia propuesta y sus alternativas\n   • La clasificación de riesgo anestésico (ASA) correspondiente a mi estado de salud\n   • Los beneficios de la anestesia para tolerar el procedimiento sin dolor",
       "",
@@ -3077,6 +3077,8 @@ window.generarConsentimientoPDF=async function(clave){
   if(!jsPDF){showToast("jsPDF no disponible",false);return;}
   const ci=CI_CATALOGO[clave];
   if(!ci){showToast("Consentimiento no encontrado",false);return;}
+  const B=brand();
+  const _pie=[B.razon,(B.rfc?"RFC "+B.rfc:""),B.direccion,(B.tel?"Tel. "+B.tel:""),(B.web||""),(B.licencia||"")].filter(Boolean).join(" · ");
   const p=STATE.pat||{};
   const med=STATE.userProfile||{};
   const fecha=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"});
@@ -3102,7 +3104,7 @@ window.generarConsentimientoPDF=async function(clave){
   }
 
   // ── HEADER ──
-  await addImg("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",M,7,14,32);
+  await addImg(B.logo,M,7,14,32);
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);
   doc.text(medNom,W-M,11,{align:"right"});
   const _rcreds=getCredLines(med);
@@ -3110,6 +3112,10 @@ window.generarConsentimientoPDF=async function(clave){
   doc.setFont("helvetica","normal");doc.setFontSize(7);
   _rcreds.forEach(cl=>{if(_rcy<23){doc.text(cl,W-M,_rcy,{align:"right"});_rcy+=3.5;}});
   doc.setDrawColor(0,58,93);doc.setLineWidth(0.8);doc.line(M,23,W-M,23);
+  doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);doc.text(B.razon,48,11);
+  doc.setFont("helvetica","normal");doc.setFontSize(6.3);doc.setTextColor(70,70,70);let _hy=14.5;
+  if(B.direccion){doc.splitTextToSize(B.direccion,86).slice(0,2).forEach(l=>{doc.text(l,48,_hy);_hy+=3;});}
+  if(B.licencia){doc.text(B.licencia,48,_hy);}
 
   // ── TÍTULO DEL DOCUMENTO ──
   let cy=31;
@@ -3136,7 +3142,7 @@ window.generarConsentimientoPDF=async function(clave){
     if(cy>FOOTER_Y){
       doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);doc.line(M,FOOTER_Y+5,W-M,FOOTER_Y+5);
       doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
-      doc.text("QP Clinic, S.C. · RFC QCL230518J66 · Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX · Tel. 5644237028",W/2,FOOTER_Y+9,{align:"center"});
+      doc.text(_pie,W/2,FOOTER_Y+9,{align:"center"});
       doc.addPage();
       cy=15;
       doc.setFontSize(8.5);doc.setTextColor(30,30,30);
@@ -3149,7 +3155,7 @@ window.generarConsentimientoPDF=async function(clave){
       if(cy>FOOTER_Y){
         doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);doc.line(M,FOOTER_Y+5,W-M,FOOTER_Y+5);
         doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
-        doc.text("QP Clinic, S.C. · RFC QCL230518J66 · Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX · Tel. 5644237028",W/2,FOOTER_Y+9,{align:"center"});
+        doc.text(_pie,W/2,FOOTER_Y+9,{align:"center"});
         doc.addPage();cy=15;
         doc.setFontSize(8.5);doc.setTextColor(30,30,30);
       }
@@ -3158,8 +3164,8 @@ window.generarConsentimientoPDF=async function(clave){
   }
 
   // ── SECCIÓN DE FIRMAS ──
-  cy=Math.max(cy+6,FOOTER_Y-45);
-  if(cy>FOOTER_Y){doc.addPage();cy=20;}
+  cy=Math.max(cy+6,FOOTER_Y-58);
+  if(cy+58>277){doc.addPage();cy=20;}
   doc.setDrawColor(0,58,93);doc.setLineWidth(0.4);doc.line(M,cy,W-M,cy);cy+=4;
   doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);
   doc.text("FIRMAS",W/2,cy,{align:"center"});cy+=8;
@@ -3171,8 +3177,8 @@ window.generarConsentimientoPDF=async function(clave){
   doc.line(fCol1,fY,fCol1+65,fY);
   doc.line(fCol2,fY,fCol2+65,fY);
   doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(30,30,30);
-  doc.text("FIRMA DEL PACIENTE / TUTOR LEGAL",fCol1,fY+4);
-  doc.text("FIRMA DEL MÉDICO / PROFESIONAL DE SALUD",fCol2,fY+4);
+  doc.text("NOMBRE Y FIRMA DEL PACIENTE / TUTOR O REPRESENTANTE LEGAL",fCol1,fY+4);
+  doc.text("NOMBRE Y FIRMA DEL MÉDICO QUE INFORMA Y RECABA",fCol2,fY+4);
   doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(90,90,90);
   doc.text(nomPac,fCol1,fY+8);
   doc.text(medNom,fCol2,fY+8);
@@ -3193,12 +3199,20 @@ window.generarConsentimientoPDF=async function(clave){
       doc.addImage(b64,med.firma_digital.toLowerCase().includes("png")?"PNG":"JPEG",fCol2,fY-h-2,w,h);
     }catch(e){}
   }
+  // ── TESTIGOS (NOM-004-SSA3-2012 num. 10.1.1.10) ──
+  const fY2=fY+24;
+  doc.setDrawColor(60,60,60);doc.setLineWidth(0.4);
+  doc.line(fCol1,fY2,fCol1+65,fY2);
+  doc.line(fCol2,fY2,fCol2+65,fY2);
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(30,30,30);
+  doc.text("NOMBRE Y FIRMA DEL TESTIGO 1",fCol1,fY2+4);
+  doc.text("NOMBRE Y FIRMA DEL TESTIGO 2",fCol2,fY2+4);
 
   // ── FOOTER ──
   const fy=274;
   doc.setDrawColor(0,58,93);doc.setLineWidth(0.4);doc.line(M,fy,W-M,fy);
   doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(70,70,70);
-  doc.text("QP Clinic, S.C. · RFC QCL230518J66 · Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX · Tel. 5644237028 · www.qpclinic.org",W/2,fy+4,{align:"center"});
+  doc.text(_pie,W/2,fy+4,{align:"center"});
   doc.text(`Documento generado el ${hoy} mediante ECE QP Clinic — NOM-004-SSA3-2012`,W/2,fy+8,{align:"center"});
 
   const fname=`CI_${clave}_${nomPac.replace(/\s+/g,"_")}_${hoy.replace(/\//g,"-")}.pdf`;
@@ -3284,6 +3298,7 @@ async function pgBuscar(){
   await cargarPacientes();
 }
 async function cargarPacientes(q=""){
+  if(!q||!q.trim()){const t0=document.getElementById("tbl");if(t0)t0.innerHTML=`<div style="background:#fff;border-radius:10px;padding:34px;text-align:center;color:${MU}"><i class="ti ti-search" style="font-size:26px;display:block;margin-bottom:8px;color:${BR}"></i>Escriba un nombre, apellido, CURP o número de expediente para buscar un paciente.</div>`;return;}
   const COLS="id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico";
   const base=()=>SB.from("pacientes").select(COLS).eq("activo",true).order("apellido_paterno");
 
@@ -7479,11 +7494,32 @@ const OMS_ITEMS={
   ]
 };
 
+// ── PANTALLA DE ENTRADA: elección de unidad (QP Clinic / QP Surgery) ──
+function pgSelSede(){
+  const card=(s)=>`<button onclick="entrarSede('${s}')" style="flex:1;min-width:240px;max-width:340px;background:#fff;border:2px solid ${BR};border-radius:16px;padding:34px 24px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:18px;transition:border-color .15s,box-shadow .15s;box-shadow:0 2px 8px #00000010" onmouseover="this.style.borderColor='${BRANDING[s].acento}';this.style.boxShadow='0 8px 24px #00000022'" onmouseout="this.style.borderColor='${BR}';this.style.boxShadow='0 2px 8px #00000010'">
+    <img src="${BRANDING[s].logo}" alt="${BRANDING[s].nombre}" style="max-width:220px;max-height:110px;object-fit:contain">
+    <span style="font-size:16px;font-weight:700;color:${BRANDING[s].acento}">Entrar a ${BRANDING[s].nombre}</span>
+  </button>`;
+  RR().innerHTML=`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:${PL}">
+    <h1 style="font-size:22px;font-weight:800;color:${TX};margin-bottom:6px">Seleccione la unidad</h1>
+    <p style="font-size:14px;color:${MU};margin-bottom:28px">Elija a qué clínica desea ingresar</p>
+    <div style="display:flex;gap:22px;flex-wrap:wrap;justify-content:center;width:100%;max-width:760px">
+      ${card("clinic")}${card("surgery")}
+    </div>
+  </div>`;
+}
+window.entrarSede=function(s){
+  STATE.sedeActiva=s;STATE.sedePicker=false;
+  try{localStorage.setItem("qp_sede_activa",s);}catch(e){}
+  try{sessionStorage.setItem("qp_sede_confirmada","1");}catch(e){}
+  go("agenda");
+}
+
 async function pgQuirofano(){
   if(STATE.qxView==="checklist"&&STATE._qxEp){return renderChecklistOMS();}
   if(STATE.qxView==="anestesia"&&STATE._qxEp){return renderAnestesia();}
   loading(true,"Cargando quirófano...");
-  const {data:eps}=await SB.from("episodios_quirurgicos").select("*").order("created_at",{ascending:false});
+  const {data:eps}=await SB.from("episodios_quirurgicos").select("*").order("fecha_programada",{ascending:true,nullsFirst:false}).order("hora_inicio",{ascending:true});
   const episodios=eps||[];
   const {data:salasD}=await SB.from("salas").select("*").eq("activa",true).order("orden");
   const salas=salasD||[];
@@ -7504,12 +7540,28 @@ async function pgQuirofano(){
   STATE._qxEpMap={};episodios.forEach(e=>STATE._qxEpMap[e.id]=e);
   loading(false);
   const puede=QX_EDIT();
+  const fEstado=STATE.qxFiltroEstado||"activos";
+  const fSala=STATE.qxFiltroSala||"";
+  const fFecha=STATE.qxFiltroFecha||"";
+  const activosSet=["lista_espera","programado","en_curso","recuperacion"];
+  const filtrados=episodios.filter(e=>{
+    if(fEstado==="activos"){if(!activosSet.includes(e.estado))return false;}
+    else if(fEstado!=="todos"){if(e.estado!==fEstado)return false;}
+    if(fSala&&e.sala_id!==fSala)return false;
+    if(fFecha&&e.fecha_programada!==fFecha)return false;
+    return true;
+  });
+  const estOpts=[["activos","Activos"],["todos","Todos"],["lista_espera","Lista de espera"],["programado","Programado"],["en_curso","En curso"],["recuperacion","Recuperación"],["finalizado","Finalizado"],["cancelado","Cancelado"]];
+  const estCambio=[["lista_espera","Lista de espera"],["programado","Programado"],["en_curso","En curso"],["recuperacion","Recuperación"],["finalizado","Finalizado"],["cancelado","Cancelado"]];
+  const PRI_COLOR={urgente:"#C62828",alta:"#E65100",normal:"#546E7A",electiva:"#00796B"};
+  const PRI_LABEL={urgente:"Urgente",alta:"Alta",normal:"Normal",electiva:"Electiva"};
+  const selStyle=`padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;width:100%`;
   RR().innerHTML=nav()+`
-  <div style="max-width:1100px;margin:0 auto;padding:20px" class="fade">
+  <div style="max-width:1260px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div>
-        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-heartbeat"></i> Quirófano — QP Surgery Clinic</h2>
-        <p style="font-size:13px;color:${MU}">Episodios quirúrgicos, agenda de salas y checklist de cirugía segura</p>
+        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-heartbeat"></i> Quirófano — programación y flujo</h2>
+        <p style="font-size:13px;color:${MU}">Administración de episodios quirúrgicos, salas y checklist de cirugía segura</p>
       </div>
       ${puede?btn('<i class="ti ti-plus"></i> Nuevo episodio',"toggleFormEpisodio()","p",1):""}
     </div>
@@ -7547,32 +7599,59 @@ async function pgQuirofano(){
         ${btn('<i class="ti ti-device-floppy"></i> Guardar episodio',"guardarEpisodioQx()","ok",1)}
       </div>
     </div>
-    ${episodios.length===0?`<div style="background:#fff;border-radius:10px;padding:34px;text-align:center;color:${MU}">Sin episodios quirúrgicos registrados.</div>`:
-    `<div style="display:flex;flex-direction:column;gap:10px">${episodios.map(e=>{
-      const p=pacMap[e.paciente_id];
-      const pacNom=p?`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim():"Paciente no encontrado";
-      const sala=salaMap[e.sala_id];
-      const c=chkMap[e.id]||{};
-      const done=["entrada","pausa","salida"].filter(m=>c[m+"_at"]).length;
-      const estCol=QX_EST_COLOR[e.estado]||MU;
-      return `<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div style="min-width:220px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-size:15px;font-weight:700;color:${TX}">${pacNom}</span>
-            ${p?.numero_expediente?`<span style="font-size:12px;color:${AC};font-weight:700">Exp. ${p.numero_expediente}</span>`:""}
-          </div>
-          <div style="font-size:13px;color:${MU}">${e.procedimiento||"Procedimiento no especificado"}${e.tipo==="endoscopia"?" · Endoscopia":""}</div>
-          <div style="font-size:12px;color:${MU};margin-top:3px">${sala?sala.nombre:"Sin sala"}${e.fecha_programada?" · "+e.fecha_programada.split("-").reverse().join("/"):""}${e.hora_inicio?" "+e.hora_inicio.substring(0,5):""}${e.cirujano_nombre?" · Cir. "+e.cirujano_nombre:""}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="background:${estCol}15;color:${estCol};border:1px solid ${estCol}40;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">${QX_EST_LABEL[e.estado]||e.estado}</span>
-          <span title="Momentos del checklist completados" style="font-size:12px;color:${done===3?SU:MU};display:flex;align-items:center;gap:4px"><i class="ti ti-checklist"></i> ${done}/3</span>
-          ${btn('<i class="ti ti-clipboard-check"></i> Checklist OMS',"abrirChecklistOMS('"+e.id+"')","p",1)}${btn('<i class="ti ti-activity"></i> Registro anestésico',"abrirAnestesia('"+e.id+"')","s",1)}
-        </div>
-      </div>`;
-    }).join("")}</div>`}
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:12px 14px;margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div style="min-width:170px">${fld("Estado",`<select onchange="setQxFiltro('estado',this.value)" style="${selStyle}">${estOpts.map(([v,l])=>`<option value="${v}" ${fEstado===v?"selected":""}>${l}</option>`).join("")}</select>`)}</div>
+      <div style="min-width:160px">${fld("Sala",`<select onchange="setQxFiltro('sala',this.value)" style="${selStyle}"><option value="">Todas</option>${salas.map(s=>`<option value="${s.id}" ${fSala===s.id?"selected":""}>${s.nombre}</option>`).join("")}</select>`)}</div>
+      <div style="min-width:160px">${fld("Fecha",`<input type="date" value="${fFecha}" onchange="setQxFiltro('fecha',this.value)" style="${selStyle}">`)}</div>
+      ${(fEstado!=="activos"||fSala||fFecha)?btn('<i class="ti ti-filter-off"></i> Limpiar',"limpiarFiltrosQx()","s",1):""}
+      <div style="margin-left:auto;font-size:13px;color:${MU};align-self:center">${filtrados.length} episodio(s)</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:1040px">
+        <thead><tr style="background:${PL}">${["Fecha / hora","Sala","Paciente","Procedimiento","Cirujano","Anestesiólogo","Prioridad","Estado","Checklist","Acciones"].map(h=>`<th style="padding:9px 10px;text-align:left;font-size:11px;font-weight:700;color:${TX};text-transform:uppercase;white-space:nowrap">${h}</th>`).join("")}</tr></thead>
+        <tbody>${filtrados.length===0?`<tr><td colspan="10" style="padding:26px;text-align:center;color:${MU}">Sin episodios con estos filtros.</td></tr>`:filtrados.map((e,i)=>{
+          const p=pacMap[e.paciente_id];
+          const pacNom=p?`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim():"Paciente no encontrado";
+          const sala=salaMap[e.sala_id];
+          const c=chkMap[e.id]||{};
+          const done=["entrada","pausa","salida"].filter(m=>c[m+"_at"]).length;
+          const pcol=PRI_COLOR[e.prioridad]||MU;
+          return `<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+            <td style="padding:8px 10px;font-size:13px;color:${TX};white-space:nowrap">${e.fecha_programada?e.fecha_programada.split("-").reverse().join("/"):"<span style='color:"+MU+"'>Sin fecha</span>"}${e.hora_inicio?"<br><span style='font-size:12px;color:"+MU+"'>"+e.hora_inicio.substring(0,5)+"</span>":""}</td>
+            <td style="padding:8px 10px;font-size:13px;color:${TX};white-space:nowrap">${sala?sala.nombre:"—"}${e.tipo==="endoscopia"?"<br><span style='font-size:11px;color:"+MU+"'>Endoscopia</span>":""}</td>
+            <td style="padding:8px 10px;font-size:13px"><span style="font-weight:700;color:${TX}">${pacNom}</span>${p?.numero_expediente?`<br><span style="font-size:11px;color:${AC};font-weight:700">Exp. ${p.numero_expediente}</span>`:""}</td>
+            <td style="padding:8px 10px;font-size:13px;color:${TX};max-width:220px">${e.procedimiento||"—"}</td>
+            <td style="padding:8px 10px;font-size:13px;color:${TX}">${e.cirujano_nombre||"—"}</td>
+            <td style="padding:8px 10px;font-size:13px;color:${TX}">${e.anestesiologo_nombre||"—"}</td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:${pcol}15;color:${pcol};border:1px solid ${pcol}40;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">${PRI_LABEL[e.prioridad]||e.prioridad||"—"}</span></td>
+            <td style="padding:8px 10px">${puede?`<select onchange="cambiarEstadoEpisodio('${e.id}',this.value)" style="padding:5px 8px;border:1.5px solid ${BR};border-radius:6px;font-size:12px;background:#fff;cursor:pointer;outline:none">${estCambio.map(([v,l])=>`<option value="${v}" ${e.estado===v?"selected":""}>${l}</option>`).join("")}</select>`:`<span style="font-size:12px;color:${TX}">${(QX_EST_LABEL[e.estado]||e.estado)}</span>`}</td>
+            <td style="padding:8px 10px;font-size:12px;color:${done===3?SU:MU};white-space:nowrap"><i class="ti ti-checklist"></i> ${done}/3</td>
+            <td style="padding:8px 10px;white-space:nowrap">
+              <button onclick="abrirChecklistOMS('${e.id}')" title="Checklist de cirugía segura" style="background:${P};color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px"><i class="ti ti-clipboard-check"></i></button>
+              <button onclick="abrirAnestesia('${e.id}')" title="Registro anestésico" style="background:#fff;color:${P};border:1.5px solid ${BR};border-radius:6px;padding:5px 8px;cursor:pointer"><i class="ti ti-activity"></i></button>
+            </td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table>
+    </div>
   </div>`;
 }
+window.cambiarEstadoEpisodio=async function(id,estado){
+  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
+  loading(true,"Actualizando estado...");
+  const {error}=await SB.from("episodios_quirurgicos").update({estado}).eq("id",id);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("Estado actualizado");
+  pgQuirofano();
+}
+window.setQxFiltro=function(campo,valor){
+  if(campo==="estado")STATE.qxFiltroEstado=valor;
+  if(campo==="sala")STATE.qxFiltroSala=valor;
+  if(campo==="fecha")STATE.qxFiltroFecha=valor;
+  pgQuirofano();
+}
+window.limpiarFiltrosQx=function(){STATE.qxFiltroEstado="activos";STATE.qxFiltroSala="";STATE.qxFiltroFecha="";pgQuirofano();}
 
 window.toggleFormEpisodio=function(){const f=document.getElementById("form-episodio");if(f)f.style.display=f.style.display==="none"?"block":"none";}
 
@@ -15864,7 +15943,8 @@ window.asignarObjetivoCalorico=async function(kcal,tipo){
       const {data:prof}=await SB.from("usuarios").select("*").eq("id",session.user.id).single();
       STATE.userProfile=prof;STATE.medProfile=prof;
       iniciarTimerInactividad();
-      go("agenda");
+      {let _sc=null;try{_sc=sessionStorage.getItem("qp_sede_confirmada");}catch(e){}
+      go(_sc?"agenda":"selsede");}
     } else {
       go("login");
     }
