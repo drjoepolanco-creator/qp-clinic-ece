@@ -531,6 +531,19 @@ function sedeActiva(){
 }
 function brand(){return BRANDING[sedeActiva()]||BRANDING.clinic;}
 window.setSedeActiva=function(s){STATE.sedeActiva=s;try{localStorage.setItem("qp_sede_activa",s);}catch(e){}draw();}
+function puedeCambiarSede(){return !!STATE.userProfile&&(sedeUsuario()==="ambas"||rolActual()==="admin");}
+window.elegirSede=function(s){STATE.sedeActiva=s;STATE.sedePicker=false;try{localStorage.setItem("qp_sede_activa",s);}catch(e){}draw();}
+window.togglePickerSede=function(){STATE.sedePicker=!STATE.sedePicker;draw();}
+function logoSwitcherHTML(){
+  const puede=puedeCambiarSede();
+  if(!STATE.userProfile) return '<img src="'+BRANDING.clinic.logo+'" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">';
+  let chosen=STATE.sedeActiva;try{chosen=chosen||localStorage.getItem("qp_sede_activa");}catch(e){}
+  if(puede&&(STATE.sedePicker||!chosen)){
+    const one=(s)=>'<img src="'+BRANDING[s].logo+'" alt="'+BRANDING[s].nombre+'" title="Usar '+BRANDING[s].nombre+'" onclick="elegirSede(\''+s+'\')" style="height:32px;border-radius:4px;background:#fff;padding:2px;cursor:pointer;'+(sedeActiva()===s?"outline:2px solid "+BRANDING[s].acento+";outline-offset:1px":"opacity:.5;filter:grayscale(.5)")+'">';
+    return '<div style="display:flex;align-items:center;gap:8px">'+one("clinic")+one("surgery")+'</div>';
+  }
+  return '<img src="'+brand().logo+'" alt="'+brand().nombre+'" title="'+(puede?"Cambiar de unidad":brand().nombre)+'" '+(puede?'onclick="togglePickerSede()" ':'')+'style="height:32px;border-radius:4px;background:#fff;padding:2px;'+(puede?"cursor:pointer":"")+'">';
+}
 
 function nav(){
   // Título dinámico del tab
@@ -540,11 +553,8 @@ function nav(){
   const u=STATE.userProfile;const p=STATE.pat;
   const online=navigator.onLine;
   return`<div id="topnav" style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
-    <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
-      <img src="${brand().logo}" alt="${brand().nombre}" style="height:32px;border-radius:4px;background:#fff;padding:2px">
-    </div>
-    ${STATE.userProfile?`<div style="display:flex;align-items:center;margin-right:14px">${sedeUsuario()==="ambas"?`<select onchange="setSedeActiva(this.value)" title="Cambiar sede activa" style="background:${brand().acento};color:#fff;border:none;border-radius:20px;padding:4px 11px;font-size:12px;font-weight:700;cursor:pointer;outline:none"><option value="clinic" ${sedeActiva()==="clinic"?"selected":""} style="color:#000;background:#fff">QP Clinic</option><option value="surgery" ${sedeActiva()==="surgery"?"selected":""} style="color:#000;background:#fff">QP Surgery Clinic</option></select>`:`<span style="background:${brand().acento};color:#fff;font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px">${brand().nombre}</span>`}</div>`:""}
-    ${[["agenda","Agenda"],["buscar","Pacientes"],["quirofano","Quirófano"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    <div style="display:flex;align-items:center;gap:8px;margin-right:16px">${logoSwitcherHTML()}</div>
+    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     <div style="position:relative" id="nutri-menu-wrap">
       <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
       <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
@@ -7471,6 +7481,7 @@ const OMS_ITEMS={
 
 async function pgQuirofano(){
   if(STATE.qxView==="checklist"&&STATE._qxEp){return renderChecklistOMS();}
+  if(STATE.qxView==="anestesia"&&STATE._qxEp){return renderAnestesia();}
   loading(true,"Cargando quirófano...");
   const {data:eps}=await SB.from("episodios_quirurgicos").select("*").order("created_at",{ascending:false});
   const episodios=eps||[];
@@ -7556,7 +7567,7 @@ async function pgQuirofano(){
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="background:${estCol}15;color:${estCol};border:1px solid ${estCol}40;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">${QX_EST_LABEL[e.estado]||e.estado}</span>
           <span title="Momentos del checklist completados" style="font-size:12px;color:${done===3?SU:MU};display:flex;align-items:center;gap:4px"><i class="ti ti-checklist"></i> ${done}/3</span>
-          ${btn('<i class="ti ti-clipboard-check"></i> Checklist OMS',"abrirChecklistOMS('"+e.id+"')","p",1)}
+          ${btn('<i class="ti ti-clipboard-check"></i> Checklist OMS',"abrirChecklistOMS('"+e.id+"')","p",1)}${btn('<i class="ti ti-activity"></i> Registro anestésico',"abrirAnestesia('"+e.id+"')","s",1)}
         </div>
       </div>`;
     }).join("")}</div>`}
@@ -7700,6 +7711,184 @@ window.guardarMomentoOMS=async function(momento){
   showToast("Momento guardado");
   logBitacora("CHECKLIST OMS","Momento: "+momento,ep.paciente_id);
   abrirChecklistOMS(ep.id);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  REGISTRO ANESTÉSICO — Gráfica temporal de signos vitales
+//  (NOM-006-SSA3-2011 Arts. 10 y 11). Tabla: registro_anestesico_signos.
+//  El encabezado del registro (técnica, agentes) vive en la nota
+//  de anestesia transoperatoria (consultas.datos_clinicos).
+// ══════════════════════════════════════════════════════════════════
+const ANEST_EVENTOS=[
+  ["","— Sin evento —"],
+  ["llegada","1. Llegada a quirófano"],
+  ["inicio_anestesia","2. Inicio de anestesia"],
+  ["inicio_operacion","3. Inicio de operación"],
+  ["fin_operacion","4. Fin de operación"],
+  ["fin_anestesia","5. Fin de anestesia"],
+  ["pase_recuperacion","6. Pase a recuperación"]
+];
+const ANEST_EV_LABEL={llegada:"Llegada",inicio_anestesia:"Inicio anest.",inicio_operacion:"Inicio oper.",fin_operacion:"Fin oper.",fin_anestesia:"Fin anest.",pase_recuperacion:"Recuperación"};
+
+window.abrirAnestesia=async function(epId){
+  loading(true,"Cargando registro anestésico...");
+  let ep=STATE._qxEpMap?.[epId];
+  if(!ep){const {data}=await SB.from("episodios_quirurgicos").select("*").eq("id",epId).single();ep=data;}
+  let pac=null;
+  if(ep?.paciente_id){const {data:pp}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("id",ep.paciente_id).single();pac=pp;}
+  const {data:sig}=await SB.from("registro_anestesico_signos").select("*").eq("episodio_id",epId).order("minuto",{ascending:true}).order("t",{ascending:true});
+  STATE._qxEp=ep;STATE._qxPacEp=pac;STATE._qxSignos=sig||[];STATE.qxView="anestesia";
+  loading(false);
+  draw();
+}
+
+function svgRegistroAnest(signos){
+  const W=860,H=390,ML=46,MR=50,MT=20,MB=54;
+  const plotW=W-ML-MR,plotH=H-MT-MB;
+  const yMin=40,yMax=240,tMin=34,tMax=42;
+  const AZ="#0B6FB3",RJ="#C62828",VD="#2E7D32",EV="#6A1B9A",GRID="#DCE6EC";
+  const yFor=v=>MT+(yMax-v)/(yMax-yMin)*plotH;
+  const tYFor=v=>MT+(tMax-v)/(tMax-tMin)*plotH;
+  const pts=(signos||[]).map((s,i)=>({...s,_m:(s.minuto!=null?s.minuto:i*15)})).sort((a,b)=>a._m-b._m);
+  const mins=pts.map(s=>s._m);
+  const xmin=mins.length?Math.min(...mins):0;
+  let xmax=mins.length?Math.max(...mins):60; if(xmax<=xmin)xmax=xmin+60;
+  const xFor=m=>ML+(m-xmin)/(xmax-xmin)*plotW;
+  const el=[];
+  el.push(`<rect x="${ML}" y="${MT}" width="${plotW}" height="${plotH}" fill="#FBFDFE" stroke="${GRID}"/>`);
+  // Rejilla horizontal + escala izquierda (TA/pulso) y derecha (temperatura)
+  for(let v=yMin;v<=yMax;v+=20){
+    const y=yFor(v);
+    el.push(`<line x1="${ML}" y1="${y}" x2="${ML+plotW}" y2="${y}" stroke="${GRID}"/>`);
+    el.push(`<text x="${ML-6}" y="${y+3}" text-anchor="end" font-size="9" fill="#78909C">${v}</text>`);
+  }
+  for(let t=tMin+1;t<tMax;t++){
+    const y=tYFor(t);
+    el.push(`<text x="${ML+plotW+6}" y="${y+3}" text-anchor="start" font-size="9" fill="${VD}">${t}°</text>`);
+  }
+  // Rejilla vertical + etiquetas de minutos + eventos
+  pts.forEach(s=>{
+    const x=xFor(s._m);
+    el.push(`<line x1="${x}" y1="${MT}" x2="${x}" y2="${MT+plotH}" stroke="${GRID}" stroke-dasharray="2,3"/>`);
+    el.push(`<text x="${x}" y="${MT+plotH+13}" text-anchor="middle" font-size="9" fill="#78909C">${s._m}'</text>`);
+    if(s.evento&&ANEST_EV_LABEL[s.evento]){
+      el.push(`<line x1="${x}" y1="${MT}" x2="${x}" y2="${MT+plotH}" stroke="${EV}" stroke-width="1.2" stroke-dasharray="4,3"/>`);
+      el.push(`<text x="${x}" y="${MT+plotH+26}" text-anchor="middle" font-size="8.5" fill="${EV}" font-weight="700">${ANEST_EV_LABEL[s.evento]}</text>`);
+    }
+  });
+  const poly=(arr,color,dash)=>{ if(arr.length<2)return""; return `<polyline points="${arr.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")}" fill="none" stroke="${color}" stroke-width="1.6" ${dash?`stroke-dasharray="${dash}"`:""}/>`;};
+  const sist=[],diast=[],pulso=[],temp=[];
+  pts.forEach(s=>{
+    const x=xFor(s._m);
+    if(s.ta_sistolica!=null&&s.ta_diastolica!=null){
+      const ys=yFor(s.ta_sistolica),yd=yFor(s.ta_diastolica);
+      el.push(`<line x1="${x}" y1="${ys}" x2="${x}" y2="${yd}" stroke="${AZ}" stroke-width="1.2"/>`);
+      el.push(`<path d="M${x-4},${ys+5} L${x},${ys} L${x+4},${ys+5}" fill="none" stroke="${AZ}" stroke-width="1.4"/>`);
+      el.push(`<path d="M${x-4},${yd-5} L${x},${yd} L${x+4},${yd-5}" fill="none" stroke="${AZ}" stroke-width="1.4"/>`);
+      sist.push([x,ys]);diast.push([x,yd]);
+    }
+    if(s.pulso!=null){const y=yFor(s.pulso);pulso.push([x,y]);el.push(`<circle cx="${x}" cy="${y}" r="2.6" fill="${RJ}"/>`);}
+    if(s.temp!=null){const y=tYFor(s.temp);temp.push([x,y]);el.push(`<rect x="${x-2.4}" y="${y-2.4}" width="4.8" height="4.8" fill="${VD}"/>`);}
+  });
+  el.push(poly(sist,AZ));el.push(poly(diast,AZ,"1,0"));el.push(poly(pulso,RJ));el.push(poly(temp,VD));
+  // Leyenda
+  const lg=[["Tensión arterial",AZ],["Pulso",RJ],["Temperatura",VD],["Tiempos",EV]];
+  let lx=ML;
+  const leg=lg.map(([t,c])=>{const seg=`<g><rect x="${lx}" y="4" width="11" height="9" fill="${c}" rx="2"/><text x="${lx+15}" y="12" font-size="9.5" fill="#37474F">${t}</text></g>`;lx+=t.length*6.2+34;return seg;}).join("");
+  return `<svg viewBox="0 0 ${W} ${H+16}" width="100%" style="max-width:${W}px;background:#fff;border:1px solid ${GRID};border-radius:8px" xmlns="http://www.w3.org/2000/svg"><g transform="translate(0,14)">${leg}</g><g transform="translate(0,16)">${el.join("")}</g></svg>`;
+}
+
+function renderAnestesia(){
+  const ep=STATE._qxEp||{},pac=STATE._qxPacEp||{},signos=STATE._qxSignos||[];
+  const editable=QX_EDIT();
+  const pacNom=`${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}`.trim()||"—";
+  const sortSig=[...signos].map((s,i)=>({...s,_m:(s.minuto!=null?s.minuto:i*15)})).sort((a,b)=>a._m-b._m);
+  RR().innerHTML=nav()+`
+  <div style="max-width:920px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-activity"></i> Registro anestésico transoperatorio</h2>
+        <p style="font-size:13px;color:${MU}">${pacNom}${pac.numero_expediente?" · Exp. "+pac.numero_expediente:""} · ${ep.procedimiento||"Procedimiento no especificado"}</p>
+      </div>
+      ${btn('<i class="ti ti-arrow-left"></i> Volver',"volverQuirofano()","s",1)}
+    </div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
+      ${signos.length===0?`<div style="text-align:center;padding:24px;color:${MU}">Sin registros de signos vitales. Agregue el primero para trazar la gráfica.</div>`:svgRegistroAnest(signos)}
+    </div>
+    ${editable?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
+      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Agregar registro</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+        ${fld("Minuto",`<input id="an-min" type="number" placeholder="0, 15, 30..." style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("TA sistólica",`<input id="an-tas" type="number" placeholder="120" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("TA diastólica",`<input id="an-tad" type="number" placeholder="80" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Pulso",`<input id="an-pulso" type="number" placeholder="72" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+        ${fld("Temperatura °C",`<input id="an-temp" type="number" step="0.1" placeholder="36.5" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("SpO2 %",`<input id="an-spo2" type="number" placeholder="98" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("FR rpm",`<input id="an-fr" type="number" placeholder="14" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("EtCO2",`<input id="an-etco2" type="number" placeholder="35" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">${fld("Marcador de tiempo (opcional)",`<select id="an-evento" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${ANEST_EVENTOS.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select>`)}</div>
+        ${btn('<i class="ti ti-plus"></i> Agregar registro',"guardarSignoAnest()","ok",1)}
+      </div>
+    </div>`:""}
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:${PL}">${["Min","TA","Pulso","Temp","SpO2","FR","EtCO2","Tiempo",""].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
+        <tbody>${sortSig.length===0?`<tr><td colspan="9" style="padding:16px;text-align:center;color:${MU};font-size:13px">Sin registros.</td></tr>`:sortSig.map((s,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+          <td style="padding:7px 10px;font-size:13px;font-weight:700;color:${TX}">${s._m}'</td>
+          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.ta_sistolica!=null&&s.ta_diastolica!=null?s.ta_sistolica+"/"+s.ta_diastolica:"—"}</td>
+          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.pulso??"—"}</td>
+          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.temp!=null?s.temp+"°":"—"}</td>
+          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.spo2!=null?s.spo2+"%":"—"}</td>
+          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.fr??"—"}</td>
+          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.etco2??"—"}</td>
+          <td style="padding:7px 10px;font-size:12px;color:${MU}">${s.evento&&ANEST_EV_LABEL[s.evento]?ANEST_EV_LABEL[s.evento]:"—"}</td>
+          <td style="padding:7px 10px">${editable?`<button onclick="borrarSignoAnest('${s.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;color:${DA};font-size:15px"><i class="ti ti-trash"></i></button>`:""}</td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+window.guardarSignoAnest=async function(){
+  const ep=STATE._qxEp;if(!ep){showToast("Episodio no cargado",false);return;}
+  if(!QX_EDIT()){showToast("No tiene permiso para registrar signos",false);return;}
+  const num=v=>{const n=parseFloat(gv(v));return isNaN(n)?null:n;};
+  const min=num("an-min"),tas=num("an-tas"),tad=num("an-tad"),pulso=num("an-pulso"),temp=num("an-temp");
+  if(min===null){showToast("Indique el minuto del registro",false);return;}
+  if(tas===null&&tad===null&&pulso===null&&temp===null){showToast("Capture al menos un signo vital",false);return;}
+  const payload={
+    episodio_id:ep.id,minuto:Math.round(min),
+    ta_sistolica:tas!==null?Math.round(tas):null,
+    ta_diastolica:tad!==null?Math.round(tad):null,
+    pulso:pulso!==null?Math.round(pulso):null,
+    temp:temp,
+    spo2:num("an-spo2")!==null?Math.round(num("an-spo2")):null,
+    fr:num("an-fr")!==null?Math.round(num("an-fr")):null,
+    etco2:num("an-etco2")!==null?Math.round(num("an-etco2")):null,
+    evento:gv("an-evento")||null
+  };
+  loading(true,"Guardando registro...");
+  const {error}=await SB.from("registro_anestesico_signos").insert(payload);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("Registro agregado");
+  logBitacora("REGISTRO ANESTÉSICO","Minuto: "+Math.round(min),ep.paciente_id);
+  abrirAnestesia(ep.id);
+}
+
+window.borrarSignoAnest=async function(id){
+  const ep=STATE._qxEp;if(!ep)return;
+  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
+  loading(true,"Eliminando...");
+  const {error}=await SB.from("registro_anestesico_signos").delete().eq("id",id);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("Registro eliminado");
+  abrirAnestesia(ep.id);
 }
 
 async function renderInBody(b){
