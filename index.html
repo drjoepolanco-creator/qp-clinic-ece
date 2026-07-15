@@ -316,7 +316,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -518,18 +518,33 @@ async function guardarConsultaSilencioso(){
     }
   }catch(e){/* silencioso — el respaldo local queda como red de seguridad */}
 }
+// ── BRANDING DINÁMICO POR SEDE (QP Clinic / QP Surgery Clinic) ──
+const BRANDING={
+  clinic:{nombre:"QP Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",acento:"#006BB6",razon:"QP Clinic — Especialistas en Salud Integral"},
+  surgery:{nombre:"QP Surgery Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",acento:"#1F8FE8",razon:"QP Surgery Clinic"}
+};
+function sedeUsuario(){return STATE.userProfile?.sede||"clinic";}
+function sedeActiva(){
+  const su=sedeUsuario();
+  if(su==="ambas"){return STATE.sedeActiva||(function(){try{return localStorage.getItem("qp_sede_activa");}catch(e){return null;}})()||"clinic";}
+  return su==="surgery"?"surgery":"clinic";
+}
+function brand(){return BRANDING[sedeActiva()]||BRANDING.clinic;}
+window.setSedeActiva=function(s){STATE.sedeActiva=s;try{localStorage.setItem("qp_sede_activa",s);}catch(e){}draw();}
+
 function nav(){
   // Título dinámico del tab
   const patNombre=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""} — `:"";
-  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",seguros:"Seguros — ",ejercicio:"Prescripción de ejercicio — ",perfil:"Mi perfil — "};
+  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",seguros:"Seguros — ",ejercicio:"Prescripción de ejercicio — ",quirofano:"Quirófano — ",perfil:"Mi perfil — "};
   document.title=`${pageTitles[STATE.page]||""}${patNombre}QP Clinic`;
   const u=STATE.userProfile;const p=STATE.pat;
   const online=navigator.onLine;
   return`<div id="topnav" style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
     <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
-      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
+      <img src="${brand().logo}" alt="${brand().nombre}" style="height:32px;border-radius:4px;background:#fff;padding:2px">
     </div>
-    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${STATE.userProfile?`<div style="display:flex;align-items:center;margin-right:14px">${sedeUsuario()==="ambas"?`<select onchange="setSedeActiva(this.value)" title="Cambiar sede activa" style="background:${brand().acento};color:#fff;border:none;border-radius:20px;padding:4px 11px;font-size:12px;font-weight:700;cursor:pointer;outline:none"><option value="clinic" ${sedeActiva()==="clinic"?"selected":""} style="color:#000;background:#fff">QP Clinic</option><option value="surgery" ${sedeActiva()==="surgery"?"selected":""} style="color:#000;background:#fff">QP Surgery Clinic</option></select>`:`<span style="background:${brand().acento};color:#fff;font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px">${brand().nombre}</span>`}</div>`:""}
+    ${[["agenda","Agenda"],["buscar","Pacientes"],["quirofano","Quirófano"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     <div style="position:relative" id="nutri-menu-wrap">
       <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
       <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
@@ -7413,6 +7428,279 @@ window.guardarNotaEnfermeria=async function(){
 // ── INBODY / COMPOSICIÓN CORPORAL ────────────────────────────
 
 
+
+// ══════════════════════════════════════════════════════════════════
+//  MÓDULO QUIRÓFANO — Episodios quirúrgicos + Checklist de cirugía
+//  segura de la OMS (tres momentos). Tablas: episodios_quirurgicos,
+//  salas, checklist_oms. (QP Surgery Clinic)
+// ══════════════════════════════════════════════════════════════════
+const QX_EDIT=()=>["medico","admin","enfermeria"].includes(rolActual());
+const QX_EST_LABEL={lista_espera:"Lista de espera",programado:"Programado",en_curso:"En curso",recuperacion:"Recuperación",finalizado:"Finalizado",cancelado:"Cancelado"};
+const QX_EST_COLOR={lista_espera:"#546E7A",programado:"#006BB6",en_curso:"#E65100",recuperacion:"#6A1B9A",finalizado:"#2E7D32",cancelado:"#C62828"};
+const OMS_MOMENTOS=[
+  ["entrada","Entrada","Antes de la inducción anestésica","#006BB6"],
+  ["pausa","Pausa quirúrgica","Antes de la incisión cutánea","#E65100"],
+  ["salida","Salida","Antes de que el paciente salga del quirófano","#2E7D32"]
+];
+const OMS_ITEMS={
+  entrada:[
+    ["identidad","El paciente confirmó identidad, sitio quirúrgico, procedimiento y consentimiento"],
+    ["sitio_marcado","El sitio quirúrgico está marcado, o no procede"],
+    ["anestesia_verif","Se completó la verificación del equipo y la medicación de anestesia"],
+    ["pulsioximetro","El pulsioxímetro está colocado y funciona"],
+    ["alergias","Se revisaron las alergias conocidas del paciente"],
+    ["via_aerea","Se evaluó vía aérea difícil o riesgo de aspiración; hay equipo y ayuda disponibles"],
+    ["sangrado","Se evaluó riesgo de pérdida de sangre mayor a 500 mililitros; hay accesos y líquidos previstos"]
+  ],
+  pausa:[
+    ["presentacion","Todos los miembros del equipo se presentaron por nombre y función"],
+    ["confirma_paciente","Cirujano, anestesiólogo y enfermería confirman paciente, sitio y procedimiento"],
+    ["eventos_cirujano","El cirujano previó pasos críticos, duración y pérdida de sangre estimada"],
+    ["eventos_anestesia","El anestesiólogo revisó las particularidades del paciente"],
+    ["eventos_enfermeria","Enfermería confirmó esterilidad, instrumental y dudas"],
+    ["antibiotico","Se administró profilaxis antibiótica en los últimos 60 minutos, o no procede"],
+    ["imagenes","Las imágenes diagnósticas esenciales están visibles, o no procede"]
+  ],
+  salida:[
+    ["procedimiento_registrado","Enfermería confirmó verbalmente el nombre del procedimiento registrado"],
+    ["muestras","Las muestras están etiquetadas y leídas en voz alta, incluido el nombre del paciente"],
+    ["problemas_equipo","Se identificaron problemas de instrumental o equipo por resolver"],
+    ["recuperacion","El equipo revisó los aspectos clave de la recuperación del paciente"]
+  ]
+};
+
+async function pgQuirofano(){
+  if(STATE.qxView==="checklist"&&STATE._qxEp){return renderChecklistOMS();}
+  loading(true,"Cargando quirófano...");
+  const {data:eps}=await SB.from("episodios_quirurgicos").select("*").order("created_at",{ascending:false});
+  const episodios=eps||[];
+  const {data:salasD}=await SB.from("salas").select("*").eq("activa",true).order("orden");
+  const salas=salasD||[];
+  STATE._qxSalas=salas;
+  const salaMap={};salas.forEach(s=>salaMap[s.id]=s);
+  const pacIds=[...new Set(episodios.map(e=>e.paciente_id).filter(Boolean))];
+  const pacMap={};
+  if(pacIds.length){
+    const {data:pacs}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").in("id",pacIds);
+    (pacs||[]).forEach(p=>pacMap[p.id]=p);
+  }
+  const epIds=episodios.map(e=>e.id);
+  const chkMap={};
+  if(epIds.length){
+    const {data:chks}=await SB.from("checklist_oms").select("episodio_id,entrada_at,pausa_at,salida_at").in("episodio_id",epIds);
+    (chks||[]).forEach(c=>chkMap[c.episodio_id]=c);
+  }
+  STATE._qxEpMap={};episodios.forEach(e=>STATE._qxEpMap[e.id]=e);
+  loading(false);
+  const puede=QX_EDIT();
+  RR().innerHTML=nav()+`
+  <div style="max-width:1100px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-heartbeat"></i> Quirófano — QP Surgery Clinic</h2>
+        <p style="font-size:13px;color:${MU}">Episodios quirúrgicos, agenda de salas y checklist de cirugía segura</p>
+      </div>
+      ${puede?btn('<i class="ti ti-plus"></i> Nuevo episodio',"toggleFormEpisodio()","p",1):""}
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      ${salas.map(s=>`<span style="background:#fff;border:1.5px solid ${BR};border-radius:8px;padding:6px 12px;font-size:13px;color:${TX};display:flex;align-items:center;gap:6px"><i class="ti ${s.tipo==="endoscopia"?"ti-camera":"ti-scalpel"}"></i> ${s.nombre}</span>`).join("")}
+    </div>
+    <div id="form-episodio" style="display:none;background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;margin-bottom:16px">
+      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Nuevo episodio quirúrgico</p>
+      <div style="margin-bottom:12px">
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px">${fld("Buscar paciente por nombre o expediente",`<input id="qx-pac-q" onkeypress="if(event.key==='Enter'){event.preventDefault();buscarPacQx();}" placeholder="Escriba y presione Enter" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>
+          ${btn('<i class="ti ti-search"></i> Buscar',"buscarPacQx()","s",1)}
+        </div>
+        <div id="qx-pac-res" style="margin-top:8px"></div>
+        <div id="qx-pac-sel" style="margin-top:8px"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        ${fld("Procedimiento",`<input id="qx-proc" placeholder="Colecistectomía laparoscópica" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Tipo",`<select id="qx-tipo" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="cirugia">Cirugía</option><option value="endoscopia">Endoscopia</option></select>`)}
+        ${fld("Sala",`<select id="qx-sala" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="">— Sin asignar —</option>${salas.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("")}</select>`)}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        ${fld("Cirujano",`<input id="qx-cirujano" placeholder="Nombre completo" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Anestesiólogo",`<input id="qx-anest" placeholder="Nombre completo" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+      </div>
+      ${fld("Diagnóstico preoperatorio",`<input id="qx-dx" placeholder="Diagnóstico" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;margin-bottom:10px">`)}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        ${fld("Fecha programada",`<input id="qx-fecha" type="date" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Hora inicio",`<input id="qx-hora" type="time" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Prioridad",`<select id="qx-prioridad" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="urgente">Urgente</option><option value="alta">Alta</option><option value="normal" selected>Normal</option><option value="electiva">Electiva</option></select>`)}
+        ${fld("Estado",`<select id="qx-estado" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="lista_espera">Lista de espera</option><option value="programado" selected>Programado</option><option value="en_curso">En curso</option></select>`)}
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        ${btn("Cancelar","toggleFormEpisodio()","s",1)}
+        ${btn('<i class="ti ti-device-floppy"></i> Guardar episodio',"guardarEpisodioQx()","ok",1)}
+      </div>
+    </div>
+    ${episodios.length===0?`<div style="background:#fff;border-radius:10px;padding:34px;text-align:center;color:${MU}">Sin episodios quirúrgicos registrados.</div>`:
+    `<div style="display:flex;flex-direction:column;gap:10px">${episodios.map(e=>{
+      const p=pacMap[e.paciente_id];
+      const pacNom=p?`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim():"Paciente no encontrado";
+      const sala=salaMap[e.sala_id];
+      const c=chkMap[e.id]||{};
+      const done=["entrada","pausa","salida"].filter(m=>c[m+"_at"]).length;
+      const estCol=QX_EST_COLOR[e.estado]||MU;
+      return `<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="min-width:220px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:15px;font-weight:700;color:${TX}">${pacNom}</span>
+            ${p?.numero_expediente?`<span style="font-size:12px;color:${AC};font-weight:700">Exp. ${p.numero_expediente}</span>`:""}
+          </div>
+          <div style="font-size:13px;color:${MU}">${e.procedimiento||"Procedimiento no especificado"}${e.tipo==="endoscopia"?" · Endoscopia":""}</div>
+          <div style="font-size:12px;color:${MU};margin-top:3px">${sala?sala.nombre:"Sin sala"}${e.fecha_programada?" · "+e.fecha_programada.split("-").reverse().join("/"):""}${e.hora_inicio?" "+e.hora_inicio.substring(0,5):""}${e.cirujano_nombre?" · Cir. "+e.cirujano_nombre:""}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="background:${estCol}15;color:${estCol};border:1px solid ${estCol}40;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">${QX_EST_LABEL[e.estado]||e.estado}</span>
+          <span title="Momentos del checklist completados" style="font-size:12px;color:${done===3?SU:MU};display:flex;align-items:center;gap:4px"><i class="ti ti-checklist"></i> ${done}/3</span>
+          ${btn('<i class="ti ti-clipboard-check"></i> Checklist OMS',"abrirChecklistOMS('"+e.id+"')","p",1)}
+        </div>
+      </div>`;
+    }).join("")}</div>`}
+  </div>`;
+}
+
+window.toggleFormEpisodio=function(){const f=document.getElementById("form-episodio");if(f)f.style.display=f.style.display==="none"?"block":"none";}
+
+window.buscarPacQx=async function(){
+  const q=(gv("qx-pac-q")||"").trim();
+  const res=document.getElementById("qx-pac-res");if(!res)return;
+  if(q.length<2){res.innerHTML=`<span style="font-size:12px;color:${MU}">Escriba al menos 2 caracteres.</span>`;return;}
+  res.innerHTML=`<span style="font-size:12px;color:${MU}">Buscando...</span>`;
+  const sane=t=>t.replace(/[,()%]/g,"");
+  const qs=sane(q);
+  const {data}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("activo",true)
+    .or(`nombre.ilike.%${qs}%,apellido_paterno.ilike.%${qs}%,apellido_materno.ilike.%${qs}%,numero_expediente.ilike.%${qs}%`).limit(8);
+  const pacs=data||[];
+  STATE._qxPacBusq={};pacs.forEach(p=>STATE._qxPacBusq[p.id]=p);
+  if(pacs.length===0){res.innerHTML=`<span style="font-size:12px;color:${MU}">Sin coincidencias.</span>`;return;}
+  res.innerHTML=`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${pacs.map((p,i)=>`<div onclick="seleccPacQx('${p.id}')" style="padding:8px 12px;cursor:pointer;font-size:13px;color:${TX};background:${i%2?"#FAFAFA":"#fff"};display:flex;justify-content:space-between" onmouseover="this.style.background='#E3F4FB'" onmouseout="this.style.background='${i%2?"#FAFAFA":"#fff"}'"><span>${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}</span><span style="color:${AC};font-weight:700">${p.numero_expediente||""}</span></div>`).join("")}</div>`;
+}
+
+window.seleccPacQx=function(id){
+  const p=STATE._qxPacBusq?.[id];if(!p)return;
+  STATE._qxPac=p;
+  const res=document.getElementById("qx-pac-res");if(res)res.innerHTML="";
+  const sel=document.getElementById("qx-pac-sel");if(sel)sel.innerHTML=`<div style="background:#E8F5E9;border:1.5px solid #A5D6A7;border-radius:8px;padding:8px 12px;font-size:13px;color:#1B5E20;display:flex;align-items:center;gap:8px"><i class="ti ti-user-check"></i> ${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}${p.numero_expediente?" · Exp. "+p.numero_expediente:""}</div>`;
+}
+
+window.guardarEpisodioQx=async function(){
+  if(!QX_EDIT()){showToast("No tiene permiso para crear episodios",false);return;}
+  const p=STATE._qxPac;
+  if(!p){showToast("Seleccione un paciente primero",false);return;}
+  const proc=(gv("qx-proc")||"").trim();
+  if(!proc){showToast("Escriba el procedimiento",false);return;}
+  const payload={
+    paciente_id:p.id,
+    sede:"surgery",
+    tipo:gv("qx-tipo")||"cirugia",
+    procedimiento:proc,
+    diagnostico_preop:(gv("qx-dx")||"").trim()||null,
+    cirujano_nombre:(gv("qx-cirujano")||"").trim()||null,
+    anestesiologo_nombre:(gv("qx-anest")||"").trim()||null,
+    sala_id:gv("qx-sala")||null,
+    fecha_programada:gv("qx-fecha")||null,
+    hora_inicio:gv("qx-hora")||null,
+    prioridad:gv("qx-prioridad")||"normal",
+    estado:gv("qx-estado")||"programado",
+    created_by:STATE.user?.id||null
+  };
+  loading(true,"Guardando episodio...");
+  const {error}=await SB.from("episodios_quirurgicos").insert(payload);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("Episodio quirúrgico creado");
+  logBitacora("EPISODIO QUIRÚRGICO",proc,p.id);
+  STATE._qxPac=null;
+  draw();
+}
+
+window.abrirChecklistOMS=async function(epId){
+  loading(true,"Cargando checklist...");
+  let ep=STATE._qxEpMap?.[epId];
+  if(!ep){const {data}=await SB.from("episodios_quirurgicos").select("*").eq("id",epId).single();ep=data;}
+  const {data:chk}=await SB.from("checklist_oms").select("*").eq("episodio_id",epId).maybeSingle();
+  let pac=null;
+  if(ep?.paciente_id){const {data:pp}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("id",ep.paciente_id).single();pac=pp;}
+  STATE._qxEp=ep;STATE._qxChk=chk||null;STATE._qxPacEp=pac;STATE.qxView="checklist";
+  loading(false);
+  draw();
+}
+
+window.volverQuirofano=function(){STATE.qxView="lista";STATE._qxEp=null;STATE._qxChk=null;draw();}
+
+function renderChecklistOMS(){
+  const ep=STATE._qxEp||{},chk=STATE._qxChk||{},pac=STATE._qxPacEp||{};
+  const u=STATE.userProfile||{};
+  const quienDefault=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();
+  const editable=QX_EDIT();
+  const pacNom=`${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}`.trim()||"—";
+  RR().innerHTML=nav()+`
+  <div style="max-width:900px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-clipboard-check"></i> Checklist de cirugía segura (OMS)</h2>
+        <p style="font-size:13px;color:${MU}">${pacNom}${pac.numero_expediente?" · Exp. "+pac.numero_expediente:""} · ${ep.procedimiento||"Procedimiento no especificado"}</p>
+      </div>
+      ${btn('<i class="ti ti-arrow-left"></i> Volver',"volverQuirofano()","s",1)}
+    </div>
+    ${!editable?`<div style="background:#FFF3E0;border:1px solid #FFB74D;border-radius:8px;padding:10px 14px;margin-bottom:12px;color:#E65100;font-size:13px">Solo lectura. El checklist lo completa el equipo quirúrgico (médico o enfermería).</div>`:""}
+    ${OMS_MOMENTOS.map(([mk,mlabel,msub,mcol])=>{
+      const saved=chk[mk]||{};
+      const at=chk[mk+"_at"];
+      const por=chk[mk+"_completado_por"]||"";
+      return `<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
+        <div style="background:${mcol};padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <b style="color:#fff;font-size:14px">${mlabel} <span style="font-weight:500;opacity:.9">— ${msub}</span></b>
+          ${at?`<span style="background:rgba(255,255,255,.22);color:#fff;padding:3px 9px;border-radius:20px;font-size:12px"><i class="ti ti-check"></i> ${new Date(at).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>`:""}
+        </div>
+        <div style="padding:14px 16px">
+          ${OMS_ITEMS[mk].map(([ik,ilabel])=>{
+            const on=saved[ik]===true;
+            return `<label style="display:flex;align-items:flex-start;gap:9px;padding:7px 0;cursor:${editable?"pointer":"default"};font-size:14px;color:${TX};border-bottom:1px solid #F0F2F4">
+              <input type="checkbox" id="oms-${mk}-${ik}" ${on?"checked":""} ${editable?"":"disabled"} style="accent-color:${mcol};width:16px;height:16px;margin-top:2px">
+              <span>${ilabel}</span></label>`;
+          }).join("")}
+          ${mk==="salida"?`<div style="margin-top:10px;padding:10px 12px;background:#F1F8E9;border-radius:8px">
+            <label style="display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:${TX};cursor:${editable?"pointer":"default"}">
+              <input type="checkbox" id="oms-salida-conteo" ${chk.conteo_correcto?"checked":""} ${editable?"":"disabled"} style="accent-color:${SU};width:16px;height:16px">
+              Recuento de gasas, compresas, agujas e instrumental correcto</label>
+            <div style="margin-top:8px">${fld("¿Quién informó el recuento?",`<input id="oms-salida-conteo-por" value="${chk.conteo_informado_por||""}" ${editable?"":"disabled"} placeholder="Enfermería instrumentista o circulante" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>
+          </div>`:""}
+          <div style="margin-top:12px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">${fld("Completado por",`<input id="oms-${mk}-por" value="${por||(editable?quienDefault:"")}" ${editable?"":"disabled"} placeholder="Nombre y función" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>
+            ${editable?btn('<i class="ti ti-device-floppy"></i> Guardar '+mlabel.toLowerCase(),"guardarMomentoOMS('"+mk+"')","ok",1):""}
+          </div>
+        </div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+window.guardarMomentoOMS=async function(momento){
+  const ep=STATE._qxEp;if(!ep){showToast("Episodio no cargado",false);return;}
+  if(!QX_EDIT()){showToast("No tiene permiso para editar el checklist",false);return;}
+  const marcados={};
+  (OMS_ITEMS[momento]||[]).forEach(([k])=>{marcados[k]=document.getElementById("oms-"+momento+"-"+k)?.checked||false;});
+  const payload={episodio_id:ep.id,paciente_id:ep.paciente_id};
+  payload[momento]=marcados;
+  payload[momento+"_completado_por"]=(gv("oms-"+momento+"-por")||"").trim()||null;
+  payload[momento+"_at"]=new Date().toISOString();
+  if(momento==="salida"){
+    payload.conteo_correcto=document.getElementById("oms-salida-conteo")?.checked||false;
+    payload.conteo_informado_por=(gv("oms-salida-conteo-por")||"").trim()||null;
+  }
+  loading(true,"Guardando checklist...");
+  const {error}=await SB.from("checklist_oms").upsert(payload,{onConflict:"episodio_id"});
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("Momento guardado");
+  logBitacora("CHECKLIST OMS","Momento: "+momento,ep.paciente_id);
+  abrirChecklistOMS(ep.id);
+}
 
 async function renderInBody(b){
   const pid=STATE.pat?.id;if(!pid)return;
