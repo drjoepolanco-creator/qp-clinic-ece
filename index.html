@@ -7927,7 +7927,7 @@ function renderAnestesia(){
         <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-activity"></i> Registro anestésico transoperatorio</h2>
         <p style="font-size:13px;color:${MU}">${pacNom}${pac.numero_expediente?" · Exp. "+pac.numero_expediente:""} · ${ep.procedimiento||"Procedimiento no especificado"}</p>
       </div>
-      ${btn('<i class="ti ti-arrow-left"></i> Volver',"volverQuirofano()","s",1)}
+      <div style="display:flex;gap:8px">${btn('<i class="ti ti-printer"></i> Imprimir / PDF',"imprimirRegistroAnestesico()","p",1)}${btn('<i class="ti ti-arrow-left"></i> Volver',"volverQuirofano()","s",1)}</div>
     </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
       ${signos.length===0?`<div style="text-align:center;padding:24px;color:${MU}">Sin registros de signos vitales. Agregue el primero para trazar la gráfica.</div>`:svgRegistroAnest(signos)}
@@ -7992,6 +7992,104 @@ function renderAnestesia(){
       </table>
     </div>
   </div>`;
+}
+
+// ── Impresión unificada del registro anestésico (papel + escaneo) ──
+function svgAImagen(svg){
+  return new Promise((resolve)=>{
+    try{
+      const s=svg.replace('width="100%"','width="860" height="406"');
+      const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
+      const img=new Image();
+      img.onload=()=>{
+        try{
+          const scale=2,cw=(img.width||860)*scale,ch=(img.height||406)*scale;
+          const cv=document.createElement("canvas");cv.width=cw;cv.height=ch;
+          const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,cw,ch);
+          ctx.drawImage(img,0,0,cw,ch);
+          resolve(cv.toDataURL("image/png"));
+        }catch(e){resolve(null);}
+      };
+      img.onerror=()=>resolve(null);
+      img.src=url;
+    }catch(e){resolve(null);}
+  });
+}
+window.imprimirRegistroAnestesico=async function(){
+  const {jsPDF}=window.jspdf||{};
+  if(!jsPDF){showToast("jsPDF no disponible",false);return;}
+  const ep=STATE._qxEp||{},pac=STATE._qxPacEp||{},signos=STATE._qxSignos||[],farm=STATE._qxFarmacos||[];
+  const B=brand();
+  loading(true,"Generando registro anestésico...");
+  const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"letter"});
+  const W=279,H=216,M=12;
+  try{
+    const r=await fetch(B.logo);const bl=await r.blob();
+    const b64=await new Promise(rs=>{const fr=new FileReader();fr.onload=()=>rs(fr.result);fr.readAsDataURL(bl);});
+    const im=await new Promise((rs,rj)=>{const i=new Image();i.onload=()=>rs(i);i.onerror=rj;i.src=b64;});
+    const ratio=im.width/im.height;let h=13,w=h*ratio;if(w>42){w=42;h=w/ratio;}
+    doc.addImage(b64,B.logo.toLowerCase().includes("png")?"PNG":"JPEG",M,7,w,h);
+  }catch(e){}
+  doc.setFont("helvetica","bold");doc.setFontSize(9.5);doc.setTextColor(11,111,179);
+  doc.text(B.razon||"",M+46,12);
+  doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(70,70,70);
+  let hy=16;
+  if(B.direccion)doc.splitTextToSize(B.direccion,150).slice(0,2).forEach(l=>{doc.text(l,M+46,hy);hy+=3;});
+  if(B.licencia)doc.text(B.licencia,M+46,hy);
+  doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(30,30,30);
+  doc.text("REGISTRO DE ANESTESIA Y RECUPERACIÓN",W-M,11,{align:"right"});
+  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(90,90,90);
+  doc.text("NOM-006-SSA3-2011, Arts. 10 y 11",W-M,15,{align:"right"});
+  doc.setDrawColor(11,111,179);doc.setLineWidth(0.6);doc.line(M,25,W-M,25);
+  let y=31;
+  const pacNom=`${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}`.trim()||"—";
+  doc.setFontSize(9);
+  const F2=(lbl,val,x,yy)=>{doc.setFont("helvetica","bold");doc.setTextColor(60,60,60);doc.text(lbl,x,yy);const lw=doc.getTextWidth(lbl);doc.setFont("helvetica","normal");doc.setTextColor(20,20,20);doc.text(String(val||"—"),x+lw+2,yy);};
+  F2("Paciente:",pacNom,M,y); F2("Exp.:",pac.numero_expediente,M+150,y); F2("Fecha:",ep.fecha_programada||new Date().toISOString().split("T")[0],M+205,y);
+  y+=6; F2("Procedimiento:",ep.procedimiento,M,y); F2("Sexo:",pac.sexo_biologico,M+205,y);
+  y+=6; F2("Cirujano:",ep.cirujano_nombre,M,y); F2("Anestesiólogo:",ep.anestesiologo_nombre,M+130,y);
+  y+=4; doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(M,y,W-M,y); y+=4;
+  if(signos.length){
+    const png=await svgAImagen(svgRegistroAnest(signos));
+    if(png){const gw=W-2*M;let gh=gw*(406/860);if(gh>92)gh=92;doc.addImage(png,"PNG",M,y,gw,gh);y+=gh+4;}
+    else{doc.setFont("helvetica","italic");doc.setFontSize(8);doc.setTextColor(120,120,120);doc.text("No se pudo generar la gráfica; ver el sistema.",M,y);y+=6;}
+  } else {
+    doc.setFont("helvetica","italic");doc.setFontSize(8);doc.setTextColor(120,120,120);
+    doc.text("Sin registro gráfico de signos vitales (hoja para llenado manual).",M,y);y+=6;
+  }
+  const colTop=y,colL=M,colR=M+142,colW=128;
+  doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(30,30,30);
+  doc.text("Medicamentos, agentes y soluciones",colL,colTop);
+  let ly=colTop+5;doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(30,30,30);
+  const Fs=[...farm].sort((a,b)=>(a.minuto??0)-(b.minuto??0));
+  if(Fs.length){
+    Fs.slice(0,10).forEach(f=>{const t=`${f.minuto??"—"}'  ${f.nombre||""}  ${f.dosis||""}  ${f.via||""}`;doc.splitTextToSize(t,colW).forEach(l=>{if(ly<H-30){doc.text(l,colL,ly);ly+=4.2;}});});
+    if(Fs.length>10){doc.setFont("helvetica","italic");doc.text(`(+${Fs.length-10} más en el sistema)`,colL,ly);}
+  } else {
+    for(let k=0;k<5;k++){if(ly<H-30){doc.setDrawColor(150,150,150);doc.setLineWidth(0.2);doc.line(colL,ly,colL+colW,ly);ly+=6;}}
+  }
+  doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(30,30,30);
+  doc.text("Técnica anestésica y observaciones",colR,colTop);
+  let ry=colTop+7;
+  for(let k=0;k<6;k++){if(ry<H-30){doc.setDrawColor(150,150,150);doc.setLineWidth(0.2);doc.line(colR,ry,colR+colW,ry);ry+=6;}}
+  const fy=H-22;
+  doc.setDrawColor(60,60,60);doc.setLineWidth(0.4);
+  doc.line(M,fy,M+95,fy);doc.line(W-M-95,fy,W-M,fy);
+  doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(30,30,30);
+  doc.text("Anestesiólogo — nombre y firma",M,fy+4);
+  doc.text("Cirujano — nombre y firma",W-M-95,fy+4);
+  if(ep.anestesiologo_nombre){doc.setFont("helvetica","normal");doc.setFontSize(7.5);doc.setTextColor(80,80,80);doc.text(ep.anestesiologo_nombre,M,fy-2);}
+  if(ep.cirujano_nombre){doc.setFont("helvetica","normal");doc.setFontSize(7.5);doc.setTextColor(80,80,80);doc.text(ep.cirujano_nombre,W-M-95,fy-2);}
+  doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
+  const pie=[B.razon,B.direccion,B.licencia].filter(Boolean).join(" · ");
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(M,H-9,W-M,H-9);
+  doc.text(pie,W/2,H-5.5,{align:"center"});
+  const hoy=new Date().toLocaleDateString("es-MX");
+  doc.text("Generado "+hoy+" — ECE QP",W/2,H-2.5,{align:"center"});
+  loading(false);
+  doc.save(`Registro_Anestesico_${pacNom.replace(/\s+/g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
+  showToast("Registro anestésico generado");
+  logBitacora("REGISTRO ANESTÉSICO","PDF generado",ep.paciente_id);
 }
 
 window.guardarSignoAnest=async function(){
