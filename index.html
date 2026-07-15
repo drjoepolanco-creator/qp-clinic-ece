@@ -316,7 +316,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano,"selsede":pgSelSede};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano,"selsede":pgSelSede,"listapac":pgListaPacientes};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -551,7 +551,7 @@ window.toggleSede=function(){
 function nav(){
   // Título dinámico del tab
   const patNombre=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""} — `:"";
-  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",seguros:"Seguros — ",ejercicio:"Prescripción de ejercicio — ",quirofano:"Quirófano — ",perfil:"Mi perfil — "};
+  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",seguros:"Seguros — ",ejercicio:"Prescripción de ejercicio — ",quirofano:"Quirófano — ",listapac:"Padrón de pacientes — ",perfil:"Mi perfil — "};
   document.title=`${pageTitles[STATE.page]||""}${patNombre}QP Clinic`;
   const u=STATE.userProfile;const p=STATE.pat;
   const online=navigator.onLine;
@@ -577,6 +577,7 @@ function nav(){
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
         <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Solo Administrador</div>
         <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>
+        <button onclick="go('listapac',{pacPage:1});toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px"><i class="ti ti-users"></i> Padrón de pacientes</button>
         <button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>
         <button onclick="go('tramites');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏛️ Trámites y Cumplimiento</button>
         <button onclick="go('reportes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📊 Reportes de Dirección</button>
@@ -8157,6 +8158,54 @@ window.borrarSignoAnest=async function(id){
   showToast("Registro eliminado");
   abrirAnestesia(ep.id);
 }
+
+async function pgListaPacientes(){
+  if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
+  const PER=20;
+  const page=Math.max(1,STATE.pacPage||1);
+  const from=(page-1)*PER,to=from+PER-1;
+  loading(true,"Cargando padrón de pacientes...");
+  const {data,count}=await SB.from("pacientes")
+    .select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico",{count:"exact"})
+    .eq("activo",true).order("apellido_paterno",{ascending:true}).order("nombre",{ascending:true}).range(from,to);
+  loading(false);
+  const pacientes=data||[];
+  const total=count||0;
+  const totPages=Math.max(1,Math.ceil(total/PER));
+  STATE._pacTotPages=totPages;
+  RR().innerHTML=nav()+`
+  <div style="max-width:1120px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-users"></i> Padrón de pacientes</h2>
+        <p style="font-size:13px;color:${MU}">Total: <b style="color:${P}">${total}</b> paciente(s) &nbsp;·&nbsp; Página ${page} de ${totPages}</p>
+      </div>
+      ${btn('<i class="ti ti-arrow-left"></i> Volver',"go('agenda')","s",1)}
+    </div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:840px">
+        <thead><tr style="background:${PL}">${["#","Exp.","Nombre","Ap. Paterno","Ap. Materno","Nacimiento","Celular","Sexo",""].map(h=>`<th style="padding:9px 12px;text-align:left;font-size:12px;font-weight:700;color:${TX};text-transform:uppercase;white-space:nowrap">${h}</th>`).join("")}</tr></thead>
+        <tbody>${pacientes.length===0?`<tr><td colspan="9" style="padding:26px;text-align:center;color:${MU}">Sin pacientes registrados.</td></tr>`:pacientes.map((p,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+          <td style="padding:9px 12px;font-size:13px;color:${MU}">${from+i+1}</td>
+          <td style="padding:9px 12px;font-size:13px;color:${AC};font-weight:700">${p.numero_expediente||"—"}</td>
+          <td style="padding:9px 12px;font-size:14px;font-weight:600;color:${TX}">${p.nombre||""}</td>
+          <td style="padding:9px 12px;font-size:14px">${p.apellido_paterno||""}</td>
+          <td style="padding:9px 12px;font-size:14px">${p.apellido_materno||""}</td>
+          <td style="padding:9px 12px;color:${MU};font-size:14px;white-space:nowrap">${p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—"}</td>
+          <td style="padding:9px 12px;font-size:14px">${p.celular||"—"}</td>
+          <td style="padding:9px 12px;color:${MU};font-size:14px">${p.sexo_biologico||"—"}</td>
+          <td style="padding:9px 12px">${btn("Ver expediente","abrirExpediente('"+p.id+"')","p",1)}</td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px">
+      ${page>1?btn('<i class="ti ti-chevron-left"></i> Anterior',"irPaginaPac("+(page-1)+")","s",1):`<span style="width:96px"></span>`}
+      <span style="font-size:13px;color:${TX};font-weight:700">Página ${page} de ${totPages}</span>
+      ${page<totPages?btn('Siguiente <i class="ti ti-chevron-right"></i>',"irPaginaPac("+(page+1)+")","s",1):`<span style="width:96px"></span>`}
+    </div>
+  </div>`;
+}
+window.irPaginaPac=function(n){const t=STATE._pacTotPages||1;STATE.pacPage=Math.min(Math.max(1,n),t);draw();}
 
 async function renderInBody(b){
   const pid=STATE.pat?.id;if(!pid)return;
