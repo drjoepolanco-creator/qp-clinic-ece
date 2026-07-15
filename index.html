@@ -320,6 +320,15 @@ function draw(){
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
+
+// ── PERMISOS POR ROL ──────────────────────────────────────────────────────────
+// Enfermería: registra signos vitales, ficha de identificación y notas de
+// enfermería. Puede CONSULTAR el expediente y las notas médicas, pero no
+// crearlas ni modificarlas (NOM-004: la nota médica es responsabilidad del
+// médico que la suscribe).
+function rolActual(){return STATE.userProfile?.rol||"";}
+function puedeEditarNotaMedica(){return ["medico","admin"].includes(rolActual());}
+function esEnfermeria(){return rolActual()==="enfermeria";}
 function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`;}
 function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
 function ta(id,val,ph,rows=4){
@@ -470,6 +479,7 @@ function detenerAutoguardado(){
 }
 async function guardarConsultaSilencioso(){
   const pid=STATE.pat?.id;if(!pid)return;
+  if(!puedeEditarNotaMedica())return;
   if(STATE.consultaActual?.bloqueada)return;
   const med=STATE.userProfile||{};
   const medNombre=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
@@ -4016,9 +4026,9 @@ function pgExp(){
           }).join("")}
         `).join("")}
         <div style="padding:10px 12px;border-top:1px solid ${BR};margin-top:4px">
-          <button onclick="go('consulta')" style="width:100%;padding:9px 12px;background:${P};color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">
+          ${puedeEditarNotaMedica()?`<button onclick="go('consulta')" style="width:100%;padding:9px 12px;background:${P};color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">
             <i class="ti ti-plus" aria-hidden="true"></i> Nueva consulta
-          </button>
+          </button>`:""}
         </div>
       </div>
       <div id="eb" style="flex:1;overflow-y:auto;background:#F0F4F8"></div>
@@ -5208,7 +5218,7 @@ function renderConsultas(b){
       <div style="background:${PD};padding:8px 14px;display:flex;align-items:center;justify-content:space-between"><b style="color:#fff;font-size:14px">HISTORIAL DE REGISTROS MÉDICOS</b><span style="font-size:12px;color:rgba(255,255,255,.7)">Consultas · Referencia · Contrarreferencia</span></div>
       <div style="padding:14px">
         <div style="display:flex;gap:6px;margin-bottom:12px">
-          ${btn("➕ Nueva consulta","go('consulta')","p",1)}
+          ${puedeEditarNotaMedica()?btn("➕ Nueva consulta","go('consulta')","p",1):""}
           ${btn("📄 Resumen Clínico PDF","showToast('Función disponible próximamente')","s",1)}
         </div>
         <div id="consultas-lista"><div style="text-align:center;padding:24px;color:${MU}"><span class="spin" style="font-size:20px;display:block;margin-bottom:6px">⚙️</span>Cargando consultas...</div></div>
@@ -7908,8 +7918,24 @@ window.agregarSuplementoATratamiento=function(idx){
   showToast(`✓ ${s.nombre} agregado al tratamiento`);
 }
 
-function pgConsulta(){
+async function pgConsulta(){
   const p=STATE.pat;const c=STATE.consultaActual||{};
+  // ── Signos vitales del triage de enfermería ──
+  // Se cargan ANTES de dibujar la pantalla para que aparezcan ya escritos
+  // en los campos. Cubre tanto notas nuevas como notas existentes sin signos.
+  if(!c._svHoy&&p?.id&&!c.temperatura){
+    try{
+      const hoy=new Date().toISOString().split("T")[0];
+      const {data:svRows}=await SB.from("signos_vitales").select("*")
+        .eq("paciente_id",p.id).gte("fecha",hoy)
+        .order("fecha",{ascending:false}).limit(1);
+      if(svRows&&svRows[0]){
+        c._svHoy=svRows[0];
+        if(STATE.consultaActual)STATE.consultaActual._svHoy=svRows[0];
+        STATE._svAvisoHora=svRows[0].fecha?new Date(svRows[0].fecha).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}):"";
+      }
+    }catch(e){console.warn("Signos vitales del día:",e.message);}
+  }
   // Combinar con signos vitales de triage del día
   const sv=c._svHoy||{};
   const vs={
@@ -7946,7 +7972,7 @@ function pgConsulta(){
       </select>
       <div style="width:1px;height:24px;background:${BR}"></div>
       <button onclick="abrirModalIA()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">🤖 Generar nota con IA</button>
-      ${c.bloqueada?`<span style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">🔒 Nota cerrada — solo lectura</span>`:`${btn("💾 Guardar","guardarConsulta()","ok",1)}
+      ${c.bloqueada?`<span style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">🔒 Nota cerrada — solo lectura</span>`:!puedeEditarNotaMedica()?`<span style="background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">Solo lectura — la nota médica la elabora el médico tratante</span>`:`${btn("💾 Guardar","guardarConsulta()","ok",1)}
       <button onclick="firmarNota()" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">✍️ Firmar y cerrar nota</button>
       <span id="autosave-indicator" style="font-size:12px;color:rgba(255,255,255,.6);margin-left:4px"></span>`}
       <button onclick="descargarNotaPDF()" style="background:#37474F;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📄 PDF nota</button>
@@ -8195,41 +8221,11 @@ function pgConsulta(){
     }catch(e){}
   })();
 
-  // ── Carga automática de signos vitales del día (triage de enfermería) ──
-  // Al abrir cualquier nota (nueva o existente), si los campos de signos
-  // vitales están vacíos, buscar el registro de signos_vitales de HOY y
-  // llenarlos automáticamente sin que el médico tenga que ir al módulo.
-  (async()=>{
-    try{
-      const pid=STATE.pat?.id;if(!pid)return;
-      const tempField=document.getElementById("cs_temp");
-      if(!tempField)return;
-      // Solo autocargar si los campos principales están vacíos
-      const yaLlenos=["cs_temp","cs_fc","cs_tas","cs_peso"].some(id=>{
-        const e=document.getElementById(id);return e&&String(e.value||"").trim()!=="";
-      });
-      if(yaLlenos)return;
-      const hoy=new Date().toISOString().split("T")[0];
-      const {data:svRows}=await SB.from("signos_vitales").select("*").eq("paciente_id",pid).gte("fecha",hoy).order("fecha",{ascending:false}).limit(1);
-      const sv=svRows?.[0];if(!sv)return;
-      const setIf=(id,val)=>{
-        const e=document.getElementById(id);
-        if(e&&String(e.value||"").trim()===""&&val!==null&&val!==undefined&&val!=="")e.value=val;
-      };
-      setIf("cs_temp",sv.temperatura);
-      setIf("cs_fc",sv.frecuencia_cardiaca);
-      setIf("cs_fr",sv.frecuencia_respiratoria);
-      setIf("cs_sat",sv.saturacion_o2);
-      setIf("cs_peso",sv.peso);
-      setIf("cs_talla",sv.talla);
-      setIf("cs_imc",sv.imc);
-      setIf("cs_tas",sv.presion_sistolica);
-      setIf("cs_tad",sv.presion_diastolica);
-      setIf("cs_glu",sv.glucosa);
-      const hora=sv.fecha?new Date(sv.fecha).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}):"";
-      showToast(`Signos vitales de enfermería cargados automáticamente${hora?" ("+hora+")":""}`);
-    }catch(e){console.warn("Autocarga de signos vitales:",e.message);}
-  })();
+  // Aviso de que los signos vitales del triage ya vienen cargados
+  if(STATE._svAvisoHora!==undefined&&STATE._svAvisoHora!==null){
+    const h=STATE._svAvisoHora;STATE._svAvisoHora=null;
+    setTimeout(()=>showToast(`Signos vitales de enfermería cargados${h?" ("+h+")":""}`),400);
+  }
 }
 // ── MOTIVOS COMUNES ───────────────────────────────────────
 window.toggleMotivos=function(){
@@ -8469,6 +8465,7 @@ window.aplicarTodoIA=function(){
 }
 window.guardarConsulta=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
+  if(!puedeEditarNotaMedica()){showToast("La nota médica solo puede elaborarla el médico tratante",false);return;}
   if(STATE.consultaActual?.bloqueada){showToast("Esta nota está cerrada y no puede editarse",false);return;}
   loading(true,"Guardando consulta...");
   // Guardar versión anterior antes de sobreescribir (NOM-004 Art. 15 — historial inmutable)
@@ -8540,6 +8537,7 @@ window.guardarConsulta=async function(){
 }
 window.firmarNota=async function(){
   const cid=STATE.consultaActual?.id;if(!cid)return;
+  if(!puedeEditarNotaMedica()){showToast("Solo el médico tratante puede firmar y cerrar la nota",false);return;}
   const med=STATE.userProfile||{};
   const medNombre=`${med.titulo||""} ${med.nombre||""} ${med.apellidos||""}`.trim();
   if(!await qpConfirm(`¿Firmar y cerrar esta nota como ${medNombre}? Una vez firmada, la nota quedará en modo solo lectura y no podrá editarse. Esta acción es conforme a NOM-004-SSA3-2012.`,{title:"Firmar y cerrar nota",okLabel:"✍️ Firmar nota",okColor:SU,danger:false}))return;
