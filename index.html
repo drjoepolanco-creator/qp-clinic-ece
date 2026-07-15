@@ -554,8 +554,8 @@ function nav(){
   const online=navigator.onLine;
   return`<div id="topnav" style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
     <div style="display:flex;align-items:center;gap:8px;margin-right:16px">${logoSwitcherHTML()}</div>
-    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
-    <div style="position:relative" id="nutri-menu-wrap">
+    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].filter(([k])=>{const _sa=sedeActiva();if(k==="quirofano"&&_sa==="clinic")return false;if(k==="ultrasonido"&&_sa==="surgery")return false;return true;}).map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${sedeActiva()!=="surgery"?`<div style="position:relative" id="nutri-menu-wrap">
       <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
       <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
         <button onclick="go('nutricion',{nutriModulo:'calculo'});toggleNutriMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🧮 Cálculo nutricional</button>
@@ -567,7 +567,7 @@ function nav(){
         <button onclick="go('nutricion',{nutriModulo:'plantillas',nutriTipo:'transicion'});toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍎 Fase 3: Transición</button>
       </div>
     </div>
-    <button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>
+    `:""}${sedeActiva()!=="surgery"?`<button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>`:""}
     ${STATE.userProfile?.rol==="admin"?`
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
@@ -6541,7 +6541,7 @@ window.abrirModalFirmaGlobal=function(){
         ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
           <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px"> 
           <span style="flex:1">${l}</span>
-          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button><button type="button" onclick="event.preventDefault();subirConsentimientoFirmado('${k}')" title="Subir consentimiento firmado (escaneado)" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;margin-left:4px"><i class="ti ti-upload"></i> Firmado</button>
         </label>`).join("")}
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Quirúrgicos y anestésicos</p>
         ${[
@@ -6550,7 +6550,7 @@ window.abrirModalFirmaGlobal=function(){
         ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
           <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px">
           <span style="flex:1">${l}</span>
-          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button><button type="button" onclick="event.preventDefault();subirConsentimientoFirmado('${k}')" title="Subir consentimiento firmado (escaneado)" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;margin-left:4px"><i class="ti ti-upload"></i> Firmado</button>
         </label>`).join("")}
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Fisioterapia y procedimientos</p>
         ${[
@@ -6561,7 +6561,7 @@ window.abrirModalFirmaGlobal=function(){
         ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
           <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px">
           <span style="flex:1">${l}</span>
-          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button><button type="button" onclick="event.preventDefault();subirConsentimientoFirmado('${k}')" title="Subir consentimiento firmado (escaneado)" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;margin-left:4px"><i class="ti ti-upload"></i> Firmado</button>
         </label>`).join("")}
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Ginecología</p>
         ${[
@@ -6570,7 +6570,7 @@ window.abrirModalFirmaGlobal=function(){
         ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
           <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px">
           <span style="flex:1">${l}</span>
-          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button><button type="button" onclick="event.preventDefault();subirConsentimientoFirmado('${k}')" title="Subir consentimiento firmado (escaneado)" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;margin-left:4px"><i class="ti ti-upload"></i> Firmado</button>
         </label>`).join("")}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -6664,6 +6664,30 @@ window.subirDocumento=async function(){
   showToast("✓ Documento subido al expediente");
   ocultarFormSubida();
   renderDocsAnexos(document.getElementById("anexo-body"));
+}
+window.subirConsentimientoFirmado=async function(clave){
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("Abra primero el expediente del paciente",false);return;}
+  const ci=CI_CATALOGO[clave];
+  const titulo=ci?ci.titulo:"Consentimiento informado";
+  const inp=document.createElement("input");
+  inp.type="file";inp.accept=".pdf,image/*";
+  inp.onchange=async()=>{
+    const file=inp.files&&inp.files[0];
+    if(!file)return;
+    loading(true,"Subiendo consentimiento firmado...");
+    const ext=(file.name.split(".").pop()||"pdf").toLowerCase();
+    const path=`${pid}/consentimientos/CI_${clave}_${Date.now()}.${ext}`;
+    const {error:ue}=await SB.storage.from("expedientes").upload(path,file,{cacheControl:"3600",upsert:false});
+    if(ue){loading(false);showToast("Error al subir: "+ue.message,false);return;}
+    const {error}=await SB.from("anexos").insert({paciente_id:pid,titulo:("CI FIRMADO - "+titulo).slice(0,180),tipo_documento:"consentimiento_informado",origen:"escaneado",firmado:true,storage_path:path,fecha:new Date().toISOString().split("T")[0]});
+    loading(false);
+    if(error){showToast("Error: "+error.message,false);return;}
+    showToast("Consentimiento firmado guardado en el expediente");
+    logBitacora("CONSENTIMIENTO FIRMADO",titulo,pid);
+    if(STATE.expTab==="anexos"&&STATE.anexoTab==="docs"){const ab=document.getElementById("anexo-body");if(ab)renderDocsAnexos(ab);}
+  };
+  inp.click();
 }
 window.eliminarDocsSel=async function(){
   const checks=document.querySelectorAll("#docs-tbody input[type=checkbox]:checked");
