@@ -142,60 +142,19 @@ window.verificarCodigo=async function(){
   if(!PAC_ID){mostrarError("ver-error","Enlace inválido — contacte a la clínica");return;}
 
   // Buscar documentos pendientes
-  const {data,error}=await SB.from("anexos")
-    .select("*")
-    .eq("paciente_id",PAC_ID)
-    .eq("codigo_firma",cod)
-    .eq("firmado",false);
-
-  if(error||!data||data.length===0){
+  const {data:carga,error}=await SB.rpc("firma_cargar",{p_pac:PAC_ID,p_cod:cod,p_med:params.get("med")});
+  if(error||!carga||!carga.pendientes||carga.pendientes.length===0){
     mostrarError("ver-error","Código incorrecto o documentos ya firmados");
     return;
   }
-
-  S.pendientes=data;
-  S.docs=data.map(d=>d.tipo_documento.replace("firma_pendiente_",""));
-
-  // Cargar datos del paciente
-  const {data:pac}=await SB.from("pacientes").select("*").eq("id",PAC_ID).single();
-  S.paciente=pac;
-
-  // Cargar perfil del médico — usar ID del parámetro &med= de la URL (enviado por el sistema)
-  const MED_ID=params.get("med");
-  let med=null;
-
-  if(MED_ID){
-    // Caso normal: se sabe exactamente qué médico envió los documentos
-    const {data:m}=await SB.from("usuarios").select("*").eq("id",MED_ID).maybeSingle();
-    med=m;
-  }
-
-  if(!med){
-    // Fallback 1: buscar al médico de la última consulta del paciente
-    const {data:cons}=await SB.from("consultas")
-      .select("medico_id")
-      .eq("paciente_id",PAC_ID)
-      .not("medico_id","is",null)
-      .order("created_at",{ascending:false})
-      .limit(1)
-      .maybeSingle();
-    if(cons?.medico_id){
-      const {data:m2}=await SB.from("usuarios").select("*").eq("id",cons.medico_id).maybeSingle();
-      med=m2;
-    }
-  }
-
-  if(!med){
-    // Fallback 2: primer usuario con rol médico activo
-    const {data:m3}=await SB.from("usuarios").select("*").eq("activo",true).eq("rol","medico").limit(1).maybeSingle();
-    med=m3;
-  }
-
-  S.medico=med;
+  S.pendientes=carga.pendientes;
+  S.docs=carga.pendientes.map(d=>d.tipo_documento.replace("firma_pendiente_",""));
+  S.paciente=carga.paciente;
+  S.medico=carga.medico;
 
   // Pre-cargar firma del médico como base64 para el PDF
-  if(med?.firma_digital){
-    S.firmaDoctor=await urlToBase64(med.firma_digital);
+  if(S.medico?.firma_digital){
+    S.firmaDoctor=await urlToBase64(S.medico.firma_digital);
   }
 
   S.docIndex=0;
@@ -540,21 +499,7 @@ async function generarYGuardarPDF(docKey, sigImg, isLast=true){
     if(uploadError)throw uploadError;
 
     const pendiente=S.pendientes.find(p=>p.tipo_documento==="firma_pendiente_"+docKey);
-    if(pendiente){
-      await SB.from("anexos").update({
-        firmado:true,storage_path:fileName,
-        fecha:new Date().toISOString().split("T")[0],
-        titulo:nombre.toUpperCase(),tipo_documento:docKey,origen:"digital",
-        fecha_firma:new Date().toISOString(),nombre_firmante:nomPac,
-      }).eq("id",pendiente.id);
-    } else {
-      await SB.from("anexos").insert({
-        paciente_id:PAC_ID,titulo:nombre.toUpperCase(),
-        tipo_documento:docKey,origen:"digital",firmado:true,
-        storage_path:fileName,fecha:new Date().toISOString().split("T")[0],
-        fecha_firma:new Date().toISOString(),nombre_firmante:nomPac,codigo_firma:COD,
-      });
-    }
+    await SB.rpc("firma_guardar",{p_pac:PAC_ID,p_cod:COD,p_anexo_id:pendiente?pendiente.id:null,p_dockey:docKey,p_titulo:nombre.toUpperCase(),p_storage:fileName,p_nombre_firmante:nomPac});
     if(isLast)mostrarTerminado();
   } catch(err){
     console.error(err);
