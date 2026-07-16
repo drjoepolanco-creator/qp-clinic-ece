@@ -1380,6 +1380,7 @@ async function pgPerfil(){
           ${fld("Email del sistema",`<input value="${u.email||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;background:#F5F5F5;color:${MU}" readonly>`)}
           ${fld("Teléfono",inp("pf_tel",u.telefono||"","55XXXXXXXX","tel"))}
         </div>
+        <div style="margin-bottom:14px">${fld("Correo profesional (aparece en recetas y documentos)",inp("pf_correo_prof",u.correo_profesional||"","dr.polanco@qpclinic.mx","email"))}</div>
         <div style="display:flex;justify-content:flex-end">
           ${btn("💾 Guardar datos personales","guardarPerfil()","ok",1)}
         </div>
@@ -1524,6 +1525,7 @@ window.guardarPerfil=async function(){
   }).eq("id",uid);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
+  try{await SB.from("usuarios").update({correo_profesional:gv("pf_correo_prof")||null}).eq("id",uid);}catch(e){}
   const {data:fresh}=await SB.from("usuarios").select("*").eq("id",uid).maybeSingle();
   if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
   showToast("✓ Datos personales guardados");
@@ -9455,9 +9457,10 @@ window.generarPDFReceta=async function(tipo="receta"){
     credLines.push({txt:`Alta Especialidad en ${med.alta_especialidad}${med.institucion_alta?"   "+shortInst(med.institucion_alta):""}`.toUpperCase(),bold:false,sz:8});
   const headerH=Math.max(18, credLines.length*4.5+4);
   const lineY=headerH+4;
+  const B=brand();
   // ── LOGO izquierda ──
   await addImg(
-    "https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",
+    B.logo,
     M, 7, headerH-2, 35
   );
   // ── DATOS MÉDICO derecha ──
@@ -9550,9 +9553,9 @@ window.generarPDFReceta=async function(tipo="receta"){
   doc.line(M,158,W-M,158);
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
   doc.text(medNom,W/2,163,{align:"center"});
-  doc.text(med.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México C.P. 03810",W/2,167,{align:"center"});
-  doc.text("Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,171,{align:"center"});
-  doc.text(med.email||"dr.polanco@qpclinic.mx",W/2,175,{align:"center"});
+  doc.text(B.direccion||med.direccion_clinica||"",W/2,167,{align:"center"});
+  doc.text(sedeActiva()==="surgery"?(B.tel?("Tel: "+B.tel):(B.licencia||"")):"Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,171,{align:"center"});
+  doc.text(med.correo_profesional||med.email||"dr.polanco@qpclinic.mx",W/2,175,{align:"center"});
   const nombre=tipo==="receta"?"Receta":tipo==="lab"?"Solicitud_Lab":"Solicitud_Gabinete";
   doc.save(`${nombre}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
   showToast("✓ PDF generado");
