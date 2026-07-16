@@ -521,7 +521,7 @@ async function guardarConsultaSilencioso(){
 // ── BRANDING DINÁMICO POR SEDE (QP Clinic / QP Surgery Clinic) ──
 const BRANDING={
   clinic:{nombre:"QP Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",acento:"#006BB6",razon:"QP Clinic, S.C.",direccion:"Insurgentes Sur 933, Piso 12, Col. Nápoles, C.P. 03810, CDMX",rfc:"QCL230518J66",tel:"5644237028",web:"www.qpclinic.org"},
-  surgery:{nombre:"QP Surgery Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",acento:"#1F8FE8",razon:"QP Surgery Clinic S.C.",direccion:"Boulevard Adolfo Ruiz Cortines No. 3332, Int. 816 y 801, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México",licencia:"Licencia Sanitaria 26-AM-09-010-0002",autorizacion:"Actos quirúrgicos (cirugía ambulatoria)",rfc:"",tel:"",web:""}
+  surgery:{nombre:"QP Surgery Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",acento:"#1F8FE8",razon:"QP Surgery Clinic S.C.",direccion:"Boulevard Adolfo Ruiz Cortines No. 3332, Int. 816 y 801, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México",licencia:"Licencia Sanitaria 26-AM-09-010-0002",autorizacion:"Actos quirúrgicos (cirugía ambulatoria)",rfc:"",tel:"5592247091",web:""}
 };
 function sedeUsuario(){return STATE.userProfile?.sede||"clinic";}
 function sedeActiva(){
@@ -9554,7 +9554,7 @@ window.generarPDFReceta=async function(tipo="receta"){
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
   doc.text(medNom,W/2,163,{align:"center"});
   doc.text(B.direccion||med.direccion_clinica||"",W/2,167,{align:"center"});
-  doc.text(sedeActiva()==="surgery"?(B.tel?("Tel: "+B.tel):(B.licencia||"")):"Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,171,{align:"center"});
+  doc.text(sedeActiva()==="surgery"?(B.tel?("Tel: "+B.tel):""):"Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,171,{align:"center"});
   doc.text(med.correo_profesional||med.email||"dr.polanco@qpclinic.mx",W/2,175,{align:"center"});
   const nombre=tipo==="receta"?"Receta":tipo==="lab"?"Solicitud_Lab":"Solicitud_Gabinete";
   doc.save(`${nombre}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
