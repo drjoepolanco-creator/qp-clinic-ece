@@ -151,6 +151,7 @@ window.verificarCodigo=async function(){
   S.docs=carga.pendientes.map(d=>d.tipo_documento.replace("firma_pendiente_",""));
   S.paciente=carga.paciente;
   S.medico=carga.medico;
+  S.cod=cod;
 
   // Pre-cargar firma del médico como base64 para el PDF
   if(S.medico?.firma_digital){
@@ -499,7 +500,8 @@ async function generarYGuardarPDF(docKey, sigImg, isLast=true){
     if(uploadError)throw uploadError;
 
     const pendiente=S.pendientes.find(p=>p.tipo_documento==="firma_pendiente_"+docKey);
-    await SB.rpc("firma_guardar",{p_pac:PAC_ID,p_cod:COD,p_anexo_id:pendiente?pendiente.id:null,p_dockey:docKey,p_titulo:nombre.toUpperCase(),p_storage:fileName,p_nombre_firmante:nomPac});
+    const {data:okFirma,error:errFirma}=await SB.rpc("firma_guardar",{p_pac:PAC_ID,p_cod:(S.cod||COD),p_anexo_id:pendiente?pendiente.id:null,p_dockey:docKey,p_titulo:nombre.toUpperCase(),p_storage:fileName,p_nombre_firmante:nomPac});
+    if(errFirma||okFirma===false)throw new Error("No se pudo registrar la firma en el expediente (código no válido).");
     if(isLast)mostrarTerminado();
   } catch(err){
     console.error(err);
