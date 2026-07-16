@@ -9940,7 +9940,55 @@ window.descargarNotaPDF=async function(){
       }
     }
 
-    const page1HTML=headerHTML+pacienteHTML+subjetivoHTML+exploracionHTML+analisisHTML;
+    // ── SECCIONES QUIRÚRGICAS (datos_clinicos) ──────────────────
+    const dc=(STATE.page==="consulta"&&typeof leerDatosClinicos==="function")?(leerDatosClinicos()||c.datos_clinicos||{}):(c.datos_clinicos||{});
+    const _dcv=(k)=>{const v=dc[k];if(v===true)return"Sí";if(v===false||v==null||v==="")return"";return String(v);};
+    const _kv=(titulo,pares)=>{
+      const filas=pares.map(([k,lbl])=>{const v=_dcv(k);return v?`<div style="flex:1 1 45%;min-width:45%;margin-bottom:4px"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold">${lbl}</div><div style="font-size:9.2px;color:${TXT}">${String(v).replace(/\n/g,"<br>")}</div></div>`:"";}).filter(Boolean);
+      if(!filas.length)return"";
+      return secBar(titulo)+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px;display:flex;flex-wrap:wrap;gap:12px">${filas.join("")}</div>`;
+    };
+    const _svPairs=[["cs_temp","Temp. °C"],["cs_fc","FC lpm"],["cs_fr","FR rpm"],["cs_sat","SpO₂ %"],["cs_tas","TA sist."],["cs_tad","TA diast."],["cs_glu","Glucosa"],["cs_peso","Peso kg"],["cs_talla","Talla m"],["cs_imc","IMC"]];
+    const _svHTML=(()=>{const filas=_svPairs.map(([id,lbl])=>{const v=document.getElementById(id)?.value||"";return v?`<div style="margin-bottom:3px;margin-right:16px"><span style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold">${lbl}: </span><span style="font-size:9.2px;color:${TXT};font-weight:700">${v}</span></div>`:"";}).filter(Boolean);return filas.length?secBar("SIGNOS VITALES INICIALES")+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px;display:flex;flex-wrap:wrap">${filas.join("")}</div>`:"";})();
+    const _regTransHTML=(()=>{const R=dc.registros_trans;if(!Array.isArray(R)||!R.length)return"";const rows=R.map(r=>`<tr>${[r.hora,r.ta,r.fc,r.spo2,r.etco2,r.temp,r.fr,r.nota].map(x=>`<td style="padding:3px 6px;border-bottom:1px solid ${BRD};font-size:8.5px;color:${TXT}">${x||""}</td>`).join("")}</tr>`).join("");return secBar("REGISTRO TEMPORAL DE SIGNOS VITALES")+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:6px 10px"><table style="width:100%;border-collapse:collapse"><thead><tr>${["Hora","TA","FC","SpO₂","EtCO₂","Temp","FR","Evento"].map(h=>`<th style="text-align:left;font-size:7px;color:${SEC};text-transform:uppercase;padding:3px 6px;border-bottom:1px solid ${BRD}">${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;})();
+    const SEC_QX={
+      "Nota preoperatoria":[
+        ["Datos del acto quirúrgico planeado",[["dx_preop","Diagnóstico preoperatorio (CIE-10)"],["procedimiento_qx","Procedimiento / cirugía planeada"],["abordaje","Vía de abordaje"],["anestesia","Tipo de anestesia propuesta"],["ayuno","Ayuno (horas)"],["cirujano_principal","Cirujano principal"],["anestesiologo_asig","Anestesiólogo asignado"],["estudios_preop","Estudios preoperatorios"],["asa","Clasificación ASA"],["riesgo_qx","Riesgo quirúrgico"],["pronostico_qx","Pronóstico de la cirugía"],["posicion_qx","Posición quirúrgica"]]],
+        ["Consentimiento informado y verificación",[["ci_cirujano","Consentimiento quirúrgico firmado"],["ci_anestesia","Consentimiento anestésico firmado"],["ci_transfusion","Consentimiento de transfusión"],["lateral_marcado","Lateralidad marcada en sitio"]]],
+        ["Observaciones",[["obs_preop","Observaciones preoperatorias y recomendaciones"]]]
+      ],
+      "Nota posoperatoria":[
+        ["Diagnósticos y procedimiento",[["dx_preop_pos","Diagnóstico preoperatorio"],["dx_posop","Diagnóstico posoperatorio"],["op_planeada","Operación planeada"],["op_realizada","Operación realizada"]]],
+        ["Hallazgos y técnica quirúrgica",[["hallazgos_qx","Hallazgos transoperatorios"],["tecnica_qx","Descripción de la técnica quirúrgica"]]],
+        ["Parámetros transoperatorios",[["duracion_qx","Duración (min)"],["sangrado","Sangrado estimado (ml)"],["sol_qx","Soluciones (ml)"],["diuresis_qx","Diuresis (ml)"],["anestesia_real","Anestesia utilizada"],["hemoderivados","Hemoderivados"],["patologia","Material a patología"],["incidentes_qx","Incidentes y complicaciones"]]],
+        ["Estado y plan posoperatorio",[["estado_posop","Estado posoperatorio inmediato"],["destino_posop","Destino posoperatorio"],["vasoactivos","Drogas vasoactivas"],["plan_posop","Plan posoperatorio e indicaciones"]]]
+      ],
+      "Nota de valoración preanestésica":[
+        ["Riesgo anestésico",[["asa_anest","ASA"],["rcri","RCRI"],["mets_anest","Capacidad funcional (METs)"],["pronostico_anest","Pronóstico anestésico"],["raq","RAQ"],["raq_sub","Subclase RAQ"]]],
+        ["Evaluación de vía aérea",[["mallampati","Mallampati"],["apertura_bucal","Apertura bucal"],["dist_tm","Distancia tiromentoniana"],["movilidad_cerv","Movilidad cervical"],["denticion","Dentición"],["vad","Predicción de vía aérea difícil"],["plan_vad","Plan alternativo de vía aérea"]]],
+        ["Cardiopulmonar y laboratorio",[["ecg_preanest","ECG preanestésico"],["rx_torax_preanest","Rx tórax"],["lab_preanest","Laboratorios preanestésicos"]]],
+        ["Medicamentos, alergias y ayuno",[["alerg_anest","Alergias anestésicas / látex"],["meds_anest","Medicamentos con impacto anestésico"],["anest_prev","Anestesias previas"],["ayuno_sol","Ayuno sólidos (h)"],["ayuno_liq","Ayuno líquidos (h)"]]],
+        ["Plan anestésico y premedicación",[["tecnica_anest","Técnica anestésica propuesta"],["monitoreo","Monitoreo propuesto"],["premedicacion","Premedicación"],["atb_profilaxis_anest","Profilaxis antibiótica"],["recomendaciones_anest","Recomendaciones al equipo"],["obs_preanest","Observaciones preanestésicas"]]]
+      ],
+      "Nota de anestesia transoperatoria":[
+        ["Datos del acto anestésico",[["hora_inicio_anest","Inicio anestesia"],["hora_fin_anest","Fin anestesia"],["hora_incision","Incisión"],["hora_cierre","Cierre"],["duracion_anest","Duración anestesia (min)"],["duracion_cx","Duración cirugía (min)"],["tecnica_anest_real","Técnica aplicada"],["posicion_trans","Posición"],["acceso_venoso","Acceso venoso"],["monitoreo_real","Monitoreo"]]],
+        ["Fármacos y manejo de vía aérea",[["inductor","Agente inductor"],["opioide_ind","Opioide de inducción"],["rnm","Relajante neuromuscular"],["va_manejo","Manejo de vía aérea"],["tubo","Tubo / dispositivo"],["inhalatorio","Agente inhalatorio"],["infusion_mant","Infusiones de mantenimiento"],["analgesia_trans","Analgesia transoperatoria"],["atb_profilactico","Antibiótico profiláctico"],["otros_farmacos","Otros fármacos"],["bloqueo_detalle","Bloqueo regional"]]],
+        ["Balance de líquidos",[["sol_cristal","Cristaloide (ml)"],["sol_coloide","Coloide (ml)"],["sangrado_anest","Pérdida hemática (ml)"],["diuresis_trans","Diuresis (ml)"],["hemoderivados_trans","Hemoderivados"],["temp_min","Temp. mínima (°C)"]]],
+        ["Incidentes y egreso de quirófano",[["incidentes_anest","Incidentes y complicaciones"],["hora_relevo","Hora de relevo"],["anest_entrega","Anestesiólogo que entrega"],["anest_recibe","Anestesiólogo que recibe"],["reversion_rnm","Reversión de relajación"],["cond_salida_qx","Condición al salir"],["destino_trans","Destino inmediato"]]]
+      ],
+      "Nota postanestésica":[
+        ["Recuperación (UCPA)",[["aldrete_total","Aldrete (total)"],["ta_ucpa","TA (mmHg)"],["fc_ucpa","FC"],["fr_ucpa","FR"],["spo2_ucpa","SpO₂ %"],["temp_ucpa","Temp. °C"],["etco2_ucpa","EtCO₂"]]],
+        ["Manejo en UCPA",[["analgesia_ucpa","Analgesia"],["antiemeticos_ucpa","Antieméticos"],["tiempo_ucpa","Tiempo en UCPA (min)"],["eva_ucpa","EVA al egreso"],["nvpo","NVPO"],["temp_alta_ucpa","Temp. al alta (°C)"]]],
+        ["Egreso de UCPA",[["cond_egreso_ucpa","Condición al egreso"],["destino_ucpa","Destino"],["indicaciones_piso","Indicaciones a hospitalización"],["obs_postanest","Observaciones"]]]
+      ],
+      "Nota de egreso":[
+        ["Datos del episodio",[["dias_tx","Días de hospitalización"],["fecha_ingreso","Fecha de ingreso"],["motivo_egreso","Motivo de egreso"]]],
+        ["Diagnósticos y resumen",[["dx_finales","Diagnósticos finales (CIE-10)"],["resumen_tx","Resumen de tratamiento y procedimientos"]]],
+        ["Condición, plan y recomendaciones",[["condicion_egreso","Condición al egreso"],["pronostico_egreso","Pronóstico"],["medicamentos_alta","Medicamentos al alta"],["instrucciones_alta","Instrucciones al alta"],["signos_alarma","Signos de alarma"],["cita_seguimiento","Cita de seguimiento"],["referencia_egreso","Referencia a especialidad"]]]
+      ]
+    };
+    const _quirurgicoHTML=(SEC_QX[tipoNota]?(SEC_QX[tipoNota].map(([tit,pares])=>_kv(tit,pares)).join("")+_svHTML+_regTransHTML):"");
+    const page1HTML=headerHTML+pacienteHTML+subjetivoHTML+exploracionHTML+analisisHTML+_quirurgicoHTML;
 
     // ── TRATAMIENTO (numerado) ─────────────────────────────────
     const tratamientoHTML=trat?secBar("TRATAMIENTO")+secBox(listaNumerada(trat)):"";
