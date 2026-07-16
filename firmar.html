@@ -501,7 +501,8 @@ async function generarYGuardarPDF(docKey, sigImg, isLast=true){
 
     const pendiente=S.pendientes.find(p=>p.tipo_documento==="firma_pendiente_"+docKey);
     const {data:okFirma,error:errFirma}=await SB.rpc("firma_guardar",{p_pac:PAC_ID,p_cod:(S.cod||COD),p_anexo_id:pendiente?pendiente.id:null,p_dockey:docKey,p_titulo:nombre.toUpperCase(),p_storage:fileName,p_nombre_firmante:nomPac});
-    if(errFirma||okFirma===false)throw new Error("No se pudo registrar la firma en el expediente (código no válido).");
+    if(errFirma)throw new Error("Error al registrar la firma: "+(errFirma.message||errFirma.hint||JSON.stringify(errFirma)));
+    if(okFirma===false)throw new Error("El documento ya no está pendiente de firma (o fue firmado previamente).");
     if(isLast)mostrarTerminado();
   } catch(err){
     console.error(err);
