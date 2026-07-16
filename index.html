@@ -7539,7 +7539,7 @@ const OMS_ITEMS={
 // ── PANTALLA DE ENTRADA: elección de unidad (QP Clinic / QP Surgery) ──
 function pgSelSede(){
   const card=(s)=>`<button onclick="entrarSede('${s}')" style="flex:1;min-width:240px;max-width:340px;background:#fff;border:2px solid ${BR};border-radius:16px;padding:34px 24px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:18px;transition:border-color .15s,box-shadow .15s;box-shadow:0 2px 8px #00000010" onmouseover="this.style.borderColor='${BRANDING[s].acento}';this.style.boxShadow='0 8px 24px #00000022'" onmouseout="this.style.borderColor='${BR}';this.style.boxShadow='0 2px 8px #00000010'">
-    <img src="${BRANDING[s].logo}" alt="${BRANDING[s].nombre}" style="max-width:220px;max-height:110px;object-fit:contain">
+    <img src="${BRANDING[s].logo}" alt="${BRANDING[s].nombre}" style="max-width:${s==="surgery"?"300":"220"}px;max-height:${s==="surgery"?"120":"110"}px;object-fit:contain">
     <span style="font-size:16px;font-weight:700;color:${BRANDING[s].acento}">Entrar a ${BRANDING[s].nombre}</span>
   </button>`;
   RR().innerHTML=`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:${PL}">
