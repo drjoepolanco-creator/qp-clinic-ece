@@ -10289,9 +10289,34 @@ window.descargarNotaPDF=async function(){
         ["Datos del episodio",[["dias_tx","Días de hospitalización"],["fecha_ingreso","Fecha de ingreso"],["motivo_egreso","Motivo de egreso"]]],
         ["Diagnósticos y resumen",[["dx_finales","Diagnósticos finales (CIE-10)"],["resumen_tx","Resumen de tratamiento y procedimientos"]]],
         ["Condición, plan y recomendaciones",[["condicion_egreso","Condición al egreso"],["pronostico_egreso","Pronóstico"],["medicamentos_alta","Medicamentos al alta"],["instrucciones_alta","Instrucciones al alta"],["signos_alarma","Signos de alarma"],["cita_seguimiento","Cita de seguimiento"],["referencia_egreso","Referencia a especialidad"]]]
+      ],
+      "Orden de Internamiento":[
+        ["Identificación y programación",[["int_dx","Diagnóstico que motiva el internamiento"],["int_procedimiento","Procedimiento planeado"],["int_sitio","Sitio anatómico"],["int_lateralidad","Lateralidad"],["int_medico","Médico tratante"],["int_fecha_ingreso","Fecha de ingreso"],["int_hora_ingreso","Hora de ingreso"],["int_fecha_cx","Fecha estimada de cirugía"],["int_hora_cx","Hora estimada de cirugía"]]],
+        ["A. Ubicación y condición",[["int_ingresar_a","Ingresar a"],["int_condicion","Condición"],["int_servicio","Servicio"],["int_interconsultas","Interconsultas"]]],
+        ["B. Dieta y ayuno",[["int_dieta","Dieta"],["int_ultima_solidos","Última ingesta de sólidos"],["int_ultima_liquidos","Última ingesta de líquidos claros"],["int_ayuno_indicado","Ayuno indicado"],["int_confirmar_anest","Confirmar ayuno con anestesiología"]]],
+        ["C. Acceso vascular y balance",[["int_acceso_calibre","Calibre de acceso periférico"],["int_acceso_num","Número de accesos"],["int_precau_mastectomia","Evitar brazo con mastectomía"],["int_precau_fistula","Evitar brazo con fístula arteriovenosa"],["int_precau_linfedema","Evitar brazo con linfedema"],["int_precau_otro","Otras precauciones para canalizar"],["int_sonda_urinaria","Sonda urinaria indicada"],["int_sonda_detalle","Sonda urinaria — detalle"],["int_balance_estricto","Balance hídrico estricto"],["int_balance_detalle","Balance hídrico — detalle"]]],
+        ["F. Vigilancia de enfermería",[["int_freq_sv","Frecuencia de signos vitales"],["int_vig_oximetria","Oximetría continua"],["int_vig_glucemia","Glucemia capilar"],["int_vig_dolor","Escala de dolor"],["int_vig_neuro","Vigilancia neurológica"],["int_vig_balance","Balance hídrico"],["int_vig_sangrado","Vigilancia de sangrado"],["int_vig_herida","Vigilancia de herida quirúrgica"],["int_vig_drenajes","Vigilancia de drenajes"],["int_vig_perfusion","Perfusión distal"],["int_vig_neurovasc","Vigilancia neurovascular"]]],
+        ["Parámetros de alarma (avisar al médico)",[["int_al_ta","Tensión arterial menor a"],["int_al_fc","Frecuencia cardiaca mayor a"],["int_al_spo2","Saturación menor a"],["int_al_temp","Temperatura mayor a"],["int_al_sangrado","Sangrado mayor a"],["int_al_otros","Otros criterios para avisar"]]],
+        ["G. Estudios e interconsultas",[["int_est_bh","Biometría hemática"],["int_est_qs","Química sanguínea"],["int_est_elect","Electrolitos séricos"],["int_est_coag","Tiempos de coagulación"],["int_est_grupo","Grupo sanguíneo y Rh"],["int_est_cruzada","Prueba cruzada"],["int_est_ecg","Electrocardiograma"],["int_est_rx","Radiografía"],["int_est_embarazo","Prueba de embarazo"],["int_val_preanest","Valoración preanestésica"],["int_val_cardio","Cardiología"],["int_val_mi","Medicina interna"],["int_val_banco","Banco de sangre"],["int_estudios_otros","Otros estudios o valoraciones"]]],
+        ["H. Preparación preoperatoria y profilaxis",[["int_prep_bano","Baño preoperatorio"],["int_prep_joyeria","Retiro de joyería y prótesis"],["int_prep_no_rasurar","No rasurar con navaja"],["int_prep_piel","Preparación de piel"],["int_prep_marcaje","Marcaje de sitio y confirmación de lateralidad"],["int_prep_implantes","Disponibilidad de implantes / sangre"],["int_prep_ci_qx","Consentimiento quirúrgico firmado"],["int_prep_ci_anest","Consentimiento anestésico firmado"],["int_prep_ci_transf","Consentimiento de transfusión firmado"],["int_prof_atb","Profilaxis antibiótica"],["int_prof_tev","Profilaxis tromboembólica"],["int_riesgo_caidas","Riesgo de caídas"],["int_prof_medias","Medias / compresión neumática"],["int_checklist_oms","Checklist de cirugía segura de la OMS"]]],
+        ["I. Actividad y movilización",[["int_reposo","Reposo"],["int_deambulacion","Deambulación"],["int_apoyo","Apoyo de extremidad"],["int_elevacion","Elevación de extremidad"],["int_cabecera","Cabecera (grados)"],["int_fisio_resp","Fisioterapia respiratoria"],["int_espirometro","Espirómetro incentivo"]]],
+        ["J. Cuidados específicos del procedimiento",[["int_cuidados_esp","Indicaciones específicas por especialidad"]]]
       ]
     };
-    const _quirurgicoHTML=(SEC_QX[tipoNota]?(SEC_QX[tipoNota].map(([tit,pares])=>_kv(tit,pares)).join("")+_svHTML+_regTransHTML):"");
+    // Orden de Internamiento: tablas dinámicas (soluciones, medicamentos, crónicos)
+    const _intCell=(x)=>`<td style="padding:3px 6px;border-bottom:1px solid ${BRD};font-size:8.5px;color:${TXT}">${(x==null?"":String(x))}</td>`;
+    const _intTabla=(titulo,heads,rows)=>secBar(titulo)+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:6px 10px"><table style="width:100%;border-collapse:collapse"><thead><tr>${heads.map(h=>`<th style="text-align:left;font-size:7px;color:${SEC};text-transform:uppercase;padding:3px 6px;border-bottom:1px solid ${BRD}">${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    const _intTablasHTML=(()=>{
+      let out="";
+      const S1=dc.int_soluciones;
+      if(Array.isArray(S1)&&S1.length)out+=_intTabla("C. SOLUCIONES INTRAVENOSAS",["Solución","Volumen","Vía","Velocidad","Hora","Aditivos","Condiciones"],S1.map(r=>`<tr>${[r.solucion,r.vol,r.via,r.vel,r.hora,r.adit,r.cond].map(_intCell).join("")}</tr>`).join(""));
+      const M1=dc.int_medicamentos;
+      if(Array.isArray(M1)&&M1.length)out+=_intTabla("D. MEDICAMENTOS",["Clasificación","Genérico","Dosis","Vía","Frecuencia","Duración","Indicación","Máx 24 h","Ajuste"],M1.map(r=>`<tr>${[r.clas,r.gen,r.dosis,r.via,r.frec,r.dur,r.ind,r.max,r.ajuste].map(_intCell).join("")}</tr>`).join(""));
+      const C1=dc.int_cronicos;
+      if(Array.isArray(C1)&&C1.length)out+=_intTabla("E. CONCILIACIÓN DE MEDICAMENTOS CRÓNICOS",["Medicamento","Dosis","Última dosis","Acción"],C1.map(r=>`<tr>${[r.med,r.dosis,r.ultima,r.accion].map(_intCell).join("")}</tr>`).join(""));
+      return out;
+    })();
+    const _quirurgicoHTML=(SEC_QX[tipoNota]?(SEC_QX[tipoNota].map(([tit,pares])=>_kv(tit,pares)).join("")+_svHTML+_regTransHTML+(tipoNota==="Orden de Internamiento"?_intTablasHTML:"")):"");
     const page1HTML=headerHTML+pacienteHTML+subjetivoHTML+exploracionHTML+analisisHTML+_quirurgicoHTML;
 
     // ── TRATAMIENTO (numerado) ─────────────────────────────────
