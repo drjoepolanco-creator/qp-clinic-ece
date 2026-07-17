@@ -1925,7 +1925,18 @@ function leerDatosClinicos(){
     // Postanestésica
     "dc_ta_ucpa","dc_fc_ucpa","dc_fr_ucpa","dc_spo2_ucpa","dc_temp_ucpa","dc_etco2_ucpa",
     "dc_analgesia_ucpa","dc_antiemeticos_ucpa","dc_tiempo_ucpa","dc_eva_ucpa","dc_nvpo","dc_temp_alta_ucpa",
-    "dc_cond_egreso_ucpa","dc_destino_ucpa","dc_indicaciones_piso","dc_obs_postanest"
+    "dc_cond_egreso_ucpa","dc_destino_ucpa","dc_indicaciones_piso","dc_obs_postanest",
+    // Orden de Internamiento (Fase 1)
+    "dc_int_dx","dc_int_procedimiento","dc_int_sitio","dc_int_lateralidad","dc_int_medico",
+    "dc_int_fecha_ingreso","dc_int_hora_ingreso","dc_int_fecha_cx","dc_int_hora_cx",
+    "dc_int_ingresar_a","dc_int_condicion","dc_int_servicio","dc_int_interconsultas",
+    "dc_int_dieta","dc_int_ultima_solidos","dc_int_ultima_liquidos","dc_int_ayuno_indicado",
+    "dc_int_freq_sv","dc_int_al_ta","dc_int_al_fc","dc_int_al_spo2","dc_int_al_temp","dc_int_al_sangrado","dc_int_al_otros",
+    "dc_int_estudios_otros","dc_int_prof_atb","dc_int_prof_tev","dc_int_riesgo_caidas",
+    "dc_int_reposo","dc_int_deambulacion","dc_int_apoyo","dc_int_elevacion","dc_int_cabecera",
+    "dc_int_cuidados_esp",
+    // Orden de Internamiento (Fase 2 — sección C)
+    "dc_int_acceso_calibre","dc_int_acceso_num","dc_int_precau_otro","dc_int_sonda_detalle","dc_int_balance_detalle"
   ];
   const obj={};
   CAMPOS.forEach(id=>{let v=gv2(id);if(v==="__OTRO__")v=gv2(id+"__otro");if(v)obj[id.replace(/^dc_/,"")]=v;});
@@ -1935,7 +1946,17 @@ function leerDatosClinicos(){
   // Checkboxes
   const CHKS=["dc_ci_cirujano","dc_ci_anestesia","dc_ci_transfusion","dc_lateral_marcado",
     "dc_ci_alta","dc_responsiva_firmada","dc_ci_anest_firmado","dc_ci_transfusion_anest",
-    "dc_hubo_relevo","dc_raq_urg","dc_alt_aldrete","dc_alt_respiracion","dc_alt_dolor","dc_alt_nausea","dc_alt_temperatura","dc_alt_conciencia"];
+    "dc_hubo_relevo","dc_raq_urg","dc_alt_aldrete","dc_alt_respiracion","dc_alt_dolor","dc_alt_nausea","dc_alt_temperatura","dc_alt_conciencia",
+    // Orden de Internamiento (Fase 1)
+    "dc_int_confirmar_anest",
+    "dc_int_vig_oximetria","dc_int_vig_glucemia","dc_int_vig_dolor","dc_int_vig_neuro","dc_int_vig_balance","dc_int_vig_sangrado","dc_int_vig_herida","dc_int_vig_drenajes","dc_int_vig_perfusion","dc_int_vig_neurovasc",
+    "dc_int_est_bh","dc_int_est_qs","dc_int_est_elect","dc_int_est_coag","dc_int_est_grupo","dc_int_est_cruzada","dc_int_est_ecg","dc_int_est_rx","dc_int_est_embarazo",
+    "dc_int_val_preanest","dc_int_val_cardio","dc_int_val_mi","dc_int_val_banco",
+    "dc_int_prep_bano","dc_int_prep_joyeria","dc_int_prep_no_rasurar","dc_int_prep_piel","dc_int_prep_marcaje","dc_int_prep_implantes","dc_int_prep_ci_qx","dc_int_prep_ci_anest","dc_int_prep_ci_transf",
+    "dc_int_prof_medias","dc_int_checklist_oms",
+    "dc_int_fisio_resp","dc_int_espirometro",
+    // Orden de Internamiento (Fase 2 — sección C)
+    "dc_int_precau_mastectomia","dc_int_precau_fistula","dc_int_precau_linfedema","dc_int_sonda_urinaria","dc_int_balance_estricto"];
   CHKS.forEach(id=>{const v=chk(id);if(v)obj[id.replace(/^dc_/,"")]=v;});
   // Aldrete
   const aldIds=["a_actividad","a_respiracion","a_circulacion","a_conciencia","a_color"];
@@ -1950,6 +1971,8 @@ function leerDatosClinicos(){
   // Registros transoperatorios (gestionados en STATE)
   const regs=STATE.consultaActual?.datos_clinicos?.registros_trans;
   if(regs&&regs.length)obj.registros_trans=regs;
+  // Orden de Internamiento: tablas dinámicas (Fase 2)
+  ["int_soluciones","int_medicamentos","int_cronicos"].forEach(k=>{const a=STATE.consultaActual?.datos_clinicos?.[k];if(Array.isArray(a)&&a.length)obj[k]=a;});
   return Object.keys(obj).length?obj:null;
 }
 window.actualizarAldrete=function(campo,valor){
@@ -1961,7 +1984,7 @@ window.actualizarAldrete=function(campo,valor){
   const cont=document.querySelector(".aldrete-badge-container");
   if(cont)cont.innerHTML=`<b style="font-size:18px;color:${col}">Aldrete: ${total}/10 — ${lbl}</b><p style="font-size:12px;color:#546E7A;margin-top:4px">Puntaje mínimo para alta de UCPA: 9 puntos</p>`;
 }
-const CAMPOS_OCULTOS_NOTA={"Nota preoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota posoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de valoración preanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de anestesia transoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota postanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de egreso":["subj","eva","expl","anal","trat","lab","gab","plan","prono"]};
+const CAMPOS_OCULTOS_NOTA={"Orden de Internamiento":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota preoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota posoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de valoración preanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de anestesia transoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota postanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de egreso":["subj","eva","expl","anal","trat","lab","gab","plan","prono"]};
 function renderSeccionEspecial(tipo,d){
   d=d||{};
   const SI=`width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px`;
@@ -2607,6 +2630,246 @@ function renderSeccionEspecial(tipo,d){
     </div>`;
   }
 
+  // ══════════════════════════════════════════════════════════
+  // ORDEN DE INTERNAMIENTO — Indicaciones ejecutables (Fase 1)
+  // NOM-004-SSA3-2012, NOM-006-SSA3-2011, Acciones Esenciales para la Seguridad del Paciente.
+  // No es historia clínica: son indicaciones para enfermería, farmacia y anestesiología.
+  // Las tablas dinámicas C (soluciones), D (medicamentos) y E (crónicos) y el PDF llegan en fases 2 y 3.
+  // ══════════════════════════════════════════════════════════
+  if(tipo==="Orden de Internamiento"){
+    const CI="#00838F";
+    const TSI=`padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px;width:100%`;
+    const TBTN=`background:${CI};color:#fff;border:none;border-radius:5px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px`;
+    const TTH=`padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:${TX}`;
+    const p=STATE.pat||{};
+    const nom=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim()||"— Selecciona un paciente —";
+    const fnac=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
+    const edad=(typeof calcEdad==="function"&&p.fecha_nacimiento)?calcEdad(p.fecha_nacimiento):"—";
+    const sexo=p.sexo_biologico||"—";
+    const alergias=(STATE.alergs||[]).filter(a=>a&&a!=="ALERGIAS NEGADAS");
+    const alergHTML=alergias.length
+      ?`<div style="background:${DA};color:#fff;border-radius:8px;padding:11px 15px;margin-bottom:14px;display:flex;align-items:center;gap:11px"><i class="ti ti-alert-triangle-filled" style="font-size:24px"></i><div><div style="font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;opacity:.92">Alergias</div><div style="font-size:17px;font-weight:800;line-height:1.25">${alergias.join(" · ")}</div></div></div>`
+      :`<div style="background:#E8F5E9;color:#1B5E20;border:1.5px solid #A5D6A7;border-radius:8px;padding:9px 15px;margin-bottom:14px;font-size:13px;font-weight:700"><i class="ti ti-circle-check"></i> Alergias negadas</div>`;
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,${CI}18,#fff)">
+        <b style="font-size:14px;color:${CI}"><i class="ti ti-clipboard-list"></i> Orden de Internamiento — indicaciones ejecutables (NOM-004 · NOM-006 · Acciones Esenciales para la Seguridad del Paciente)</b>
+      </div>
+      <div style="padding:14px">
+        ${ALERTA("Esta orden contiene <b>indicaciones ejecutables</b> para enfermería, farmacia y anestesiología. La evaluación clínica (padecimiento, antecedentes, exploración, riesgo ASA, consentimientos) vive en la Nota preoperatoria; aquí no se duplica.","info")}
+
+        ${H("Identificación del paciente (dos identificadores)",CI)}
+        ${alergHTML}
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div style="background:${PL};border-radius:8px;padding:9px 13px"><div style="font-size:10px;text-transform:uppercase;color:${MU};font-weight:700">Nombre completo</div><div style="font-size:16px;font-weight:800;color:${TX}">${nom}</div></div>
+          <div style="background:${PL};border-radius:8px;padding:9px 13px"><div style="font-size:10px;text-transform:uppercase;color:${MU};font-weight:700">Fecha de nacimiento</div><div style="font-size:15px;font-weight:700;color:${TX}">${fnac} <span style="font-size:12px;color:${MU}">(${edad})</span></div></div>
+          <div style="background:${PL};border-radius:8px;padding:9px 13px"><div style="font-size:10px;text-transform:uppercase;color:${MU};font-weight:700">Expediente</div><div style="font-size:15px;font-weight:700;color:${TX}">${p.numero_expediente||"—"}</div><div style="font-size:11px;color:${MU}">Sexo: ${sexo}${p.curp?" · CURP: "+p.curp:""}</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Diagnóstico que motiva el internamiento (CIE-10)",INP("dc_int_dx",d.int_dx,"Diagnóstico principal con código CIE-10"))}
+          ${fld("Procedimiento planeado",INP("dc_int_procedimiento",d.int_procedimiento,"Ej: Artroplastia total de rodilla"))}
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:8px">
+          ${fld("Sitio anatómico",INP("dc_int_sitio",d.int_sitio,"Ej: Rodilla, mama, hombro..."))}
+          ${fld("Lateralidad",SEL("dc_int_lateralidad",[["","—"],["Derecho","Derecho"],["Izquierdo","Izquierdo"],["Bilateral","Bilateral"],["Línea media","Línea media"],["No aplica","No aplica"]],d.int_lateralidad||""))}
+        </div>
+        ${(d.int_sitio||d.int_lateralidad)?`<div style="background:${CI}12;border:2px solid ${CI};border-radius:8px;padding:8px 14px;margin-bottom:12px;text-align:center"><span style="font-size:10px;text-transform:uppercase;color:${MU};font-weight:800;letter-spacing:.5px">Sitio y lateralidad</span><div style="font-size:22px;font-weight:800;color:${CI};line-height:1.15">${d.int_sitio||"—"} — ${d.int_lateralidad||"—"}</div></div>`:""}
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Médico tratante",INP("dc_int_medico",d.int_medico,"Nombre y especialidad"))}
+          ${fld("Fecha de ingreso",INP("dc_int_fecha_ingreso",d.int_fecha_ingreso,"","date"))}
+          ${fld("Hora de ingreso",INP("dc_int_hora_ingreso",d.int_hora_ingreso,"HH:MM","time"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Fecha estimada de cirugía",INP("dc_int_fecha_cx",d.int_fecha_cx,"","date"))}
+          ${fld("Hora estimada de cirugía",INP("dc_int_hora_cx",d.int_hora_cx,"HH:MM","time"))}
+          <div></div>
+        </div>
+
+        ${H("A. Ubicación y condición",CI)}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Ingresar a",SEL("dc_int_ingresar_a",[["Hospitalización","Hospitalización"],["Cirugía ambulatoria","Cirugía ambulatoria"],["Recuperación (UCPA)","Recuperación (UCPA)"],["Terapia intermedia","Terapia intermedia"],["Terapia intensiva","Terapia intensiva"]],d.int_ingresar_a||"Hospitalización"))}
+          ${fld("Condición",SEL("dc_int_condicion",[["Estable","Estable"],["Delicada","Delicada"],["Grave","Grave"]],d.int_condicion||"Estable"))}
+          ${fld("Servicio",INP("dc_int_servicio",d.int_servicio,"Ej: Ortopedia, Cirugía general..."))}
+        </div>
+        ${fld("Interconsultas / colaboración de otros servicios",TA("dc_int_interconsultas",d.int_interconsultas,"Servicios a interconsultar y motivo. La valoración preanestésica se marca en la sección G.",2))}
+
+        ${H("B. Dieta y ayuno",CI)}
+        ${ALERTA("<b>NOM-006-SSA3-2011:</b> el ayuno preoperatorio lo define anestesiología según el caso; no es un valor fijo. Registra la última ingesta y confírmalo con anestesiología.","warn")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Dieta",SEL("dc_int_dieta",[["Habitual","Habitual"],["Líquida","Líquida"],["Blanda","Blanda"],["Para diabético","Para diabético"],["Hiposódica","Hiposódica"],["Ayuno absoluto","Ayuno absoluto"]],d.int_dieta||"Ayuno absoluto"))}
+          ${fld("Última ingesta de sólidos",INP("dc_int_ultima_solidos",d.int_ultima_solidos,"","datetime-local"))}
+          ${fld("Última ingesta de líquidos claros",INP("dc_int_ultima_liquidos",d.int_ultima_liquidos,"","datetime-local"))}
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:6px">
+          ${fld("Ayuno indicado (si anestesiología ya lo definió)",INP("dc_int_ayuno_indicado",d.int_ayuno_indicado,"Ej: 8 h sólidos, 2 h líquidos claros"))}
+          <div style="display:flex;align-items:flex-end">${CHK("dc_int_confirmar_anest","Confirmar ayuno con anestesiología",d.int_confirmar_anest)}</div>
+        </div>
+
+        ${H("C. Soluciones intravenosas",CI)}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
+          ${fld("Calibre de acceso periférico",SEL("dc_int_acceso_calibre",[["","—"],["14 G","14 G"],["16 G","16 G"],["18 G","18 G"],["20 G","20 G"],["22 G","22 G"],["24 G","24 G"]],d.int_acceso_calibre||""))}
+          ${fld("Número de accesos",INP("dc_int_acceso_num",d.int_acceso_num,"Ej: 2","number"))}
+          ${fld("Sonda urinaria — detalle (solo si indicada)",INP("dc_int_sonda_detalle",d.int_sonda_detalle,"Ej: Foley 16 Fr, cuantificar diuresis horaria"))}
+        </div>
+        <div style="font-size:12px;font-weight:700;color:${MU};margin-bottom:6px">Precauciones para canalizar</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          ${CHK("dc_int_precau_mastectomia","Evitar brazo con mastectomía",d.int_precau_mastectomia)}
+          ${CHK("dc_int_precau_fistula","Evitar brazo con fístula arteriovenosa",d.int_precau_fistula)}
+          ${CHK("dc_int_precau_linfedema","Evitar brazo con linfedema",d.int_precau_linfedema)}
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:10px">
+          ${fld("Otras precauciones para canalizar",INP("dc_int_precau_otro",d.int_precau_otro,"Especifique otras precauciones..."))}
+          <div style="display:flex;align-items:flex-end">${CHK("dc_int_sonda_urinaria","Sonda urinaria indicada",d.int_sonda_urinaria)}</div>
+          <div style="display:flex;align-items:flex-end">${CHK("dc_int_balance_estricto","Balance hídrico estricto",d.int_balance_estricto)}</div>
+        </div>
+        ${fld("Balance hídrico — detalle",INP("dc_int_balance_detalle",d.int_balance_detalle,"Periodicidad del balance, metas de diuresis (mL/kg/h)..."))}
+        <div style="font-size:12px;font-weight:700;color:${MU};margin:12px 0 6px">Prescripción de soluciones</div>
+        <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden;margin-bottom:16px">
+          <div style="overflow-x:auto"><div style="background:#F5F5F5;padding:8px 10px;display:grid;grid-template-columns:1.6fr 1fr 1.3fr 1.2fr 1fr 1.4fr 1.6fr auto;gap:6px;min-width:1000px;align-items:start">
+            ${_combo("sol_solucion",["Solución fisiológica 0.9%","Solución Hartmann","Solución glucosada 5%","Solución glucosada 10%","Solución mixta","Solución salina 0.45%"])}
+            <input id="sol_vol" placeholder="Volumen (mL)" style="${TSI}">
+            ${_combo("sol_via",["Intravenosa periférica","Intravenosa central"])}
+            <input id="sol_vel" placeholder="Velocidad" style="${TSI}">
+            <input id="sol_hora" type="time" style="${TSI}">
+            <input id="sol_adit" placeholder="Aditivos" style="${TSI}">
+            <input id="sol_cond" placeholder="Condiciones para modificar/suspender" style="${TSI}">
+            <button type="button" onclick="agregarIntSolucion()" style="${TBTN}"><i class="ti ti-plus"></i> Añadir</button>
+          </div></div>
+          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:920px">
+            <thead><tr style="background:${PL}">${["Solución","Volumen","Vía","Velocidad","Hora","Aditivos","Condiciones",""].map(h=>`<th style="${TTH}">${h}</th>`).join("")}</tr></thead>
+            <tbody id="tbody-int-sol">${(d.int_soluciones||[]).map((r,i)=>_rowSol(r,i)).join("")}</tbody>
+          </table></div>
+        </div>
+
+        ${H("D. Medicamentos",CI)}
+        ${ALERTA("Sin prellenados universales: cada medicamento se justifica individualmente. <b>NOM-004-SSA3-2012</b> — sin abreviaturas peligrosas; escribe unidades y vía completas.","warn")}
+        <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden;margin-bottom:16px">
+          <div style="overflow-x:auto"><div style="background:#F5F5F5;padding:8px 10px;display:grid;grid-template-columns:1.3fr 1.4fr 1fr 1.2fr 1.2fr 1fr 1.4fr 1fr 1.2fr auto;gap:6px;min-width:1300px;align-items:start">
+            ${_combo("med_clas",["Programado","Profilaxis antibiótica","Analgesia","Antiemético","Protección gástrica","En caso necesario","Rescate","Habitual que continúa","Que se suspende"])}
+            <input id="med_gen" placeholder="Nombre genérico" style="${TSI}">
+            <input id="med_dosis" placeholder="Dosis" style="${TSI}">
+            ${_combo("med_via",["Intravenosa","Intramuscular","Subcutánea","Oral","Sublingual","Rectal","Tópica","Inhalada"])}
+            <input id="med_frec" placeholder="Frecuencia / hora" style="${TSI}">
+            <input id="med_dur" placeholder="Duración" style="${TSI}">
+            <input id="med_ind" placeholder="Indicación" style="${TSI}">
+            <input id="med_max" placeholder="Dosis máx. 24 h" style="${TSI}">
+            <input id="med_ajuste" placeholder="Ajuste renal/peso/edad" style="${TSI}">
+            <button type="button" onclick="agregarIntMedicamento()" style="${TBTN}"><i class="ti ti-plus"></i> Añadir</button>
+          </div></div>
+          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:1200px">
+            <thead><tr style="background:${PL}">${["Clasificación","Genérico","Dosis","Vía","Frecuencia","Duración","Indicación","Máx 24 h","Ajuste",""].map(h=>`<th style="${TTH}">${h}</th>`).join("")}</tr></thead>
+            <tbody id="tbody-int-med">${(d.int_medicamentos||[]).map((r,i)=>_rowMed(r,i)).join("")}</tbody>
+          </table></div>
+        </div>
+
+        ${H("E. Conciliación de medicamentos crónicos",CI)}
+        ${ALERTA("Alto riesgo perioperatorio — revisa individualmente: anticoagulantes, antiagregantes, insulina, hipoglucemiantes orales, antihipertensivos, diuréticos, esteroides, anticonvulsivos, agonistas GLP-1 y herbolarios / suplementos.","warn")}
+        <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden;margin-bottom:8px">
+          <div style="overflow-x:auto"><div style="background:#F5F5F5;padding:8px 10px;display:grid;grid-template-columns:1.6fr 1fr 1.3fr 1.2fr auto;gap:6px;min-width:820px;align-items:start">
+            <input id="cron_med" placeholder="Medicamento habitual" style="${TSI}">
+            <input id="cron_dosis" placeholder="Dosis" style="${TSI}">
+            <input id="cron_ultima" placeholder="Última dosis (fecha / hora)" style="${TSI}">
+            ${_combo("cron_accion",["Continuar","Suspender","Reiniciar"])}
+            <button type="button" onclick="agregarIntCronico()" style="${TBTN}"><i class="ti ti-plus"></i> Añadir</button>
+          </div></div>
+          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:760px">
+            <thead><tr style="background:${PL}">${["Medicamento habitual","Dosis","Última dosis","Acción",""].map(h=>`<th style="${TTH}">${h}</th>`).join("")}</tr></thead>
+            <tbody id="tbody-int-cron">${(d.int_cronicos||[]).map((r,i)=>_rowCron(r,i)).join("")}</tbody>
+          </table></div>
+        </div>
+
+        ${H("F. Vigilancia de enfermería y parámetros de alarma",CI)}
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-bottom:10px">
+          ${fld("Frecuencia de signos vitales",SEL("dc_int_freq_sv",[["Cada 15 minutos","Cada 15 minutos"],["Cada 30 minutos","Cada 30 minutos"],["Cada 1 hora","Cada 1 hora"],["Cada 4 horas","Cada 4 horas"],["Por protocolo del servicio","Por protocolo del servicio"]],d.int_freq_sv||"Cada 4 horas"))}
+          <div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          ${CHK("dc_int_vig_oximetria","Oximetría continua",d.int_vig_oximetria)}
+          ${CHK("dc_int_vig_glucemia","Glucemia capilar",d.int_vig_glucemia)}
+          ${CHK("dc_int_vig_dolor","Escala de dolor",d.int_vig_dolor)}
+          ${CHK("dc_int_vig_neuro","Vigilancia neurológica",d.int_vig_neuro)}
+          ${CHK("dc_int_vig_balance","Balance hídrico",d.int_vig_balance)}
+          ${CHK("dc_int_vig_sangrado","Vigilancia de sangrado",d.int_vig_sangrado)}
+          ${CHK("dc_int_vig_herida","Vigilancia de herida quirúrgica",d.int_vig_herida)}
+          ${CHK("dc_int_vig_drenajes","Vigilancia de drenajes",d.int_vig_drenajes)}
+          ${CHK("dc_int_vig_perfusion","Perfusión distal",d.int_vig_perfusion)}
+          ${CHK("dc_int_vig_neurovasc","Vigilancia neurovascular",d.int_vig_neurovasc)}
+        </div>
+        ${ALERTA("<b>Parámetros de alarma</b> — avisar al médico si se rebasan estos límites:","warn")}
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">
+          ${fld("Tensión arterial menor a",INP("dc_int_al_ta",d.int_al_ta,"Ej: 90/60 mmHg"))}
+          ${fld("Frecuencia cardiaca mayor a",INP("dc_int_al_fc",d.int_al_fc,"Ej: 120 por minuto"))}
+          ${fld("Saturación (SpO₂) menor a",INP("dc_int_al_spo2",d.int_al_spo2,"Ej: 92 por ciento"))}
+          ${fld("Temperatura mayor a",INP("dc_int_al_temp",d.int_al_temp,"Ej: 38 grados"))}
+          ${fld("Sangrado mayor a",INP("dc_int_al_sangrado",d.int_al_sangrado,"Ej: 100 mililitros"))}
+        </div>
+        ${fld("Otros criterios para avisar",INP("dc_int_al_otros",d.int_al_otros,"Dolor no controlado, deterioro neurológico, oliguria, etc."))}
+
+        ${H("G. Estudios e interconsultas",CI)}
+        <div style="font-size:12px;font-weight:700;color:${MU};margin-bottom:6px">Estudios solicitados</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+          ${CHK("dc_int_est_bh","Biometría hemática",d.int_est_bh)}
+          ${CHK("dc_int_est_qs","Química sanguínea",d.int_est_qs)}
+          ${CHK("dc_int_est_elect","Electrolitos séricos",d.int_est_elect)}
+          ${CHK("dc_int_est_coag","Tiempos de coagulación",d.int_est_coag)}
+          ${CHK("dc_int_est_grupo","Grupo sanguíneo y Rh",d.int_est_grupo)}
+          ${CHK("dc_int_est_cruzada","Prueba cruzada",d.int_est_cruzada)}
+          ${CHK("dc_int_est_ecg","Electrocardiograma",d.int_est_ecg)}
+          ${CHK("dc_int_est_rx","Radiografía",d.int_est_rx)}
+          ${CHK("dc_int_est_embarazo","Prueba de embarazo (cuando proceda, con consentimiento)",d.int_est_embarazo)}
+        </div>
+        <div style="font-size:12px;font-weight:700;color:${MU};margin-bottom:6px">Valoraciones</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+          ${CHK("dc_int_val_preanest","Valoración preanestésica (obligatoria en cirugía programada)",d.int_val_preanest)}
+          ${CHK("dc_int_val_cardio","Cardiología",d.int_val_cardio)}
+          ${CHK("dc_int_val_mi","Medicina interna",d.int_val_mi)}
+          ${CHK("dc_int_val_banco","Banco de sangre",d.int_val_banco)}
+        </div>
+        ${fld("Otros estudios o valoraciones",TA("dc_int_estudios_otros",d.int_estudios_otros,"Estudios adicionales, especificaciones, resultados críticos pendientes...",2))}
+
+        ${H("H. Preparación preoperatoria y profilaxis",CI)}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+          ${CHK("dc_int_prep_bano","Baño preoperatorio",d.int_prep_bano)}
+          ${CHK("dc_int_prep_joyeria","Retiro de joyería y prótesis",d.int_prep_joyeria)}
+          ${CHK("dc_int_prep_no_rasurar","No rasurar con navaja",d.int_prep_no_rasurar)}
+          ${CHK("dc_int_prep_piel","Preparación de piel",d.int_prep_piel)}
+          ${CHK("dc_int_prep_marcaje","Marcaje de sitio y confirmación de lateralidad",d.int_prep_marcaje)}
+          ${CHK("dc_int_prep_implantes","Disponibilidad de implantes / sangre",d.int_prep_implantes)}
+          ${CHK("dc_int_prep_ci_qx","Consentimiento quirúrgico firmado",d.int_prep_ci_qx)}
+          ${CHK("dc_int_prep_ci_anest","Consentimiento anestésico firmado",d.int_prep_ci_anest)}
+          ${CHK("dc_int_prep_ci_transf","Consentimiento de transfusión firmado",d.int_prep_ci_transf)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
+          ${fld("Profilaxis antibiótica",INP("dc_int_prof_atb",d.int_prof_atb,"Fármaco, dosis y momento (30–60 min pre-incisión)"))}
+          ${fld("Profilaxis tromboembólica",SEL("dc_int_prof_tev",[["No indicada","No indicada"],["Mecánica","Mecánica"],["Farmacológica","Farmacológica"],["Mecánica y farmacológica","Mecánica y farmacológica"]],d.int_prof_tev||"No indicada"))}
+          ${fld("Riesgo de caídas",SEL("dc_int_riesgo_caidas",[["Bajo","Bajo"],["Medio","Medio"],["Alto","Alto"]],d.int_riesgo_caidas||"Bajo"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
+          ${CHK("dc_int_prof_medias","Medias / compresión neumática",d.int_prof_medias)}
+          ${CHK("dc_int_checklist_oms","Checklist de cirugía segura de la OMS realizado / programado",d.int_checklist_oms)}
+        </div>
+
+        ${H("I. Actividad y movilización",CI)}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Reposo",SEL("dc_int_reposo",[["Absoluto","Absoluto"],["Relativo","Relativo"]],d.int_reposo||"Relativo"))}
+          ${fld("Deambulación",SEL("dc_int_deambulacion",[["Diferida","Diferida"],["Asistida","Asistida"],["Temprana","Temprana"],["Según tolerancia","Según tolerancia"]],d.int_deambulacion||"Según tolerancia"))}
+          ${fld("Apoyo de extremidad",SEL("dc_int_apoyo",[["No aplica","No aplica"],["No apoyo","No apoyo"],["Apoyo parcial","Apoyo parcial"],["Según tolerancia","Según tolerancia"],["Apoyo completo","Apoyo completo"]],d.int_apoyo||"No aplica"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
+          ${fld("Elevación de extremidad",INP("dc_int_elevacion",d.int_elevacion,"Ej: Elevar extremidad operada sobre almohada"))}
+          ${fld("Cabecera a (grados)",INP("dc_int_cabecera",d.int_cabecera,"Ej: 30","number"))}
+          <div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
+          ${CHK("dc_int_fisio_resp","Fisioterapia respiratoria",d.int_fisio_resp)}
+          ${CHK("dc_int_espirometro","Espirómetro incentivo",d.int_espirometro)}
+        </div>
+
+        ${H("J. Cuidados específicos del procedimiento",CI)}
+        ${fld("Indicaciones específicas por especialidad",TA("dc_int_cuidados_esp",d.int_cuidados_esp,"Hielo local, vendaje, inmovilizador, cabestrillo, drenaje y cuantificación de gasto, sonda, curación, vigilancia neurovascular, restricciones, cuidados de implantes...",4))}
+      </div>
+    </div>`;
+  }
+
   // Default
   return`<div style="background:#F5F5F5;border-radius:10px;padding:10px 16px;font-size:13px;color:${MU}">
     📌 Completa los campos SOAP para este tipo de nota.
@@ -2657,6 +2920,47 @@ window.eliminarRegistroTrans=function(i){
   STATE.consultaActual.datos_clinicos.registros_trans.splice(i,1);
   actualizarTipoNota(gv("cs_tipo_nota")||STATE.consultaActual?.tipo_nota||"");
 }
+
+// ── Orden de Internamiento: tablas dinámicas (soluciones, medicamentos, crónicos) ──
+function _giv(id){return document.getElementById(id)?.value||"";}
+function _valOtro(id){const s=document.getElementById(id);if(!s)return"";return s.value==="__OTRO__"?(document.getElementById(id+"__otro")?.value||""):s.value;}
+function _clrInt(id){const e=document.getElementById(id);if(e)e.value="";const o=document.getElementById(id+"__otro");if(o){o.value="";o.style.display="none";}}
+function _pushInt(k,reg){if(!STATE.consultaActual)STATE.consultaActual={};if(!STATE.consultaActual.datos_clinicos)STATE.consultaActual.datos_clinicos={};if(!Array.isArray(STATE.consultaActual.datos_clinicos[k]))STATE.consultaActual.datos_clinicos[k]=[];STATE.consultaActual.datos_clinicos[k].push(reg);if(typeof guardarConsultaSilencioso==="function")guardarConsultaSilencioso();}
+function _lenInt(k){return (STATE.consultaActual?.datos_clinicos?.[k]||[]).length;}
+function _delInt(k,i,tbId,rowFn){const a=STATE.consultaActual?.datos_clinicos?.[k];if(!Array.isArray(a))return;a.splice(i,1);if(typeof guardarConsultaSilencioso==="function")guardarConsultaSilencioso();const tb=document.getElementById(tbId);if(tb)tb.innerHTML=a.map((r,j)=>rowFn(r,j)).join("");}
+function _combo(id,opts){return `<div style="display:flex;flex-direction:column;gap:4px"><select id="${id}" onchange="onSelOtro('${id}')" style="padding:5px 7px;border:1px solid #CFD8DC;border-radius:5px;font-size:13px;width:100%;background:#fff"><option value="">—</option>${opts.map(o=>`<option value="${o}">${o}</option>`).join("")}<option value="__OTRO__">Otro (especificar)…</option></select><input id="${id}__otro" placeholder="Especifique…" style="display:none;padding:5px 7px;border:1px solid #CFD8DC;border-radius:5px;font-size:13px;width:100%"></div>`;}
+function _tdI(v){return `<td style="padding:5px 7px;font-size:12.5px;color:#003A5D">${v||"—"}</td>`;}
+function _delBtn(fn,i){return `<td style="padding:5px 7px"><button type="button" onclick="${fn}(${i})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:5px;padding:4px 9px;cursor:pointer;font-size:13px" title="Eliminar"><i class="ti ti-trash"></i></button></td>`;}
+function _rowSol(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12.5px;font-weight:600;color:#00838F">${r.solucion||"—"}</td>${_tdI(r.vol)}${_tdI(r.via)}${_tdI(r.vel)}${_tdI(r.hora)}${_tdI(r.adit)}${_tdI(r.cond)}${_delBtn("eliminarIntSolucion",i)}</tr>`;}
+function _rowMed(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12px;font-weight:600;color:#00838F">${r.clas||"—"}</td>${_tdI(r.gen)}${_tdI(r.dosis)}${_tdI(r.via)}${_tdI(r.frec)}${_tdI(r.dur)}${_tdI(r.ind)}${_tdI(r.max)}${_tdI(r.ajuste)}${_delBtn("eliminarIntMedicamento",i)}</tr>`;}
+function _rowCron(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12.5px;font-weight:600;color:#00838F">${r.med||"—"}</td>${_tdI(r.dosis)}${_tdI(r.ultima)}${_tdI(r.accion)}${_delBtn("eliminarIntCronico",i)}</tr>`;}
+window.agregarIntSolucion=function(){
+  const reg={solucion:_valOtro("sol_solucion"),vol:_giv("sol_vol"),via:_valOtro("sol_via"),vel:_giv("sol_vel"),hora:_giv("sol_hora"),adit:_giv("sol_adit"),cond:_giv("sol_cond")};
+  if(!reg.solucion&&!reg.vol){showToast("Indica al menos la solución o el volumen",false);return;}
+  _pushInt("int_soluciones",reg);
+  ["sol_solucion","sol_vol","sol_via","sol_vel","sol_hora","sol_adit","sol_cond"].forEach(_clrInt);
+  const tb=document.getElementById("tbody-int-sol");if(tb)tb.insertAdjacentHTML("beforeend",_rowSol(reg,_lenInt("int_soluciones")-1));
+  showToast("Solución añadida");
+};
+window.eliminarIntSolucion=function(i){_delInt("int_soluciones",i,"tbody-int-sol",_rowSol);};
+window.agregarIntMedicamento=function(){
+  const reg={clas:_valOtro("med_clas"),gen:_giv("med_gen"),dosis:_giv("med_dosis"),via:_valOtro("med_via"),frec:_giv("med_frec"),dur:_giv("med_dur"),ind:_giv("med_ind"),max:_giv("med_max"),ajuste:_giv("med_ajuste")};
+  if(!reg.gen){showToast("Indica el nombre genérico del medicamento",false);return;}
+  _pushInt("int_medicamentos",reg);
+  ["med_clas","med_gen","med_dosis","med_via","med_frec","med_dur","med_ind","med_max","med_ajuste"].forEach(_clrInt);
+  const tb=document.getElementById("tbody-int-med");if(tb)tb.insertAdjacentHTML("beforeend",_rowMed(reg,_lenInt("int_medicamentos")-1));
+  showToast("Medicamento añadido");
+};
+window.eliminarIntMedicamento=function(i){_delInt("int_medicamentos",i,"tbody-int-med",_rowMed);};
+window.agregarIntCronico=function(){
+  const reg={med:_giv("cron_med"),dosis:_giv("cron_dosis"),ultima:_giv("cron_ultima"),accion:_valOtro("cron_accion")};
+  if(!reg.med){showToast("Indica el medicamento crónico",false);return;}
+  _pushInt("int_cronicos",reg);
+  ["cron_med","cron_dosis","cron_ultima","cron_accion"].forEach(_clrInt);
+  const tb=document.getElementById("tbody-int-cron");if(tb)tb.insertAdjacentHTML("beforeend",_rowCron(reg,_lenInt("int_cronicos")-1));
+  showToast("Medicamento crónico añadido");
+};
+window.eliminarIntCronico=function(i){_delInt("int_cronicos",i,"tbody-int-cron",_rowCron);};
 
 // ── CONSENTIMIENTOS INFORMADOS ────────────────────────────
 // Catálogo completo de consentimientos con textos legales
@@ -5335,7 +5639,7 @@ async function cargarConsultas(){
   }
 
   // Colores por tipo de nota
-  const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C","Nota de valoración preanestésica":"#004D99","Nota de anestesia transoperatoria":"#283593","Nota postanestésica":"#0277BD"};
+  const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Orden de Internamiento":"#00838F","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C","Nota de valoración preanestésica":"#004D99","Nota de anestesia transoperatoria":"#283593","Nota postanestésica":"#0277BD"};
 
   // Construir filas de consultas
   const filaConsultas=(data||[]).map(c=>{
@@ -8763,7 +9067,7 @@ async function pgConsulta(){
     <div style="background:#fff;border-bottom:1px solid ${BR};padding:7px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <!-- Tipo de nota -->
       <select id="cs_tipo_nota" onchange="actualizarTipoNota(this.value)" title="Tipo de nota" style="padding:7px 13px;border:none;border-radius:8px;font-size:14px;font-weight:800;color:#fff;background:${PD};cursor:pointer;outline:none;box-shadow:0 1px 3px #00000026">
-        ${["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
+        ${["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Orden de Internamiento","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
       </select>
       <div style="width:1px;height:24px;background:${BR}"></div>
       <button id="btn-ia-nota" onclick="abrirModalIA()" title="Generar nota con IA" style="background:#fff;color:#6A1B9A;border:1.5px solid #E1BEE7;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;align-items:center;gap:6px;display:${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""])?'none':'inline-flex'}"><i class="ti ti-sparkles"></i> Nota con IA</button>
