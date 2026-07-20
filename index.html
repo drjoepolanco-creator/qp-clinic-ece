@@ -543,6 +543,7 @@ function nav(){
       </div>
     </div>
     <button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>
+    ${["enfermeria","medico"].includes(STATE.userProfile?.rol)?`<button onclick="go('inventario')" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="inventario"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="inventario"?"3px solid #64B5F6":"3px solid transparent"}">Inventario</button>`:""}
     ${STATE.userProfile?.rol==="admin"?`
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
@@ -17636,12 +17637,12 @@ async function pgInventario(){
           <div style="font-size:16px;font-weight:700;color:#fff">Inventario de insumos</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <select id="inv-sede" onchange="STATE._invSede=this.value;pgInventario()" style="padding:8px 12px;border-radius:8px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;font-size:13px;font-weight:600;cursor:pointer">
-            ${esAdmin?`<option value="todas" ${STATE._invSede==="todas"?"selected":""}>Ambas sedes</option>`:""}
+          ${esAdmin?`<select id="inv-sede" onchange="STATE._invSede=this.value;pgInventario()" style="padding:8px 12px;border-radius:8px;border:1.5px solid rgba(255,255,255,.4);background:#fff;color:#006BB6;font-size:13px;font-weight:700;cursor:pointer">
+            <option value="todas" ${STATE._invSede==="todas"?"selected":""}>Ambas sedes</option>
             <option value="clinic" ${STATE._invSede==="clinic"?"selected":""}>QP Clinic</option>
             <option value="surgery" ${STATE._invSede==="surgery"?"selected":""}>QP Surgery</option>
-          </select>
-          <button onclick="go('medicos')" style="padding:8px 14px;border:1.5px solid rgba(255,255,255,.4);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:13px;font-weight:600">← Configuración</button>
+          </select>`:`<span style="padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;font-size:13px;font-weight:700">${invSedeLbl(invSedeActual())}</span>`}
+          <button onclick="go(STATE.userProfile?.rol==='admin'?'medicos':'agenda')" style="padding:8px 14px;border:1.5px solid rgba(255,255,255,.4);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:13px;font-weight:600">← ${STATE.userProfile?.rol==='admin'?'Configuración':'Regresar'}</button>
         </div>
       </div>
       <div style="border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;padding:0 4px;background:#FAFAFA">
