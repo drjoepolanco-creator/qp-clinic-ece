@@ -316,7 +316,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano,"selsede":pgSelSede,"listapac":pgListaPacientes};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"inventario":pgInventario};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -518,47 +518,19 @@ async function guardarConsultaSilencioso(){
     }
   }catch(e){/* silencioso — el respaldo local queda como red de seguridad */}
 }
-// ── BRANDING DINÁMICO POR SEDE (QP Clinic / QP Surgery Clinic) ──
-const BRANDING={
-  clinic:{nombre:"QP Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",acento:"#006BB6",razon:"QP Clinic, S.C.",direccion:"Insurgentes Sur 933, Piso 12, Col. Nápoles, C.P. 03810, CDMX",rfc:"QCL230518J66",tel:"5644237028",web:"www.qpclinic.org"},
-  surgery:{nombre:"QP Surgery Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",acento:"#1F8FE8",razon:"QP Surgery Clinic S.C.",direccion:"Boulevard Adolfo Ruiz Cortines No. 3332, Int. 816 y 801, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México",licencia:"Licencia Sanitaria 26-AM-09-010-0002",autorizacion:"Actos quirúrgicos (cirugía ambulatoria)",rfc:"",tel:"5592247091",web:""}
-};
-function sedeUsuario(){return STATE.userProfile?.sede||"clinic";}
-function sedeActiva(){
-  if(puedeCambiarSede()){return STATE.sedeActiva||(function(){try{return localStorage.getItem("qp_sede_activa");}catch(e){return null;}})()||"clinic";}
-  return sedeUsuario()==="surgery"?"surgery":"clinic";
-}
-function brand(){return BRANDING[sedeActiva()]||BRANDING.clinic;}
-window.setSedeActiva=function(s){STATE.sedeActiva=s;try{localStorage.setItem("qp_sede_activa",s);}catch(e){}draw();}
-function puedeCambiarSede(){return !!STATE.userProfile&&(sedeUsuario()==="ambas"||rolActual()==="admin");}
-window.elegirSede=function(s){STATE.sedeActiva=s;STATE.sedePicker=false;try{localStorage.setItem("qp_sede_activa",s);}catch(e){}draw();}
-window.togglePickerSede=function(){STATE.sedePicker=!STATE.sedePicker;draw();}
-function logoSwitcherHTML(){
-  const puede=puedeCambiarSede();
-  if(!STATE.userProfile) return '<img src="'+BRANDING.clinic.logo+'" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">';
-  const otra=sedeActiva()==="surgery"?"clinic":"surgery";
-  return '<img src="'+brand().logo+'" alt="'+brand().nombre+'" title="'+(puede?("Cambiar a "+BRANDING[otra].nombre):brand().nombre)+'" '+(puede?'onclick="toggleSede()" ':'')+'style="height:32px;border-radius:4px;background:#fff;padding:2px;'+(puede?"cursor:pointer":"")+'">';
-}
-function sedeHome(s){return s==="surgery"?"quirofano":"agenda";}
-window.toggleSede=function(){
-  const nxt=sedeActiva()==="surgery"?"clinic":"surgery";
-  STATE.sedeActiva=nxt;STATE.sedePicker=false;
-  try{localStorage.setItem("qp_sede_activa",nxt);}catch(e){}
-  try{sessionStorage.setItem("qp_sede_confirmada","1");}catch(e){}
-  go(sedeHome(nxt));
-}
-
 function nav(){
   // Título dinámico del tab
   const patNombre=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""} — `:"";
-  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",seguros:"Seguros — ",ejercicio:"Prescripción de ejercicio — ",quirofano:"Quirófano — ",listapac:"Padrón de pacientes — ",perfil:"Mi perfil — "};
+  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",seguros:"Seguros — ",ejercicio:"Prescripción de ejercicio — ",inventario:"Inventario — ",perfil:"Mi perfil — "};
   document.title=`${pageTitles[STATE.page]||""}${patNombre}QP Clinic`;
   const u=STATE.userProfile;const p=STATE.pat;
   const online=navigator.onLine;
   return`<div id="topnav" style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
-    <div style="display:flex;align-items:center;gap:8px;margin-right:16px">${logoSwitcherHTML()}</div>
-    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].filter(([k])=>{const _sa=sedeActiva();if(k==="quirofano"&&_sa==="clinic")return false;if((k==="ultrasonido"||k==="agenda")&&_sa==="surgery")return false;return true;}).map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
-    ${sedeActiva()!=="surgery"?`<div style="position:relative" id="nutri-menu-wrap">
+    <div style="display:flex;align-items:center;gap:7px;margin-right:16px">
+      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">
+    </div>
+    ${[["agenda","Agenda"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    <div style="position:relative" id="nutri-menu-wrap">
       <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
       <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
         <button onclick="go('nutricion',{nutriModulo:'calculo'});toggleNutriMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🧮 Cálculo nutricional</button>
@@ -570,18 +542,18 @@ function nav(){
         <button onclick="go('nutricion',{nutriModulo:'plantillas',nutriTipo:'transicion'});toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍎 Fase 3: Transición</button>
       </div>
     </div>
-    `:""}${sedeActiva()!=="surgery"?`<button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>`:""}
+    <button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>
     ${STATE.userProfile?.rol==="admin"?`
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
         <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Solo Administrador</div>
         <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>
-        <button onclick="go('listapac',{pacPage:1});toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px"><i class="ti ti-users"></i> Padrón de pacientes</button>
         <button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>
         <button onclick="go('tramites');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏛️ Trámites y Cumplimiento</button>
         <button onclick="go('reportes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📊 Reportes de Dirección</button>
         <button onclick="go('cortecaja');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">💰 Corte de caja</button>
+        <button onclick="go('inventario');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📦 Inventario de insumos</button>
         <div style="border-top:1px solid #F0F0F0;margin:4px 0"></div>
         <button onclick="toggleCfgMenu();reiniciarSesionEmergencia()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#E65100;display:flex;align-items:center;gap:8px" title="Usar si un usuario reporta errores 'InvalidJWT' repetidos">🔄 Limpiar sesión corrupta (InvalidJWT)</button>
       </div>
@@ -844,7 +816,7 @@ window.guardarNuevaContrasena=async function(){
       const {data:prof}=await SB.from("usuarios").select("*").eq("id",session.user.id).maybeSingle();
       STATE.userProfile=prof;STATE.medProfile=prof;
       history.replaceState(null,"",window.location.pathname);
-      go("selsede");
+      go("agenda");
     } else {
       history.replaceState(null,"",window.location.pathname);
       go("login");
@@ -880,7 +852,7 @@ window.doLogin=async function(){
   STATE.userProfile=prof;
   STATE.medProfile=prof; // alias para recetas y documentos
   logBitacora("INICIO DE SESIÓN","Login exitoso",null);
-  go("selsede");
+  go("agenda");
 }
 function showLoginError(msg){
   const e=document.getElementById("login-error");
@@ -1380,7 +1352,6 @@ async function pgPerfil(){
           ${fld("Email del sistema",`<input value="${u.email||""}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;background:#F5F5F5;color:${MU}" readonly>`)}
           ${fld("Teléfono",inp("pf_tel",u.telefono||"","55XXXXXXXX","tel"))}
         </div>
-        <div style="margin-bottom:14px">${fld("Correo profesional (aparece en recetas y documentos)",inp("pf_correo_prof",u.correo_profesional||"","dr.polanco@qpclinic.mx","email"))}</div>
         <div style="display:flex;justify-content:flex-end">
           ${btn("💾 Guardar datos personales","guardarPerfil()","ok",1)}
         </div>
@@ -1525,7 +1496,6 @@ window.guardarPerfil=async function(){
   }).eq("id",uid);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
-  try{await SB.from("usuarios").update({correo_profesional:gv("pf_correo_prof")||null}).eq("id",uid);}catch(e){}
   const {data:fresh}=await SB.from("usuarios").select("*").eq("id",uid).maybeSingle();
   if(fresh){STATE.userProfile=fresh;STATE.medProfile=fresh;}
   showToast("✓ Datos personales guardados");
@@ -1850,9 +1820,6 @@ window.actualizarTipoNota=function(tipo){
   if(STATE.consultaActual)STATE.consultaActual.tipo_nota=tipo;
   const sec=document.getElementById("seccion-especial");
   if(sec)sec.innerHTML=renderSeccionEspecial(tipo,STATE.consultaActual?.datos_clinicos||{});
-  const _oc=CAMPOS_OCULTOS_NOTA[tipo]||[];
-  ["subj","eva","expl","anal","trat","lab","gab","plan","prono"].forEach(k=>{const el=document.getElementById("cardsoap-"+k);if(el)el.style.display=_oc.includes(k)?"none":"";});
-  const _ia=document.getElementById("btn-ia-nota");if(_ia)_ia.style.display=(CAMPOS_OCULTOS_NOTA[tipo])?"none":"inline-flex";
   // Re-init GCS if urgencias
   if(tipo==="Nota de urgencias")actualizarGCS();
 }
@@ -1876,7 +1843,6 @@ window.actualizarGCS=function(){
   const disp=document.getElementById("gcs_total");
   if(disp){disp.textContent=`GCS: ${t}/15 — ${interp}`;disp.style.color=col;disp.style.background=t<=8?"#FFEBEE":t<=12?"#FFF3E0":t<=14?"#FFF8E1":"#E8F5E9";}
 }
-window.onSelOtro=function(id){const s=document.getElementById(id);const inp=document.getElementById(id+"__otro");if(s&&inp)inp.style.display=(s.value==="__OTRO__")?"block":"none";};
 function leerDatosClinicos(){
   const gv2=(id)=>document.getElementById(id)?.value||"";
   const chk=(id)=>document.getElementById(id)?.checked||false;
@@ -1907,7 +1873,7 @@ function leerDatosClinicos(){
     "dc_receptor","dc_especialidad_ref","dc_tipo_ref","dc_dx_ref","dc_motivo_ref","dc_resumen_ref",
     "dc_cond_traslado","dc_medio_traslado","dc_acomp_traslado","dc_estudios_ref","dc_meds_traslado",
     // Preanestésica
-    "dc_asa_anest","dc_rcri","dc_mets_anest","dc_pronostico_anest","dc_raq","dc_raq_sub",
+    "dc_asa_anest","dc_rcri","dc_mets_anest","dc_pronostico_anest",
     "dc_mallampati","dc_apertura_bucal","dc_dist_tm","dc_movilidad_cerv","dc_denticion","dc_vad","dc_plan_vad",
     "dc_ecg_preanest","dc_rx_torax_preanest","dc_lab_preanest",
     "dc_alerg_anest","dc_meds_anest","dc_anest_prev","dc_anest_prev_det","dc_ayuno_sol","dc_ayuno_liq",
@@ -1925,38 +1891,17 @@ function leerDatosClinicos(){
     // Postanestésica
     "dc_ta_ucpa","dc_fc_ucpa","dc_fr_ucpa","dc_spo2_ucpa","dc_temp_ucpa","dc_etco2_ucpa",
     "dc_analgesia_ucpa","dc_antiemeticos_ucpa","dc_tiempo_ucpa","dc_eva_ucpa","dc_nvpo","dc_temp_alta_ucpa",
-    "dc_cond_egreso_ucpa","dc_destino_ucpa","dc_indicaciones_piso","dc_obs_postanest",
-    // Orden de Internamiento (Fase 1)
-    "dc_int_dx","dc_int_procedimiento","dc_int_sitio","dc_int_lateralidad","dc_int_medico",
-    "dc_int_fecha_ingreso","dc_int_hora_ingreso","dc_int_fecha_cx","dc_int_hora_cx",
-    "dc_int_ingresar_a","dc_int_condicion","dc_int_servicio","dc_int_interconsultas",
-    "dc_int_dieta","dc_int_ultima_solidos","dc_int_ultima_liquidos","dc_int_ayuno_indicado",
-    "dc_int_freq_sv","dc_int_al_ta","dc_int_al_fc","dc_int_al_spo2","dc_int_al_temp","dc_int_al_sangrado","dc_int_al_otros",
-    "dc_int_estudios_otros","dc_int_prof_atb","dc_int_prof_tev","dc_int_riesgo_caidas",
-    "dc_int_reposo","dc_int_deambulacion","dc_int_apoyo","dc_int_elevacion","dc_int_cabecera",
-    "dc_int_cuidados_esp",
-    // Orden de Internamiento (Fase 2 — sección C)
-    "dc_int_acceso_calibre","dc_int_acceso_num","dc_int_precau_otro","dc_int_sonda_detalle","dc_int_balance_detalle"
+    "dc_cond_egreso_ucpa","dc_destino_ucpa","dc_indicaciones_piso","dc_obs_postanest"
   ];
   const obj={};
-  CAMPOS.forEach(id=>{let v=gv2(id);if(v==="__OTRO__")v=gv2(id+"__otro");if(v)obj[id.replace(/^dc_/,"")]=v;});
+  CAMPOS.forEach(id=>{const v=gv2(id);if(v)obj[id.replace(/^dc_/,"")]=v;});
   // GCS total
   const go=parseInt(gv2("gcs_o")||4),gv3=parseInt(gv2("gcs_v")||5),gm=parseInt(gv2("gcs_m")||6);
   if(gv2("gcs_o"))obj.gcs_total=go+gv3+gm;
   // Checkboxes
   const CHKS=["dc_ci_cirujano","dc_ci_anestesia","dc_ci_transfusion","dc_lateral_marcado",
     "dc_ci_alta","dc_responsiva_firmada","dc_ci_anest_firmado","dc_ci_transfusion_anest",
-    "dc_hubo_relevo","dc_raq_urg","dc_alt_aldrete","dc_alt_respiracion","dc_alt_dolor","dc_alt_nausea","dc_alt_temperatura","dc_alt_conciencia",
-    // Orden de Internamiento (Fase 1)
-    "dc_int_confirmar_anest",
-    "dc_int_vig_oximetria","dc_int_vig_glucemia","dc_int_vig_dolor","dc_int_vig_neuro","dc_int_vig_balance","dc_int_vig_sangrado","dc_int_vig_herida","dc_int_vig_drenajes","dc_int_vig_perfusion","dc_int_vig_neurovasc",
-    "dc_int_est_bh","dc_int_est_qs","dc_int_est_elect","dc_int_est_coag","dc_int_est_grupo","dc_int_est_cruzada","dc_int_est_ecg","dc_int_est_rx","dc_int_est_embarazo",
-    "dc_int_val_preanest","dc_int_val_cardio","dc_int_val_mi","dc_int_val_banco",
-    "dc_int_prep_bano","dc_int_prep_joyeria","dc_int_prep_no_rasurar","dc_int_prep_piel","dc_int_prep_marcaje","dc_int_prep_implantes","dc_int_prep_ci_qx","dc_int_prep_ci_anest","dc_int_prep_ci_transf",
-    "dc_int_prof_medias","dc_int_checklist_oms",
-    "dc_int_fisio_resp","dc_int_espirometro",
-    // Orden de Internamiento (Fase 2 — sección C)
-    "dc_int_precau_mastectomia","dc_int_precau_fistula","dc_int_precau_linfedema","dc_int_sonda_urinaria","dc_int_balance_estricto"];
+    "dc_hubo_relevo","dc_alt_aldrete","dc_alt_respiracion","dc_alt_dolor","dc_alt_nausea","dc_alt_temperatura","dc_alt_conciencia"];
   CHKS.forEach(id=>{const v=chk(id);if(v)obj[id.replace(/^dc_/,"")]=v;});
   // Aldrete
   const aldIds=["a_actividad","a_respiracion","a_circulacion","a_conciencia","a_color"];
@@ -1971,8 +1916,6 @@ function leerDatosClinicos(){
   // Registros transoperatorios (gestionados en STATE)
   const regs=STATE.consultaActual?.datos_clinicos?.registros_trans;
   if(regs&&regs.length)obj.registros_trans=regs;
-  // Orden de Internamiento: tablas dinámicas (Fase 2)
-  ["int_soluciones","int_medicamentos","int_cronicos"].forEach(k=>{const a=STATE.consultaActual?.datos_clinicos?.[k];if(Array.isArray(a)&&a.length)obj[k]=a;});
   return Object.keys(obj).length?obj:null;
 }
 window.actualizarAldrete=function(campo,valor){
@@ -1984,11 +1927,10 @@ window.actualizarAldrete=function(campo,valor){
   const cont=document.querySelector(".aldrete-badge-container");
   if(cont)cont.innerHTML=`<b style="font-size:18px;color:${col}">Aldrete: ${total}/10 — ${lbl}</b><p style="font-size:12px;color:#546E7A;margin-top:4px">Puntaje mínimo para alta de UCPA: 9 puntos</p>`;
 }
-const CAMPOS_OCULTOS_NOTA={"Orden de Internamiento":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota preoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota posoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de valoración preanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de anestesia transoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota postanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de egreso":["subj","eva","expl","anal","trat","lab","gab","plan","prono"]};
 function renderSeccionEspecial(tipo,d){
   d=d||{};
   const SI=`width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px`;
-  const SEL=(id,opts,val="")=>{const _isP=opts.some(([v,l])=>(val===v||val===l));const _otro=val&&!_isP;return `<select id="${id}" onchange="onSelOtro('${id}')" style="${SI};background:#fff;cursor:pointer">${opts.map(([v,l])=>`<option value="${v||l}" ${(val===v||val===l)?"selected":""}>${l}</option>`).join("")}<option value="__OTRO__" ${_otro?"selected":""}>Otro (especificar)…</option></select><input id="${id}__otro" placeholder="Especifique…" value="${_otro?String(val).replace(/"/g,"&quot;"):""}" style="${SI};margin-top:6px;display:${_otro?"block":"none"}">`;};
+  const SEL=(id,opts,val="")=>`<select id="${id}" style="${SI};background:#fff;cursor:pointer">${opts.map(([v,l])=>`<option value="${v||l}" ${(val===v||val===l)?"selected":""}>${l}</option>`).join("")}</select>`;
   const TA=(id,val,ph,rows=3)=>`<textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-family:inherit;font-size:14px;resize:vertical">${val||""}</textarea>`;
   const INP=(id,val,ph,tp="text")=>`<input id="${id}" type="${tp}" value="${val||""}" placeholder="${ph}" style="${SI}">`;
   const H=(txt,c="#263238")=>`<div style="background:${c}15;border-left:3px solid ${c};padding:8px 12px;margin-bottom:12px;border-radius:0 8px 8px 0"><b style="font-size:13px;color:${c};text-transform:uppercase">${txt}</b></div>`;
@@ -2137,7 +2079,7 @@ function renderSeccionEspecial(tipo,d){
   if(tipo==="Nota preoperatoria"){
     return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
       <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#F3E5F5,#fff)">
-        <b style="font-size:14px;color:#6A1B9A">Nota Preoperatoria (NOM-004-SSA3-2012 Art. 10)</b>
+        <b style="font-size:14px;color:#6A1B9A">🔪 Nota Preoperatoria (NOM-004-SSA3-2012 Art. 10)</b>
       </div>
       <div style="padding:14px">
         ${H("Datos del acto quirúrgico planeado","#6A1B9A")}
@@ -2344,13 +2286,6 @@ function renderSeccionEspecial(tipo,d){
           ${fld("Pronóstico anestésico",SEL("dc_pronostico_anest",[["Favorable","Favorable"],["Reservado","Reservado"],["De alto riesgo","De alto riesgo — requiere medidas especiales"]],d.pronostico_anest||"Favorable"))}
         </div>
 
-        ${H("Riesgo Anestésico Quirúrgico (RAQ)","#004D99")}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-          ${fld("Grado RAQ",SEL("dc_raq",[["","—"],["E1","E1 — Paciente sano"],["E2","E2 — Enfermedad sistémica leve"],["E3","E3 — Enfermedad sistémica grave"],["E4","E4 — Amenaza constante para la vida"],["E5","E5 — Moribundo"]],d.raq||""))}
-          ${fld("Subclase",SEL("dc_raq_sub",[["","—"],["A","A — Programada / electiva"],["B","B — Urgente"]],d.raq_sub||""))}
-          <div style="display:flex;align-items:flex-end">${CHK("dc_raq_urg","Urgencia (U)",d.raq_urg)}</div>
-        </div>
-
         ${H("Evaluación de vía aérea (NOM-006 Art. 9.4)","#004D99")}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
           ${fld("Clasificación Mallampati",SEL("dc_mallampati",MALLAMPATI.map(([v,l])=>[v,l]),d.mallampati||""))}
@@ -2474,7 +2409,7 @@ function renderSeccionEspecial(tipo,d){
         ${H("Registro temporal de signos vitales (NOM-006 Art. 10.1.4.2 — c/5 min)","#283593")}
         ${ALERTA("La norma exige medir y registrar TA en periodos no mayores de 5 minutos. Agrega cada medición con el botón. Mínimo: inicio, post-inducción, incisión, intraoperatorio c/15 min y cierre.","warn")}
         <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden;margin-bottom:10px">
-          <div style="overflow-x:auto"><div style="background:#F5F5F5;padding:6px 10px;display:grid;grid-template-columns:2fr 2fr 1.4fr 1.4fr 1.4fr 1.4fr 1.4fr 3fr auto;gap:5px;min-width:880px">
+          <div style="background:#F5F5F5;padding:6px 10px;display:grid;grid-template-columns:2fr 2fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 3fr 1fr;gap:4px">
             <input id="tr_hora" type="time" placeholder="Hora" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
             <input id="tr_ta" type="text" placeholder="TA (mmHg)" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
             <input id="tr_fc" type="number" placeholder="FC" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
@@ -2484,7 +2419,7 @@ function renderSeccionEspecial(tipo,d){
             <input id="tr_fr" type="number" placeholder="FR" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
             <input id="tr_nota" type="text" placeholder="Evento / observación" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
             <button type="button" onclick="agregarRegistroTrans()" style="background:${P};color:#fff;border:none;border-radius:5px;padding:5px 8px;cursor:pointer;font-size:12px;font-weight:700">+ Añadir</button>
-          </div></div>
+          </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;min-width:600px">
               <thead><tr style="background:${PL}">
@@ -2630,248 +2565,6 @@ function renderSeccionEspecial(tipo,d){
     </div>`;
   }
 
-  // ══════════════════════════════════════════════════════════
-  // ORDEN DE INTERNAMIENTO — Indicaciones ejecutables (Fase 1)
-  // NOM-004-SSA3-2012, NOM-006-SSA3-2011, Acciones Esenciales para la Seguridad del Paciente.
-  // No es historia clínica: son indicaciones para enfermería, farmacia y anestesiología.
-  // Las tablas dinámicas C (soluciones), D (medicamentos) y E (crónicos) y el PDF llegan en fases 2 y 3.
-  // ══════════════════════════════════════════════════════════
-  if(tipo==="Orden de Internamiento"){
-    const CI="#00838F";
-    const TSI=`padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px;width:100%`;
-    const TBTN=`background:${CI};color:#fff;border:none;border-radius:5px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px`;
-    const TTH=`padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:${TX}`;
-    const _ed=(typeof puedeEditarNotaMedica!=="function"||puedeEditarNotaMedica())&&!STATE.consultaActual?.bloqueada;
-    const p=STATE.pat||{};
-    const nom=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim()||"— Selecciona un paciente —";
-    const fnac=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
-    const edad=(typeof calcEdad==="function"&&p.fecha_nacimiento)?calcEdad(p.fecha_nacimiento):"—";
-    const sexo=p.sexo_biologico||"—";
-    const alergias=(STATE.alergs||[]).filter(a=>a&&a!=="ALERGIAS NEGADAS");
-    const alergHTML=alergias.length
-      ?`<div style="background:${DA};color:#fff;border-radius:8px;padding:11px 15px;margin-bottom:14px;display:flex;align-items:center;gap:11px"><i class="ti ti-alert-triangle-filled" style="font-size:24px"></i><div><div style="font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;opacity:.92">Alergias</div><div style="font-size:17px;font-weight:800;line-height:1.25">${alergias.join(" · ")}</div></div></div>`
-      :`<div style="background:#E8F5E9;color:#1B5E20;border:1.5px solid #A5D6A7;border-radius:8px;padding:9px 15px;margin-bottom:14px;font-size:13px;font-weight:700"><i class="ti ti-circle-check"></i> Alergias negadas</div>`;
-    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,${CI}18,#fff)">
-        <b style="font-size:14px;color:${CI}"><i class="ti ti-clipboard-list"></i> Orden de Internamiento — indicaciones ejecutables (NOM-004 · NOM-006 · Acciones Esenciales para la Seguridad del Paciente)</b>
-      </div>
-      <div style="padding:14px;${_ed?'':'pointer-events:none'}">
-        ${_ed?"":ALERTA("<b>Orden firmada — solo lectura.</b> No puede modificarse. Para cambios, cree una nueva orden de internamiento (Nueva consulta). Esta orden queda como registro imprimible.","warn")}
-        ${ALERTA("Esta orden contiene <b>indicaciones ejecutables</b> para enfermería, farmacia y anestesiología. La evaluación clínica (padecimiento, antecedentes, exploración, riesgo ASA, consentimientos) vive en la Nota preoperatoria; aquí no se duplica.","info")}
-
-        ${H("Identificación del paciente (dos identificadores)",CI)}
-        ${alergHTML}
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:12px">
-          <div style="background:${PL};border-radius:8px;padding:9px 13px"><div style="font-size:10px;text-transform:uppercase;color:${MU};font-weight:700">Nombre completo</div><div style="font-size:16px;font-weight:800;color:${TX}">${nom}</div></div>
-          <div style="background:${PL};border-radius:8px;padding:9px 13px"><div style="font-size:10px;text-transform:uppercase;color:${MU};font-weight:700">Fecha de nacimiento</div><div style="font-size:15px;font-weight:700;color:${TX}">${fnac} <span style="font-size:12px;color:${MU}">(${edad})</span></div></div>
-          <div style="background:${PL};border-radius:8px;padding:9px 13px"><div style="font-size:10px;text-transform:uppercase;color:${MU};font-weight:700">Expediente</div><div style="font-size:15px;font-weight:700;color:${TX}">${p.numero_expediente||"—"}</div><div style="font-size:11px;color:${MU}">Sexo: ${sexo}${p.curp?" · CURP: "+p.curp:""}</div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-          ${fld("Diagnóstico que motiva el internamiento (CIE-10)",INP("dc_int_dx",d.int_dx,"Diagnóstico principal con código CIE-10"))}
-          ${fld("Procedimiento planeado",INP("dc_int_procedimiento",d.int_procedimiento,"Ej: Artroplastia total de rodilla"))}
-        </div>
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:8px">
-          ${fld("Sitio anatómico",INP("dc_int_sitio",d.int_sitio,"Ej: Rodilla, mama, hombro..."))}
-          ${fld("Lateralidad",SEL("dc_int_lateralidad",[["","—"],["Derecho","Derecho"],["Izquierdo","Izquierdo"],["Bilateral","Bilateral"],["Línea media","Línea media"],["No aplica","No aplica"]],d.int_lateralidad||""))}
-        </div>
-        ${(d.int_sitio||d.int_lateralidad)?`<div style="background:${CI}12;border:2px solid ${CI};border-radius:8px;padding:8px 14px;margin-bottom:12px;text-align:center"><span style="font-size:10px;text-transform:uppercase;color:${MU};font-weight:800;letter-spacing:.5px">Sitio y lateralidad</span><div style="font-size:22px;font-weight:800;color:${CI};line-height:1.15">${d.int_sitio||"—"} — ${d.int_lateralidad||"—"}</div></div>`:""}
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px">
-          ${fld("Médico tratante",INP("dc_int_medico",d.int_medico,"Nombre y especialidad"))}
-          ${fld("Fecha de ingreso",INP("dc_int_fecha_ingreso",d.int_fecha_ingreso,"","date"))}
-          ${fld("Hora de ingreso",INP("dc_int_hora_ingreso",d.int_hora_ingreso,"HH:MM","time"))}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-          ${fld("Fecha estimada de cirugía",INP("dc_int_fecha_cx",d.int_fecha_cx,"","date"))}
-          ${fld("Hora estimada de cirugía",INP("dc_int_hora_cx",d.int_hora_cx,"HH:MM","time"))}
-          <div></div>
-        </div>
-
-        ${H("A. Ubicación y condición",CI)}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-          ${fld("Ingresar a",SEL("dc_int_ingresar_a",[["Hospitalización","Hospitalización"],["Cirugía ambulatoria","Cirugía ambulatoria"],["Recuperación (UCPA)","Recuperación (UCPA)"],["Terapia intermedia","Terapia intermedia"],["Terapia intensiva","Terapia intensiva"]],d.int_ingresar_a||"Hospitalización"))}
-          ${fld("Condición",SEL("dc_int_condicion",[["Estable","Estable"],["Delicada","Delicada"],["Grave","Grave"]],d.int_condicion||"Estable"))}
-          ${fld("Servicio",INP("dc_int_servicio",d.int_servicio,"Ej: Ortopedia, Cirugía general..."))}
-        </div>
-        ${fld("Interconsultas / colaboración de otros servicios",TA("dc_int_interconsultas",d.int_interconsultas,"Servicios a interconsultar y motivo. La valoración preanestésica se marca en la sección G.",2))}
-
-        ${H("B. Dieta y ayuno",CI)}
-        ${ALERTA("<b>NOM-006-SSA3-2011:</b> el ayuno preoperatorio lo define anestesiología según el caso; no es un valor fijo. Registra la última ingesta y confírmalo con anestesiología.","warn")}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-          ${fld("Dieta",SEL("dc_int_dieta",[["Habitual","Habitual"],["Líquida","Líquida"],["Blanda","Blanda"],["Para diabético","Para diabético"],["Hiposódica","Hiposódica"],["Ayuno absoluto","Ayuno absoluto"]],d.int_dieta||"Ayuno absoluto"))}
-          ${fld("Última ingesta de sólidos",INP("dc_int_ultima_solidos",d.int_ultima_solidos,"","datetime-local"))}
-          ${fld("Última ingesta de líquidos claros",INP("dc_int_ultima_liquidos",d.int_ultima_liquidos,"","datetime-local"))}
-        </div>
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:6px">
-          ${fld("Ayuno indicado (si anestesiología ya lo definió)",INP("dc_int_ayuno_indicado",d.int_ayuno_indicado,"Ej: 8 h sólidos, 2 h líquidos claros"))}
-          <div style="display:flex;align-items:flex-end">${CHK("dc_int_confirmar_anest","Confirmar ayuno con anestesiología",d.int_confirmar_anest)}</div>
-        </div>
-
-        ${H("C. Soluciones intravenosas",CI)}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
-          ${fld("Calibre de acceso periférico",SEL("dc_int_acceso_calibre",[["","—"],["14 G","14 G"],["16 G","16 G"],["18 G","18 G"],["20 G","20 G"],["22 G","22 G"],["24 G","24 G"]],d.int_acceso_calibre||""))}
-          ${fld("Número de accesos",INP("dc_int_acceso_num",d.int_acceso_num,"Ej: 2","number"))}
-          ${fld("Sonda urinaria — detalle (solo si indicada)",INP("dc_int_sonda_detalle",d.int_sonda_detalle,"Ej: Foley 16 Fr, cuantificar diuresis horaria"))}
-        </div>
-        <div style="font-size:12px;font-weight:700;color:${MU};margin-bottom:6px">Precauciones para canalizar</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-          ${CHK("dc_int_precau_mastectomia","Evitar brazo con mastectomía",d.int_precau_mastectomia)}
-          ${CHK("dc_int_precau_fistula","Evitar brazo con fístula arteriovenosa",d.int_precau_fistula)}
-          ${CHK("dc_int_precau_linfedema","Evitar brazo con linfedema",d.int_precau_linfedema)}
-        </div>
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:10px">
-          ${fld("Otras precauciones para canalizar",INP("dc_int_precau_otro",d.int_precau_otro,"Especifique otras precauciones..."))}
-          <div style="display:flex;align-items:flex-end">${CHK("dc_int_sonda_urinaria","Sonda urinaria indicada",d.int_sonda_urinaria)}</div>
-          <div style="display:flex;align-items:flex-end">${CHK("dc_int_balance_estricto","Balance hídrico estricto",d.int_balance_estricto)}</div>
-        </div>
-        ${fld("Balance hídrico — detalle",INP("dc_int_balance_detalle",d.int_balance_detalle,"Periodicidad del balance, metas de diuresis (mL/kg/h)..."))}
-        <div style="font-size:12px;font-weight:700;color:${MU};margin:12px 0 6px">Prescripción de soluciones</div>
-        <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden;margin-bottom:16px">
-          <div style="overflow-x:auto"><div style="background:#F5F5F5;padding:8px 10px;display:grid;grid-template-columns:1.6fr 1fr 1.3fr 1.2fr 1fr 1.4fr 1.6fr auto;gap:6px;min-width:1000px;align-items:start">
-            ${_combo("sol_solucion",["Solución fisiológica 0.9%","Solución Hartmann","Solución glucosada 5%","Solución glucosada 10%","Solución mixta","Solución salina 0.45%"])}
-            <input id="sol_vol" placeholder="Volumen (mL)" style="${TSI}">
-            ${_combo("sol_via",["Intravenosa periférica","Intravenosa central"])}
-            <input id="sol_vel" placeholder="Velocidad" style="${TSI}">
-            <input id="sol_hora" type="time" style="${TSI}">
-            <input id="sol_adit" placeholder="Aditivos" style="${TSI}">
-            <input id="sol_cond" placeholder="Condiciones para modificar/suspender" style="${TSI}">
-            <button type="button" onclick="agregarIntSolucion()" style="${TBTN}"><i class="ti ti-plus"></i> Añadir</button>
-          </div></div>
-          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:920px">
-            <thead><tr style="background:${PL}">${["Solución","Volumen","Vía","Velocidad","Hora","Aditivos","Condiciones",""].map(h=>`<th style="${TTH}">${h}</th>`).join("")}</tr></thead>
-            <tbody id="tbody-int-sol">${(d.int_soluciones||[]).map((r,i)=>_rowSol(r,i)).join("")}</tbody>
-          </table></div>
-        </div>
-
-        ${H("D. Medicamentos",CI)}
-        ${ALERTA("Sin prellenados universales: cada medicamento se justifica individualmente. <b>NOM-004-SSA3-2012</b> — sin abreviaturas peligrosas; escribe unidades y vía completas.","warn")}
-        <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden;margin-bottom:16px">
-          <div style="overflow-x:auto"><div style="background:#F5F5F5;padding:8px 10px;display:grid;grid-template-columns:1.3fr 1.4fr 1fr 1.2fr 1.2fr 1fr 1.4fr 1fr 1.2fr auto;gap:6px;min-width:1300px;align-items:start">
-            ${_combo("med_clas",["Programado","Profilaxis antibiótica","Analgesia","Antiemético","Protección gástrica","En caso necesario","Rescate","Habitual que continúa","Que se suspende"])}
-            <input id="med_gen" placeholder="Nombre genérico" style="${TSI}">
-            <input id="med_dosis" placeholder="Dosis" style="${TSI}">
-            ${_combo("med_via",["Intravenosa","Intramuscular","Subcutánea","Oral","Sublingual","Rectal","Tópica","Inhalada"])}
-            <input id="med_frec" placeholder="Frecuencia / hora" style="${TSI}">
-            <input id="med_dur" placeholder="Duración" style="${TSI}">
-            <input id="med_ind" placeholder="Indicación" style="${TSI}">
-            <input id="med_max" placeholder="Dosis máx. 24 h" style="${TSI}">
-            <input id="med_ajuste" placeholder="Ajuste renal/peso/edad" style="${TSI}">
-            <button type="button" onclick="agregarIntMedicamento()" style="${TBTN}"><i class="ti ti-plus"></i> Añadir</button>
-          </div></div>
-          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:1200px">
-            <thead><tr style="background:${PL}">${["Clasificación","Genérico","Dosis","Vía","Frecuencia","Duración","Indicación","Máx 24 h","Ajuste",""].map(h=>`<th style="${TTH}">${h}</th>`).join("")}</tr></thead>
-            <tbody id="tbody-int-med">${(d.int_medicamentos||[]).map((r,i)=>_rowMed(r,i)).join("")}</tbody>
-          </table></div>
-        </div>
-
-        ${H("E. Conciliación de medicamentos crónicos",CI)}
-        ${ALERTA("Alto riesgo perioperatorio — revisa individualmente: anticoagulantes, antiagregantes, insulina, hipoglucemiantes orales, antihipertensivos, diuréticos, esteroides, anticonvulsivos, agonistas GLP-1 y herbolarios / suplementos.","warn")}
-        <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden;margin-bottom:8px">
-          <div style="overflow-x:auto"><div style="background:#F5F5F5;padding:8px 10px;display:grid;grid-template-columns:1.6fr 1fr 1.3fr 1.2fr auto;gap:6px;min-width:820px;align-items:start">
-            <input id="cron_med" placeholder="Medicamento habitual" style="${TSI}">
-            <input id="cron_dosis" placeholder="Dosis" style="${TSI}">
-            <input id="cron_ultima" placeholder="Última dosis (fecha / hora)" style="${TSI}">
-            ${_combo("cron_accion",["Continuar","Suspender","Reiniciar"])}
-            <button type="button" onclick="agregarIntCronico()" style="${TBTN}"><i class="ti ti-plus"></i> Añadir</button>
-          </div></div>
-          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:760px">
-            <thead><tr style="background:${PL}">${["Medicamento habitual","Dosis","Última dosis","Acción",""].map(h=>`<th style="${TTH}">${h}</th>`).join("")}</tr></thead>
-            <tbody id="tbody-int-cron">${(d.int_cronicos||[]).map((r,i)=>_rowCron(r,i)).join("")}</tbody>
-          </table></div>
-        </div>
-
-        ${H("F. Vigilancia de enfermería y parámetros de alarma",CI)}
-        <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-bottom:10px">
-          ${fld("Frecuencia de signos vitales",SEL("dc_int_freq_sv",[["Cada 15 minutos","Cada 15 minutos"],["Cada 30 minutos","Cada 30 minutos"],["Cada 1 hora","Cada 1 hora"],["Cada 4 horas","Cada 4 horas"],["Por protocolo del servicio","Por protocolo del servicio"]],d.int_freq_sv||"Cada 4 horas"))}
-          <div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-          ${CHK("dc_int_vig_oximetria","Oximetría continua",d.int_vig_oximetria)}
-          ${CHK("dc_int_vig_glucemia","Glucemia capilar",d.int_vig_glucemia)}
-          ${CHK("dc_int_vig_dolor","Escala de dolor",d.int_vig_dolor)}
-          ${CHK("dc_int_vig_neuro","Vigilancia neurológica",d.int_vig_neuro)}
-          ${CHK("dc_int_vig_balance","Balance hídrico",d.int_vig_balance)}
-          ${CHK("dc_int_vig_sangrado","Vigilancia de sangrado",d.int_vig_sangrado)}
-          ${CHK("dc_int_vig_herida","Vigilancia de herida quirúrgica",d.int_vig_herida)}
-          ${CHK("dc_int_vig_drenajes","Vigilancia de drenajes",d.int_vig_drenajes)}
-          ${CHK("dc_int_vig_perfusion","Perfusión distal",d.int_vig_perfusion)}
-          ${CHK("dc_int_vig_neurovasc","Vigilancia neurovascular",d.int_vig_neurovasc)}
-        </div>
-        ${ALERTA("<b>Parámetros de alarma</b> — avisar al médico si se rebasan estos límites:","warn")}
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">
-          ${fld("Tensión arterial menor a",INP("dc_int_al_ta",d.int_al_ta,"Ej: 90/60 mmHg"))}
-          ${fld("Frecuencia cardiaca mayor a",INP("dc_int_al_fc",d.int_al_fc,"Ej: 120 por minuto"))}
-          ${fld("Saturación (SpO₂) menor a",INP("dc_int_al_spo2",d.int_al_spo2,"Ej: 92 por ciento"))}
-          ${fld("Temperatura mayor a",INP("dc_int_al_temp",d.int_al_temp,"Ej: 38 grados"))}
-          ${fld("Sangrado mayor a",INP("dc_int_al_sangrado",d.int_al_sangrado,"Ej: 100 mililitros"))}
-        </div>
-        ${fld("Otros criterios para avisar",INP("dc_int_al_otros",d.int_al_otros,"Dolor no controlado, deterioro neurológico, oliguria, etc."))}
-
-        ${H("G. Estudios e interconsultas",CI)}
-        <div style="font-size:12px;font-weight:700;color:${MU};margin-bottom:6px">Estudios solicitados</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-          ${CHK("dc_int_est_bh","Biometría hemática",d.int_est_bh)}
-          ${CHK("dc_int_est_qs","Química sanguínea",d.int_est_qs)}
-          ${CHK("dc_int_est_elect","Electrolitos séricos",d.int_est_elect)}
-          ${CHK("dc_int_est_coag","Tiempos de coagulación",d.int_est_coag)}
-          ${CHK("dc_int_est_grupo","Grupo sanguíneo y Rh",d.int_est_grupo)}
-          ${CHK("dc_int_est_cruzada","Prueba cruzada",d.int_est_cruzada)}
-          ${CHK("dc_int_est_ecg","Electrocardiograma",d.int_est_ecg)}
-          ${CHK("dc_int_est_rx","Radiografía",d.int_est_rx)}
-          ${CHK("dc_int_est_embarazo","Prueba de embarazo (cuando proceda, con consentimiento)",d.int_est_embarazo)}
-        </div>
-        <div style="font-size:12px;font-weight:700;color:${MU};margin-bottom:6px">Valoraciones</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-          ${CHK("dc_int_val_preanest","Valoración preanestésica (obligatoria en cirugía programada)",d.int_val_preanest)}
-          ${CHK("dc_int_val_cardio","Cardiología",d.int_val_cardio)}
-          ${CHK("dc_int_val_mi","Medicina interna",d.int_val_mi)}
-          ${CHK("dc_int_val_banco","Banco de sangre",d.int_val_banco)}
-        </div>
-        ${fld("Otros estudios o valoraciones",TA("dc_int_estudios_otros",d.int_estudios_otros,"Estudios adicionales, especificaciones, resultados críticos pendientes...",2))}
-
-        ${H("H. Preparación preoperatoria y profilaxis",CI)}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-          ${CHK("dc_int_prep_bano","Baño preoperatorio",d.int_prep_bano)}
-          ${CHK("dc_int_prep_joyeria","Retiro de joyería y prótesis",d.int_prep_joyeria)}
-          ${CHK("dc_int_prep_no_rasurar","No rasurar con navaja",d.int_prep_no_rasurar)}
-          ${CHK("dc_int_prep_piel","Preparación de piel",d.int_prep_piel)}
-          ${CHK("dc_int_prep_marcaje","Marcaje de sitio y confirmación de lateralidad",d.int_prep_marcaje)}
-          ${CHK("dc_int_prep_implantes","Disponibilidad de implantes / sangre",d.int_prep_implantes)}
-          ${CHK("dc_int_prep_ci_qx","Consentimiento quirúrgico firmado",d.int_prep_ci_qx)}
-          ${CHK("dc_int_prep_ci_anest","Consentimiento anestésico firmado",d.int_prep_ci_anest)}
-          ${CHK("dc_int_prep_ci_transf","Consentimiento de transfusión firmado",d.int_prep_ci_transf)}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
-          ${fld("Profilaxis antibiótica",INP("dc_int_prof_atb",d.int_prof_atb,"Fármaco, dosis y momento (30–60 min pre-incisión)"))}
-          ${fld("Profilaxis tromboembólica",SEL("dc_int_prof_tev",[["No indicada","No indicada"],["Mecánica","Mecánica"],["Farmacológica","Farmacológica"],["Mecánica y farmacológica","Mecánica y farmacológica"]],d.int_prof_tev||"No indicada"))}
-          ${fld("Riesgo de caídas",SEL("dc_int_riesgo_caidas",[["Bajo","Bajo"],["Medio","Medio"],["Alto","Alto"]],d.int_riesgo_caidas||"Bajo"))}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
-          ${CHK("dc_int_prof_medias","Medias / compresión neumática",d.int_prof_medias)}
-          ${CHK("dc_int_checklist_oms","Checklist de cirugía segura de la OMS realizado / programado",d.int_checklist_oms)}
-        </div>
-
-        ${H("I. Actividad y movilización",CI)}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-          ${fld("Reposo",SEL("dc_int_reposo",[["Absoluto","Absoluto"],["Relativo","Relativo"]],d.int_reposo||"Relativo"))}
-          ${fld("Deambulación",SEL("dc_int_deambulacion",[["Diferida","Diferida"],["Asistida","Asistida"],["Temprana","Temprana"],["Según tolerancia","Según tolerancia"]],d.int_deambulacion||"Según tolerancia"))}
-          ${fld("Apoyo de extremidad",SEL("dc_int_apoyo",[["No aplica","No aplica"],["No apoyo","No apoyo"],["Apoyo parcial","Apoyo parcial"],["Según tolerancia","Según tolerancia"],["Apoyo completo","Apoyo completo"]],d.int_apoyo||"No aplica"))}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px">
-          ${fld("Elevación de extremidad",INP("dc_int_elevacion",d.int_elevacion,"Ej: Elevar extremidad operada sobre almohada"))}
-          ${fld("Cabecera a (grados)",INP("dc_int_cabecera",d.int_cabecera,"Ej: 30","number"))}
-          <div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
-          ${CHK("dc_int_fisio_resp","Fisioterapia respiratoria",d.int_fisio_resp)}
-          ${CHK("dc_int_espirometro","Espirómetro incentivo",d.int_espirometro)}
-        </div>
-
-        ${H("J. Cuidados específicos del procedimiento",CI)}
-        ${fld("Indicaciones específicas por especialidad",TA("dc_int_cuidados_esp",d.int_cuidados_esp,"Hielo local, vendaje, inmovilizador, cabestrillo, drenaje y cuantificación de gasto, sonda, curación, vigilancia neurovascular, restricciones, cuidados de implantes...",4))}
-      </div>
-    </div>`;
-  }
-
   // Default
   return`<div style="background:#F5F5F5;border-radius:10px;padding:10px 16px;font-size:13px;color:${MU}">
     📌 Completa los campos SOAP para este tipo de nota.
@@ -2880,7 +2573,8 @@ function renderSeccionEspecial(tipo,d){
 
 // ── Registro temporal transanestésico ─────────────────────
 window.agregarRegistroTrans=function(){
-  const hora=document.getElementById("tr_hora")?.value||new Date().toTimeString().substring(0,5);
+  const hora=document.getElementById("tr_hora")?.value||"";
+  if(!hora){showToast("Ingresa la hora del registro",false);return;}
   const reg={
     hora,
     ta:document.getElementById("tr_ta")?.value||"",
@@ -2895,7 +2589,6 @@ window.agregarRegistroTrans=function(){
   if(!STATE.consultaActual.datos_clinicos)STATE.consultaActual.datos_clinicos={};
   if(!STATE.consultaActual.datos_clinicos.registros_trans)STATE.consultaActual.datos_clinicos.registros_trans=[];
   STATE.consultaActual.datos_clinicos.registros_trans.push(reg);
-  if(typeof guardarConsultaSilencioso==="function")guardarConsultaSilencioso();
   // Limpiar campos
   ["tr_hora","tr_ta","tr_fc","tr_spo2","tr_etco2","tr_temp","tr_fr","tr_nota"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   // Re-render la fila en la tabla sin recargar todo
@@ -2922,51 +2615,6 @@ window.eliminarRegistroTrans=function(i){
   STATE.consultaActual.datos_clinicos.registros_trans.splice(i,1);
   actualizarTipoNota(gv("cs_tipo_nota")||STATE.consultaActual?.tipo_nota||"");
 }
-
-// ── Orden de Internamiento: tablas dinámicas (soluciones, medicamentos, crónicos) ──
-function _giv(id){return document.getElementById(id)?.value||"";}
-function _intEditable(){return (typeof puedeEditarNotaMedica!=="function"||puedeEditarNotaMedica())&&!STATE.consultaActual?.bloqueada;}
-function _valOtro(id){const s=document.getElementById(id);if(!s)return"";return s.value==="__OTRO__"?(document.getElementById(id+"__otro")?.value||""):s.value;}
-function _clrInt(id){const e=document.getElementById(id);if(e)e.value="";const o=document.getElementById(id+"__otro");if(o){o.value="";o.style.display="none";}}
-function _pushInt(k,reg){if(!STATE.consultaActual)STATE.consultaActual={};if(!STATE.consultaActual.datos_clinicos)STATE.consultaActual.datos_clinicos={};if(!Array.isArray(STATE.consultaActual.datos_clinicos[k]))STATE.consultaActual.datos_clinicos[k]=[];STATE.consultaActual.datos_clinicos[k].push(reg);if(typeof guardarConsultaSilencioso==="function")guardarConsultaSilencioso();}
-function _lenInt(k){return (STATE.consultaActual?.datos_clinicos?.[k]||[]).length;}
-function _delInt(k,i,tbId,rowFn){const a=STATE.consultaActual?.datos_clinicos?.[k];if(!Array.isArray(a))return;a.splice(i,1);if(typeof guardarConsultaSilencioso==="function")guardarConsultaSilencioso();const tb=document.getElementById(tbId);if(tb)tb.innerHTML=a.map((r,j)=>rowFn(r,j)).join("");}
-function _combo(id,opts){return `<div style="display:flex;flex-direction:column;gap:4px"><select id="${id}" onchange="onSelOtro('${id}')" style="padding:5px 7px;border:1px solid #CFD8DC;border-radius:5px;font-size:13px;width:100%;background:#fff"><option value="">—</option>${opts.map(o=>`<option value="${o}">${o}</option>`).join("")}<option value="__OTRO__">Otro (especificar)…</option></select><input id="${id}__otro" placeholder="Especifique…" style="display:none;padding:5px 7px;border:1px solid #CFD8DC;border-radius:5px;font-size:13px;width:100%"></div>`;}
-function _tdI(v){return `<td style="padding:5px 7px;font-size:12.5px;color:#003A5D">${v||"—"}</td>`;}
-function _delBtn(fn,i){return `<td style="padding:5px 7px"><button type="button" onclick="${fn}(${i})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:5px;padding:4px 9px;cursor:pointer;font-size:13px" title="Eliminar"><i class="ti ti-trash"></i></button></td>`;}
-function _rowSol(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12.5px;font-weight:600;color:#00838F">${r.solucion||"—"}</td>${_tdI(r.vol)}${_tdI(r.via)}${_tdI(r.vel)}${_tdI(r.hora)}${_tdI(r.adit)}${_tdI(r.cond)}${_intEditable()?_delBtn("eliminarIntSolucion",i):"<td></td>"}</tr>`;}
-function _rowMed(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12px;font-weight:600;color:#00838F">${r.clas||"—"}</td>${_tdI(r.gen)}${_tdI(r.dosis)}${_tdI(r.via)}${_tdI(r.frec)}${_tdI(r.dur)}${_tdI(r.ind)}${_tdI(r.max)}${_tdI(r.ajuste)}${_intEditable()?_delBtn("eliminarIntMedicamento",i):"<td></td>"}</tr>`;}
-function _rowCron(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12.5px;font-weight:600;color:#00838F">${r.med||"—"}</td>${_tdI(r.dosis)}${_tdI(r.ultima)}${_tdI(r.accion)}${_intEditable()?_delBtn("eliminarIntCronico",i):"<td></td>"}</tr>`;}
-window.agregarIntSolucion=function(){
-  if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}
-  const reg={solucion:_valOtro("sol_solucion"),vol:_giv("sol_vol"),via:_valOtro("sol_via"),vel:_giv("sol_vel"),hora:_giv("sol_hora"),adit:_giv("sol_adit"),cond:_giv("sol_cond")};
-  if(!reg.solucion&&!reg.vol){showToast("Indica al menos la solución o el volumen",false);return;}
-  _pushInt("int_soluciones",reg);
-  ["sol_solucion","sol_vol","sol_via","sol_vel","sol_hora","sol_adit","sol_cond"].forEach(_clrInt);
-  const tb=document.getElementById("tbody-int-sol");if(tb)tb.insertAdjacentHTML("beforeend",_rowSol(reg,_lenInt("int_soluciones")-1));
-  showToast("Solución añadida");
-};
-window.eliminarIntSolucion=function(i){if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}_delInt("int_soluciones",i,"tbody-int-sol",_rowSol);};
-window.agregarIntMedicamento=function(){
-  if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}
-  const reg={clas:_valOtro("med_clas"),gen:_giv("med_gen"),dosis:_giv("med_dosis"),via:_valOtro("med_via"),frec:_giv("med_frec"),dur:_giv("med_dur"),ind:_giv("med_ind"),max:_giv("med_max"),ajuste:_giv("med_ajuste")};
-  if(!reg.gen){showToast("Indica el nombre genérico del medicamento",false);return;}
-  _pushInt("int_medicamentos",reg);
-  ["med_clas","med_gen","med_dosis","med_via","med_frec","med_dur","med_ind","med_max","med_ajuste"].forEach(_clrInt);
-  const tb=document.getElementById("tbody-int-med");if(tb)tb.insertAdjacentHTML("beforeend",_rowMed(reg,_lenInt("int_medicamentos")-1));
-  showToast("Medicamento añadido");
-};
-window.eliminarIntMedicamento=function(i){if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}_delInt("int_medicamentos",i,"tbody-int-med",_rowMed);};
-window.agregarIntCronico=function(){
-  if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}
-  const reg={med:_giv("cron_med"),dosis:_giv("cron_dosis"),ultima:_giv("cron_ultima"),accion:_valOtro("cron_accion")};
-  if(!reg.med){showToast("Indica el medicamento crónico",false);return;}
-  _pushInt("int_cronicos",reg);
-  ["cron_med","cron_dosis","cron_ultima","cron_accion"].forEach(_clrInt);
-  const tb=document.getElementById("tbody-int-cron");if(tb)tb.insertAdjacentHTML("beforeend",_rowCron(reg,_lenInt("int_cronicos")-1));
-  showToast("Medicamento crónico añadido");
-};
-window.eliminarIntCronico=function(i){if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}_delInt("int_cronicos",i,"tbody-int-cron",_rowCron);};
 
 // ── CONSENTIMIENTOS INFORMADOS ────────────────────────────
 // Catálogo completo de consentimientos con textos legales
@@ -3378,7 +3026,7 @@ const CI_CATALOGO={
     texto:(p,med,fecha)=>[
       `En la Ciudad de México, a ${fecha}, yo ${p}:`,
       "",
-      "CONSIENTO la administración de anestesia para el procedimiento quirúrgico o médico indicado, a cargo del médico anestesiólogo tratante.",
+      "CONSIENTO la administración de anestesia para el procedimiento quirúrgico o médico indicado, a cargo del médico anestesiólogo de QP Clinic.",
       "",
       "HE SIDO INFORMADO de:\n   • El tipo de anestesia propuesta y sus alternativas\n   • La clasificación de riesgo anestésico (ASA) correspondiente a mi estado de salud\n   • Los beneficios de la anestesia para tolerar el procedimiento sin dolor",
       "",
@@ -3405,8 +3053,6 @@ window.generarConsentimientoPDF=async function(clave){
   if(!jsPDF){showToast("jsPDF no disponible",false);return;}
   const ci=CI_CATALOGO[clave];
   if(!ci){showToast("Consentimiento no encontrado",false);return;}
-  const B=brand();
-  const _pie=[B.razon,(B.rfc?"RFC "+B.rfc:""),B.direccion,(B.tel?"Tel. "+B.tel:""),(B.web||""),(B.licencia||"")].filter(Boolean).join(" · ");
   const p=STATE.pat||{};
   const med=STATE.userProfile||{};
   const fecha=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"});
@@ -3432,7 +3078,7 @@ window.generarConsentimientoPDF=async function(clave){
   }
 
   // ── HEADER ──
-  await addImg(B.logo,M,7,14,32);
+  await addImg("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",M,7,14,32);
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);
   doc.text(medNom,W-M,11,{align:"right"});
   const _rcreds=getCredLines(med);
@@ -3440,10 +3086,6 @@ window.generarConsentimientoPDF=async function(clave){
   doc.setFont("helvetica","normal");doc.setFontSize(7);
   _rcreds.forEach(cl=>{if(_rcy<23){doc.text(cl,W-M,_rcy,{align:"right"});_rcy+=3.5;}});
   doc.setDrawColor(0,58,93);doc.setLineWidth(0.8);doc.line(M,23,W-M,23);
-  doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);doc.text(B.razon,48,11);
-  doc.setFont("helvetica","normal");doc.setFontSize(6.3);doc.setTextColor(70,70,70);let _hy=14.5;
-  if(B.direccion){doc.splitTextToSize(B.direccion,86).slice(0,2).forEach(l=>{doc.text(l,48,_hy);_hy+=3;});}
-  if(B.licencia){doc.text(B.licencia,48,_hy);}
 
   // ── TÍTULO DEL DOCUMENTO ──
   let cy=31;
@@ -3470,7 +3112,7 @@ window.generarConsentimientoPDF=async function(clave){
     if(cy>FOOTER_Y){
       doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);doc.line(M,FOOTER_Y+5,W-M,FOOTER_Y+5);
       doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
-      doc.text(_pie,W/2,FOOTER_Y+9,{align:"center"});
+      doc.text("QP Clinic, S.C. · RFC QCL230518J66 · Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX · Tel. 5644237028",W/2,FOOTER_Y+9,{align:"center"});
       doc.addPage();
       cy=15;
       doc.setFontSize(8.5);doc.setTextColor(30,30,30);
@@ -3483,7 +3125,7 @@ window.generarConsentimientoPDF=async function(clave){
       if(cy>FOOTER_Y){
         doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);doc.line(M,FOOTER_Y+5,W-M,FOOTER_Y+5);
         doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
-        doc.text(_pie,W/2,FOOTER_Y+9,{align:"center"});
+        doc.text("QP Clinic, S.C. · RFC QCL230518J66 · Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX · Tel. 5644237028",W/2,FOOTER_Y+9,{align:"center"});
         doc.addPage();cy=15;
         doc.setFontSize(8.5);doc.setTextColor(30,30,30);
       }
@@ -3492,8 +3134,8 @@ window.generarConsentimientoPDF=async function(clave){
   }
 
   // ── SECCIÓN DE FIRMAS ──
-  cy=Math.max(cy+6,FOOTER_Y-58);
-  if(cy+58>277){doc.addPage();cy=20;}
+  cy=Math.max(cy+6,FOOTER_Y-45);
+  if(cy>FOOTER_Y){doc.addPage();cy=20;}
   doc.setDrawColor(0,58,93);doc.setLineWidth(0.4);doc.line(M,cy,W-M,cy);cy+=4;
   doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(0,58,93);
   doc.text("FIRMAS",W/2,cy,{align:"center"});cy+=8;
@@ -3505,8 +3147,8 @@ window.generarConsentimientoPDF=async function(clave){
   doc.line(fCol1,fY,fCol1+65,fY);
   doc.line(fCol2,fY,fCol2+65,fY);
   doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(30,30,30);
-  doc.text("NOMBRE Y FIRMA DEL PACIENTE / TUTOR O REPRESENTANTE LEGAL",fCol1,fY+4);
-  doc.text("NOMBRE Y FIRMA DEL MÉDICO QUE INFORMA Y RECABA",fCol2,fY+4);
+  doc.text("FIRMA DEL PACIENTE / TUTOR LEGAL",fCol1,fY+4);
+  doc.text("FIRMA DEL MÉDICO / PROFESIONAL DE SALUD",fCol2,fY+4);
   doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(90,90,90);
   doc.text(nomPac,fCol1,fY+8);
   doc.text(medNom,fCol2,fY+8);
@@ -3527,20 +3169,12 @@ window.generarConsentimientoPDF=async function(clave){
       doc.addImage(b64,med.firma_digital.toLowerCase().includes("png")?"PNG":"JPEG",fCol2,fY-h-2,w,h);
     }catch(e){}
   }
-  // ── TESTIGOS (NOM-004-SSA3-2012 num. 10.1.1.10) ──
-  const fY2=fY+24;
-  doc.setDrawColor(60,60,60);doc.setLineWidth(0.4);
-  doc.line(fCol1,fY2,fCol1+65,fY2);
-  doc.line(fCol2,fY2,fCol2+65,fY2);
-  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(30,30,30);
-  doc.text("NOMBRE Y FIRMA DEL TESTIGO 1",fCol1,fY2+4);
-  doc.text("NOMBRE Y FIRMA DEL TESTIGO 2",fCol2,fY2+4);
 
   // ── FOOTER ──
   const fy=274;
   doc.setDrawColor(0,58,93);doc.setLineWidth(0.4);doc.line(M,fy,W-M,fy);
   doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(70,70,70);
-  doc.text(_pie,W/2,fy+4,{align:"center"});
+  doc.text("QP Clinic, S.C. · RFC QCL230518J66 · Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX · Tel. 5644237028 · www.qpclinic.org",W/2,fy+4,{align:"center"});
   doc.text(`Documento generado el ${hoy} mediante ECE QP Clinic — NOM-004-SSA3-2012`,W/2,fy+8,{align:"center"});
 
   const fname=`CI_${clave}_${nomPac.replace(/\s+/g,"_")}_${hoy.replace(/\//g,"-")}.pdf`;
@@ -3626,7 +3260,6 @@ async function pgBuscar(){
   await cargarPacientes();
 }
 async function cargarPacientes(q=""){
-  if(!q||!q.trim()){const t0=document.getElementById("tbl");if(t0)t0.innerHTML=`<div style="background:#fff;border-radius:10px;padding:34px;text-align:center;color:${MU}"><i class="ti ti-search" style="font-size:26px;display:block;margin-bottom:8px;color:${BR}"></i>Escriba un nombre, apellido, CURP o número de expediente para buscar un paciente.</div>`;return;}
   const COLS="id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico";
   const base=()=>SB.from("pacientes").select(COLS).eq("activo",true).order("apellido_paterno");
 
@@ -4242,7 +3875,6 @@ window.guardarNuevoPac=async function(){
     referido_por:d.nref||null,
     firmo_privacidad:d.npriv||false,
     firmo_consentimiento:d.ncons||false,
-    activo:true,
     created_by:session.user.id,
   };
 
@@ -5646,7 +5278,7 @@ async function cargarConsultas(){
   }
 
   // Colores por tipo de nota
-  const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Orden de Internamiento":"#00838F","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C","Nota de valoración preanestésica":"#004D99","Nota de anestesia transoperatoria":"#283593","Nota postanestésica":"#0277BD"};
+  const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C","Nota de valoración preanestésica":"#004D99","Nota de anestesia transoperatoria":"#283593","Nota postanestésica":"#0277BD"};
 
   // Construir filas de consultas
   const filaConsultas=(data||[]).map(c=>{
@@ -6870,7 +6502,7 @@ window.abrirModalFirmaGlobal=function(){
         ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
           <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px"> 
           <span style="flex:1">${l}</span>
-          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button><button type="button" onclick="event.preventDefault();subirConsentimientoFirmado('${k}')" title="Subir consentimiento firmado (escaneado)" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;margin-left:4px"><i class="ti ti-upload"></i> Firmado</button>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
         </label>`).join("")}
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Quirúrgicos y anestésicos</p>
         ${[
@@ -6879,7 +6511,7 @@ window.abrirModalFirmaGlobal=function(){
         ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
           <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px">
           <span style="flex:1">${l}</span>
-          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button><button type="button" onclick="event.preventDefault();subirConsentimientoFirmado('${k}')" title="Subir consentimiento firmado (escaneado)" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;margin-left:4px"><i class="ti ti-upload"></i> Firmado</button>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
         </label>`).join("")}
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Fisioterapia y procedimientos</p>
         ${[
@@ -6890,7 +6522,7 @@ window.abrirModalFirmaGlobal=function(){
         ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
           <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px">
           <span style="flex:1">${l}</span>
-          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button><button type="button" onclick="event.preventDefault();subirConsentimientoFirmado('${k}')" title="Subir consentimiento firmado (escaneado)" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;margin-left:4px"><i class="ti ti-upload"></i> Firmado</button>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
         </label>`).join("")}
         <p style="font-size:11px;font-weight:700;color:#9E9E9E;text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid #E0E0E0;margin-bottom:6px;margin-top:8px">Ginecología</p>
         ${[
@@ -6899,7 +6531,7 @@ window.abrirModalFirmaGlobal=function(){
         ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0;border-bottom:1px solid #CFD8DC">
           <input type="checkbox" data-doc="${k}" class="doc-check" style="accent-color:#006BB6;width:14px;height:14px">
           <span style="flex:1">${l}</span>
-          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button><button type="button" onclick="event.preventDefault();subirConsentimientoFirmado('${k}')" title="Subir consentimiento firmado (escaneado)" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0;margin-left:4px"><i class="ti ti-upload"></i> Firmado</button>
+          <button type="button" onclick="event.preventDefault();generarConsentimientoPDF('${k}')" title="Generar PDF" style="background:#E3F4FB;color:#006BB6;border:1px solid #B3D9F0;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">📄 PDF</button>
         </label>`).join("")}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -6993,30 +6625,6 @@ window.subirDocumento=async function(){
   showToast("✓ Documento subido al expediente");
   ocultarFormSubida();
   renderDocsAnexos(document.getElementById("anexo-body"));
-}
-window.subirConsentimientoFirmado=async function(clave){
-  const pid=STATE.pat?.id;
-  if(!pid){showToast("Abra primero el expediente del paciente",false);return;}
-  const ci=CI_CATALOGO[clave];
-  const titulo=ci?ci.titulo:"Consentimiento informado";
-  const inp=document.createElement("input");
-  inp.type="file";inp.accept=".pdf,image/*";
-  inp.onchange=async()=>{
-    const file=inp.files&&inp.files[0];
-    if(!file)return;
-    loading(true,"Subiendo consentimiento firmado...");
-    const ext=(file.name.split(".").pop()||"pdf").toLowerCase();
-    const path=`${pid}/consentimientos/CI_${clave}_${Date.now()}.${ext}`;
-    const {error:ue}=await SB.storage.from("expedientes").upload(path,file,{cacheControl:"3600",upsert:false});
-    if(ue){loading(false);showToast("Error al subir: "+ue.message,false);return;}
-    const {error}=await SB.from("anexos").insert({paciente_id:pid,titulo:("CI FIRMADO - "+titulo).slice(0,180),tipo_documento:"consentimiento_informado",origen:"escaneado",firmado:true,storage_path:path,fecha:new Date().toISOString().split("T")[0]});
-    loading(false);
-    if(error){showToast("Error: "+error.message,false);return;}
-    showToast("Consentimiento firmado guardado en el expediente");
-    logBitacora("CONSENTIMIENTO FIRMADO",titulo,pid);
-    if(STATE.expTab==="anexos"&&STATE.anexoTab==="docs"){const ab=document.getElementById("anexo-body");if(ab)renderDocsAnexos(ab);}
-  };
-  inp.click();
 }
 window.eliminarDocsSel=async function(){
   const checks=document.querySelectorAll("#docs-tbody input[type=checkbox]:checked");
@@ -7807,733 +7415,6 @@ window.guardarNotaEnfermeria=async function(){
 
 
 
-// ══════════════════════════════════════════════════════════════════
-//  MÓDULO QUIRÓFANO — Episodios quirúrgicos + Checklist de cirugía
-//  segura de la OMS (tres momentos). Tablas: episodios_quirurgicos,
-//  salas, checklist_oms. (QP Surgery Clinic)
-// ══════════════════════════════════════════════════════════════════
-const QX_EDIT=()=>["medico","admin","enfermeria"].includes(rolActual());
-const QX_EST_LABEL={lista_espera:"Lista de espera",programado:"Programado",en_curso:"En curso",recuperacion:"Recuperación",finalizado:"Finalizado",cancelado:"Cancelado"};
-const QX_EST_COLOR={lista_espera:"#546E7A",programado:"#006BB6",en_curso:"#E65100",recuperacion:"#6A1B9A",finalizado:"#2E7D32",cancelado:"#C62828"};
-const OMS_MOMENTOS=[
-  ["entrada","Entrada","Antes de la inducción anestésica","#006BB6"],
-  ["pausa","Pausa quirúrgica","Antes de la incisión cutánea","#E65100"],
-  ["salida","Salida","Antes de que el paciente salga del quirófano","#2E7D32"]
-];
-const OMS_ITEMS={
-  entrada:[
-    ["identidad","El paciente confirmó identidad, sitio quirúrgico, procedimiento y consentimiento"],
-    ["sitio_marcado","El sitio quirúrgico está marcado, o no procede"],
-    ["anestesia_verif","Se completó la verificación del equipo y la medicación de anestesia"],
-    ["pulsioximetro","El pulsioxímetro está colocado y funciona"],
-    ["alergias","Se revisaron las alergias conocidas del paciente"],
-    ["via_aerea","Se evaluó vía aérea difícil o riesgo de aspiración; hay equipo y ayuda disponibles"],
-    ["sangrado","Se evaluó riesgo de pérdida de sangre mayor a 500 mililitros; hay accesos y líquidos previstos"]
-  ],
-  pausa:[
-    ["presentacion","Todos los miembros del equipo se presentaron por nombre y función"],
-    ["confirma_paciente","Cirujano, anestesiólogo y enfermería confirman paciente, sitio y procedimiento"],
-    ["eventos_cirujano","El cirujano previó pasos críticos, duración y pérdida de sangre estimada"],
-    ["eventos_anestesia","El anestesiólogo revisó las particularidades del paciente"],
-    ["eventos_enfermeria","Enfermería confirmó esterilidad, instrumental y dudas"],
-    ["antibiotico","Se administró profilaxis antibiótica en los últimos 60 minutos, o no procede"],
-    ["imagenes","Las imágenes diagnósticas esenciales están visibles, o no procede"]
-  ],
-  salida:[
-    ["procedimiento_registrado","Enfermería confirmó verbalmente el nombre del procedimiento registrado"],
-    ["muestras","Las muestras están etiquetadas y leídas en voz alta, incluido el nombre del paciente"],
-    ["problemas_equipo","Se identificaron problemas de instrumental o equipo por resolver"],
-    ["recuperacion","El equipo revisó los aspectos clave de la recuperación del paciente"]
-  ]
-};
-
-// ── PANTALLA DE ENTRADA: elección de unidad (QP Clinic / QP Surgery) ──
-function pgSelSede(){
-  const card=(s)=>`<button onclick="entrarSede('${s}')" style="flex:1;min-width:240px;max-width:340px;background:#fff;border:2px solid ${BR};border-radius:16px;padding:34px 24px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:18px;transition:border-color .15s,box-shadow .15s;box-shadow:0 2px 8px #00000010" onmouseover="this.style.borderColor='${BRANDING[s].acento}';this.style.boxShadow='0 8px 24px #00000022'" onmouseout="this.style.borderColor='${BR}';this.style.boxShadow='0 2px 8px #00000010'">
-    <img src="${BRANDING[s].logo}" alt="${BRANDING[s].nombre}" style="max-width:${s==="surgery"?"300":"220"}px;max-height:${s==="surgery"?"120":"110"}px;object-fit:contain">
-    <span style="font-size:16px;font-weight:700;color:${BRANDING[s].acento}">Entrar a ${BRANDING[s].nombre}</span>
-  </button>`;
-  RR().innerHTML=`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:${PL}">
-    <h1 style="font-size:22px;font-weight:800;color:${TX};margin-bottom:6px">Seleccione la unidad</h1>
-    <p style="font-size:14px;color:${MU};margin-bottom:28px">Elija a qué clínica desea ingresar</p>
-    <div style="display:flex;gap:22px;flex-wrap:wrap;justify-content:center;width:100%;max-width:760px">
-      ${card("clinic")}${card("surgery")}
-    </div>
-  </div>`;
-}
-window.entrarSede=function(s){
-  STATE.sedeActiva=s;STATE.sedePicker=false;
-  try{localStorage.setItem("qp_sede_activa",s);}catch(e){}
-  try{sessionStorage.setItem("qp_sede_confirmada","1");}catch(e){}
-  go(sedeHome(s));
-}
-
-async function pgQuirofano(){
-  if(STATE.qxView==="checklist"&&STATE._qxEp){return renderChecklistOMS();}
-  if(STATE.qxView==="anestesia"&&STATE._qxEp){return renderAnestesia();}
-  loading(true,"Cargando quirófano...");
-  const {data:eps}=await SB.from("episodios_quirurgicos").select("*").order("fecha_programada",{ascending:true,nullsFirst:false}).order("hora_inicio",{ascending:true});
-  const episodios=eps||[];
-  const {data:salasD}=await SB.from("salas").select("*").eq("activa",true).order("orden");
-  const salas=salasD||[];
-  STATE._qxSalas=salas;
-  const salaMap={};salas.forEach(s=>salaMap[s.id]=s);
-  const pacIds=[...new Set(episodios.map(e=>e.paciente_id).filter(Boolean))];
-  const pacMap={};
-  if(pacIds.length){
-    const {data:pacs}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").in("id",pacIds);
-    (pacs||[]).forEach(p=>pacMap[p.id]=p);
-  }
-  const epIds=episodios.map(e=>e.id);
-  const chkMap={};
-  if(epIds.length){
-    const {data:chks}=await SB.from("checklist_oms").select("episodio_id,entrada_at,pausa_at,salida_at").in("episodio_id",epIds);
-    (chks||[]).forEach(c=>chkMap[c.episodio_id]=c);
-  }
-  STATE._qxEpMap={};episodios.forEach(e=>STATE._qxEpMap[e.id]=e);
-  loading(false);
-  const puede=QX_EDIT();
-  const fEstado=STATE.qxFiltroEstado||"activos";
-  const fSala=STATE.qxFiltroSala||"";
-  const fFecha=STATE.qxFiltroFecha||"";
-  const activosSet=["lista_espera","programado","en_curso","recuperacion"];
-  const filtrados=episodios.filter(e=>{
-    if(fEstado==="activos"){if(!activosSet.includes(e.estado))return false;}
-    else if(fEstado!=="todos"){if(e.estado!==fEstado)return false;}
-    if(fSala&&e.sala_id!==fSala)return false;
-    if(fFecha&&e.fecha_programada!==fFecha)return false;
-    return true;
-  });
-  const estOpts=[["activos","Activos"],["todos","Todos"],["lista_espera","Lista de espera"],["programado","Programado"],["en_curso","En curso"],["recuperacion","Recuperación"],["finalizado","Finalizado"],["cancelado","Cancelado"]];
-  const estCambio=[["lista_espera","Lista de espera"],["programado","Programado"],["en_curso","En curso"],["recuperacion","Recuperación"],["finalizado","Finalizado"],["cancelado","Cancelado"]];
-  const PRI_COLOR={urgente:"#C62828",alta:"#E65100",normal:"#546E7A",electiva:"#00796B"};
-  const PRI_LABEL={urgente:"Urgente",alta:"Alta",normal:"Normal",electiva:"Electiva"};
-  const selStyle=`padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;width:100%`;
-  RR().innerHTML=nav()+`
-  <div style="max-width:1260px;margin:0 auto;padding:20px" class="fade">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div>
-        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-heartbeat"></i> Quirófano — programación y flujo</h2>
-        <p style="font-size:13px;color:${MU}">Administración de episodios quirúrgicos, salas y checklist de cirugía segura</p>
-      </div>
-      ${puede?btn('<i class="ti ti-plus"></i> Nuevo episodio',"toggleFormEpisodio()","p",1):""}
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      ${salas.map(s=>`<span style="background:#fff;border:1.5px solid ${BR};border-radius:8px;padding:6px 12px;font-size:13px;color:${TX};display:flex;align-items:center;gap:6px"><i class="ti ${s.tipo==="endoscopia"?"ti-camera":"ti-scalpel"}"></i> ${s.nombre}</span>`).join("")}
-    </div>
-    <div id="form-episodio" style="display:none;background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;margin-bottom:16px">
-      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Nuevo episodio quirúrgico</p>
-      <div style="margin-bottom:12px">
-        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-          <div style="flex:1;min-width:220px">${fld("Buscar paciente por nombre o expediente",`<input id="qx-pac-q" onkeypress="if(event.key==='Enter'){event.preventDefault();buscarPacQx();}" placeholder="Escriba y presione Enter" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>
-          ${btn('<i class="ti ti-search"></i> Buscar',"buscarPacQx()","s",1)}
-        </div>
-        <div id="qx-pac-res" style="margin-top:8px"></div>
-        <div id="qx-pac-sel" style="margin-top:8px"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-        ${fld("Procedimiento",`<input id="qx-proc" placeholder="Colecistectomía laparoscópica" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Tipo",`<select id="qx-tipo" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="cirugia">Cirugía</option><option value="endoscopia">Endoscopia</option></select>`)}
-        ${fld("Sala",`<select id="qx-sala" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="">— Sin asignar —</option>${salas.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("")}</select>`)}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        ${fld("Cirujano",`<input id="qx-cirujano" placeholder="Nombre completo" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Anestesiólogo",`<input id="qx-anest" placeholder="Nombre completo" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      </div>
-      ${fld("Diagnóstico preoperatorio",`<input id="qx-dx" placeholder="Diagnóstico" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;margin-bottom:10px">`)}
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-        ${fld("Fecha programada",`<input id="qx-fecha" type="date" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Hora inicio",`<input id="qx-hora" type="time" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Prioridad",`<select id="qx-prioridad" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="urgente">Urgente</option><option value="alta">Alta</option><option value="normal" selected>Normal</option><option value="electiva">Electiva</option></select>`)}
-        ${fld("Estado",`<select id="qx-estado" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="lista_espera">Lista de espera</option><option value="programado" selected>Programado</option><option value="en_curso">En curso</option></select>`)}
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px">
-        ${btn("Cancelar","toggleFormEpisodio()","s",1)}
-        ${btn('<i class="ti ti-device-floppy"></i> Guardar episodio',"guardarEpisodioQx()","ok",1)}
-      </div>
-    </div>
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:12px 14px;margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-      <div style="min-width:170px">${fld("Estado",`<select onchange="setQxFiltro('estado',this.value)" style="${selStyle}">${estOpts.map(([v,l])=>`<option value="${v}" ${fEstado===v?"selected":""}>${l}</option>`).join("")}</select>`)}</div>
-      <div style="min-width:160px">${fld("Sala",`<select onchange="setQxFiltro('sala',this.value)" style="${selStyle}"><option value="">Todas</option>${salas.map(s=>`<option value="${s.id}" ${fSala===s.id?"selected":""}>${s.nombre}</option>`).join("")}</select>`)}</div>
-      <div style="min-width:160px">${fld("Fecha",`<input type="date" value="${fFecha}" onchange="setQxFiltro('fecha',this.value)" style="${selStyle}">`)}</div>
-      ${(fEstado!=="activos"||fSala||fFecha)?btn('<i class="ti ti-filter-off"></i> Limpiar',"limpiarFiltrosQx()","s",1):""}
-      <div style="margin-left:auto;font-size:13px;color:${MU};align-self:center">${filtrados.length} episodio(s)</div>
-    </div>
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;min-width:1040px">
-        <thead><tr style="background:${PL}">${["Fecha / hora","Sala","Paciente","Procedimiento","Cirujano","Anestesiólogo","Prioridad","Estado","Checklist","Acciones"].map(h=>`<th style="padding:9px 10px;text-align:left;font-size:11px;font-weight:700;color:${TX};text-transform:uppercase;white-space:nowrap">${h}</th>`).join("")}</tr></thead>
-        <tbody>${filtrados.length===0?`<tr><td colspan="10" style="padding:26px;text-align:center;color:${MU}">Sin episodios con estos filtros.</td></tr>`:filtrados.map((e,i)=>{
-          const p=pacMap[e.paciente_id];
-          const pacNom=p?`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim():"Paciente no encontrado";
-          const sala=salaMap[e.sala_id];
-          const c=chkMap[e.id]||{};
-          const done=["entrada","pausa","salida"].filter(m=>c[m+"_at"]).length;
-          const pcol=PRI_COLOR[e.prioridad]||MU;
-          return `<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-            <td style="padding:8px 10px;font-size:13px;color:${TX};white-space:nowrap">${e.fecha_programada?e.fecha_programada.split("-").reverse().join("/"):"<span style='color:"+MU+"'>Sin fecha</span>"}${e.hora_inicio?"<br><span style='font-size:12px;color:"+MU+"'>"+e.hora_inicio.substring(0,5)+"</span>":""}</td>
-            <td style="padding:8px 10px;font-size:13px;color:${TX};white-space:nowrap">${sala?sala.nombre:"—"}${e.tipo==="endoscopia"?"<br><span style='font-size:11px;color:"+MU+"'>Endoscopia</span>":""}</td>
-            <td style="padding:8px 10px;font-size:13px"><span style="font-weight:700;color:${TX}">${pacNom}</span>${p?.numero_expediente?`<br><span style="font-size:11px;color:${AC};font-weight:700">Exp. ${p.numero_expediente}</span>`:""}</td>
-            <td style="padding:8px 10px;font-size:13px;color:${TX};max-width:220px">${e.procedimiento||"—"}</td>
-            <td style="padding:8px 10px;font-size:13px;color:${TX}">${e.cirujano_nombre||"—"}</td>
-            <td style="padding:8px 10px;font-size:13px;color:${TX}">${e.anestesiologo_nombre||"—"}</td>
-            <td style="padding:8px 10px;white-space:nowrap"><span style="background:${pcol}15;color:${pcol};border:1px solid ${pcol}40;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">${PRI_LABEL[e.prioridad]||e.prioridad||"—"}</span></td>
-            <td style="padding:8px 10px">${puede?`<select onchange="cambiarEstadoEpisodio('${e.id}',this.value)" style="padding:5px 8px;border:1.5px solid ${BR};border-radius:6px;font-size:12px;background:#fff;cursor:pointer;outline:none">${estCambio.map(([v,l])=>`<option value="${v}" ${e.estado===v?"selected":""}>${l}</option>`).join("")}</select>`:`<span style="font-size:12px;color:${TX}">${(QX_EST_LABEL[e.estado]||e.estado)}</span>`}</td>
-            <td style="padding:8px 10px;font-size:12px;color:${done===3?SU:MU};white-space:nowrap"><i class="ti ti-checklist"></i> ${done}/3</td>
-            <td style="padding:8px 10px;white-space:nowrap">
-              <button onclick="abrirChecklistOMS('${e.id}')" title="Checklist de cirugía segura" style="background:${P};color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px"><i class="ti ti-clipboard-check"></i></button>
-              <button onclick="abrirAnestesia('${e.id}')" title="Registro anestésico" style="background:#fff;color:${P};border:1.5px solid ${BR};border-radius:6px;padding:5px 8px;cursor:pointer"><i class="ti ti-activity"></i></button>
-            </td>
-          </tr>`;
-        }).join("")}</tbody>
-      </table>
-    </div>
-  </div>`;
-}
-window.cambiarEstadoEpisodio=async function(id,estado){
-  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
-  loading(true,"Actualizando estado...");
-  const {error}=await SB.from("episodios_quirurgicos").update({estado}).eq("id",id);
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("Estado actualizado");
-  pgQuirofano();
-}
-window.setQxFiltro=function(campo,valor){
-  if(campo==="estado")STATE.qxFiltroEstado=valor;
-  if(campo==="sala")STATE.qxFiltroSala=valor;
-  if(campo==="fecha")STATE.qxFiltroFecha=valor;
-  pgQuirofano();
-}
-window.limpiarFiltrosQx=function(){STATE.qxFiltroEstado="activos";STATE.qxFiltroSala="";STATE.qxFiltroFecha="";pgQuirofano();}
-
-window.toggleFormEpisodio=function(){const f=document.getElementById("form-episodio");if(f)f.style.display=f.style.display==="none"?"block":"none";}
-
-window.buscarPacQx=async function(){
-  const q=(gv("qx-pac-q")||"").trim();
-  const res=document.getElementById("qx-pac-res");if(!res)return;
-  if(q.length<2){res.innerHTML=`<span style="font-size:12px;color:${MU}">Escriba al menos 2 caracteres.</span>`;return;}
-  res.innerHTML=`<span style="font-size:12px;color:${MU}">Buscando...</span>`;
-  const sane=t=>t.replace(/[,()%]/g,"");
-  const qs=sane(q);
-  // El .or() no puede usar ilike sobre numero_expediente (columna entera): rompe la consulta.
-  // Se buscan nombres por palabra y, si el texto son sólo dígitos, el expediente por igualdad exacta.
-  const palabras=qs.split(/\s+/).filter(Boolean);
-  const filtros=[];
-  palabras.forEach(v=>{filtros.push(`nombre.ilike.%${v}%`);filtros.push(`apellido_paterno.ilike.%${v}%`);filtros.push(`apellido_materno.ilike.%${v}%`);});
-  filtros.push(`curp.ilike.%${qs}%`);
-  // No se filtra por activo=true en la consulta: si la columna quedó en null al registrar,
-  // el paciente no aparecería. Se excluyen sólo los explícitamente inactivos (activo===false).
-  let {data,error}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente,activo").or(filtros.join(",")).limit(20);
-  if(error)console.warn("buscarPacQx (nombre):",error);
-  let pacs=(data||[]).filter(p=>p.activo!==false);
-  if(/^\d+$/.test(q)){
-    const {data:d2,error:e2}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente,activo").eq("numero_expediente",parseInt(q,10)||0);
-    if(e2)console.warn("buscarPacQx (exp):",e2);
-    (d2||[]).filter(p=>p.activo!==false).forEach(x=>{if(!pacs.some(y=>y.id===x.id))pacs.push(x);});
-  }
-  if(error&&!pacs.length){res.innerHTML=`<span style="font-size:12px;color:${DA}">No se pudo buscar: ${error.message||"error desconocido"}</span>`;return;}
-  STATE._qxPacBusq={};pacs.forEach(p=>STATE._qxPacBusq[p.id]=p);
-  if(pacs.length===0){res.innerHTML=`<span style="font-size:12px;color:${MU}">Sin coincidencias.</span>`;return;}
-  res.innerHTML=`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${pacs.map((p,i)=>`<div onclick="seleccPacQx('${p.id}')" style="padding:8px 12px;cursor:pointer;font-size:13px;color:${TX};background:${i%2?"#FAFAFA":"#fff"};display:flex;justify-content:space-between" onmouseover="this.style.background='#E3F4FB'" onmouseout="this.style.background='${i%2?"#FAFAFA":"#fff"}'"><span>${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}</span><span style="color:${AC};font-weight:700">${p.numero_expediente||""}</span></div>`).join("")}</div>`;
-}
-
-window.seleccPacQx=function(id){
-  const p=STATE._qxPacBusq?.[id];if(!p)return;
-  STATE._qxPac=p;
-  const res=document.getElementById("qx-pac-res");if(res)res.innerHTML="";
-  const sel=document.getElementById("qx-pac-sel");if(sel)sel.innerHTML=`<div style="background:#E8F5E9;border:1.5px solid #A5D6A7;border-radius:8px;padding:8px 12px;font-size:13px;color:#1B5E20;display:flex;align-items:center;gap:8px"><i class="ti ti-user-check"></i> ${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}${p.numero_expediente?" · Exp. "+p.numero_expediente:""}</div>`;
-}
-
-window.guardarEpisodioQx=async function(){
-  if(!QX_EDIT()){showToast("No tiene permiso para crear episodios",false);return;}
-  const p=STATE._qxPac;
-  if(!p){showToast("Seleccione un paciente primero",false);return;}
-  const proc=(gv("qx-proc")||"").trim();
-  if(!proc){showToast("Escriba el procedimiento",false);return;}
-  const payload={
-    paciente_id:p.id,
-    sede:"surgery",
-    tipo:gv("qx-tipo")||"cirugia",
-    procedimiento:proc,
-    diagnostico_preop:(gv("qx-dx")||"").trim()||null,
-    cirujano_nombre:(gv("qx-cirujano")||"").trim()||null,
-    anestesiologo_nombre:(gv("qx-anest")||"").trim()||null,
-    sala_id:gv("qx-sala")||null,
-    fecha_programada:gv("qx-fecha")||null,
-    hora_inicio:gv("qx-hora")||null,
-    prioridad:gv("qx-prioridad")||"normal",
-    estado:gv("qx-estado")||"programado",
-    created_by:STATE.user?.id||null
-  };
-  loading(true,"Guardando episodio...");
-  const {error}=await SB.from("episodios_quirurgicos").insert(payload);
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("Episodio quirúrgico creado");
-  logBitacora("EPISODIO QUIRÚRGICO",proc,p.id);
-  STATE._qxPac=null;
-  draw();
-}
-
-window.abrirChecklistOMS=async function(epId){
-  loading(true,"Cargando checklist...");
-  let ep=STATE._qxEpMap?.[epId];
-  if(!ep){const {data}=await SB.from("episodios_quirurgicos").select("*").eq("id",epId).single();ep=data;}
-  const {data:chk}=await SB.from("checklist_oms").select("*").eq("episodio_id",epId).maybeSingle();
-  let pac=null;
-  if(ep?.paciente_id){const {data:pp}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("id",ep.paciente_id).single();pac=pp;}
-  STATE._qxEp=ep;STATE._qxChk=chk||null;STATE._qxPacEp=pac;STATE.qxView="checklist";
-  loading(false);
-  draw();
-}
-
-window.volverQuirofano=function(){STATE.qxView="lista";STATE._qxEp=null;STATE._qxChk=null;draw();}
-
-function renderChecklistOMS(){
-  const ep=STATE._qxEp||{},chk=STATE._qxChk||{},pac=STATE._qxPacEp||{};
-  const u=STATE.userProfile||{};
-  const quienDefault=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim();
-  const editable=QX_EDIT();
-  const pacNom=`${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}`.trim()||"—";
-  RR().innerHTML=nav()+`
-  <div style="max-width:900px;margin:0 auto;padding:20px" class="fade">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div>
-        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-clipboard-check"></i> Checklist de cirugía segura (OMS)</h2>
-        <p style="font-size:13px;color:${MU}">${pacNom}${pac.numero_expediente?" · Exp. "+pac.numero_expediente:""} · ${ep.procedimiento||"Procedimiento no especificado"}</p>
-      </div>
-      ${btn('<i class="ti ti-arrow-left"></i> Volver',"volverQuirofano()","s",1)}
-    </div>
-    ${!editable?`<div style="background:#FFF3E0;border:1px solid #FFB74D;border-radius:8px;padding:10px 14px;margin-bottom:12px;color:#E65100;font-size:13px">Solo lectura. El checklist lo completa el equipo quirúrgico (médico o enfermería).</div>`:""}
-    ${OMS_MOMENTOS.map(([mk,mlabel,msub,mcol])=>{
-      const saved=chk[mk]||{};
-      const at=chk[mk+"_at"];
-      const por=chk[mk+"_completado_por"]||"";
-      return `<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
-        <div style="background:${mcol};padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-          <b style="color:#fff;font-size:14px">${mlabel} <span style="font-weight:500;opacity:.9">— ${msub}</span></b>
-          ${at?`<span style="background:rgba(255,255,255,.22);color:#fff;padding:3px 9px;border-radius:20px;font-size:12px"><i class="ti ti-check"></i> ${new Date(at).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>`:""}
-        </div>
-        <div style="padding:14px 16px">
-          ${OMS_ITEMS[mk].map(([ik,ilabel])=>{
-            const on=saved[ik]===true;
-            return `<label style="display:flex;align-items:flex-start;gap:9px;padding:7px 0;cursor:${editable?"pointer":"default"};font-size:14px;color:${TX};border-bottom:1px solid #F0F2F4">
-              <input type="checkbox" id="oms-${mk}-${ik}" ${on?"checked":""} ${editable?"":"disabled"} style="accent-color:${mcol};width:16px;height:16px;margin-top:2px">
-              <span>${ilabel}</span></label>`;
-          }).join("")}
-          ${mk==="salida"?`<div style="margin-top:10px;padding:10px 12px;background:#F1F8E9;border-radius:8px">
-            <label style="display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:${TX};cursor:${editable?"pointer":"default"}">
-              <input type="checkbox" id="oms-salida-conteo" ${chk.conteo_correcto?"checked":""} ${editable?"":"disabled"} style="accent-color:${SU};width:16px;height:16px">
-              Recuento de gasas, compresas, agujas e instrumental correcto</label>
-            <div style="margin-top:8px">${fld("¿Quién informó el recuento?",`<input id="oms-salida-conteo-por" value="${chk.conteo_informado_por||""}" ${editable?"":"disabled"} placeholder="Enfermería instrumentista o circulante" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>
-          </div>`:""}
-          <div style="margin-top:12px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
-            <div style="flex:1;min-width:200px">${fld("Completado por",`<input id="oms-${mk}-por" value="${por||(editable?quienDefault:"")}" ${editable?"":"disabled"} placeholder="Nombre y función" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}</div>
-            ${editable?btn('<i class="ti ti-device-floppy"></i> Guardar '+mlabel.toLowerCase(),"guardarMomentoOMS('"+mk+"')","ok",1):""}
-          </div>
-        </div>
-      </div>`;
-    }).join("")}
-  </div>`;
-}
-
-window.guardarMomentoOMS=async function(momento){
-  const ep=STATE._qxEp;if(!ep){showToast("Episodio no cargado",false);return;}
-  if(!QX_EDIT()){showToast("No tiene permiso para editar el checklist",false);return;}
-  const marcados={};
-  (OMS_ITEMS[momento]||[]).forEach(([k])=>{marcados[k]=document.getElementById("oms-"+momento+"-"+k)?.checked||false;});
-  const payload={episodio_id:ep.id,paciente_id:ep.paciente_id};
-  payload[momento]=marcados;
-  payload[momento+"_completado_por"]=(gv("oms-"+momento+"-por")||"").trim()||null;
-  payload[momento+"_at"]=new Date().toISOString();
-  if(momento==="salida"){
-    payload.conteo_correcto=document.getElementById("oms-salida-conteo")?.checked||false;
-    payload.conteo_informado_por=(gv("oms-salida-conteo-por")||"").trim()||null;
-  }
-  loading(true,"Guardando checklist...");
-  const {error}=await SB.from("checklist_oms").upsert(payload,{onConflict:"episodio_id"});
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("Momento guardado");
-  logBitacora("CHECKLIST OMS","Momento: "+momento,ep.paciente_id);
-  abrirChecklistOMS(ep.id);
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  REGISTRO ANESTÉSICO — Gráfica temporal de signos vitales
-//  (NOM-006-SSA3-2011 Arts. 10 y 11). Tabla: registro_anestesico_signos.
-//  El encabezado del registro (técnica, agentes) vive en la nota
-//  de anestesia transoperatoria (consultas.datos_clinicos).
-// ══════════════════════════════════════════════════════════════════
-const ANEST_EVENTOS=[
-  ["","— Sin evento —"],
-  ["llegada","1. Llegada a quirófano"],
-  ["inicio_anestesia","2. Inicio de anestesia"],
-  ["inicio_operacion","3. Inicio de operación"],
-  ["fin_operacion","4. Fin de operación"],
-  ["fin_anestesia","5. Fin de anestesia"],
-  ["pase_recuperacion","6. Pase a recuperación"]
-];
-const ANEST_EV_LABEL={llegada:"Llegada",inicio_anestesia:"Inicio anest.",inicio_operacion:"Inicio oper.",fin_operacion:"Fin oper.",fin_anestesia:"Fin anest.",pase_recuperacion:"Recuperación"};
-
-window.abrirAnestesia=async function(epId){
-  loading(true,"Cargando registro anestésico...");
-  let ep=STATE._qxEpMap?.[epId];
-  if(!ep){const {data}=await SB.from("episodios_quirurgicos").select("*").eq("id",epId).single();ep=data;}
-  let pac=null;
-  if(ep?.paciente_id){const {data:pp}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("id",ep.paciente_id).single();pac=pp;}
-  const {data:sig}=await SB.from("registro_anestesico_signos").select("*").eq("episodio_id",epId).order("minuto",{ascending:true}).order("t",{ascending:true});
-  const {data:farm}=await SB.from("registro_anestesico_farmacos").select("*").eq("episodio_id",epId).order("minuto",{ascending:true});
-  STATE._qxEp=ep;STATE._qxPacEp=pac;STATE._qxSignos=sig||[];STATE._qxFarmacos=farm||[];STATE.qxView="anestesia";
-  loading(false);
-  draw();
-}
-
-function svgRegistroAnest(signos){
-  const W=860,H=390,ML=46,MR=50,MT=20,MB=54;
-  const plotW=W-ML-MR,plotH=H-MT-MB;
-  const yMin=40,yMax=240,tMin=34,tMax=42;
-  const AZ="#0B6FB3",RJ="#C62828",VD="#2E7D32",EV="#6A1B9A",GRID="#DCE6EC";
-  const yFor=v=>MT+(yMax-v)/(yMax-yMin)*plotH;
-  const tYFor=v=>MT+(tMax-v)/(tMax-tMin)*plotH;
-  const pts=(signos||[]).map((s,i)=>({...s,_m:(s.minuto!=null?s.minuto:i*15)})).sort((a,b)=>a._m-b._m);
-  const mins=pts.map(s=>s._m);
-  const xmin=mins.length?Math.min(...mins):0;
-  let xmax=mins.length?Math.max(...mins):60; if(xmax<=xmin)xmax=xmin+60;
-  const xFor=m=>ML+(m-xmin)/(xmax-xmin)*plotW;
-  const el=[];
-  el.push(`<rect x="${ML}" y="${MT}" width="${plotW}" height="${plotH}" fill="#FBFDFE" stroke="${GRID}"/>`);
-  // Rejilla horizontal + escala izquierda (TA/pulso) y derecha (temperatura)
-  for(let v=yMin;v<=yMax;v+=20){
-    const y=yFor(v);
-    el.push(`<line x1="${ML}" y1="${y}" x2="${ML+plotW}" y2="${y}" stroke="${GRID}"/>`);
-    el.push(`<text x="${ML-6}" y="${y+3}" text-anchor="end" font-size="9" fill="#78909C">${v}</text>`);
-  }
-  for(let t=tMin+1;t<tMax;t++){
-    const y=tYFor(t);
-    el.push(`<text x="${ML+plotW+6}" y="${y+3}" text-anchor="start" font-size="9" fill="${VD}">${t}°</text>`);
-  }
-  // Rejilla vertical + etiquetas de minutos + eventos
-  pts.forEach(s=>{
-    const x=xFor(s._m);
-    el.push(`<line x1="${x}" y1="${MT}" x2="${x}" y2="${MT+plotH}" stroke="${GRID}" stroke-dasharray="2,3"/>`);
-    el.push(`<text x="${x}" y="${MT+plotH+13}" text-anchor="middle" font-size="9" fill="#78909C">${s._m}'</text>`);
-    if(s.evento&&ANEST_EV_LABEL[s.evento]){
-      el.push(`<line x1="${x}" y1="${MT}" x2="${x}" y2="${MT+plotH}" stroke="${EV}" stroke-width="1.2" stroke-dasharray="4,3"/>`);
-      el.push(`<text x="${x}" y="${MT+plotH+26}" text-anchor="middle" font-size="8.5" fill="${EV}" font-weight="700">${ANEST_EV_LABEL[s.evento]}</text>`);
-    }
-  });
-  const poly=(arr,color,dash)=>{ if(arr.length<2)return""; return `<polyline points="${arr.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")}" fill="none" stroke="${color}" stroke-width="1.6" ${dash?`stroke-dasharray="${dash}"`:""}/>`;};
-  const sist=[],diast=[],pulso=[],temp=[];
-  pts.forEach(s=>{
-    const x=xFor(s._m);
-    if(s.ta_sistolica!=null&&s.ta_diastolica!=null){
-      const ys=yFor(s.ta_sistolica),yd=yFor(s.ta_diastolica);
-      el.push(`<line x1="${x}" y1="${ys}" x2="${x}" y2="${yd}" stroke="${AZ}" stroke-width="1.2"/>`);
-      el.push(`<path d="M${x-4},${ys+5} L${x},${ys} L${x+4},${ys+5}" fill="none" stroke="${AZ}" stroke-width="1.4"/>`);
-      el.push(`<path d="M${x-4},${yd-5} L${x},${yd} L${x+4},${yd-5}" fill="none" stroke="${AZ}" stroke-width="1.4"/>`);
-      sist.push([x,ys]);diast.push([x,yd]);
-    }
-    if(s.pulso!=null){const y=yFor(s.pulso);pulso.push([x,y]);el.push(`<circle cx="${x}" cy="${y}" r="2.6" fill="${RJ}"/>`);}
-    if(s.temp!=null){const y=tYFor(s.temp);temp.push([x,y]);el.push(`<rect x="${x-2.4}" y="${y-2.4}" width="4.8" height="4.8" fill="${VD}"/>`);}
-  });
-  el.push(poly(sist,AZ));el.push(poly(diast,AZ,"1,0"));el.push(poly(pulso,RJ));el.push(poly(temp,VD));
-  // Leyenda
-  const lg=[["Tensión arterial",AZ],["Pulso",RJ],["Temperatura",VD],["Tiempos",EV]];
-  let lx=ML;
-  const leg=lg.map(([t,c])=>{const seg=`<g><rect x="${lx}" y="4" width="11" height="9" fill="${c}" rx="2"/><text x="${lx+15}" y="12" font-size="9.5" fill="#37474F">${t}</text></g>`;lx+=t.length*6.2+34;return seg;}).join("");
-  return `<svg viewBox="0 0 ${W} ${H+16}" width="100%" style="max-width:${W}px;background:#fff;border:1px solid ${GRID};border-radius:8px" xmlns="http://www.w3.org/2000/svg"><g transform="translate(0,14)">${leg}</g><g transform="translate(0,16)">${el.join("")}</g></svg>`;
-}
-
-function renderAnestesia(){
-  const ep=STATE._qxEp||{},pac=STATE._qxPacEp||{},signos=STATE._qxSignos||[];
-  const editable=QX_EDIT();
-  const pacNom=`${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}`.trim()||"—";
-  const sortSig=[...signos].map((s,i)=>({...s,_m:(s.minuto!=null?s.minuto:i*15)})).sort((a,b)=>a._m-b._m);
-  RR().innerHTML=nav()+`
-  <div style="max-width:920px;margin:0 auto;padding:20px" class="fade">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div>
-        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-activity"></i> Registro anestésico transoperatorio</h2>
-        <p style="font-size:13px;color:${MU}">${pacNom}${pac.numero_expediente?" · Exp. "+pac.numero_expediente:""} · ${ep.procedimiento||"Procedimiento no especificado"}</p>
-      </div>
-      <div style="display:flex;gap:8px">${btn('<i class="ti ti-printer"></i> Imprimir / PDF',"imprimirRegistroAnestesico()","p",1)}${btn('<i class="ti ti-arrow-left"></i> Volver',"volverQuirofano()","s",1)}</div>
-    </div>
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
-      ${signos.length===0?`<div style="text-align:center;padding:24px;color:${MU}">Sin registros de signos vitales. Agregue el primero para trazar la gráfica.</div>`:svgRegistroAnest(signos)}
-    </div>
-    ${editable?`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
-      <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Agregar registro</p>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
-        ${fld("Minuto",`<input id="an-min" type="number" placeholder="0, 15, 30..." style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("TA sistólica",`<input id="an-tas" type="number" placeholder="120" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("TA diastólica",`<input id="an-tad" type="number" placeholder="80" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("Pulso",`<input id="an-pulso" type="number" placeholder="72" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
-        ${fld("Temperatura °C",`<input id="an-temp" type="number" step="0.1" placeholder="36.5" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("SpO2 %",`<input id="an-spo2" type="number" placeholder="98" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("FR rpm",`<input id="an-fr" type="number" placeholder="14" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-        ${fld("EtCO2",`<input id="an-etco2" type="number" placeholder="35" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-      </div>
-      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-        <div style="flex:1;min-width:220px">${fld("Marcador de tiempo (opcional)",`<select id="an-evento" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">${ANEST_EVENTOS.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select>`)}</div>
-        ${btn('<i class="ti ti-plus"></i> Agregar registro',"guardarSignoAnest()","ok",1)}
-      </div>
-    </div>`:""}
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
-      <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}"><i class="ti ti-vaccine"></i> Medicamentos, agentes y soluciones</b></div>
-      ${editable?`<div style="padding:12px;border-bottom:1px solid ${BR};background:#F8F9FA;overflow-x:auto">
-        <div style="display:grid;grid-template-columns:80px 160px 1fr 100px 120px auto;gap:8px;align-items:end;min-width:740px">
-          ${fld("Minuto",`<input id="anf-min" type="number" placeholder="0" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Tipo",`<select id="anf-tipo" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option value="agente">Agente anestésico</option><option value="medicamento">Medicamento</option><option value="liquido">Solución / líquido</option><option value="sangre">Hemoderivado</option></select>`)}
-          ${fld("Nombre",`<input id="anf-nombre" placeholder="Propofol, fentanilo, Hartmann..." style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Dosis",`<input id="anf-dosis" placeholder="200 mg" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
-          ${fld("Vía",`<select id="anf-via" style="width:100%;padding:8px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff"><option>IV</option><option>IM</option><option>Inhalada</option><option>Epidural</option><option>Subaracnoidea</option><option>VO</option><option>Otra</option></select>`)}
-          ${btn('<i class="ti ti-plus"></i> Agregar',"guardarFarmacoAnest()","ok",1)}
-        </div>
-      </div>`:""}
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:600px">
-        <thead><tr style="background:${PL}">${["Min","Tipo","Nombre","Dosis","Vía",""].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
-        <tbody>${((STATE._qxFarmacos||[]).length===0)?`<tr><td colspan="6" style="padding:14px;text-align:center;color:${MU};font-size:13px">Sin medicamentos registrados.</td></tr>`:[...(STATE._qxFarmacos||[])].sort((a,b)=>(a.minuto??0)-(b.minuto??0)).map((f,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-          <td style="padding:7px 10px;font-size:13px;font-weight:700;color:${TX}">${f.minuto??"—"}'</td>
-          <td style="padding:7px 10px;font-size:12px;color:${MU}">${({agente:"Agente",medicamento:"Medicamento",liquido:"Solución",sangre:"Hemoderivado"})[f.tipo]||f.tipo||"—"}</td>
-          <td style="padding:7px 10px;font-size:13px;color:${TX}">${f.nombre||"—"}</td>
-          <td style="padding:7px 10px;font-size:13px;color:${TX}">${f.dosis||"—"}</td>
-          <td style="padding:7px 10px;font-size:13px;color:${TX}">${f.via||"—"}</td>
-          <td style="padding:7px 10px">${editable?`<button onclick="borrarFarmacoAnest('${f.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;color:${DA};font-size:15px"><i class="ti ti-trash"></i></button>`:""}</td>
-        </tr>`).join("")}</tbody>
-      </table></div>
-    </div>
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:${PL}">${["Min","TA","Pulso","Temp","SpO2","FR","EtCO2","Tiempo",""].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
-        <tbody>${sortSig.length===0?`<tr><td colspan="9" style="padding:16px;text-align:center;color:${MU};font-size:13px">Sin registros.</td></tr>`:sortSig.map((s,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-          <td style="padding:7px 10px;font-size:13px;font-weight:700;color:${TX}">${s._m}'</td>
-          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.ta_sistolica!=null&&s.ta_diastolica!=null?s.ta_sistolica+"/"+s.ta_diastolica:"—"}</td>
-          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.pulso??"—"}</td>
-          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.temp!=null?s.temp+"°":"—"}</td>
-          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.spo2!=null?s.spo2+"%":"—"}</td>
-          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.fr??"—"}</td>
-          <td style="padding:7px 10px;font-size:13px;color:${TX}">${s.etco2??"—"}</td>
-          <td style="padding:7px 10px;font-size:12px;color:${MU}">${s.evento&&ANEST_EV_LABEL[s.evento]?ANEST_EV_LABEL[s.evento]:"—"}</td>
-          <td style="padding:7px 10px">${editable?`<button onclick="borrarSignoAnest('${s.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;color:${DA};font-size:15px"><i class="ti ti-trash"></i></button>`:""}</td>
-        </tr>`).join("")}</tbody>
-      </table>
-    </div>
-  </div>`;
-}
-
-// ── Impresión unificada del registro anestésico (papel + escaneo) ──
-function svgAImagen(svg){
-  return new Promise((resolve)=>{
-    try{
-      const s=svg.replace('width="100%"','width="860" height="406"');
-      const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
-      const img=new Image();
-      img.onload=()=>{
-        try{
-          const scale=2,cw=(img.width||860)*scale,ch=(img.height||406)*scale;
-          const cv=document.createElement("canvas");cv.width=cw;cv.height=ch;
-          const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,cw,ch);
-          ctx.drawImage(img,0,0,cw,ch);
-          resolve(cv.toDataURL("image/png"));
-        }catch(e){resolve(null);}
-      };
-      img.onerror=()=>resolve(null);
-      img.src=url;
-    }catch(e){resolve(null);}
-  });
-}
-window.imprimirRegistroAnestesico=async function(){
-  const {jsPDF}=window.jspdf||{};
-  if(!jsPDF){showToast("jsPDF no disponible",false);return;}
-  const ep=STATE._qxEp||{},pac=STATE._qxPacEp||{},signos=STATE._qxSignos||[],farm=STATE._qxFarmacos||[];
-  const B=brand();
-  loading(true,"Generando registro anestésico...");
-  const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"letter"});
-  const W=279,H=216,M=12;
-  try{
-    const r=await fetch(B.logo);const bl=await r.blob();
-    const b64=await new Promise(rs=>{const fr=new FileReader();fr.onload=()=>rs(fr.result);fr.readAsDataURL(bl);});
-    const im=await new Promise((rs,rj)=>{const i=new Image();i.onload=()=>rs(i);i.onerror=rj;i.src=b64;});
-    const ratio=im.width/im.height;let h=13,w=h*ratio;if(w>42){w=42;h=w/ratio;}
-    doc.addImage(b64,B.logo.toLowerCase().includes("png")?"PNG":"JPEG",M,7,w,h);
-  }catch(e){}
-  doc.setFont("helvetica","bold");doc.setFontSize(9.5);doc.setTextColor(11,111,179);
-  doc.text(B.razon||"",M+46,12);
-  doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(70,70,70);
-  let hy=16;
-  if(B.direccion)doc.splitTextToSize(B.direccion,150).slice(0,2).forEach(l=>{doc.text(l,M+46,hy);hy+=3;});
-  if(B.licencia)doc.text(B.licencia,M+46,hy);
-  doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(30,30,30);
-  doc.text("REGISTRO DE ANESTESIA Y RECUPERACIÓN",W-M,11,{align:"right"});
-  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(90,90,90);
-  doc.text("NOM-006-SSA3-2011, Arts. 10 y 11",W-M,15,{align:"right"});
-  doc.setDrawColor(11,111,179);doc.setLineWidth(0.6);doc.line(M,25,W-M,25);
-  let y=31;
-  const pacNom=`${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}`.trim()||"—";
-  doc.setFontSize(9);
-  const F2=(lbl,val,x,yy)=>{doc.setFont("helvetica","bold");doc.setTextColor(60,60,60);doc.text(lbl,x,yy);const lw=doc.getTextWidth(lbl);doc.setFont("helvetica","normal");doc.setTextColor(20,20,20);doc.text(String(val||"—"),x+lw+2,yy);};
-  F2("Paciente:",pacNom,M,y); F2("Exp.:",pac.numero_expediente,M+150,y); F2("Fecha:",ep.fecha_programada||new Date().toISOString().split("T")[0],M+205,y);
-  y+=6; F2("Procedimiento:",ep.procedimiento,M,y); F2("Sexo:",pac.sexo_biologico,M+205,y);
-  y+=6; F2("Cirujano:",ep.cirujano_nombre,M,y); F2("Anestesiólogo:",ep.anestesiologo_nombre,M+130,y);
-  y+=4; doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(M,y,W-M,y); y+=4;
-  if(signos.length){
-    const png=await svgAImagen(svgRegistroAnest(signos));
-    if(png){const gw=W-2*M;let gh=gw*(406/860);if(gh>92)gh=92;doc.addImage(png,"PNG",M,y,gw,gh);y+=gh+4;}
-    else{doc.setFont("helvetica","italic");doc.setFontSize(8);doc.setTextColor(120,120,120);doc.text("No se pudo generar la gráfica; ver el sistema.",M,y);y+=6;}
-  } else {
-    doc.setFont("helvetica","italic");doc.setFontSize(8);doc.setTextColor(120,120,120);
-    doc.text("Sin registro gráfico de signos vitales (hoja para llenado manual).",M,y);y+=6;
-  }
-  const colTop=y,colL=M,colR=M+142,colW=128;
-  doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(30,30,30);
-  doc.text("Medicamentos, agentes y soluciones",colL,colTop);
-  let ly=colTop+5;doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(30,30,30);
-  const Fs=[...farm].sort((a,b)=>(a.minuto??0)-(b.minuto??0));
-  if(Fs.length){
-    Fs.slice(0,10).forEach(f=>{const t=`${f.minuto??"—"}'  ${f.nombre||""}  ${f.dosis||""}  ${f.via||""}`;doc.splitTextToSize(t,colW).forEach(l=>{if(ly<H-30){doc.text(l,colL,ly);ly+=4.2;}});});
-    if(Fs.length>10){doc.setFont("helvetica","italic");doc.text(`(+${Fs.length-10} más en el sistema)`,colL,ly);}
-  } else {
-    for(let k=0;k<5;k++){if(ly<H-30){doc.setDrawColor(150,150,150);doc.setLineWidth(0.2);doc.line(colL,ly,colL+colW,ly);ly+=6;}}
-  }
-  doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(30,30,30);
-  doc.text("Técnica anestésica y observaciones",colR,colTop);
-  let ry=colTop+7;
-  for(let k=0;k<6;k++){if(ry<H-30){doc.setDrawColor(150,150,150);doc.setLineWidth(0.2);doc.line(colR,ry,colR+colW,ry);ry+=6;}}
-  const fy=H-22;
-  doc.setDrawColor(60,60,60);doc.setLineWidth(0.4);
-  doc.line(M,fy,M+95,fy);doc.line(W-M-95,fy,W-M,fy);
-  doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(30,30,30);
-  doc.text("Anestesiólogo — nombre y firma",M,fy+4);
-  doc.text("Cirujano — nombre y firma",W-M-95,fy+4);
-  if(ep.anestesiologo_nombre){doc.setFont("helvetica","normal");doc.setFontSize(7.5);doc.setTextColor(80,80,80);doc.text(ep.anestesiologo_nombre,M,fy-2);}
-  if(ep.cirujano_nombre){doc.setFont("helvetica","normal");doc.setFontSize(7.5);doc.setTextColor(80,80,80);doc.text(ep.cirujano_nombre,W-M-95,fy-2);}
-  doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
-  const pie=[B.razon,B.direccion,B.licencia].filter(Boolean).join(" · ");
-  doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(M,H-9,W-M,H-9);
-  doc.text(pie,W/2,H-5.5,{align:"center"});
-  const hoy=new Date().toLocaleDateString("es-MX");
-  doc.text("Generado "+hoy+" — ECE QP",W/2,H-2.5,{align:"center"});
-  loading(false);
-  doc.save(`Registro_Anestesico_${pacNom.replace(/\s+/g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
-  showToast("Registro anestésico generado");
-  logBitacora("REGISTRO ANESTÉSICO","PDF generado",ep.paciente_id);
-}
-
-window.guardarSignoAnest=async function(){
-  const ep=STATE._qxEp;if(!ep){showToast("Episodio no cargado",false);return;}
-  if(!QX_EDIT()){showToast("No tiene permiso para registrar signos",false);return;}
-  const num=v=>{const n=parseFloat(gv(v));return isNaN(n)?null:n;};
-  const min=num("an-min"),tas=num("an-tas"),tad=num("an-tad"),pulso=num("an-pulso"),temp=num("an-temp");
-  if(min===null){showToast("Indique el minuto del registro",false);return;}
-  if(tas===null&&tad===null&&pulso===null&&temp===null){showToast("Capture al menos un signo vital",false);return;}
-  const payload={
-    episodio_id:ep.id,minuto:Math.round(min),
-    ta_sistolica:tas!==null?Math.round(tas):null,
-    ta_diastolica:tad!==null?Math.round(tad):null,
-    pulso:pulso!==null?Math.round(pulso):null,
-    temp:temp,
-    spo2:num("an-spo2")!==null?Math.round(num("an-spo2")):null,
-    fr:num("an-fr")!==null?Math.round(num("an-fr")):null,
-    etco2:num("an-etco2")!==null?Math.round(num("an-etco2")):null,
-    evento:gv("an-evento")||null
-  };
-  loading(true,"Guardando registro...");
-  const {error}=await SB.from("registro_anestesico_signos").insert(payload);
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("Registro agregado");
-  logBitacora("REGISTRO ANESTÉSICO","Minuto: "+Math.round(min),ep.paciente_id);
-  abrirAnestesia(ep.id);
-}
-
-window.guardarFarmacoAnest=async function(){
-  const ep=STATE._qxEp;if(!ep){showToast("Episodio no cargado",false);return;}
-  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
-  const min=parseFloat(gv("anf-min"));
-  const nombre=(gv("anf-nombre")||"").trim();
-  if(isNaN(min)){showToast("Indique el minuto",false);return;}
-  if(!nombre){showToast("Indique el nombre del medicamento o agente",false);return;}
-  const payload={episodio_id:ep.id,minuto:Math.round(min),tipo:gv("anf-tipo")||"medicamento",nombre,dosis:(gv("anf-dosis")||"").trim()||null,via:gv("anf-via")||null};
-  loading(true,"Guardando...");
-  const {error}=await SB.from("registro_anestesico_farmacos").insert(payload);
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("Medicamento agregado");
-  logBitacora("REGISTRO ANESTÉSICO","Fármaco: "+nombre,ep.paciente_id);
-  abrirAnestesia(ep.id);
-}
-window.borrarFarmacoAnest=async function(id){
-  const ep=STATE._qxEp;if(!ep)return;
-  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
-  loading(true,"Eliminando...");
-  const {error}=await SB.from("registro_anestesico_farmacos").delete().eq("id",id);
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("Eliminado");
-  abrirAnestesia(ep.id);
-}
-window.borrarSignoAnest=async function(id){
-  const ep=STATE._qxEp;if(!ep)return;
-  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
-  loading(true,"Eliminando...");
-  const {error}=await SB.from("registro_anestesico_signos").delete().eq("id",id);
-  loading(false);
-  if(error){showToast("Error: "+error.message,false);return;}
-  showToast("Registro eliminado");
-  abrirAnestesia(ep.id);
-}
-
-async function pgListaPacientes(){
-  if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
-  const PER=20;
-  const page=Math.max(1,STATE.pacPage||1);
-  const from=(page-1)*PER,to=from+PER-1;
-  loading(true,"Cargando padrón de pacientes...");
-  const {data,count}=await SB.from("pacientes")
-    .select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico",{count:"exact"})
-    .eq("activo",true).order("apellido_paterno",{ascending:true}).order("nombre",{ascending:true}).range(from,to);
-  loading(false);
-  const pacientes=data||[];
-  const total=count||0;
-  const totPages=Math.max(1,Math.ceil(total/PER));
-  STATE._pacTotPages=totPages;
-  RR().innerHTML=nav()+`
-  <div style="max-width:1120px;margin:0 auto;padding:20px" class="fade">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div>
-        <h2 style="font-size:18px;font-weight:800;color:${TX};display:flex;align-items:center;gap:8px"><i class="ti ti-users"></i> Padrón de pacientes</h2>
-        <p style="font-size:13px;color:${MU}">Total: <b style="color:${P}">${total}</b> paciente(s) &nbsp;·&nbsp; Página ${page} de ${totPages}</p>
-      </div>
-      ${btn('<i class="ti ti-arrow-left"></i> Volver',"go('agenda')","s",1)}
-    </div>
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;min-width:840px">
-        <thead><tr style="background:${PL}">${["#","Exp.","Nombre","Ap. Paterno","Ap. Materno","Nacimiento","Celular","Sexo",""].map(h=>`<th style="padding:9px 12px;text-align:left;font-size:12px;font-weight:700;color:${TX};text-transform:uppercase;white-space:nowrap">${h}</th>`).join("")}</tr></thead>
-        <tbody>${pacientes.length===0?`<tr><td colspan="9" style="padding:26px;text-align:center;color:${MU}">Sin pacientes registrados.</td></tr>`:pacientes.map((p,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
-          <td style="padding:9px 12px;font-size:13px;color:${MU}">${from+i+1}</td>
-          <td style="padding:9px 12px;font-size:13px;color:${AC};font-weight:700">${p.numero_expediente||"—"}</td>
-          <td style="padding:9px 12px;font-size:14px;font-weight:600;color:${TX}">${p.nombre||""}</td>
-          <td style="padding:9px 12px;font-size:14px">${p.apellido_paterno||""}</td>
-          <td style="padding:9px 12px;font-size:14px">${p.apellido_materno||""}</td>
-          <td style="padding:9px 12px;color:${MU};font-size:14px;white-space:nowrap">${p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—"}</td>
-          <td style="padding:9px 12px;font-size:14px">${p.celular||"—"}</td>
-          <td style="padding:9px 12px;color:${MU};font-size:14px">${p.sexo_biologico||"—"}</td>
-          <td style="padding:9px 12px">${btn("Ver expediente","abrirExpediente('"+p.id+"')","p",1)}</td>
-        </tr>`).join("")}</tbody>
-      </table>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px">
-      ${page>1?btn('<i class="ti ti-chevron-left"></i> Anterior',"irPaginaPac("+(page-1)+")","s",1):`<span style="width:96px"></span>`}
-      <span style="font-size:13px;color:${TX};font-weight:700">Página ${page} de ${totPages}</span>
-      ${page<totPages?btn('Siguiente <i class="ti ti-chevron-right"></i>',"irPaginaPac("+(page+1)+")","s",1):`<span style="width:96px"></span>`}
-    </div>
-  </div>`;
-}
-window.irPaginaPac=function(n){const t=STATE._pacTotPages||1;STATE.pacPage=Math.min(Math.max(1,n),t);draw();}
-
 async function renderInBody(b){
   const pid=STATE.pat?.id;if(!pid)return;
   b.innerHTML=`<div style="text-align:center;padding:20px;color:${MU}">⚙️ Cargando...</div>`;
@@ -9087,28 +7968,28 @@ async function pgConsulta(){
     </div>
     <div style="background:#fff;border-bottom:1px solid ${BR};padding:7px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <!-- Tipo de nota -->
-      <select id="cs_tipo_nota" onchange="actualizarTipoNota(this.value)" title="Tipo de nota" style="padding:7px 13px;border:none;border-radius:8px;font-size:14px;font-weight:800;color:#fff;background:${PD};cursor:pointer;outline:none;box-shadow:0 1px 3px #00000026">
-        ${["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Orden de Internamiento","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
+      <select id="cs_tipo_nota" onchange="actualizarTipoNota(this.value)" style="padding:5px 10px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;font-weight:700;color:${P};background:#fff;cursor:pointer;outline:none">
+        ${["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
       </select>
       <div style="width:1px;height:24px;background:${BR}"></div>
-      <button id="btn-ia-nota" onclick="abrirModalIA()" title="Generar nota con IA" style="background:#fff;color:#6A1B9A;border:1.5px solid #E1BEE7;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;align-items:center;gap:6px;display:${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""])?'none':'inline-flex'}"><i class="ti ti-sparkles"></i> Nota con IA</button>
-      ${c.bloqueada?`<span style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">🔒 Nota cerrada — solo lectura</span>`:!puedeEditarNotaMedica()?`<span style="background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">Solo lectura — la nota médica la elabora el médico tratante</span>`:`<button onclick="guardarConsulta()" style="background:${P};color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-device-floppy"></i> Guardar</button>
-      <button onclick="firmarNota()" style="background:${SU};color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-writing-sign"></i> Firmar y cerrar</button>
-      <span id="autosave-indicator" style="font-size:12px;color:${MU};margin-left:4px"></span>`}
-      <button onclick="descargarNotaPDF()" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-file-text"></i> PDF nota</button>
-      ${c.id?`<button onclick="verHistorialNota('${c.id}')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-history"></i> Historial</button>`:""}
-      ${(c.tipo_nota||"").includes("referencia")||gv("cs_tipo_nota").includes("referencia")?`<button onclick="imprimirHojaReferencia()" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-building-hospital"></i> Referencia</button>`:""}
-      <button onclick="cerrarConsulta()" style="background:#fff;color:${DA};border:1.5px solid #E9C6C6;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-x"></i> Cerrar</button>
-      <button onclick="showRecipe('receta')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-prescription"></i> Receta</button>
-      <button onclick="showRecipe('lab')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-flask"></i> Sol. Lab</button>
-      <button onclick="showRecipe('gab')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-x-ray"></i> Sol. Gabinete</button>
+      <button onclick="abrirModalIA()" style="background:linear-gradient(135deg,#7B1FA2,#006BB6);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">🤖 Generar nota con IA</button>
+      ${c.bloqueada?`<span style="background:#FFEBEE;color:${DA};border:1px solid #FFCDD2;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">🔒 Nota cerrada — solo lectura</span>`:!puedeEditarNotaMedica()?`<span style="background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700">Solo lectura — la nota médica la elabora el médico tratante</span>`:`${btn("💾 Guardar","guardarConsulta()","ok",1)}
+      <button onclick="firmarNota()" style="background:#2E7D32;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">✍️ Firmar y cerrar nota</button>
+      <span id="autosave-indicator" style="font-size:12px;color:rgba(255,255,255,.6);margin-left:4px"></span>`}
+      <button onclick="descargarNotaPDF()" style="background:#37474F;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📄 PDF nota</button>
+      ${c.id?`<button onclick="verHistorialNota('${c.id}')" style="background:#7B1FA2;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🕐 Historial</button>`:""}
+      ${(c.tipo_nota||"").includes("referencia")||gv("cs_tipo_nota").includes("referencia")?`<button onclick="imprimirHojaReferencia()" style="background:#00695C;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🏥 Hoja de Referencia</button>`:""}
+      ${btn("✕ Cerrar","cerrarConsulta()","d",1)}
+      <button onclick="showRecipe('receta')" style="background:#1B5E20;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">💊 Receta</button>
+      <button onclick="showRecipe('lab')" style="background:#006BB6;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">🔬 Sol. Lab</button>
+      <button onclick="showRecipe('gab')" style="background:#6A1B9A;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📡 Sol. Gabinete</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px;background:#F0F4F8">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1600px;margin:0 auto">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1200px;margin:0 auto">
         <div id="seccion-especial" style="grid-column:span 2">
           ${renderSeccionEspecial(c.tipo_nota||"Nota de evolución",c.datos_clinicos||{})}
         </div>
-        <div id="cardsoap-subj" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('subj')?';display:none':''}">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🎤 Subjetivo (motivos de consulta)</b>
             <span onclick="toggleMotivos()" style="font-size:14px;color:${AC};cursor:pointer;font-weight:600">📋 Motivos comunes ▾</span>
@@ -9127,15 +8008,15 @@ async function pgConsulta(){
           <div style="padding:12px">${ta("cs_alerg",c.alergias_nota||(STATE.alergs.length?STATE.alergs.join(", "):"Sin alergias conocidas"),"",5)}</div>
         </div>
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
-          <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">💓 Signos vitales y datos antropométricos${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""])?" iniciales":""}</b></div>
+          <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">💓 Signos vitales y datos antropométricos</b></div>
           <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
             ${[["Temp. (°C)","cs_temp",vs.temp],["Peso (kg)","cs_peso",vs.peso],["F. Cardíaca (lat/min)","cs_fc",vs.fc],["Talla (m)","cs_talla",vs.talla],["F. Respiratoria (r/min)","cs_fr",vs.fr],["Sat. O₂ (%)","cs_sat",vs.sat],["Pres. Sistólica (mmHg)","cs_tas",vs.tas],["Pres. Diastólica (mmHg)","cs_tad",vs.tad],["Glucosa (mg/dL)","cs_glu",vs.glu],["IMC","cs_imc",vs.imc]].map(([l,id,val])=>`<div>${fld(l,`<input id="${id}" value="${val}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}</div>`).join("")}
           </div>
-          <div id="cardsoap-eva" style="border-top:1px solid ${BR};padding:12px${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('eva')?';display:none':''}">
+          <div style="border-top:1px solid ${BR};padding:12px">
             ${(()=>{const ev=c.eva_dolor??0;const col=ev>=7?"#C62828":ev>=4?"#E65100":"#2E7D32";const bg=ev>=7?"#FFEBEE":ev>=4?"#FFF3E0":"#E8F5E9";const lbl=ev>=8?"Dolor muy severo (8-10)":ev>=6?"Dolor severo (6-7)":ev>=4?"Dolor moderado (4-5)":ev>=2?"Dolor leve (2-3)":ev>0?"Dolor mínimo (1)":"Sin dolor (0)";return fld(`🩹 EVA — Escala Visual Analógica del dolor`,`<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><input type="range" id="cs_eva" min="0" max="10" step="1" value="${ev}" oninput="actualizarEVA(this.value)" style="flex:1;height:6px;accent-color:${col}"><div id="cs_eva_num" style="min-width:52px;text-align:center;font-size:20px;font-weight:800;color:${col}">${ev}/10</div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:${MU};padding:0 2px"><span>0 Sin dolor</span><span>5 Moderado</span><span>10 Insoportable</span></div><div id="cs_eva_lbl" style="font-size:12px;font-weight:700;text-align:center;margin-top:6px;padding:3px 10px;border-radius:20px;background:${bg};color:${col}">${lbl}</div>`)})()}
           </div>
         </div>
-        <div id="cardsoap-expl" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;display:flex;flex-direction:column${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('expl')?';display:none':''}">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;display:flex;flex-direction:column">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
             <b style="font-size:14px;color:${TX}">🫀 Exploración física</b>
             <span style="font-size:14px;color:${MU};background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA puede sugerir en este campo</span>
@@ -9147,7 +8028,7 @@ async function pgConsulta(){
             </div>
           </div>
         </div>
-        <div id="cardsoap-anal" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('anal')?';display:none':''}">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🔍 Análisis / Diagnóstico</b>
             <div style="display:flex;align-items:center;gap:8px">
@@ -9160,7 +8041,7 @@ async function pgConsulta(){
           <div id="diagnosticos-ia" style="display:none;padding:8px 12px;border-bottom:1px solid ${BR};background:#F3E5F5"></div>
           <div style="padding:12px">${ta("cs_anal",c.analisis||"","Diagnóstico(s) con código CIE-10...",8)}</div>
         </div>
-        <div id="cardsoap-trat" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('trat')?';display:none':''}">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
             <b style="font-size:14px;color:${TX}">💊 Tratamiento</b>
             <div style="display:flex;gap:6px;align-items:center;position:relative">
@@ -9171,25 +8052,25 @@ async function pgConsulta(){
           </div>
           <div style="padding:12px">${ta("cs_trat",c.tratamiento||"","Medicamentos, dosis, medidas generales...",8)}</div>
         </div>
-        <div id="cardsoap-lab" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('lab')?';display:none':''}">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">🔬 Laboratorio</b>
             <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
           </div>
           <div style="padding:12px">${ta("cs_lab",c.laboratorio||"","BH, QS, EGO, PCR...",6)}</div>
         </div>
-        <div id="cardsoap-gab" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('gab')?';display:none':''}">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
             <b style="font-size:14px;color:${TX}">📡 Estudios de gabinete</b>
             <span style="font-size:14px;color:${MU};background:#F0F4F8;padding:2px 8px;border-radius:20px">🤖 IA sugiere</span>
           </div>
           <div style="padding:12px">${ta("cs_gab",c.gabinete||"","RX, USG, IRM...",6)}</div>
         </div>
-        <div id="cardsoap-plan" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('plan')?';display:none':''}">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">📋 Plan</b></div>
           <div style="padding:12px">${ta("cs_plan",c.plan||"","Seguimiento, indicaciones de alarma, actividad deportiva...",6)}</div>
         </div>
-        <div id="cardsoap-prono" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('prono')?';display:none':''}">
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;grid-column:span 2">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E8EAF6,#fff)">
             <b style="font-size:14px;color:#3949AB">🎯 Pronóstico</b>
           </div>
@@ -9203,7 +8084,7 @@ async function pgConsulta(){
           </div>
         </div>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 0;max-width:1600px;margin:0 auto">
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 0;max-width:1200px;margin:0 auto">
         ${btn("✕ Cerrar consulta","cerrarConsulta()","s",1)}
         ${btn("💾 Guardar consulta","guardarConsulta()","ok",1)}
       </div>
@@ -9782,10 +8663,9 @@ window.generarPDFReceta=async function(tipo="receta"){
     credLines.push({txt:`Alta Especialidad en ${med.alta_especialidad}${med.institucion_alta?"   "+shortInst(med.institucion_alta):""}`.toUpperCase(),bold:false,sz:8});
   const headerH=Math.max(18, credLines.length*4.5+4);
   const lineY=headerH+4;
-  const B=brand();
   // ── LOGO izquierda ──
   await addImg(
-    B.logo,
+    "https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",
     M, 7, headerH-2, 35
   );
   // ── DATOS MÉDICO derecha ──
@@ -9878,9 +8758,9 @@ window.generarPDFReceta=async function(tipo="receta"){
   doc.line(M,158,W-M,158);
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
   doc.text(medNom,W/2,163,{align:"center"});
-  doc.text(B.direccion||med.direccion_clinica||"",W/2,167,{align:"center"});
-  doc.text(sedeActiva()==="surgery"?(B.tel?("Tel: "+B.tel):""):"Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,171,{align:"center"});
-  doc.text(med.correo_profesional||med.email||"dr.polanco@qpclinic.mx",W/2,175,{align:"center"});
+  doc.text(med.direccion_clinica||"Insurgentes Sur 933, Nápoles, Benito Juárez, Ciudad de México C.P. 03810",W/2,167,{align:"center"});
+  doc.text("Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,171,{align:"center"});
+  doc.text(med.email||"dr.polanco@qpclinic.mx",W/2,175,{align:"center"});
   const nombre=tipo==="receta"?"Receta":tipo==="lab"?"Solicitud_Lab":"Solicitud_Gabinete";
   doc.save(`${nombre}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
   showToast("✓ PDF generado");
@@ -10128,10 +9008,9 @@ window.descargarNotaPDF=async function(){
     const credLine2=[med.especialidad_1,med.institucion_esp_1?med.institucion_esp_1.split(" — ")[0].split(" · ")[0]:"",med.cedula_esp_1?"Céd. Esp. "+med.cedula_esp_1:""].filter(Boolean).join(" · ");
 
     // Logo y firma
-    const B=brand();
     let logoB64=null,firmaB64=null;
     try{
-      const r=await fetch(B.logo);
+      const r=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");
       const bl=await r.blob();
       logoB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
     }catch(e){}
@@ -10166,8 +9045,8 @@ window.descargarNotaPDF=async function(){
       doc.setFillColor(238,244,248);doc.rect(0,PH-FH,PW,FH,"F");
       doc.setDrawColor(215,227,234);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
       doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(5.9);
-      const direccion=B.direccion||"";
-      doc.text(`${direccion}${B.tel?"  |  Tel: "+B.tel:""}${B.web?"  |  "+B.web:""}${B.licencia?"  |  "+B.licencia:""}  |  NOM-004-SSA3-2012  |  Página ${pg} de ${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});
+      const direccion="Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX, C.P. 03810";
+      doc.text(`${direccion}  |  Tel: 55 5682 4345 / 56 4423 7028  |  Cel: 55 8767 3104  |  qpclinic.org  |  NOM-004-SSA3-2012  |  Página ${pg} de ${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});
     };
 
     const AVAIL_H=PH-FH-ML;
@@ -10204,8 +9083,8 @@ window.descargarNotaPDF=async function(){
     const headerHTML=`
     <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
       <div style="flex:1;min-width:0">
-        <div style="font-size:14.5px;font-weight:bold;color:#fff;margin-bottom:2px">${B.razon}</div>
-        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:5px">${B.direccion}${B.tel?" &nbsp;|&nbsp; Tel. "+B.tel:""}${B.web?" &nbsp;|&nbsp; "+B.web:""}${B.licencia?" &nbsp;|&nbsp; "+B.licencia:""}</div>
+        <div style="font-size:14.5px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic Especialistas en Salud Integral</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:5px">Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX, C.P. 03810 &nbsp;|&nbsp; Tel. 55 5682 4345 / 56 4423 7028 &nbsp;|&nbsp; qpclinic.org</div>
         <div style="border-top:1px solid rgba(255,255,255,.35);margin:5px 0"></div>
         <div style="font-size:10.5px;font-weight:bold;color:#fff;margin-bottom:1px">${medNom}</div>
         <div style="font-size:7.6px;color:rgba(255,255,255,.85)">${credLine1}</div>
@@ -10265,80 +9144,7 @@ window.descargarNotaPDF=async function(){
       }
     }
 
-    // ── SECCIONES QUIRÚRGICAS (datos_clinicos) ──────────────────
-    const dc=(STATE.page==="consulta"&&typeof leerDatosClinicos==="function")?(leerDatosClinicos()||c.datos_clinicos||{}):(c.datos_clinicos||{});
-    const _dcv=(k)=>{const v=dc[k];if(v===true)return"Sí";if(v===false||v==null||v==="")return"";return String(v);};
-    const _kv=(titulo,pares)=>{
-      const filas=pares.map(([k,lbl])=>{const v=_dcv(k);return v?`<div style="flex:1 1 45%;min-width:45%;margin-bottom:4px"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold">${lbl}</div><div style="font-size:9.2px;color:${TXT}">${String(v).replace(/\n/g,"<br>")}</div></div>`:"";}).filter(Boolean);
-      if(!filas.length)return"";
-      return secBar(titulo)+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px;display:flex;flex-wrap:wrap;gap:12px">${filas.join("")}</div>`;
-    };
-    const _svPairs=[["cs_temp","Temp. °C"],["cs_fc","FC lpm"],["cs_fr","FR rpm"],["cs_sat","SpO₂ %"],["cs_tas","TA sist."],["cs_tad","TA diast."],["cs_glu","Glucosa"],["cs_peso","Peso kg"],["cs_talla","Talla m"],["cs_imc","IMC"]];
-    const _svHTML=(()=>{const filas=_svPairs.map(([id,lbl])=>{const v=document.getElementById(id)?.value||"";return v?`<div style="margin-bottom:3px;margin-right:16px"><span style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold">${lbl}: </span><span style="font-size:9.2px;color:${TXT};font-weight:700">${v}</span></div>`:"";}).filter(Boolean);return filas.length?secBar("SIGNOS VITALES INICIALES")+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px;display:flex;flex-wrap:wrap">${filas.join("")}</div>`:"";})();
-    const _regTransHTML=(()=>{const R=dc.registros_trans;if(!Array.isArray(R)||!R.length)return"";const rows=R.map(r=>`<tr>${[r.hora,r.ta,r.fc,r.spo2,r.etco2,r.temp,r.fr,r.nota].map(x=>`<td style="padding:3px 6px;border-bottom:1px solid ${BRD};font-size:8.5px;color:${TXT}">${x||""}</td>`).join("")}</tr>`).join("");return secBar("REGISTRO TEMPORAL DE SIGNOS VITALES")+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:6px 10px"><table style="width:100%;border-collapse:collapse"><thead><tr>${["Hora","TA","FC","SpO₂","EtCO₂","Temp","FR","Evento"].map(h=>`<th style="text-align:left;font-size:7px;color:${SEC};text-transform:uppercase;padding:3px 6px;border-bottom:1px solid ${BRD}">${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;})();
-    const SEC_QX={
-      "Nota preoperatoria":[
-        ["Datos del acto quirúrgico planeado",[["dx_preop","Diagnóstico preoperatorio (CIE-10)"],["procedimiento_qx","Procedimiento / cirugía planeada"],["abordaje","Vía de abordaje"],["anestesia","Tipo de anestesia propuesta"],["ayuno","Ayuno (horas)"],["cirujano_principal","Cirujano principal"],["anestesiologo_asig","Anestesiólogo asignado"],["estudios_preop","Estudios preoperatorios"],["asa","Clasificación ASA"],["riesgo_qx","Riesgo quirúrgico"],["pronostico_qx","Pronóstico de la cirugía"],["posicion_qx","Posición quirúrgica"]]],
-        ["Consentimiento informado y verificación",[["ci_cirujano","Consentimiento quirúrgico firmado"],["ci_anestesia","Consentimiento anestésico firmado"],["ci_transfusion","Consentimiento de transfusión"],["lateral_marcado","Lateralidad marcada en sitio"]]],
-        ["Observaciones",[["obs_preop","Observaciones preoperatorias y recomendaciones"]]]
-      ],
-      "Nota posoperatoria":[
-        ["Diagnósticos y procedimiento",[["dx_preop_pos","Diagnóstico preoperatorio"],["dx_posop","Diagnóstico posoperatorio"],["op_planeada","Operación planeada"],["op_realizada","Operación realizada"]]],
-        ["Hallazgos y técnica quirúrgica",[["hallazgos_qx","Hallazgos transoperatorios"],["tecnica_qx","Descripción de la técnica quirúrgica"]]],
-        ["Parámetros transoperatorios",[["duracion_qx","Duración (min)"],["sangrado","Sangrado estimado (ml)"],["sol_qx","Soluciones (ml)"],["diuresis_qx","Diuresis (ml)"],["anestesia_real","Anestesia utilizada"],["hemoderivados","Hemoderivados"],["patologia","Material a patología"],["incidentes_qx","Incidentes y complicaciones"]]],
-        ["Estado y plan posoperatorio",[["estado_posop","Estado posoperatorio inmediato"],["destino_posop","Destino posoperatorio"],["vasoactivos","Drogas vasoactivas"],["plan_posop","Plan posoperatorio e indicaciones"]]]
-      ],
-      "Nota de valoración preanestésica":[
-        ["Riesgo anestésico",[["asa_anest","ASA"],["rcri","RCRI"],["mets_anest","Capacidad funcional (METs)"],["pronostico_anest","Pronóstico anestésico"],["raq","RAQ"],["raq_sub","Subclase RAQ"]]],
-        ["Evaluación de vía aérea",[["mallampati","Mallampati"],["apertura_bucal","Apertura bucal"],["dist_tm","Distancia tiromentoniana"],["movilidad_cerv","Movilidad cervical"],["denticion","Dentición"],["vad","Predicción de vía aérea difícil"],["plan_vad","Plan alternativo de vía aérea"]]],
-        ["Cardiopulmonar y laboratorio",[["ecg_preanest","ECG preanestésico"],["rx_torax_preanest","Rx tórax"],["lab_preanest","Laboratorios preanestésicos"]]],
-        ["Medicamentos, alergias y ayuno",[["alerg_anest","Alergias anestésicas / látex"],["meds_anest","Medicamentos con impacto anestésico"],["anest_prev","Anestesias previas"],["ayuno_sol","Ayuno sólidos (h)"],["ayuno_liq","Ayuno líquidos (h)"]]],
-        ["Plan anestésico y premedicación",[["tecnica_anest","Técnica anestésica propuesta"],["monitoreo","Monitoreo propuesto"],["premedicacion","Premedicación"],["atb_profilaxis_anest","Profilaxis antibiótica"],["recomendaciones_anest","Recomendaciones al equipo"],["obs_preanest","Observaciones preanestésicas"]]]
-      ],
-      "Nota de anestesia transoperatoria":[
-        ["Datos del acto anestésico",[["hora_inicio_anest","Inicio anestesia"],["hora_fin_anest","Fin anestesia"],["hora_incision","Incisión"],["hora_cierre","Cierre"],["duracion_anest","Duración anestesia (min)"],["duracion_cx","Duración cirugía (min)"],["tecnica_anest_real","Técnica aplicada"],["posicion_trans","Posición"],["acceso_venoso","Acceso venoso"],["monitoreo_real","Monitoreo"]]],
-        ["Fármacos y manejo de vía aérea",[["inductor","Agente inductor"],["opioide_ind","Opioide de inducción"],["rnm","Relajante neuromuscular"],["va_manejo","Manejo de vía aérea"],["tubo","Tubo / dispositivo"],["inhalatorio","Agente inhalatorio"],["infusion_mant","Infusiones de mantenimiento"],["analgesia_trans","Analgesia transoperatoria"],["atb_profilactico","Antibiótico profiláctico"],["otros_farmacos","Otros fármacos"],["bloqueo_detalle","Bloqueo regional"]]],
-        ["Balance de líquidos",[["sol_cristal","Cristaloide (ml)"],["sol_coloide","Coloide (ml)"],["sangrado_anest","Pérdida hemática (ml)"],["diuresis_trans","Diuresis (ml)"],["hemoderivados_trans","Hemoderivados"],["temp_min","Temp. mínima (°C)"]]],
-        ["Incidentes y egreso de quirófano",[["incidentes_anest","Incidentes y complicaciones"],["hora_relevo","Hora de relevo"],["anest_entrega","Anestesiólogo que entrega"],["anest_recibe","Anestesiólogo que recibe"],["reversion_rnm","Reversión de relajación"],["cond_salida_qx","Condición al salir"],["destino_trans","Destino inmediato"]]]
-      ],
-      "Nota postanestésica":[
-        ["Recuperación (UCPA)",[["aldrete_total","Aldrete (total)"],["ta_ucpa","TA (mmHg)"],["fc_ucpa","FC"],["fr_ucpa","FR"],["spo2_ucpa","SpO₂ %"],["temp_ucpa","Temp. °C"],["etco2_ucpa","EtCO₂"]]],
-        ["Manejo en UCPA",[["analgesia_ucpa","Analgesia"],["antiemeticos_ucpa","Antieméticos"],["tiempo_ucpa","Tiempo en UCPA (min)"],["eva_ucpa","EVA al egreso"],["nvpo","NVPO"],["temp_alta_ucpa","Temp. al alta (°C)"]]],
-        ["Egreso de UCPA",[["cond_egreso_ucpa","Condición al egreso"],["destino_ucpa","Destino"],["indicaciones_piso","Indicaciones a hospitalización"],["obs_postanest","Observaciones"]]]
-      ],
-      "Nota de egreso":[
-        ["Datos del episodio",[["dias_tx","Días de hospitalización"],["fecha_ingreso","Fecha de ingreso"],["motivo_egreso","Motivo de egreso"]]],
-        ["Diagnósticos y resumen",[["dx_finales","Diagnósticos finales (CIE-10)"],["resumen_tx","Resumen de tratamiento y procedimientos"]]],
-        ["Condición, plan y recomendaciones",[["condicion_egreso","Condición al egreso"],["pronostico_egreso","Pronóstico"],["medicamentos_alta","Medicamentos al alta"],["instrucciones_alta","Instrucciones al alta"],["signos_alarma","Signos de alarma"],["cita_seguimiento","Cita de seguimiento"],["referencia_egreso","Referencia a especialidad"]]]
-      ],
-      "Orden de Internamiento":[
-        ["Identificación y programación",[["int_dx","Diagnóstico que motiva el internamiento"],["int_procedimiento","Procedimiento planeado"],["int_sitio","Sitio anatómico"],["int_lateralidad","Lateralidad"],["int_medico","Médico tratante"],["int_fecha_ingreso","Fecha de ingreso"],["int_hora_ingreso","Hora de ingreso"],["int_fecha_cx","Fecha estimada de cirugía"],["int_hora_cx","Hora estimada de cirugía"]]],
-        ["A. Ubicación y condición",[["int_ingresar_a","Ingresar a"],["int_condicion","Condición"],["int_servicio","Servicio"],["int_interconsultas","Interconsultas"]]],
-        ["B. Dieta y ayuno",[["int_dieta","Dieta"],["int_ultima_solidos","Última ingesta de sólidos"],["int_ultima_liquidos","Última ingesta de líquidos claros"],["int_ayuno_indicado","Ayuno indicado"],["int_confirmar_anest","Confirmar ayuno con anestesiología"]]],
-        ["C. Acceso vascular y balance",[["int_acceso_calibre","Calibre de acceso periférico"],["int_acceso_num","Número de accesos"],["int_precau_mastectomia","Evitar brazo con mastectomía"],["int_precau_fistula","Evitar brazo con fístula arteriovenosa"],["int_precau_linfedema","Evitar brazo con linfedema"],["int_precau_otro","Otras precauciones para canalizar"],["int_sonda_urinaria","Sonda urinaria indicada"],["int_sonda_detalle","Sonda urinaria — detalle"],["int_balance_estricto","Balance hídrico estricto"],["int_balance_detalle","Balance hídrico — detalle"]]],
-        ["F. Vigilancia de enfermería",[["int_freq_sv","Frecuencia de signos vitales"],["int_vig_oximetria","Oximetría continua"],["int_vig_glucemia","Glucemia capilar"],["int_vig_dolor","Escala de dolor"],["int_vig_neuro","Vigilancia neurológica"],["int_vig_balance","Balance hídrico"],["int_vig_sangrado","Vigilancia de sangrado"],["int_vig_herida","Vigilancia de herida quirúrgica"],["int_vig_drenajes","Vigilancia de drenajes"],["int_vig_perfusion","Perfusión distal"],["int_vig_neurovasc","Vigilancia neurovascular"]]],
-        ["Parámetros de alarma (avisar al médico)",[["int_al_ta","Tensión arterial menor a"],["int_al_fc","Frecuencia cardiaca mayor a"],["int_al_spo2","Saturación menor a"],["int_al_temp","Temperatura mayor a"],["int_al_sangrado","Sangrado mayor a"],["int_al_otros","Otros criterios para avisar"]]],
-        ["G. Estudios e interconsultas",[["int_est_bh","Biometría hemática"],["int_est_qs","Química sanguínea"],["int_est_elect","Electrolitos séricos"],["int_est_coag","Tiempos de coagulación"],["int_est_grupo","Grupo sanguíneo y Rh"],["int_est_cruzada","Prueba cruzada"],["int_est_ecg","Electrocardiograma"],["int_est_rx","Radiografía"],["int_est_embarazo","Prueba de embarazo"],["int_val_preanest","Valoración preanestésica"],["int_val_cardio","Cardiología"],["int_val_mi","Medicina interna"],["int_val_banco","Banco de sangre"],["int_estudios_otros","Otros estudios o valoraciones"]]],
-        ["H. Preparación preoperatoria y profilaxis",[["int_prep_bano","Baño preoperatorio"],["int_prep_joyeria","Retiro de joyería y prótesis"],["int_prep_no_rasurar","No rasurar con navaja"],["int_prep_piel","Preparación de piel"],["int_prep_marcaje","Marcaje de sitio y confirmación de lateralidad"],["int_prep_implantes","Disponibilidad de implantes / sangre"],["int_prep_ci_qx","Consentimiento quirúrgico firmado"],["int_prep_ci_anest","Consentimiento anestésico firmado"],["int_prep_ci_transf","Consentimiento de transfusión firmado"],["int_prof_atb","Profilaxis antibiótica"],["int_prof_tev","Profilaxis tromboembólica"],["int_riesgo_caidas","Riesgo de caídas"],["int_prof_medias","Medias / compresión neumática"],["int_checklist_oms","Checklist de cirugía segura de la OMS"]]],
-        ["I. Actividad y movilización",[["int_reposo","Reposo"],["int_deambulacion","Deambulación"],["int_apoyo","Apoyo de extremidad"],["int_elevacion","Elevación de extremidad"],["int_cabecera","Cabecera (grados)"],["int_fisio_resp","Fisioterapia respiratoria"],["int_espirometro","Espirómetro incentivo"]]],
-        ["J. Cuidados específicos del procedimiento",[["int_cuidados_esp","Indicaciones específicas por especialidad"]]]
-      ]
-    };
-    // Orden de Internamiento: tablas dinámicas (soluciones, medicamentos, crónicos)
-    const _intCell=(x)=>`<td style="padding:3px 6px;border-bottom:1px solid ${BRD};font-size:8.5px;color:${TXT}">${(x==null?"":String(x))}</td>`;
-    const _intTabla=(titulo,heads,rows)=>secBar(titulo)+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:6px 10px"><table style="width:100%;border-collapse:collapse"><thead><tr>${heads.map(h=>`<th style="text-align:left;font-size:7px;color:${SEC};text-transform:uppercase;padding:3px 6px;border-bottom:1px solid ${BRD}">${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
-    const _intTablasHTML=(()=>{
-      let out="";
-      const S1=dc.int_soluciones;
-      if(Array.isArray(S1)&&S1.length)out+=_intTabla("C. SOLUCIONES INTRAVENOSAS",["Solución","Volumen","Vía","Velocidad","Hora","Aditivos","Condiciones"],S1.map(r=>`<tr>${[r.solucion,r.vol,r.via,r.vel,r.hora,r.adit,r.cond].map(_intCell).join("")}</tr>`).join(""));
-      const M1=dc.int_medicamentos;
-      if(Array.isArray(M1)&&M1.length)out+=_intTabla("D. MEDICAMENTOS",["Clasificación","Genérico","Dosis","Vía","Frecuencia","Duración","Indicación","Máx 24 h","Ajuste"],M1.map(r=>`<tr>${[r.clas,r.gen,r.dosis,r.via,r.frec,r.dur,r.ind,r.max,r.ajuste].map(_intCell).join("")}</tr>`).join(""));
-      const C1=dc.int_cronicos;
-      if(Array.isArray(C1)&&C1.length)out+=_intTabla("E. CONCILIACIÓN DE MEDICAMENTOS CRÓNICOS",["Medicamento","Dosis","Última dosis","Acción"],C1.map(r=>`<tr>${[r.med,r.dosis,r.ultima,r.accion].map(_intCell).join("")}</tr>`).join(""));
-      return out;
-    })();
-    const _quirurgicoHTML=(SEC_QX[tipoNota]?(SEC_QX[tipoNota].map(([tit,pares])=>_kv(tit,pares)).join("")+_svHTML+_regTransHTML+(tipoNota==="Orden de Internamiento"?_intTablasHTML:"")):"");
-    const page1HTML=headerHTML+pacienteHTML+subjetivoHTML+exploracionHTML+analisisHTML+_quirurgicoHTML;
+    const page1HTML=headerHTML+pacienteHTML+subjetivoHTML+exploracionHTML+analisisHTML;
 
     // ── TRATAMIENTO (numerado) ─────────────────────────────────
     const tratamientoHTML=trat?secBar("TRATAMIENTO")+secBox(listaNumerada(trat)):"";
@@ -16582,8 +15388,7 @@ window.asignarObjetivoCalorico=async function(kcal,tipo){
       const {data:prof}=await SB.from("usuarios").select("*").eq("id",session.user.id).single();
       STATE.userProfile=prof;STATE.medProfile=prof;
       iniciarTimerInactividad();
-      {let _sc=null;try{_sc=sessionStorage.getItem("qp_sede_confirmada");}catch(e){}
-      go(_sc?(sedeActiva()==="surgery"?"quirofano":"agenda"):"selsede");}
+      go("agenda");
     } else {
       go("login");
     }
@@ -16682,9 +15487,7 @@ function resetTimerInactividad(){
   if(!STATE.user)return;
   clearTimeout(_timerInact);clearTimeout(_timerWarn);clearInterval(_timerCd);
   document.getElementById("modal-inactividad")?.remove();
-  if(sedeActiva()==="surgery")return;   // QP Surgery: sin cierre por inactividad
   _timerWarn=setTimeout(function warnFn(){
-    if(sedeActiva()==="surgery")return;
     // No mostrar si hay otro modal de mayor prioridad abierto (firma, análisis, etc.)
     const hayModalCritico=document.getElementById("modal-lab-ia")||
       document.getElementById("modal-birads-editor")||
@@ -16716,7 +15519,6 @@ function resetTimerInactividad(){
     },1000);
   },INACT_WARN);
   _timerInact=setTimeout(async()=>{
-    if(sedeActiva()==="surgery")return;
     // Última protección: si hay nota con contenido, respaldar antes de cerrar
     if(STATE.page==="consulta"&&_hayContenidoEnNota())_respaldarNotaLocal();
     document.getElementById("modal-inactividad")?.remove();
@@ -18793,6 +17595,383 @@ function getImgUrlPDF(nombreEj,grupo,SB_IMG){
   const folder=grupoFolder[grupo]||grupoFolder[grupo?.replace("_alta","")];
   if(folder){const cat=folder.split("/").pop();return`${SB_IMG}/${folder}/${cat}_001.webp`;}
   return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MÓDULO DE INVENTARIO DE INSUMOS — QP Clinic / QP Surgery
+//  Tablas Supabase:
+//    inventario_insumos: id, sede, nombre, categoria, presentacion, unidad,
+//      cantidad, stock_minimo, ubicacion, lote, caducidad, costo_unitario,
+//      activo, created_at, updated_at
+//    inventario_movimientos: id, insumo_id, sede, tipo(entrada|salida|ajuste),
+//      cantidad, motivo, usuario_id, usuario_nombre, paciente_id, fecha
+// ═══════════════════════════════════════════════════════════════════════════
+const INV_CATEGORIAS=["Medicamento","Insumo","Material de curación","Solución","Anestésico","Antimicrobiano","Analgésico","Material quirúrgico","Ropa quirúrgica","Papelería","Limpieza","Otro"];
+const INV_UBICACIONES=["Consultorio 1","Consultorio 2","Consultorio 3","Consultorio 4","Consultorio 5","Carrito Rojo","Almacén","Quirófano 1","Quirófano 2","Central de enfermería","Refrigerador","Otro"];
+
+function invSedeActual(){
+  // Sede del usuario; admin ve la sede seleccionada (STATE._invSede)
+  const rol=STATE.userProfile?.rol||"";
+  const sedeUser=STATE.userProfile?.sede||"clinic";
+  if(rol==="admin") return STATE._invSede||"todas";
+  return sedeUser;
+}
+
+async function pgInventario(){
+  const b=RR();
+  const rol=STATE.userProfile?.rol||"";
+  // Enfermería puede registrar consumos; admin gestiona todo el catálogo
+  if(!["admin","medico","enfermeria"].includes(rol)){
+    b.innerHTML=`<div style="padding:40px;text-align:center;color:${MU}">Acceso restringido.</div>`;return;
+  }
+  const esAdmin=rol==="admin";
+  if(!STATE._invTab)STATE._invTab="existencias";
+  if(!STATE._invSede)STATE._invSede=esAdmin?"todas":(STATE.userProfile?.sede||"clinic");
+
+  b.innerHTML=`<div style="max-width:1200px;margin:0 auto;padding:14px" class="fade">
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="background:${PD};padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Configuración</div>
+          <div style="font-size:16px;font-weight:700;color:#fff">Inventario de insumos</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="inv-sede" onchange="STATE._invSede=this.value;pgInventario()" style="padding:8px 12px;border-radius:8px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;font-size:13px;font-weight:600;cursor:pointer">
+            ${esAdmin?`<option value="todas" ${STATE._invSede==="todas"?"selected":""}>Ambas sedes</option>`:""}
+            <option value="clinic" ${STATE._invSede==="clinic"?"selected":""}>QP Clinic</option>
+            <option value="surgery" ${STATE._invSede==="surgery"?"selected":""}>QP Surgery</option>
+          </select>
+          <button onclick="go('medicos')" style="padding:8px 14px;border:1.5px solid rgba(255,255,255,.4);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:13px;font-weight:600">← Configuración</button>
+        </div>
+      </div>
+      <div style="border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;padding:0 4px;background:#FAFAFA">
+        ${invTabBtn("existencias","Existencias")}
+        ${invTabBtn("faltantes","Por comprar")}
+        ${invTabBtn("caducidad","Caducidades")}
+        ${invTabBtn("movimientos","Movimientos")}
+        ${esAdmin?invTabBtn("gestion","Agregar / editar"):""}
+      </div>
+      <div id="inv-content" style="padding:18px"><div style="text-align:center;padding:40px;color:${MU}">Cargando inventario...</div></div>
+    </div>
+  </div>`;
+  await invCargarDatos();
+  invRenderTab();
+}
+
+function invTabBtn(id,label){
+  const a=STATE._invTab===id;
+  return `<button onclick="STATE._invTab='${id}';invRenderTab()" style="padding:10px 16px;border:none;cursor:pointer;font-size:14px;font-weight:${a?700:500};color:${a?P:MU};background:${a?"#E3F4FB":"transparent"};border-bottom:2px solid ${a?P:"transparent"}">${label}</button>`;
+}
+
+async function invCargarDatos(){
+  const sede=invSedeActual();
+  let q=SB.from("inventario_insumos").select("*").eq("activo",true);
+  if(sede!=="todas")q=q.eq("sede",sede);
+  const {data,error}=await q.order("nombre");
+  STATE._invInsumos=error?[]:(data||[]);
+  if(error)console.warn("Inventario:",error.message);
+}
+
+function invRenderTab(){
+  const cont=document.getElementById("inv-content");
+  if(!cont)return;
+  const t=STATE._invTab;
+  if(t==="existencias")cont.innerHTML=invViewExistencias();
+  else if(t==="faltantes")cont.innerHTML=invViewFaltantes();
+  else if(t==="caducidad")cont.innerHTML=invViewCaducidad();
+  else if(t==="movimientos"){cont.innerHTML='<div style="text-align:center;padding:30px;color:#90A4AE">Cargando movimientos...</div>';invViewMovimientos(cont);}
+  else if(t==="gestion")cont.innerHTML=invViewGestion();
+}
+
+// Estado de stock de un insumo
+function invEstadoStock(it){
+  const c=Number(it.cantidad)||0, m=Number(it.stock_minimo)||0;
+  if(c<=0)return{txt:"Agotado",color:"#C62828",bg:"#FFEBEE"};
+  if(m>0&&c<=m)return{txt:"Bajo",color:"#E65100",bg:"#FFF3E0"};
+  return{txt:"Suficiente",color:"#2E7D32",bg:"#E8F5E9"};
+}
+// Estado de caducidad
+function invEstadoCad(cad){
+  if(!cad)return null;
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const f=new Date(cad+"T00:00:00");
+  const dias=Math.round((f-hoy)/86400000);
+  if(dias<0)return{txt:"Caducado",color:"#C62828",bg:"#FFEBEE",dias};
+  if(dias<=30)return{txt:`${dias} días`,color:"#E65100",bg:"#FFF3E0",dias};
+  if(dias<=90)return{txt:`${dias} días`,color:"#F9A825",bg:"#FFFDE7",dias};
+  return{txt:new Date(cad+"T00:00:00").toLocaleDateString("es-MX"),color:"#546E7A",bg:"transparent",dias};
+}
+const invSedeLbl=(s)=>s==="surgery"?"QP Surgery":s==="clinic"?"QP Clinic":s;
+
+function invViewExistencias(){
+  const items=STATE._invInsumos||[];
+  if(!items.length)return `<div style="text-align:center;padding:40px;color:${MU}">No hay insumos registrados en esta sede.${STATE.userProfile?.rol==="admin"?' Usa la pestaña "Agregar / editar".':""}</div>`;
+  // Buscador + agrupación por categoría
+  const search=`<div style="margin-bottom:14px"><input id="inv-buscar" oninput="invFiltrarExistencias(this.value)" placeholder="Buscar insumo..." style="width:100%;max-width:360px;padding:10px 14px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>`;
+  return search+`<div id="inv-lista">${invTablaExistencias(items)}</div>`;
+}
+
+function invTablaExistencias(items){
+  const esAdmin=STATE.userProfile?.rol==="admin";
+  const sedeVista=invSedeActual();
+  const rows=items.map(it=>{
+    const est=invEstadoStock(it);
+    const cad=invEstadoCad(it.caducidad);
+    return `<tr style="border-top:1px solid #EEE">
+      <td style="padding:9px 10px">
+        <div style="font-size:13.5px;font-weight:600;color:${TX}">${it.nombre}</div>
+        <div style="font-size:11px;color:#90A4AE">${it.categoria||""}${it.presentacion?" · "+it.presentacion:""}${sedeVista==="todas"?' · <b style="color:'+(it.sede==="surgery"?"#7B1FA2":"#006BB6")+'">'+invSedeLbl(it.sede)+"</b>":""}</div>
+      </td>
+      <td style="padding:9px 10px;text-align:center"><span style="font-size:16px;font-weight:700;color:${est.color}">${it.cantidad}</span><span style="font-size:11px;color:#90A4AE"> ${it.unidad||"pz"}</span></td>
+      <td style="padding:9px 10px;text-align:center"><span style="background:${est.bg};color:${est.color};padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700">${est.txt}</span></td>
+      <td style="padding:9px 10px;text-align:center;font-size:12px;color:${MU}">${it.ubicacion||"—"}</td>
+      <td style="padding:9px 10px;text-align:center">${cad?`<span style="background:${cad.bg};color:${cad.color};padding:3px 8px;border-radius:8px;font-size:11px;font-weight:600">${cad.txt}</span>`:'<span style="color:#CFD8DC">—</span>'}</td>
+      <td style="padding:9px 10px;text-align:center;white-space:nowrap">
+        <button onclick="invMovimiento('${it.id}','salida')" title="Registrar consumo" style="background:#FFF3E0;color:#E65100;border:none;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:12px;font-weight:700;margin-right:3px">− Usar</button>
+        <button onclick="invMovimiento('${it.id}','entrada')" title="Registrar entrada" style="background:#E8F5E9;color:#2E7D32;border:none;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:12px;font-weight:700">+ Entrada</button>
+        ${esAdmin?`<button onclick="invEditar('${it.id}')" title="Editar" style="background:#F5F5F5;color:#546E7A;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:12px;margin-left:3px">Editar</button>`:""}
+      </td>
+    </tr>`;
+  }).join("");
+  return `<table style="width:100%;border-collapse:collapse;border:1px solid ${BR};border-radius:8px;overflow:hidden">
+    <thead><tr style="background:#EAF6FB">
+      <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase">Insumo</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:90px">Cantidad</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:100px">Estado</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:120px">Ubicación</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:100px">Caducidad</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:220px">Acciones</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+window.invFiltrarExistencias=function(q){
+  const norm=s=>(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const f=norm(q);
+  const items=(STATE._invInsumos||[]).filter(it=>norm(it.nombre+" "+(it.categoria||"")+" "+(it.ubicacion||"")).includes(f));
+  const cont=document.getElementById("inv-lista");
+  if(cont)cont.innerHTML=items.length?invTablaExistencias(items):`<div style="text-align:center;padding:30px;color:${MU}">Sin coincidencias</div>`;
+}
+
+function invViewFaltantes(){
+  const items=(STATE._invInsumos||[]).filter(it=>{
+    const c=Number(it.cantidad)||0,m=Number(it.stock_minimo)||0;
+    return c<=0||(m>0&&c<=m);
+  }).sort((a,b)=>(Number(a.cantidad)||0)-(Number(b.cantidad)||0));
+  if(!items.length)return `<div style="text-align:center;padding:40px;color:#2E7D32"><div style="font-size:15px;font-weight:700">Todo el inventario está en niveles suficientes</div><div style="font-size:13px;color:${MU};margin-top:4px">No hay insumos por debajo del stock mínimo.</div></div>`;
+  const rows=items.map(it=>{
+    const est=invEstadoStock(it);
+    const sugerido=Math.max((Number(it.stock_minimo)||0)*2-(Number(it.cantidad)||0),1);
+    return `<tr style="border-top:1px solid #EEE">
+      <td style="padding:9px 10px"><div style="font-size:13.5px;font-weight:600;color:${TX}">${it.nombre}</div><div style="font-size:11px;color:#90A4AE">${it.categoria||""} · ${invSedeLbl(it.sede)}</div></td>
+      <td style="padding:9px 10px;text-align:center"><span style="font-size:15px;font-weight:700;color:${est.color}">${it.cantidad}</span></td>
+      <td style="padding:9px 10px;text-align:center;font-size:13px;color:${MU}">${it.stock_minimo||0}</td>
+      <td style="padding:9px 10px;text-align:center"><span style="background:${est.bg};color:${est.color};padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700">${est.txt}</span></td>
+      <td style="padding:9px 10px;text-align:center;font-size:14px;font-weight:700;color:#006BB6">${sugerido}</td>
+    </tr>`;
+  }).join("");
+  return `<div style="background:#FFF8E6;border:1px solid #FFB74D;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#7F5900"><b>${items.length} insumo(s)</b> requieren compra. La cantidad sugerida repone hasta el doble del stock mínimo.</div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button onclick="invExportarCompra()" style="background:#006BB6;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer">Descargar lista de compra (CSV)</button></div>
+  <table style="width:100%;border-collapse:collapse;border:1px solid ${BR};border-radius:8px;overflow:hidden">
+    <thead><tr style="background:#EAF6FB">
+      <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase">Insumo</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:90px">Existencia</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:90px">Mínimo</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:100px">Estado</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:110px">Comprar</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function invViewCaducidad(){
+  const items=(STATE._invInsumos||[]).filter(it=>it.caducidad).map(it=>({...it,_cad:invEstadoCad(it.caducidad)}))
+    .sort((a,b)=>(a._cad?.dias??9999)-(b._cad?.dias??9999));
+  if(!items.length)return `<div style="text-align:center;padding:40px;color:${MU}">Ningún insumo tiene fecha de caducidad registrada.</div>`;
+  const rows=items.map(it=>`<tr style="border-top:1px solid #EEE;background:${it._cad.dias<0?"#FFF5F5":it._cad.dias<=30?"#FFFAF3":"#fff"}">
+    <td style="padding:9px 10px"><div style="font-size:13.5px;font-weight:600;color:${TX}">${it.nombre}</div><div style="font-size:11px;color:#90A4AE">${it.categoria||""} · ${invSedeLbl(it.sede)}${it.lote?" · Lote "+it.lote:""}</div></td>
+    <td style="padding:9px 10px;text-align:center;font-size:13px">${it.cantidad} ${it.unidad||"pz"}</td>
+    <td style="padding:9px 10px;text-align:center;font-size:13px;color:${MU}">${new Date(it.caducidad+"T00:00:00").toLocaleDateString("es-MX")}</td>
+    <td style="padding:9px 10px;text-align:center"><span style="background:${it._cad.bg};color:${it._cad.color};padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700">${it._cad.dias<0?"Caducado":it._cad.txt}</span></td>
+  </tr>`).join("");
+  const caducados=items.filter(i=>i._cad.dias<0).length;
+  const proximos=items.filter(i=>i._cad.dias>=0&&i._cad.dias<=30).length;
+  return `${caducados||proximos?`<div style="background:#FFEBEE;border:1px solid #EF9A9A;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#B71C1C">${caducados?`<b>${caducados} insumo(s) caducado(s)</b> — retirar de inmediato. `:""}${proximos?`<b>${proximos}</b> caducan en 30 días o menos.`:""}</div>`:""}
+  <table style="width:100%;border-collapse:collapse;border:1px solid ${BR};border-radius:8px;overflow:hidden">
+    <thead><tr style="background:#EAF6FB">
+      <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase">Insumo</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:110px">Cantidad</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:120px">Caduca</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:120px">Vigencia</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function invViewMovimientos(cont){
+  const sede=invSedeActual();
+  let q=SB.from("inventario_movimientos").select("*").order("fecha",{ascending:false}).limit(100);
+  if(sede!=="todas")q=q.eq("sede",sede);
+  const {data,error}=await q;
+  const movs=error?[]:(data||[]);
+  if(!movs.length){cont.innerHTML=`<div style="text-align:center;padding:40px;color:${MU}">Aún no hay movimientos registrados.</div>`;return;}
+  const tipoBadge={entrada:{t:"Entrada",c:"#2E7D32",b:"#E8F5E9"},salida:{t:"Consumo",c:"#E65100",b:"#FFF3E0"},ajuste:{t:"Ajuste",c:"#1565C0",b:"#E3F2FD"}};
+  const rows=movs.map(m=>{
+    const tb=tipoBadge[m.tipo]||tipoBadge.ajuste;
+    return `<tr style="border-top:1px solid #EEE">
+      <td style="padding:8px 10px;font-size:12px;color:${MU};white-space:nowrap">${new Date(m.fecha).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</td>
+      <td style="padding:8px 10px;font-size:13px;font-weight:600;color:${TX}">${m.insumo_nombre||"—"}</td>
+      <td style="padding:8px 10px;text-align:center"><span style="background:${tb.b};color:${tb.c};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${tb.t}</span></td>
+      <td style="padding:8px 10px;text-align:center;font-size:14px;font-weight:700;color:${tb.c}">${m.tipo==="salida"?"−":"+"}${m.cantidad}</td>
+      <td style="padding:8px 10px;font-size:12px;color:${MU}">${m.usuario_nombre||"—"}</td>
+      <td style="padding:8px 10px;font-size:12px;color:${MU}">${m.motivo||""}</td>
+    </tr>`;
+  }).join("");
+  cont.innerHTML=`<div style="font-size:12px;color:${MU};margin-bottom:8px">Últimos ${movs.length} movimientos</div>
+  <table style="width:100%;border-collapse:collapse;border:1px solid ${BR};border-radius:8px;overflow:hidden">
+    <thead><tr style="background:#EAF6FB">
+      <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase">Fecha</th>
+      <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase">Insumo</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:90px">Tipo</th>
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;width:80px">Cant.</th>
+      <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase">Registró</th>
+      <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${MU};text-transform:uppercase">Motivo</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function invViewGestion(){
+  return `<div style="max-width:640px">
+    <div style="background:#F0F7FF;border:1px solid #B3D9F0;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#006BB6">Agrega un insumo nuevo al inventario. Para modificar existencias usa los botones "Usar" y "Entrada" de la pestaña Existencias.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="grid-column:1/-1"><label class="fld-label">Nombre del insumo *</label><input id="ni_nombre" placeholder="Ej. Solución glucosada 5% 500 mL" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>
+      <div><label class="fld-label">Sede *</label><select id="ni_sede" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;background:#fff"><option value="clinic">QP Clinic</option><option value="surgery">QP Surgery</option></select></div>
+      <div><label class="fld-label">Categoría</label><select id="ni_categoria" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;background:#fff">${INV_CATEGORIAS.map(c=>`<option>${c}</option>`).join("")}</select></div>
+      <div><label class="fld-label">Presentación</label><input id="ni_presentacion" placeholder="Ej. Caja 10 piezas, Frasco" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>
+      <div><label class="fld-label">Unidad de conteo</label><input id="ni_unidad" placeholder="pz, caja, frasco, mL" value="pz" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>
+      <div><label class="fld-label">Cantidad inicial *</label><input id="ni_cantidad" type="number" min="0" step="1" value="0" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>
+      <div><label class="fld-label">Stock mínimo (alerta)</label><input id="ni_minimo" type="number" min="0" step="1" value="0" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>
+      <div><label class="fld-label">Ubicación</label><select id="ni_ubicacion" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;background:#fff"><option value="">Sin especificar</option>${INV_UBICACIONES.map(u=>`<option>${u}</option>`).join("")}</select></div>
+      <div><label class="fld-label">Lote</label><input id="ni_lote" placeholder="Opcional" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>
+      <div><label class="fld-label">Fecha de caducidad</label><input id="ni_caducidad" type="date" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>
+      <div><label class="fld-label">Costo unitario (opcional)</label><input id="ni_costo" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button onclick="invGuardarNuevo()" style="background:${SU};color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">Guardar insumo</button>
+    </div>
+  </div>`;
+}
+
+// ── Acciones ────────────────────────────────────────────────────────────────
+window.invGuardarNuevo=async function(){
+  const nombre=(gv("ni_nombre")||"").trim();
+  if(!nombre){showToast("Escribe el nombre del insumo",false);return;}
+  const rec={
+    sede:gv("ni_sede"),nombre,categoria:gv("ni_categoria"),
+    presentacion:(gv("ni_presentacion")||"").trim()||null,
+    unidad:(gv("ni_unidad")||"pz").trim(),
+    cantidad:parseInt(gv("ni_cantidad"))||0,
+    stock_minimo:parseInt(gv("ni_minimo"))||0,
+    ubicacion:gv("ni_ubicacion")||null,
+    lote:(gv("ni_lote")||"").trim()||null,
+    caducidad:gv("ni_caducidad")||null,
+    costo_unitario:parseFloat(gv("ni_costo"))||null,
+    activo:true,
+  };
+  const {data,error}=await SB.from("inventario_insumos").insert(rec).select().single();
+  if(error){showToast("Error al guardar: "+error.message,false);return;}
+  // Movimiento de entrada inicial si hay cantidad
+  if(rec.cantidad>0)await invRegistrarMov(data.id,data.nombre,data.sede,"entrada",rec.cantidad,"Alta de insumo");
+  showToast("Insumo agregado correctamente");
+  STATE._invTab="existencias";
+  await invCargarDatos();invRenderTab();
+}
+
+window.invMovimiento=async function(id,tipo){
+  const it=(STATE._invInsumos||[]).find(x=>String(x.id)===String(id));
+  if(!it)return;
+  const esSalida=tipo==="salida";
+  const html=`<div style="max-width:380px">
+    <p style="font-size:14px;color:${TX};margin-bottom:4px"><b>${it.nombre}</b></p>
+    <p style="font-size:12px;color:${MU};margin-bottom:14px">Existencia actual: <b>${it.cantidad} ${it.unidad||"pz"}</b> · ${invSedeLbl(it.sede)}</p>
+    <label class="fld-label">${esSalida?"Cantidad utilizada":"Cantidad que ingresa"} *</label>
+    <input id="mov_cant" type="number" min="1" step="1" value="1" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;margin-bottom:12px">
+    <label class="fld-label">Motivo / nota</label>
+    <input id="mov_motivo" placeholder="${esSalida?"Ej. Aplicado a paciente, curación":"Ej. Compra, reposición"}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+  </div>`;
+  const ok=await qpConfirm(html,{title:esSalida?"Registrar consumo":"Registrar entrada",okLabel:esSalida?"Registrar consumo":"Registrar entrada",okColor:esSalida?"#E65100":SU});
+  if(!ok)return;
+  const cant=parseInt(document.getElementById("mov_cant")?.value)||0;
+  const motivo=(document.getElementById("mov_motivo")?.value||"").trim();
+  if(cant<=0){showToast("Cantidad inválida",false);return;}
+  const nueva=esSalida?Math.max((Number(it.cantidad)||0)-cant,0):(Number(it.cantidad)||0)+cant;
+  const {error}=await SB.from("inventario_insumos").update({cantidad:nueva,updated_at:new Date().toISOString()}).eq("id",it.id);
+  if(error){showToast("Error: "+error.message,false);return;}
+  await invRegistrarMov(it.id,it.nombre,it.sede,tipo,cant,motivo);
+  showToast(`${esSalida?"Consumo":"Entrada"} registrado — nueva existencia: ${nueva}`);
+  await invCargarDatos();invRenderTab();
+}
+
+async function invRegistrarMov(insumoId,nombre,sede,tipo,cant,motivo){
+  const u=STATE.userProfile||{};
+  const uNom=`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim()||u.email||"Usuario";
+  try{
+    await SB.from("inventario_movimientos").insert({
+      insumo_id:insumoId,insumo_nombre:nombre,sede,tipo,cantidad:cant,
+      motivo:motivo||null,usuario_id:u.id||null,usuario_nombre:uNom,
+      paciente_id:STATE.pat?.id||null,fecha:new Date().toISOString(),
+    });
+  }catch(e){console.warn("Movimiento:",e.message);}
+}
+
+window.invEditar=async function(id){
+  const it=(STATE._invInsumos||[]).find(x=>String(x.id)===String(id));
+  if(!it)return;
+  const html=`<div style="max-width:420px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="grid-column:1/-1"><label class="fld-label">Nombre</label><input id="ed_nombre" value="${(it.nombre||"").replace(/"/g,"&quot;")}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px"></div>
+    <div><label class="fld-label">Categoría</label><select id="ed_categoria" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;background:#fff">${INV_CATEGORIAS.map(c=>`<option ${c===it.categoria?"selected":""}>${c}</option>`).join("")}</select></div>
+    <div><label class="fld-label">Stock mínimo</label><input id="ed_minimo" type="number" min="0" value="${it.stock_minimo||0}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;font-size:14px"></div>
+    <div><label class="fld-label">Ubicación</label><select id="ed_ubicacion" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;background:#fff"><option value="">Sin especificar</option>${INV_UBICACIONES.map(u=>`<option ${u===it.ubicacion?"selected":""}>${u}</option>`).join("")}</select></div>
+    <div><label class="fld-label">Lote</label><input id="ed_lote" value="${(it.lote||"").replace(/"/g,"&quot;")}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;font-size:14px"></div>
+    <div><label class="fld-label">Caducidad</label><input id="ed_caducidad" type="date" value="${it.caducidad||""}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;font-size:14px"></div>
+    <div><label class="fld-label">Ajustar existencia a</label><input id="ed_cantidad" type="number" min="0" value="${it.cantidad||0}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;font-size:14px"></div>
+  </div>`;
+  const ok=await qpConfirm(html,{title:"Editar insumo",okLabel:"Guardar cambios"});
+  if(!ok)return;
+  const nuevaCant=parseInt(document.getElementById("ed_cantidad")?.value);
+  const upd={
+    nombre:(document.getElementById("ed_nombre")?.value||it.nombre).trim(),
+    categoria:document.getElementById("ed_categoria")?.value,
+    stock_minimo:parseInt(document.getElementById("ed_minimo")?.value)||0,
+    ubicacion:document.getElementById("ed_ubicacion")?.value||null,
+    lote:(document.getElementById("ed_lote")?.value||"").trim()||null,
+    caducidad:document.getElementById("ed_caducidad")?.value||null,
+    updated_at:new Date().toISOString(),
+  };
+  const cambioCant=!isNaN(nuevaCant)&&nuevaCant!==Number(it.cantidad);
+  if(cambioCant)upd.cantidad=nuevaCant;
+  const {error}=await SB.from("inventario_insumos").update(upd).eq("id",it.id);
+  if(error){showToast("Error: "+error.message,false);return;}
+  if(cambioCant){
+    const dif=nuevaCant-Number(it.cantidad);
+    await invRegistrarMov(it.id,upd.nombre,it.sede,"ajuste",Math.abs(dif),`Ajuste manual (${dif>0?"+":""}${dif})`);
+  }
+  showToast("Insumo actualizado");
+  await invCargarDatos();invRenderTab();
+}
+
+window.invExportarCompra=function(){
+  const items=(STATE._invInsumos||[]).filter(it=>{
+    const c=Number(it.cantidad)||0,m=Number(it.stock_minimo)||0;
+    return c<=0||(m>0&&c<=m);
+  });
+  if(!items.length){showToast("No hay insumos por comprar",false);return;}
+  let csv="Sede,Insumo,Categoria,Presentacion,Existencia,Stock minimo,Cantidad sugerida,Ubicacion\n";
+  items.forEach(it=>{
+    const sug=Math.max((Number(it.stock_minimo)||0)*2-(Number(it.cantidad)||0),1);
+    const esc=s=>`"${String(s||"").replace(/"/g,'""')}"`;
+    csv+=[esc(invSedeLbl(it.sede)),esc(it.nombre),esc(it.categoria),esc(it.presentacion),it.cantidad||0,it.stock_minimo||0,sug,esc(it.ubicacion)].join(",")+"\n";
+  });
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=`Lista_compra_${new Date().toISOString().split("T")[0]}.csv`;a.click();
+  showToast("Lista de compra descargada");
 }
 </script>
 <script>
