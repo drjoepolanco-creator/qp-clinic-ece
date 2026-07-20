@@ -2641,6 +2641,7 @@ function renderSeccionEspecial(tipo,d){
     const TSI=`padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px;width:100%`;
     const TBTN=`background:${CI};color:#fff;border:none;border-radius:5px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px`;
     const TTH=`padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:${TX}`;
+    const _ed=(typeof puedeEditarNotaMedica!=="function"||puedeEditarNotaMedica())&&!STATE.consultaActual?.bloqueada;
     const p=STATE.pat||{};
     const nom=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim()||"— Selecciona un paciente —";
     const fnac=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
@@ -2654,7 +2655,8 @@ function renderSeccionEspecial(tipo,d){
       <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,${CI}18,#fff)">
         <b style="font-size:14px;color:${CI}"><i class="ti ti-clipboard-list"></i> Orden de Internamiento — indicaciones ejecutables (NOM-004 · NOM-006 · Acciones Esenciales para la Seguridad del Paciente)</b>
       </div>
-      <div style="padding:14px">
+      <div style="padding:14px;${_ed?'':'pointer-events:none'}">
+        ${_ed?"":ALERTA("<b>Orden firmada — solo lectura.</b> No puede modificarse. Para cambios, cree una nueva orden de internamiento (Nueva consulta). Esta orden queda como registro imprimible.","warn")}
         ${ALERTA("Esta orden contiene <b>indicaciones ejecutables</b> para enfermería, farmacia y anestesiología. La evaluación clínica (padecimiento, antecedentes, exploración, riesgo ASA, consentimientos) vive en la Nota preoperatoria; aquí no se duplica.","info")}
 
         ${H("Identificación del paciente (dos identificadores)",CI)}
@@ -2923,6 +2925,7 @@ window.eliminarRegistroTrans=function(i){
 
 // ── Orden de Internamiento: tablas dinámicas (soluciones, medicamentos, crónicos) ──
 function _giv(id){return document.getElementById(id)?.value||"";}
+function _intEditable(){return (typeof puedeEditarNotaMedica!=="function"||puedeEditarNotaMedica())&&!STATE.consultaActual?.bloqueada;}
 function _valOtro(id){const s=document.getElementById(id);if(!s)return"";return s.value==="__OTRO__"?(document.getElementById(id+"__otro")?.value||""):s.value;}
 function _clrInt(id){const e=document.getElementById(id);if(e)e.value="";const o=document.getElementById(id+"__otro");if(o){o.value="";o.style.display="none";}}
 function _pushInt(k,reg){if(!STATE.consultaActual)STATE.consultaActual={};if(!STATE.consultaActual.datos_clinicos)STATE.consultaActual.datos_clinicos={};if(!Array.isArray(STATE.consultaActual.datos_clinicos[k]))STATE.consultaActual.datos_clinicos[k]=[];STATE.consultaActual.datos_clinicos[k].push(reg);if(typeof guardarConsultaSilencioso==="function")guardarConsultaSilencioso();}
@@ -2931,10 +2934,11 @@ function _delInt(k,i,tbId,rowFn){const a=STATE.consultaActual?.datos_clinicos?.[
 function _combo(id,opts){return `<div style="display:flex;flex-direction:column;gap:4px"><select id="${id}" onchange="onSelOtro('${id}')" style="padding:5px 7px;border:1px solid #CFD8DC;border-radius:5px;font-size:13px;width:100%;background:#fff"><option value="">—</option>${opts.map(o=>`<option value="${o}">${o}</option>`).join("")}<option value="__OTRO__">Otro (especificar)…</option></select><input id="${id}__otro" placeholder="Especifique…" style="display:none;padding:5px 7px;border:1px solid #CFD8DC;border-radius:5px;font-size:13px;width:100%"></div>`;}
 function _tdI(v){return `<td style="padding:5px 7px;font-size:12.5px;color:#003A5D">${v||"—"}</td>`;}
 function _delBtn(fn,i){return `<td style="padding:5px 7px"><button type="button" onclick="${fn}(${i})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:5px;padding:4px 9px;cursor:pointer;font-size:13px" title="Eliminar"><i class="ti ti-trash"></i></button></td>`;}
-function _rowSol(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12.5px;font-weight:600;color:#00838F">${r.solucion||"—"}</td>${_tdI(r.vol)}${_tdI(r.via)}${_tdI(r.vel)}${_tdI(r.hora)}${_tdI(r.adit)}${_tdI(r.cond)}${_delBtn("eliminarIntSolucion",i)}</tr>`;}
-function _rowMed(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12px;font-weight:600;color:#00838F">${r.clas||"—"}</td>${_tdI(r.gen)}${_tdI(r.dosis)}${_tdI(r.via)}${_tdI(r.frec)}${_tdI(r.dur)}${_tdI(r.ind)}${_tdI(r.max)}${_tdI(r.ajuste)}${_delBtn("eliminarIntMedicamento",i)}</tr>`;}
-function _rowCron(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12.5px;font-weight:600;color:#00838F">${r.med||"—"}</td>${_tdI(r.dosis)}${_tdI(r.ultima)}${_tdI(r.accion)}${_delBtn("eliminarIntCronico",i)}</tr>`;}
+function _rowSol(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12.5px;font-weight:600;color:#00838F">${r.solucion||"—"}</td>${_tdI(r.vol)}${_tdI(r.via)}${_tdI(r.vel)}${_tdI(r.hora)}${_tdI(r.adit)}${_tdI(r.cond)}${_intEditable()?_delBtn("eliminarIntSolucion",i):"<td></td>"}</tr>`;}
+function _rowMed(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12px;font-weight:600;color:#00838F">${r.clas||"—"}</td>${_tdI(r.gen)}${_tdI(r.dosis)}${_tdI(r.via)}${_tdI(r.frec)}${_tdI(r.dur)}${_tdI(r.ind)}${_tdI(r.max)}${_tdI(r.ajuste)}${_intEditable()?_delBtn("eliminarIntMedicamento",i):"<td></td>"}</tr>`;}
+function _rowCron(r,i){return `<tr style="border-top:1px solid #CFD8DC"><td style="padding:5px 7px;font-size:12.5px;font-weight:600;color:#00838F">${r.med||"—"}</td>${_tdI(r.dosis)}${_tdI(r.ultima)}${_tdI(r.accion)}${_intEditable()?_delBtn("eliminarIntCronico",i):"<td></td>"}</tr>`;}
 window.agregarIntSolucion=function(){
+  if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}
   const reg={solucion:_valOtro("sol_solucion"),vol:_giv("sol_vol"),via:_valOtro("sol_via"),vel:_giv("sol_vel"),hora:_giv("sol_hora"),adit:_giv("sol_adit"),cond:_giv("sol_cond")};
   if(!reg.solucion&&!reg.vol){showToast("Indica al menos la solución o el volumen",false);return;}
   _pushInt("int_soluciones",reg);
@@ -2942,8 +2946,9 @@ window.agregarIntSolucion=function(){
   const tb=document.getElementById("tbody-int-sol");if(tb)tb.insertAdjacentHTML("beforeend",_rowSol(reg,_lenInt("int_soluciones")-1));
   showToast("Solución añadida");
 };
-window.eliminarIntSolucion=function(i){_delInt("int_soluciones",i,"tbody-int-sol",_rowSol);};
+window.eliminarIntSolucion=function(i){if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}_delInt("int_soluciones",i,"tbody-int-sol",_rowSol);};
 window.agregarIntMedicamento=function(){
+  if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}
   const reg={clas:_valOtro("med_clas"),gen:_giv("med_gen"),dosis:_giv("med_dosis"),via:_valOtro("med_via"),frec:_giv("med_frec"),dur:_giv("med_dur"),ind:_giv("med_ind"),max:_giv("med_max"),ajuste:_giv("med_ajuste")};
   if(!reg.gen){showToast("Indica el nombre genérico del medicamento",false);return;}
   _pushInt("int_medicamentos",reg);
@@ -2951,8 +2956,9 @@ window.agregarIntMedicamento=function(){
   const tb=document.getElementById("tbody-int-med");if(tb)tb.insertAdjacentHTML("beforeend",_rowMed(reg,_lenInt("int_medicamentos")-1));
   showToast("Medicamento añadido");
 };
-window.eliminarIntMedicamento=function(i){_delInt("int_medicamentos",i,"tbody-int-med",_rowMed);};
+window.eliminarIntMedicamento=function(i){if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}_delInt("int_medicamentos",i,"tbody-int-med",_rowMed);};
 window.agregarIntCronico=function(){
+  if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}
   const reg={med:_giv("cron_med"),dosis:_giv("cron_dosis"),ultima:_giv("cron_ultima"),accion:_valOtro("cron_accion")};
   if(!reg.med){showToast("Indica el medicamento crónico",false);return;}
   _pushInt("int_cronicos",reg);
@@ -2960,7 +2966,7 @@ window.agregarIntCronico=function(){
   const tb=document.getElementById("tbody-int-cron");if(tb)tb.insertAdjacentHTML("beforeend",_rowCron(reg,_lenInt("int_cronicos")-1));
   showToast("Medicamento crónico añadido");
 };
-window.eliminarIntCronico=function(i){_delInt("int_cronicos",i,"tbody-int-cron",_rowCron);};
+window.eliminarIntCronico=function(i){if(!_intEditable()){showToast("La orden está firmada: no puede modificarse. Cree una orden nueva para cambios.",false);return;}_delInt("int_cronicos",i,"tbody-int-cron",_rowCron);};
 
 // ── CONSENTIMIENTOS INFORMADOS ────────────────────────────
 // Catálogo completo de consentimientos con textos legales
@@ -8008,9 +8014,19 @@ window.buscarPacQx=async function(){
   res.innerHTML=`<span style="font-size:12px;color:${MU}">Buscando...</span>`;
   const sane=t=>t.replace(/[,()%]/g,"");
   const qs=sane(q);
-  const {data}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("activo",true)
-    .or(`nombre.ilike.%${qs}%,apellido_paterno.ilike.%${qs}%,apellido_materno.ilike.%${qs}%,numero_expediente.ilike.%${qs}%`).limit(8);
-  const pacs=data||[];
+  // El .or() no puede usar ilike sobre numero_expediente (columna entera): rompe la consulta.
+  // Se buscan nombres por palabra y, si el texto son sólo dígitos, el expediente por igualdad exacta.
+  const palabras=qs.split(/\s+/).filter(Boolean);
+  const filtros=[];
+  palabras.forEach(v=>{filtros.push(`nombre.ilike.%${v}%`);filtros.push(`apellido_paterno.ilike.%${v}%`);filtros.push(`apellido_materno.ilike.%${v}%`);});
+  filtros.push(`curp.ilike.%${qs}%`);
+  let {data,error}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("activo",true).or(filtros.join(",")).limit(12);
+  let pacs=data||[];
+  if(/^\d+$/.test(q)){
+    const {data:d2}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("activo",true).eq("numero_expediente",parseInt(q,10)||0);
+    (d2||[]).forEach(x=>{if(!pacs.some(y=>y.id===x.id))pacs.push(x);});
+  }
+  if(error&&!pacs.length){res.innerHTML=`<span style="font-size:12px;color:${DA}">No se pudo buscar. Verifique su conexión e intente de nuevo.</span>`;return;}
   STATE._qxPacBusq={};pacs.forEach(p=>STATE._qxPacBusq[p.id]=p);
   if(pacs.length===0){res.innerHTML=`<span style="font-size:12px;color:${MU}">Sin coincidencias.</span>`;return;}
   res.innerHTML=`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${pacs.map((p,i)=>`<div onclick="seleccPacQx('${p.id}')" style="padding:8px 12px;cursor:pointer;font-size:13px;color:${TX};background:${i%2?"#FAFAFA":"#fff"};display:flex;justify-content:space-between" onmouseover="this.style.background='#E3F4FB'" onmouseout="this.style.background='${i%2?"#FAFAFA":"#fff"}'"><span>${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}</span><span style="color:${AC};font-weight:700">${p.numero_expediente||""}</span></div>`).join("")}</div>`;
