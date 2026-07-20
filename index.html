@@ -8020,13 +8020,17 @@ window.buscarPacQx=async function(){
   const filtros=[];
   palabras.forEach(v=>{filtros.push(`nombre.ilike.%${v}%`);filtros.push(`apellido_paterno.ilike.%${v}%`);filtros.push(`apellido_materno.ilike.%${v}%`);});
   filtros.push(`curp.ilike.%${qs}%`);
-  let {data,error}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("activo",true).or(filtros.join(",")).limit(12);
-  let pacs=data||[];
+  // No se filtra por activo=true en la consulta: si la columna quedó en null al registrar,
+  // el paciente no aparecería. Se excluyen sólo los explícitamente inactivos (activo===false).
+  let {data,error}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente,activo").or(filtros.join(",")).limit(20);
+  if(error)console.warn("buscarPacQx (nombre):",error);
+  let pacs=(data||[]).filter(p=>p.activo!==false);
   if(/^\d+$/.test(q)){
-    const {data:d2}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").eq("activo",true).eq("numero_expediente",parseInt(q,10)||0);
-    (d2||[]).forEach(x=>{if(!pacs.some(y=>y.id===x.id))pacs.push(x);});
+    const {data:d2,error:e2}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente,activo").eq("numero_expediente",parseInt(q,10)||0);
+    if(e2)console.warn("buscarPacQx (exp):",e2);
+    (d2||[]).filter(p=>p.activo!==false).forEach(x=>{if(!pacs.some(y=>y.id===x.id))pacs.push(x);});
   }
-  if(error&&!pacs.length){res.innerHTML=`<span style="font-size:12px;color:${DA}">No se pudo buscar. Verifique su conexión e intente de nuevo.</span>`;return;}
+  if(error&&!pacs.length){res.innerHTML=`<span style="font-size:12px;color:${DA}">No se pudo buscar: ${error.message||"error desconocido"}</span>`;return;}
   STATE._qxPacBusq={};pacs.forEach(p=>STATE._qxPacBusq[p.id]=p);
   if(pacs.length===0){res.innerHTML=`<span style="font-size:12px;color:${MU}">Sin coincidencias.</span>`;return;}
   res.innerHTML=`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${pacs.map((p,i)=>`<div onclick="seleccPacQx('${p.id}')" style="padding:8px 12px;cursor:pointer;font-size:13px;color:${TX};background:${i%2?"#FAFAFA":"#fff"};display:flex;justify-content:space-between" onmouseover="this.style.background='#E3F4FB'" onmouseout="this.style.background='${i%2?"#FAFAFA":"#fff"}'"><span>${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}</span><span style="color:${AC};font-weight:700">${p.numero_expediente||""}</span></div>`).join("")}</div>`;
