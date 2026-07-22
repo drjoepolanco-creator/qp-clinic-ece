@@ -12466,11 +12466,16 @@ function invModal(html,maxw){
 window.cerrarInvModal=function(){const e=document.getElementById("inv-modal-ov");if(e)e.remove();}
 
 // ── ALTA / EDICIÓN DE INSUMO ───────────────────────────────────────────────
-window.abrirFormInsumo=function(id){
+window.abrirFormInsumo=async function(id){
   if(!puedeMoverInventario()){showToast("Sin permiso",false);return;}
   const sedeSel=invSedeSel();
   if(sedeSel==="ambas"){showToast("Elige una sede (Clinic o Surgery) para agregar",false);return;}
-  const it=id?((STATE.invData?.items||[]).find(x=>x.id===id)||{}):{};
+  let it={};
+  if(id){
+    it=((STATE.invData?.items||[]).find(x=>String(x.id)===String(id)))||{};
+    if(!it.id){const {data}=await SB.from("inventario_insumos").select("*").eq("id",id).maybeSingle();it=data||{};}
+    if(!it.id){showToast("No se encontró el insumo a editar",false);return;}
+  }
   const esSurgery=sedeSel==="surgery";
   const f=(lbl,inner)=>`<div style="margin-bottom:11px"><label style="display:block;font-size:13px;font-weight:600;color:${TX};margin-bottom:4px">${lbl}</label>${inner}</div>`;
   const I=(fid,val,ph,tp)=>`<input id="${fid}" type="${tp||"text"}" value="${ivEsc(val==null?"":val)}" placeholder="${ph||""}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;box-sizing:border-box">`;
@@ -12498,7 +12503,7 @@ window.abrirFormInsumo=function(id){
       ${f("Notas",`<textarea id="if_notas" rows="2" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;box-sizing:border-box;resize:vertical">${ivEsc(it.notas)}</textarea>`)}
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
         ${btn("Cancelar","cerrarInvModal()","s",0)}
-        ${btn(id?"Guardar cambios":"Crear insumo",`guardarInsumo('${sedeSel}','${id||""}')`,"ok",0)}
+        ${btn(id?"Guardar cambios":"Crear insumo",`guardarInsumo('${sedeSel}','${it.id||id||""}')`,"ok",0)}
       </div></div>`,540);
 }
 
@@ -12530,7 +12535,7 @@ window.guardarInsumo=async function(sede,id){
 }
 
 window.eliminarInsumo=async function(id){
-  const it=(STATE.invData?.items||[]).find(x=>x.id===id);
+  const it=(STATE.invData?.items||[]).find(x=>String(x.id)===String(id));
   const ok=await qpConfirm(`¿Eliminar "${it?.nombre||"este insumo"}" del inventario? Se conservará su historial de movimientos.`,{title:"Eliminar insumo",okLabel:"Eliminar",danger:true});
   if(!ok)return;
   loading(true);
@@ -12543,7 +12548,7 @@ window.eliminarInsumo=async function(id){
 // ── MOVIMIENTOS (entrada / salida / ajuste) ────────────────────────────────
 window.abrirMovInsumo=function(id){
   if(!puedeMoverInventario()){showToast("Sin permiso",false);return;}
-  const it=(STATE.invData?.items||[]).find(x=>x.id===id);if(!it){showToast("Insumo no encontrado",false);return;}
+  const it=(STATE.invData?.items||[]).find(x=>String(x.id)===String(id));if(!it){showToast("Insumo no encontrado",false);return;}
   const tipoBtn=(v,l,c)=>`<label style="flex:1;text-align:center"><input type="radio" name="mv_tipo" value="${v}" ${v==="entrada"?"checked":""} onchange="invMovTipoUI()" style="display:none"><span id="mvt_${v}" style="display:block;padding:9px;border:1.5px solid ${BR};border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;color:${c}">${l}</span></label>`;
   invModal(`<div style="background:${SU};color:#fff;padding:14px 18px;font-weight:700;font-size:16px;display:flex;justify-content:space-between;align-items:center">
       <span>↕ Movimiento de inventario</span>
@@ -12572,7 +12577,7 @@ window.invMovTipoUI=function(){
   if(lbl)lbl.textContent=t==="entrada"?"Cantidad a ingresar":t==="salida"?"Cantidad a retirar":"Nuevo stock total (valor final)";
 }
 window.guardarMovInsumo=async function(id){
-  const it=(STATE.invData?.items||[]).find(x=>x.id===id);if(!it)return;
+  const it=(STATE.invData?.items||[]).find(x=>String(x.id)===String(id));if(!it)return;
   const tipo=document.querySelector('input[name="mv_tipo"]:checked')?.value||"entrada";
   const cant=ivNum(gv("mv_cant"));
   const motivo=gv("mv_motivo").trim();
@@ -12592,7 +12597,7 @@ window.guardarMovInsumo=async function(id){
 
 // Ajuste rápido de existencia desde la tabla
 window.guardarExistenciaInline=async function(id,val){
-  const it=(STATE.invData?.items||[]).find(x=>x.id===id);if(!it)return;
+  const it=(STATE.invData?.items||[]).find(x=>String(x.id)===String(id));if(!it)return;
   const nuevo=ivNum(val);const prev=ivNum(it.stock);
   if(nuevo===prev)return;
   const {error}=await SB.from("inventario_insumos").update({stock:nuevo,updated_at:new Date().toISOString()}).eq("id",id);
@@ -12604,7 +12609,7 @@ window.guardarExistenciaInline=async function(id,val){
 // ── HISTORIAL POR INSUMO ───────────────────────────────────────────────────
 window.verHistorialInsumo=async function(id){
   const pool=(STATE.invData?.items)||[].concat(STATE.invData?.clinic||[],STATE.invData?.surgery||[]);
-  const it=pool.find(x=>x.id===id);
+  const it=pool.find(x=>String(x.id)===String(id));
   invModal(`<div style="background:${PD};color:#fff;padding:14px 18px;font-weight:700;font-size:16px;display:flex;justify-content:space-between;align-items:center">
       <span>🕑 Historial · ${ivEsc(it?.nombre||"")}</span>
       <button onclick="cerrarInvModal()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer">×</button></div>
