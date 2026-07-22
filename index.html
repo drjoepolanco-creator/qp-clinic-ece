@@ -12252,6 +12252,7 @@ async function pgInventario(){
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
       <input id="inv-buscar" oninput="renderInvTabla()" placeholder="🔍 Buscar insumo, categoría, ubicación…" style="flex:1;min-width:220px;padding:9px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
       <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:${MU};cursor:pointer;user-select:none"><input type="checkbox" id="inv-solo-alertas" onchange="renderInvTabla()" style="width:16px;height:16px"> Solo alertas</label>
+      ${btn("🖨️ PDF","imprimirInventarioPDF()","s",0)}
       ${(puedeMoverInventario()&&sedeSel!=="ambas")?btn("＋ Nuevo insumo","abrirFormInsumo()","ok",0):""}
     </div>
     <div id="inv-body"><div style="text-align:center;padding:36px;color:${MU}"><span class="spin" style="font-size:24px;display:block;margin-bottom:8px">⚙️</span>Cargando inventario…</div></div>
@@ -12578,6 +12579,136 @@ window.verHistorialInsumo=async function(id){
       <td style="padding:7px 10px">${ivEsc(m.motivo)||"—"}</td>
       <td style="padding:7px 10px;color:${MU}">${ivEsc(m.usuario)||"—"}</td>
     </tr>`;}).join("")}</tbody></table></div>`;
+}
+
+// ── EXPORTAR INVENTARIO A PDF (jsPDF nativo, encabezado de marca + paginado) ─
+function invItemsFiltrados(){
+  const filtro=(document.getElementById("inv-buscar")?.value||"").toLowerCase().trim();
+  const soloAlertas=document.getElementById("inv-solo-alertas")?.checked;
+  const match=(it)=>{
+    if(filtro){const hay=`${it.nombre||""} ${it.categoria||""} ${it.ubicacion||""} ${it.presentacion||""}`.toLowerCase();if(!hay.includes(filtro))return false;}
+    if(soloAlertas){if(!(ivStockBajo(it)||ivCaducidadEstado(it.caducidad)))return false;}
+    return true;
+  };
+  if(STATE.invData?.sede==="ambas"){
+    const c=(STATE.invData.clinic||[]).filter(match).map(it=>({...it,_sede:"QP Clinic"}));
+    const s=(STATE.invData.surgery||[]).filter(match).map(it=>({...it,_sede:"QP Surgery"}));
+    return {mode:"ambas",items:[...c,...s]};
+  }
+  return {mode:STATE.invData?.sede||"clinic",items:(STATE.invData?.items||[]).filter(match)};
+}
+
+window.imprimirInventarioPDF=async function(){
+  const {jsPDF}=window.jspdf||{};
+  if(!jsPDF){showToast("jsPDF no disponible",false);return;}
+  if(!STATE.invData){showToast("Carga el inventario primero",false);return;}
+  const {mode,items}=invItemsFiltrados();
+  if(!items.length){showToast("No hay insumos para exportar",false);return;}
+  const landscape=(mode!=="clinic");
+  const B=(mode==="surgery")?BRANDING.surgery:BRANDING.clinic;
+  const sedeNom=mode==="ambas"?"Ambas sedes":(B.nombre||"");
+  loading(true,"Generando PDF de inventario...");
+  const doc=new jsPDF({orientation:landscape?"landscape":"portrait",unit:"mm",format:"letter"});
+  const W=landscape?279:216,H=landscape?216:279,M=12,CW=W-2*M;
+  const hoy=new Date().toLocaleDateString("es-MX");
+  const usuario=ivUsuario();
+  // logo -> base64
+  let logoB64=null,logoRatio=3;
+  try{
+    const r=await fetch(B.logo);const bl=await r.blob();
+    logoB64=await new Promise(rs=>{const fr=new FileReader();fr.onload=()=>rs(fr.result);fr.readAsDataURL(bl);});
+    const im=await new Promise((rs,rj)=>{const i=new Image();i.onload=()=>rs(i);i.onerror=rj;i.src=logoB64;});
+    logoRatio=im.width/im.height;
+  }catch(e){}
+  // definición de columnas por modo (f = fracción del ancho)
+  let cols;
+  if(mode==="clinic"){
+    cols=[
+      {t:"Insumo",f:0.30,a:"left",wrap:true,get:it=>it.nombre||""},
+      {t:"Presentación",f:0.16,a:"left",get:it=>it.presentacion||"—"},
+      {t:"Cantidad",f:0.11,a:"right",get:it=>String(ivNum(it.stock))},
+      {t:"Stock mín",f:0.11,a:"right",get:it=>it.stock_min?String(ivNum(it.stock_min)):"—"},
+      {t:"Ubicación",f:0.16,a:"left",get:it=>it.ubicacion||"—"},
+      {t:"Caducidad",f:0.16,a:"left",get:it=>it.caducidad||"—"}
+    ];
+  }else if(mode==="surgery"){
+    cols=[
+      {t:"Categoría",f:0.13,a:"left",get:it=>it.categoria||"—"},
+      {t:"Medicamento / presentación",f:0.31,a:"left",wrap:true,get:it=>it.nombre||""},
+      {t:"Medida",f:0.11,a:"left",get:it=>it.presentacion||"—"},
+      {t:"Costo u.",f:0.10,a:"right",get:it=>it.costo_unitario!=null?ivMoney(it.costo_unitario):"—"},
+      {t:"Var.",f:0.06,a:"right",get:it=>it.variable!=null?String(ivNum(it.variable)):"—"},
+      {t:"Precio púb.",f:0.11,a:"right",get:it=>it.precio_publico!=null?ivMoney(it.precio_publico):"—"},
+      {t:"Exist.",f:0.09,a:"right",get:it=>String(ivNum(it.stock))},
+      {t:"St.mín",f:0.09,a:"right",get:it=>it.stock_min?String(ivNum(it.stock_min)):"—"}
+    ];
+  }else{
+    cols=[
+      {t:"Sede",f:0.12,a:"left",get:it=>it._sede||""},
+      {t:"Insumo / medicamento",f:0.33,a:"left",wrap:true,get:it=>it.nombre||""},
+      {t:"Categoría",f:0.20,a:"left",get:it=>it.categoria||"—"},
+      {t:"Stock",f:0.10,a:"right",get:it=>String(ivNum(it.stock))},
+      {t:"Stock mín",f:0.11,a:"right",get:it=>it.stock_min?String(ivNum(it.stock_min)):"—"},
+      {t:"Alerta",f:0.14,a:"left",get:it=>{const a=[];if(ivStockBajo(it))a.push("Stock bajo");const c=ivCaducidadEstado(it.caducidad);if(c==="venc")a.push("Caducado");else if(c==="pronto")a.push("Por caducar");return a.join(", ")||"—";}}
+    ];
+  }
+  let xacc=M;cols.forEach(c=>{c.w=CW*c.f;c.x=xacc;xacc+=c.w;});
+  const bottom=H-14;
+  let y=0;
+  function colHeader(){
+    doc.setFillColor(227,244,251);doc.rect(M,y,CW,6,"F");
+    doc.setFont("helvetica","bold");doc.setFontSize(7.5);doc.setTextColor(0,58,93);
+    cols.forEach(c=>{const tx=c.a==="right"?c.x+c.w-1.5:c.x+1.5;doc.text(String(c.t),tx,y+4,{align:c.a==="right"?"right":"left"});});
+    y+=6;
+  }
+  function header(){
+    if(logoB64){let h=13,w=h*logoRatio;if(w>42){w=42;h=w/logoRatio;}try{doc.addImage(logoB64,String(B.logo).toLowerCase().includes("png")?"PNG":"JPEG",M,7,w,h);}catch(e){}}
+    doc.setFont("helvetica","bold");doc.setFontSize(9.5);doc.setTextColor(11,111,179);
+    doc.text(B.razon||sedeNom,M+46,12);
+    doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(70,70,70);
+    let hy=16;
+    if(mode!=="ambas"&&B.direccion)doc.splitTextToSize(B.direccion,150).slice(0,2).forEach(l=>{doc.text(l,M+46,hy);hy+=3;});
+    if(mode!=="ambas"&&B.licencia)doc.text(B.licencia,M+46,hy);
+    doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(30,30,30);
+    doc.text("INVENTARIO DE INSUMOS",W-M,11,{align:"right"});
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(90,90,90);
+    doc.text(sedeNom,W-M,16,{align:"right"});
+    doc.setDrawColor(11,111,179);doc.setLineWidth(0.6);doc.line(M,25,W-M,25);
+    const bajos=items.filter(ivStockBajo).length;
+    const venc=items.filter(it=>ivCaducidadEstado(it.caducidad)==="venc").length;
+    doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+    doc.text(`Total: ${items.length} insumos   ·   Stock bajo: ${bajos}${venc?`   ·   Caducados: ${venc}`:""}   ·   Generado ${hoy} por ${usuario}`,M,30);
+    y=35;colHeader();
+  }
+  header();
+  doc.setFont("helvetica","normal");doc.setFontSize(7.5);
+  items.forEach((it,idx)=>{
+    const cells=cols.map(c=>{const txt=String(c.get(it));return c.wrap?doc.splitTextToSize(txt,c.w-3):[txt];});
+    const nl=Math.max(...cells.map(a=>a.length));
+    const rowH=nl*3.8+2.4;
+    if(y+rowH>bottom){doc.addPage();header();doc.setFont("helvetica","normal");doc.setFontSize(7.5);}
+    const bajo=ivStockBajo(it);
+    if(bajo){doc.setFillColor(255,248,225);doc.rect(M,y,CW,rowH,"F");}
+    else if(idx%2){doc.setFillColor(250,250,250);doc.rect(M,y,CW,rowH,"F");}
+    doc.setTextColor(bajo?230:35,bajo?126:35,bajo?34:35);
+    cols.forEach((c,ci)=>{cells[ci].forEach((ln,li)=>{const tx=c.a==="right"?c.x+c.w-1.5:c.x+1.5;doc.text(ln,tx,y+4+li*3.8,{align:c.a==="right"?"right":"left"});});});
+    doc.setDrawColor(232,232,232);doc.setLineWidth(0.1);doc.line(M,y+rowH,W-M,y+rowH);
+    y+=rowH;
+  });
+  // pie + numeración en todas las páginas
+  const N=doc.getNumberOfPages();
+  const pie=mode==="ambas"?"QP Clinic · QP Surgery Clinic — Expediente Clínico Electrónico":[B.razon,B.direccion].filter(Boolean).join(" · ");
+  for(let i=1;i<=N;i++){doc.setPage(i);
+    doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(120,120,120);
+    doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(M,H-9,W-M,H-9);
+    doc.text(String(pie),M,H-5,{maxWidth:CW-45});
+    doc.text(`Página ${i} de ${N}`,W-M,H-5,{align:"right"});
+  }
+  loading(false);
+  const fname=`Inventario_${(mode==="ambas"?"Ambas_sedes":sedeNom).replace(/\s+/g,"_")}_${hoy.replace(/\//g,"-")}.pdf`;
+  doc.save(fname);
+  showToast("✓ PDF de inventario generado");
+  try{logBitacora("INVENTARIO","PDF generado — "+sedeNom);}catch(e){}
 }
 
 async function pgPagos(){
