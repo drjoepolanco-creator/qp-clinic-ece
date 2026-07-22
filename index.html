@@ -316,7 +316,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano,"selsede":pgSelSede,"listapac":pgListaPacientes};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano,"selsede":pgSelSede,"listapac":pgListaPacientes,"inventario":pgInventario};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -551,7 +551,7 @@ window.toggleSede=function(){
 function nav(){
   // Título dinámico del tab
   const patNombre=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno||""} — `:"";
-  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",seguros:"Seguros — ",ejercicio:"Prescripción de ejercicio — ",quirofano:"Quirófano — ",listapac:"Padrón de pacientes — ",perfil:"Mi perfil — "};
+  const pageTitles={login:"",agenda:"Agenda — ",buscar:"Pacientes — ",nuevo:"Nuevo paciente — ",consulta:"Consulta — ",expediente:"Expediente — ",medicos:"Configuración — ",bitacora:"Bitácora — ",reportes:"Reportes — ",cortecaja:"Corte de caja — ",herramientas:"Herramientas — ",tramites:"Trámites — ",ultrasonido:"Ultrasonido — ",nutricion:"Nutrición — ",seguros:"Seguros — ",ejercicio:"Prescripción de ejercicio — ",quirofano:"Quirófano — ",listapac:"Padrón de pacientes — ",perfil:"Mi perfil — ",inventario:"Inventario de insumos — "};
   document.title=`${pageTitles[STATE.page]||""}${patNombre}QP Clinic`;
   const u=STATE.userProfile;const p=STATE.pat;
   const online=navigator.onLine;
@@ -571,10 +571,11 @@ function nav(){
       </div>
     </div>
     `:""}${sedeActiva()!=="surgery"?`<button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>`:""}
-    ${STATE.userProfile?.rol==="admin"?`
+    ${(STATE.userProfile?.rol==="admin"||puedeVerInventario())?`
         <div style="position:relative" id="cfg-menu-wrap">
-      <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
+      <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora","inventario"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora","inventario"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
+        ${rolActual()==="admin"?`
         <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Solo Administrador</div>
         <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>
         <button onclick="go('listapac',{pacPage:1});toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px"><i class="ti ti-users"></i> Padrón de pacientes</button>
@@ -582,8 +583,12 @@ function nav(){
         <button onclick="go('tramites');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏛️ Trámites y Cumplimiento</button>
         <button onclick="go('reportes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📊 Reportes de Dirección</button>
         <button onclick="go('cortecaja');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">💰 Corte de caja</button>
+        `:""}
+        ${puedeVerInventario()?`<button onclick="go('inventario');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📦 Inventario de insumos</button>`:""}
+        ${rolActual()==="admin"?`
         <div style="border-top:1px solid #F0F0F0;margin:4px 0"></div>
         <button onclick="toggleCfgMenu();reiniciarSesionEmergencia()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#E65100;display:flex;align-items:center;gap:8px" title="Usar si un usuario reporta errores 'InvalidJWT' repetidos">🔄 Limpiar sesión corrupta (InvalidJWT)</button>
+        `:""}
       </div>
     </div>`:""}
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
@@ -12197,6 +12202,383 @@ window.cambiarEstadoPago=async function(id,estado){
   loading(false);showToast("✓ Estado actualizado");cargarCorte();
 }
 window.imprimirCorte=function(){window.print();}
+
+// ══════════════════════════════════════════════════════════════════════════
+// MÓDULO INVENTARIO DE INSUMOS — QP Clinic / QP Surgery Clinic
+// Tablas: inventario_insumos, inventario_movimientos
+// ══════════════════════════════════════════════════════════════════════════
+function puedeVerInventario(){return ["admin","enfermeria","recepcion"].includes(rolActual());}
+function puedeMoverInventario(){return ["admin","enfermeria","recepcion"].includes(rolActual());}
+function ivEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function ivNum(v){const n=parseFloat(v);return isNaN(n)?0:n;}
+function ivMoney(v){return "$"+ivNum(v).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});}
+function ivUsuario(){const u=STATE.userProfile;return u?`${u.titulo||""} ${u.nombre||""} ${u.apellidos||""}`.trim()||(u.usuario||"—"):"—";}
+// Sede activa para el inventario: admin/ambas puede alternar; el resto queda fijo a su sede
+function invSedeSel(){
+  if(puedeCambiarSede()) return STATE.invSede || sedeActiva() || "clinic";
+  return sedeUsuario()==="surgery"?"surgery":"clinic";
+}
+// Alerta de caducidad (clinic): devuelve '', 'venc' o 'pronto'
+function ivCaducidadEstado(txt){
+  if(!txt) return "";
+  const s=String(txt).trim();
+  let d=null;
+  let m=s.match(/^(\d{4})[-/](\d{1,2})(?:[-/](\d{1,2}))?$/);
+  if(m){d=new Date(+m[1],(+m[2])-1,m[3]?+m[3]:1);}
+  if(!d||isNaN(d)) return "";
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const dias=Math.round((d-hoy)/86400000);
+  if(dias<0) return "venc";
+  if(dias<=60) return "pronto";
+  return "";
+}
+function ivStockBajo(it){return ivNum(it.stock_min)>0 && ivNum(it.stock)<=ivNum(it.stock_min);}
+
+async function pgInventario(){
+  if(!puedeVerInventario()){go(sedeHome(sedeActiva()));return;}
+  const puedeAmbas=puedeCambiarSede();
+  const sedeSel=invSedeSel();
+  const selBtn=(val,lbl)=>`<button onclick="STATE.invSede='${val}';pgInventario()" style="padding:7px 14px;border-radius:8px;border:1.5px solid ${sedeSel===val?P:BR};background:${sedeSel===val?PL:"#fff"};color:${sedeSel===val?PD:MU};cursor:pointer;font-weight:700;font-size:13px">${lbl}</button>`;
+  RR().innerHTML=nav()+`<div style="max-width:1200px;margin:0 auto;padding:20px 14px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;font-weight:800;color:${TX}">📦 Inventario de insumos</h2>
+        <p style="font-size:14px;color:${MU}" id="inv-subtitulo">${sedeSel==="ambas"?"Comparativo de ambas sedes":(BRANDING[sedeSel]?.nombre||"")}</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${puedeAmbas?`${selBtn("clinic","QP Clinic")}${selBtn("surgery","QP Surgery")}${selBtn("ambas","⇄ Comparar ambas")}`:""}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <input id="inv-buscar" oninput="renderInvTabla()" placeholder="🔍 Buscar insumo, categoría, ubicación…" style="flex:1;min-width:220px;padding:9px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:${MU};cursor:pointer;user-select:none"><input type="checkbox" id="inv-solo-alertas" onchange="renderInvTabla()" style="width:16px;height:16px"> Solo alertas</label>
+      ${(puedeMoverInventario()&&sedeSel!=="ambas")?btn("＋ Nuevo insumo","abrirFormInsumo()","ok",0):""}
+    </div>
+    <div id="inv-body"><div style="text-align:center;padding:36px;color:${MU}"><span class="spin" style="font-size:24px;display:block;margin-bottom:8px">⚙️</span>Cargando inventario…</div></div>
+  </div>`;
+  cargarInventario();
+}
+
+window.cargarInventario=async function(){
+  const body=document.getElementById("inv-body");if(!body)return;
+  const sedeSel=invSedeSel();
+  body.innerHTML=`<div style="text-align:center;padding:30px;color:${MU}"><span class="spin" style="font-size:22px;display:block;margin-bottom:8px">⚙️</span>Cargando…</div>`;
+  if(sedeSel==="ambas"){
+    const [{data:c},{data:s}]=await Promise.all([
+      SB.from("inventario_insumos").select("*").eq("sede","clinic").eq("activo",true).order("nombre"),
+      SB.from("inventario_insumos").select("*").eq("sede","surgery").eq("activo",true).order("categoria").order("nombre")
+    ]);
+    STATE.invData={clinic:c||[],surgery:s||[],sede:"ambas"};
+  }else{
+    const {data}=await SB.from("inventario_insumos").select("*").eq("sede",sedeSel).eq("activo",true)
+      .order(sedeSel==="surgery"?"categoria":"nombre").order("nombre");
+    STATE.invData={items:data||[],sede:sedeSel};
+  }
+  renderInvTabla();
+}
+
+window.renderInvTabla=function(){
+  const body=document.getElementById("inv-body");if(!body||!STATE.invData)return;
+  const filtro=(document.getElementById("inv-buscar")?.value||"").toLowerCase().trim();
+  const soloAlertas=document.getElementById("inv-solo-alertas")?.checked;
+  const match=(it)=>{
+    if(filtro){const hay=`${it.nombre||""} ${it.categoria||""} ${it.ubicacion||""} ${it.presentacion||""}`.toLowerCase();if(!hay.includes(filtro))return false;}
+    if(soloAlertas){if(!(ivStockBajo(it)||ivCaducidadEstado(it.caducidad)))return false;}
+    return true;
+  };
+  if(STATE.invData.sede==="ambas"){
+    body.innerHTML=renderInvComparativa(STATE.invData.clinic.filter(match),STATE.invData.surgery.filter(match));
+  }else if(STATE.invData.sede==="surgery"){
+    body.innerHTML=renderInvSurgery(STATE.invData.items.filter(match));
+  }else{
+    body.innerHTML=renderInvClinic(STATE.invData.items.filter(match));
+  }
+}
+
+function invResumen(items){
+  const total=items.length;
+  const bajos=items.filter(ivStockBajo).length;
+  const venc=items.filter(it=>ivCaducidadEstado(it.caducidad)==="venc").length;
+  const pronto=items.filter(it=>ivCaducidadEstado(it.caducidad)==="pronto").length;
+  const cards=[["📦","Insumos",total,PL,PD]];
+  if(bajos) cards.push(["⚠️","Stock bajo",bajos,"#FFF8E1","#E65100"]);
+  if(venc) cards.push(["⛔","Caducados",venc,"#FFEBEE",DA]);
+  if(pronto) cards.push(["⏳","Por caducar (60d)",pronto,"#FFF8E1","#E65100"]);
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">${cards.map(([i,l,v,bg,c])=>`
+    <div style="background:${bg};border-radius:10px;padding:10px 16px;border-left:4px solid ${c};min-width:120px">
+      <p style="font-size:18px">${i}</p><p style="font-size:12px;color:${MU};font-weight:600">${l}</p>
+      <p style="font-size:20px;font-weight:800;color:${c}">${v}</p></div>`).join("")}</div>`;
+}
+
+function invAlertaBadges(it){
+  let b="";
+  if(ivStockBajo(it)) b+=`<span style="background:#FFF8E1;color:#E65100;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700;margin-right:3px">⚠️ Stock bajo</span>`;
+  const ce=ivCaducidadEstado(it.caducidad);
+  if(ce==="venc") b+=`<span style="background:#FFEBEE;color:${DA};padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">⛔ Caducado</span>`;
+  else if(ce==="pronto") b+=`<span style="background:#FFF8E1;color:#E65100;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">⏳ Por caducar</span>`;
+  return b||`<span style="color:#B0BEC5;font-size:12px">—</span>`;
+}
+
+// Existencia editable en línea (registra ajuste "Conteo de inventario")
+function invStockCell(it){
+  const editable=puedeMoverInventario();
+  const bajo=ivStockBajo(it);
+  if(!editable) return `<span style="font-weight:700;color:${bajo?"#E65100":TX}">${ivNum(it.stock)}</span>`;
+  return `<input type="number" step="any" value="${ivNum(it.stock)}" onchange="guardarExistenciaInline('${it.id}',this.value)" style="width:78px;padding:5px 7px;border:1.5px solid ${bajo?"#E65100":BR};border-radius:6px;text-align:center;font-weight:700;color:${bajo?"#E65100":TX};outline:none">`;
+}
+
+function invAcciones(it){
+  if(!puedeMoverInventario()) return `<button onclick="verHistorialInsumo('${it.id}')" style="background:#fff;color:${P};border:1.5px solid ${BR};border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px">🕑</button>`;
+  return `<div style="display:flex;gap:4px;white-space:nowrap">
+    <button title="Registrar movimiento" onclick="abrirMovInsumo('${it.id}')" style="background:${SU};color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px">↕ Mov</button>
+    <button title="Historial" onclick="verHistorialInsumo('${it.id}')" style="background:#fff;color:${P};border:1.5px solid ${BR};border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px">🕑</button>
+    <button title="Editar" onclick="abrirFormInsumo('${it.id}')" style="background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px">✎</button>
+    <button title="Eliminar" onclick="eliminarInsumo('${it.id}')" style="background:#fff;color:${DA};border:1.5px solid ${BR};border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px">🗑</button>
+  </div>`;
+}
+
+function renderInvClinic(items){
+  if(!items.length) return invResumen([])+`<div style="text-align:center;padding:32px;color:${MU}">Sin insumos que coincidan.</div>`;
+  const th=(h)=>`<th style="padding:9px 12px;text-align:left;font-weight:700;color:${TX};font-size:13px">${h}</th>`;
+  return invResumen(items)+`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead><tr style="background:${PL}">${["Insumo","Presentación","Cantidad","Stock mín","Ubicación","Caducidad","Alertas","Acciones"].map(th).join("")}</tr></thead>
+      <tbody>${items.map((it,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+        <td style="padding:8px 12px;font-weight:600">${ivEsc(it.nombre)}</td>
+        <td style="padding:8px 12px;color:${MU}">${ivEsc(it.presentacion)||"—"}</td>
+        <td style="padding:8px 12px">${invStockCell(it)}</td>
+        <td style="padding:8px 12px;color:${MU}">${ivNum(it.stock_min)||"—"}</td>
+        <td style="padding:8px 12px;color:${MU}">${ivEsc(it.ubicacion)||"—"}</td>
+        <td style="padding:8px 12px;color:${ivCaducidadEstado(it.caducidad)?"#E65100":MU};font-weight:${ivCaducidadEstado(it.caducidad)?"700":"400"}">${ivEsc(it.caducidad)||"—"}</td>
+        <td style="padding:8px 12px">${invAlertaBadges(it)}</td>
+        <td style="padding:8px 12px">${invAcciones(it)}</td>
+      </tr>`).join("")}</tbody>
+    </table></div></div>`;
+}
+
+function renderInvSurgery(items){
+  if(!items.length) return invResumen([])+`<div style="text-align:center;padding:32px;color:${MU}">Sin insumos que coincidan.</div>`;
+  const th=(h,r)=>`<th style="padding:9px 12px;text-align:${r?"right":"left"};font-weight:700;color:${TX};font-size:13px">${h}</th>`;
+  const grupos={};items.forEach(it=>{const k=it.categoria||"Sin categoría";(grupos[k]=grupos[k]||[]).push(it);});
+  const cats=Object.keys(grupos).sort();
+  const filas=cats.map(cat=>`
+    <tr><td colspan="9" style="background:${PD};color:#fff;padding:6px 12px;font-weight:700;font-size:13px">${ivEsc(cat)} <span style="opacity:.7;font-weight:400">(${grupos[cat].length})</span></td></tr>
+    ${grupos[cat].map((it,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+      <td style="padding:8px 12px;font-weight:600">${ivEsc(it.nombre)}</td>
+      <td style="padding:8px 12px;color:${MU}">${ivEsc(it.presentacion)||"—"}</td>
+      <td style="padding:8px 12px;text-align:right;color:${MU}">${it.costo_unitario!=null?ivMoney(it.costo_unitario):"—"}</td>
+      <td style="padding:8px 12px;text-align:right;color:${MU}">${it.variable!=null?ivNum(it.variable):"—"}</td>
+      <td style="padding:8px 12px;text-align:right;font-weight:700;color:${SU}">${it.precio_publico!=null?ivMoney(it.precio_publico):"—"}</td>
+      <td style="padding:8px 12px;text-align:center">${invStockCell(it)}</td>
+      <td style="padding:8px 12px;text-align:center;color:${MU}">${ivNum(it.stock_min)||"—"}</td>
+      <td style="padding:8px 12px">${invAlertaBadges(it)}</td>
+      <td style="padding:8px 12px">${invAcciones(it)}</td>
+    </tr>`).join("")}`).join("");
+  return invResumen(items)+`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead><tr style="background:${PL}">${th("Medicamento / presentación")}${th("Medida")}${th("Costo unitario",1)}${th("Variable",1)}${th("Precio al público",1)}<th style="padding:9px 12px;text-align:center;font-weight:700;color:${TX};font-size:13px">Existencia</th><th style="padding:9px 12px;text-align:center;font-weight:700;color:${TX};font-size:13px">Stock mín</th>${th("Alertas")}${th("Acciones")}</tr></thead>
+      <tbody>${filas}</tbody>
+    </table></div></div>`;
+}
+
+function renderInvComparativa(clinic,surgery){
+  const rows=[
+    ...clinic.map(it=>({...it,_sede:"QP Clinic",_col:PD})),
+    ...surgery.map(it=>({...it,_sede:"QP Surgery",_col:AC}))
+  ];
+  const th=(h)=>`<th style="padding:9px 12px;text-align:left;font-weight:700;color:${TX};font-size:13px">${h}</th>`;
+  const resumen=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    ${[["QP Clinic",clinic.length,clinic.filter(ivStockBajo).length,PD,PL],["QP Surgery",surgery.length,surgery.filter(ivStockBajo).length,"#0E6FA8","#E3F4FB"]].map(([n,t,b,c,bg])=>`
+      <div style="background:${bg};border-radius:10px;padding:12px 18px;border-left:4px solid ${c};min-width:170px">
+        <p style="font-size:13px;font-weight:700;color:${c}">${n}</p>
+        <p style="font-size:20px;font-weight:800;color:${TX}">${t} <span style="font-size:13px;color:${MU};font-weight:600">insumos</span></p>
+        <p style="font-size:12px;color:#E65100;font-weight:600">${b} con stock bajo</p></div>`).join("")}</div>`;
+  return resumen+`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead><tr style="background:${PL}">${["Sede","Insumo / medicamento","Categoría","Stock","Stock mín","Alertas"].map(th).join("")}</tr></thead>
+      <tbody>${rows.map((it,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+        <td style="padding:8px 12px"><span style="background:${it._col};color:#fff;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700">${it._sede}</span></td>
+        <td style="padding:8px 12px;font-weight:600">${ivEsc(it.nombre)}</td>
+        <td style="padding:8px 12px;color:${MU}">${ivEsc(it.categoria)||"—"}</td>
+        <td style="padding:8px 12px;font-weight:700;color:${ivStockBajo(it)?"#E65100":TX}">${ivNum(it.stock)}</td>
+        <td style="padding:8px 12px;color:${MU}">${ivNum(it.stock_min)||"—"}</td>
+        <td style="padding:8px 12px">${invAlertaBadges(it)}</td>
+      </tr>`).join("")}</tbody>
+    </table></div></div>`;
+}
+
+// ── MODAL genérico del módulo ──────────────────────────────────────────────
+function invModal(html,maxw){
+  cerrarInvModal();
+  const ov=document.createElement("div");
+  ov.id="inv-modal-ov";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px";
+  ov.onclick=(e)=>{if(e.target===ov)cerrarInvModal();};
+  ov.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:${maxw||480}px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.3)">${html}</div>`;
+  document.body.appendChild(ov);
+}
+window.cerrarInvModal=function(){const e=document.getElementById("inv-modal-ov");if(e)e.remove();}
+
+// ── ALTA / EDICIÓN DE INSUMO ───────────────────────────────────────────────
+window.abrirFormInsumo=function(id){
+  if(!puedeMoverInventario()){showToast("Sin permiso",false);return;}
+  const sedeSel=invSedeSel();
+  if(sedeSel==="ambas"){showToast("Elige una sede (Clinic o Surgery) para agregar",false);return;}
+  const it=id?((STATE.invData?.items||[]).find(x=>x.id===id)||{}):{};
+  const esSurgery=sedeSel==="surgery";
+  const f=(lbl,inner)=>`<div style="margin-bottom:11px"><label style="display:block;font-size:13px;font-weight:600;color:${TX};margin-bottom:4px">${lbl}</label>${inner}</div>`;
+  const I=(fid,val,ph,tp)=>`<input id="${fid}" type="${tp||"text"}" value="${ivEsc(val==null?"":val)}" placeholder="${ph||""}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;box-sizing:border-box">`;
+  let campos;
+  if(esSurgery){
+    const cats=[...new Set((STATE.invData?.items||[]).map(x=>x.categoria).filter(Boolean))];
+    campos=
+      f("Categoría",`<input id="if_categoria" list="if_cats" value="${ivEsc(it.categoria)}" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;box-sizing:border-box"><datalist id="if_cats">${cats.map(c=>`<option value="${ivEsc(c)}">`).join("")}</datalist>`)+
+      f("Medicamento / presentación *",I("if_nombre",it.nombre))+
+      f("Medida",I("if_presentacion",it.presentacion,"Pieza, Caja 10 P…"))+
+      `<div style="display:flex;gap:8px">${f("Costo unitario",I("if_costo",it.costo_unitario,"","number"))}${f("Variable",I("if_variable",it.variable,"","number"))}${f("Precio al público",I("if_precio",it.precio_publico,"","number"))}</div>`+
+      `<div style="display:flex;gap:8px">${f("Existencia",I("if_stock",it.stock==null?0:it.stock,"","number"))}${f("Stock mínimo",I("if_stockmin",it.stock_min==null?0:it.stock_min,"","number"))}</div>`;
+  }else{
+    campos=
+      f("Insumo *",I("if_nombre",it.nombre))+
+      f("Presentación / unidad",I("if_presentacion",it.presentacion,"frasco, caja, ampolleta…"))+
+      `<div style="display:flex;gap:8px">${f("Cantidad",I("if_stock",it.stock==null?0:it.stock,"","number"))}${f("Stock mínimo",I("if_stockmin",it.stock_min==null?0:it.stock_min,"","number"))}</div>`+
+      f("Ubicación",I("if_ubicacion",it.ubicacion,"Consultorio 1, Carrito Rojo…"))+
+      f("Caducidad",I("if_caducidad",it.caducidad,"2026-12-01 o 'No caduca'"));
+  }
+  invModal(`<div style="background:${PD};color:#fff;padding:14px 18px;font-weight:700;font-size:16px;display:flex;justify-content:space-between;align-items:center">
+      <span>${id?"✎ Editar insumo":"＋ Nuevo insumo"} · ${BRANDING[sedeSel].nombre}</span>
+      <button onclick="cerrarInvModal()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer">×</button></div>
+    <div style="padding:18px">${campos}
+      ${f("Notas",`<textarea id="if_notas" rows="2" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;box-sizing:border-box;resize:vertical">${ivEsc(it.notas)}</textarea>`)}
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+        ${btn("Cancelar","cerrarInvModal()","s",0)}
+        ${btn(id?"Guardar cambios":"Crear insumo",`guardarInsumo('${sedeSel}','${id||""}')`,"ok",0)}
+      </div></div>`,540);
+}
+
+window.guardarInsumo=async function(sede,id){
+  const nombre=gv("if_nombre").trim();
+  if(!nombre){showToast("El nombre es obligatorio",false);return;}
+  const reg={sede,nombre,
+    presentacion:gv("if_presentacion").trim()||null,
+    stock:ivNum(gv("if_stock")),
+    stock_min:ivNum(gv("if_stockmin")),
+    notas:gv("if_notas").trim()||null,
+    activo:true,updated_at:new Date().toISOString()};
+  if(sede==="surgery"){
+    reg.categoria=gv("if_categoria").trim()||null;
+    reg.costo_unitario=gv("if_costo")!==""?ivNum(gv("if_costo")):null;
+    reg.variable=gv("if_variable")!==""?ivNum(gv("if_variable")):null;
+    reg.precio_publico=gv("if_precio")!==""?ivNum(gv("if_precio")):null;
+  }else{
+    reg.ubicacion=gv("if_ubicacion").trim()||null;
+    reg.caducidad=gv("if_caducidad").trim()||null;
+  }
+  loading(true);
+  let err;
+  if(id){({error:err}=await SB.from("inventario_insumos").update(reg).eq("id",id));}
+  else{({error:err}=await SB.from("inventario_insumos").insert(reg));}
+  loading(false);
+  if(err){showToast("Error al guardar: "+err.message,false);return;}
+  cerrarInvModal();showToast(id?"✓ Insumo actualizado":"✓ Insumo creado");cargarInventario();
+}
+
+window.eliminarInsumo=async function(id){
+  const it=(STATE.invData?.items||[]).find(x=>x.id===id);
+  const ok=await qpConfirm(`¿Eliminar "${it?.nombre||"este insumo"}" del inventario? Se conservará su historial de movimientos.`,{title:"Eliminar insumo",okLabel:"Eliminar",danger:true});
+  if(!ok)return;
+  loading(true);
+  const {error}=await SB.from("inventario_insumos").update({activo:false,updated_at:new Date().toISOString()}).eq("id",id);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("✓ Insumo eliminado");cargarInventario();
+}
+
+// ── MOVIMIENTOS (entrada / salida / ajuste) ────────────────────────────────
+window.abrirMovInsumo=function(id){
+  if(!puedeMoverInventario()){showToast("Sin permiso",false);return;}
+  const it=(STATE.invData?.items||[]).find(x=>x.id===id);if(!it){showToast("Insumo no encontrado",false);return;}
+  const tipoBtn=(v,l,c)=>`<label style="flex:1;text-align:center"><input type="radio" name="mv_tipo" value="${v}" ${v==="entrada"?"checked":""} onchange="invMovTipoUI()" style="display:none"><span id="mvt_${v}" style="display:block;padding:9px;border:1.5px solid ${BR};border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;color:${c}">${l}</span></label>`;
+  invModal(`<div style="background:${SU};color:#fff;padding:14px 18px;font-weight:700;font-size:16px;display:flex;justify-content:space-between;align-items:center">
+      <span>↕ Movimiento de inventario</span>
+      <button onclick="cerrarInvModal()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer">×</button></div>
+    <div style="padding:18px">
+      <div style="background:${PL};border-radius:8px;padding:10px 14px;margin-bottom:14px">
+        <p style="font-weight:700;color:${TX}">${ivEsc(it.nombre)}</p>
+        <p style="font-size:13px;color:${MU}">Stock actual: <b style="color:${TX}">${ivNum(it.stock)}</b>${it.presentacion?" · "+ivEsc(it.presentacion):""}</p>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">${tipoBtn("entrada","＋ Entrada",SU)}${tipoBtn("salida","− Salida",DA)}${tipoBtn("ajuste","⇄ Ajuste",PD)}</div>
+      <div style="margin-bottom:11px"><label style="display:block;font-size:13px;font-weight:600;color:${TX};margin-bottom:4px" id="mv_lbl_cant">Cantidad a ingresar</label>
+        <input id="mv_cant" type="number" step="any" min="0" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;box-sizing:border-box"></div>
+      <div style="margin-bottom:11px"><label style="display:block;font-size:13px;font-weight:600;color:${TX};margin-bottom:4px">Motivo</label>
+        <input id="mv_motivo" list="mv_motivos" placeholder="Compra, uso en paciente, merma, conteo…" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;box-sizing:border-box">
+        <datalist id="mv_motivos"><option value="Compra / reposición"><option value="Uso en paciente"><option value="Merma / caducidad"><option value="Conteo de inventario"><option value="Traslado entre sedes"><option value="Corrección"></datalist></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        ${btn("Cancelar","cerrarInvModal()","s",0)}
+        ${btn("Registrar",`guardarMovInsumo('${id}')`,"ok",0)}
+      </div></div>`,460);
+  invMovTipoUI();
+}
+window.invMovTipoUI=function(){
+  const t=document.querySelector('input[name="mv_tipo"]:checked')?.value||"entrada";
+  ["entrada","salida","ajuste"].forEach(v=>{const el=document.getElementById("mvt_"+v);if(el){const sel=v===t;el.style.background=sel?(v==="entrada"?"#E8F5E9":v==="salida"?"#FFEBEE":PL):"#fff";el.style.borderColor=sel?(v==="entrada"?SU:v==="salida"?DA:PD):BR;}});
+  const lbl=document.getElementById("mv_lbl_cant");
+  if(lbl)lbl.textContent=t==="entrada"?"Cantidad a ingresar":t==="salida"?"Cantidad a retirar":"Nuevo stock total (valor final)";
+}
+window.guardarMovInsumo=async function(id){
+  const it=(STATE.invData?.items||[]).find(x=>x.id===id);if(!it)return;
+  const tipo=document.querySelector('input[name="mv_tipo"]:checked')?.value||"entrada";
+  const cant=ivNum(gv("mv_cant"));
+  const motivo=gv("mv_motivo").trim();
+  if(cant<0||(cant===0&&tipo!=="ajuste")){showToast("Ingresa una cantidad válida",false);return;}
+  const prev=ivNum(it.stock);
+  let nuevo;
+  if(tipo==="entrada")nuevo=prev+cant;
+  else if(tipo==="salida"){nuevo=prev-cant;if(nuevo<0){const ok=await qpConfirm(`La salida deja el stock en ${nuevo}. ¿Continuar de todos modos?`,{title:"Stock negativo",okLabel:"Continuar",danger:true});if(!ok)return;}}
+  else nuevo=cant;
+  loading(true);
+  const {error:e1}=await SB.from("inventario_insumos").update({stock:nuevo,updated_at:new Date().toISOString()}).eq("id",id);
+  if(e1){loading(false);showToast("Error: "+e1.message,false);return;}
+  await SB.from("inventario_movimientos").insert({insumo_id:id,sede:it.sede,tipo,cantidad:cant,stock_previo:prev,stock_resultante:nuevo,motivo:motivo||null,usuario:ivUsuario()});
+  loading(false);
+  cerrarInvModal();showToast("✓ Movimiento registrado");cargarInventario();
+}
+
+// Ajuste rápido de existencia desde la tabla
+window.guardarExistenciaInline=async function(id,val){
+  const it=(STATE.invData?.items||[]).find(x=>x.id===id);if(!it)return;
+  const nuevo=ivNum(val);const prev=ivNum(it.stock);
+  if(nuevo===prev)return;
+  const {error}=await SB.from("inventario_insumos").update({stock:nuevo,updated_at:new Date().toISOString()}).eq("id",id);
+  if(error){showToast("Error: "+error.message,false);return;}
+  await SB.from("inventario_movimientos").insert({insumo_id:id,sede:it.sede,tipo:"ajuste",cantidad:nuevo,stock_previo:prev,stock_resultante:nuevo,motivo:"Conteo de inventario",usuario:ivUsuario()});
+  it.stock=nuevo;showToast("✓ Existencia actualizada");
+}
+
+// ── HISTORIAL POR INSUMO ───────────────────────────────────────────────────
+window.verHistorialInsumo=async function(id){
+  const pool=(STATE.invData?.items)||[].concat(STATE.invData?.clinic||[],STATE.invData?.surgery||[]);
+  const it=pool.find(x=>x.id===id);
+  invModal(`<div style="background:${PD};color:#fff;padding:14px 18px;font-weight:700;font-size:16px;display:flex;justify-content:space-between;align-items:center">
+      <span>🕑 Historial · ${ivEsc(it?.nombre||"")}</span>
+      <button onclick="cerrarInvModal()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer">×</button></div>
+    <div id="inv-hist-body" style="padding:16px"><div style="text-align:center;padding:24px;color:${MU}"><span class="spin">⚙️</span> Cargando…</div></div>`,560);
+  const {data}=await SB.from("inventario_movimientos").select("*").eq("insumo_id",id).order("created_at",{ascending:false});
+  const movs=data||[];
+  const el=document.getElementById("inv-hist-body");if(!el)return;
+  if(!movs.length){el.innerHTML=`<p style="text-align:center;color:${MU};padding:20px">Sin movimientos registrados.</p>`;return;}
+  const COL={entrada:["＋",SU,"#E8F5E9"],salida:["−",DA,"#FFEBEE"],ajuste:["⇄",PD,PL]};
+  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:${PL}">${["Fecha","Tipo","Cant.","Stock","Motivo","Usuario"].map(h=>`<th style="padding:7px 10px;text-align:left;font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+    <tbody>${movs.map(m=>{const[ic,c,bg]=COL[m.tipo]||["·",MU,"#fff"];return`<tr style="border-top:1px solid ${BR}">
+      <td style="padding:7px 10px;white-space:nowrap;color:${MU}">${new Date(m.created_at).toLocaleString("es-MX",{dateStyle:"short",timeStyle:"short"})}</td>
+      <td style="padding:7px 10px"><span style="background:${bg};color:${c};padding:1px 8px;border-radius:20px;font-weight:700">${ic} ${m.tipo}</span></td>
+      <td style="padding:7px 10px;font-weight:700">${ivNum(m.cantidad)}</td>
+      <td style="padding:7px 10px;color:${MU}">${ivNum(m.stock_previo)} → <b style="color:${TX}">${ivNum(m.stock_resultante)}</b></td>
+      <td style="padding:7px 10px">${ivEsc(m.motivo)||"—"}</td>
+      <td style="padding:7px 10px;color:${MU}">${ivEsc(m.usuario)||"—"}</td>
+    </tr>`;}).join("")}</tbody></table></div>`;
+}
 
 async function pgPagos(){
   const pid=STATE.pat?.id;if(!pid){showToast("Abre primero un expediente",false);return;}
