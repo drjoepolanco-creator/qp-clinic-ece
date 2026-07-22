@@ -145,6 +145,48 @@ const SB = createClient(
   {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}
 );
 
+// ── GUARDA DE SOLO LECTURA (perfil "analista") ────────────────────────────────
+// El analista puede VER todo el expediente pero no escribir. Interceptamos el
+// cliente Supabase para bloquear insert/update/upsert/delete y subidas a storage
+// cuando el usuario es analista. Se permite el registro de accesos (bitácora).
+(function(){
+  function _roThenable(){
+    const p=Promise.resolve({data:null,error:{message:"Perfil de solo lectura: sin permiso de escritura",code:"RO"}});
+    const proxy=new Proxy(function(){},{get(_t,prop){
+      if(prop==="then")return p.then.bind(p);
+      if(prop==="catch")return p.catch.bind(p);
+      if(prop==="finally")return p.finally.bind(p);
+      return ()=>proxy;
+    }});
+    return proxy;
+  }
+  function _aviso(){try{showToast("👁️ Perfil de solo lectura: no puede modificar datos",false);}catch(e){}}
+  const _from=SB.from.bind(SB);
+  SB.from=function(tabla){
+    const qb=_from(tabla);
+    try{
+      if(typeof esAnalista==="function"&&esAnalista()&&tabla!=="bitacora_accesos"){
+        ["insert","update","upsert","delete"].forEach(m=>{qb[m]=function(){_aviso();return _roThenable();};});
+      }
+    }catch(e){}
+    return qb;
+  };
+  try{
+    const _sfrom=SB.storage.from.bind(SB.storage);
+    SB.storage.from=function(bucket){
+      const b=_sfrom(bucket);
+      try{
+        if(typeof esAnalista==="function"&&esAnalista()){
+          ["upload","update","remove","move","copy","createSignedUploadUrl"].forEach(m=>{
+            if(typeof b[m]==="function")b[m]=function(){_aviso();return Promise.resolve({data:null,error:{message:"Perfil de solo lectura"}});};
+          });
+        }
+      }catch(e){}
+      return b;
+    };
+  }catch(e){}
+})();
+
 // ── RED DE SEGURIDAD GLOBAL: token JWT corrupto ───────────────────────────────
 // Se ejecuta ANTES de cualquier otra cosa, cubre cualquier punto del código
 // (incluso antes de que arranque init()) donde pueda aparecer InvalidJWT.
@@ -329,6 +371,8 @@ function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none
 function rolActual(){return STATE.userProfile?.rol||"";}
 function puedeEditarNotaMedica(){return ["medico","admin"].includes(rolActual());}
 function esEnfermeria(){return rolActual()==="enfermeria";}
+function esAnalista(){return rolActual()==="analista";}
+function puedeEscribir(){return !esAnalista();}
 function inp(id,val="",ph="",tp="text"){return`<input id="${id}" type="${tp}" value="${val}" placeholder="${ph}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">`;}
 function sel(id,opts,val=""){return`<select id="${id}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
 function ta(id,val,ph,rows=4){
@@ -557,7 +601,7 @@ function nav(){
   const online=navigator.onLine;
   return`<div id="topnav" style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
     <div style="display:flex;align-items:center;gap:8px;margin-right:16px">${logoSwitcherHTML()}</div>
-    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].filter(([k])=>{const _sa=sedeActiva();if(k==="quirofano"&&_sa==="clinic")return false;if((k==="ultrasonido"||k==="agenda")&&_sa==="surgery")return false;return true;}).map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].filter(([k])=>{const _sa=sedeActiva();if(k==="quirofano"&&_sa==="clinic")return false;if((k==="ultrasonido"||k==="agenda")&&_sa==="surgery")return false;if(k==="nuevo"&&esAnalista())return false;return true;}).map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     ${sedeActiva()!=="surgery"?`<div style="position:relative" id="nutri-menu-wrap">
       <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
       <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
@@ -575,8 +619,8 @@ function nav(){
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora","inventario"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora","inventario"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
-        ${rolActual()==="admin"?`
-        <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Solo Administrador</div>
+        ${(rolActual()==="admin"||esAnalista())?`
+        <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">${esAnalista()?"Consulta — solo lectura":"Solo Administrador"}</div>
         <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>
         <button onclick="go('listapac',{pacPage:1});toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px"><i class="ti ti-users"></i> Padrón de pacientes</button>
         <button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>
@@ -591,7 +635,7 @@ function nav(){
         `:""}
       </div>
     </div>`:""}
-    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">${esAnalista()?`<span title="Perfil de solo lectura — solo puede consultar" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:6px;padding:3px 9px;font-size:12px;font-weight:700;white-space:nowrap">👁️ Solo lectura</span>`:""}
       ${p?`<button onclick="go('expediente')" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 9px;color:#fff;cursor:pointer;font-size:14px" title="Abrir expediente de ${p.nombre} ${p.apellido_paterno}">📋 ${p.nombre} ${p.apellido_paterno}</button>`:""}
       <div title="${online?"Conectado a internet":"Sin conexión a internet"}" style="width:8px;height:8px;border-radius:50%;background:${online?"#69F0AE":"#FF5252"};box-shadow:0 0 0 2px rgba(255,255,255,.2);flex-shrink:0"></div>
       <button onclick="go('perfil')" title="Mi perfil y configuración" style="background:${STATE.page==="perfil"?"rgba(255,255,255,.25)":"rgba(255,255,255,.1)"};border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 10px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:5px">
@@ -906,13 +950,13 @@ window.addEventListener("offline",()=>{draw();showToast("Sin conexión a interne
 // ── AGENDA ────────────────────────────────────────────────
 // ── GESTIÓN DE MÉDICOS (solo admin) ──────────────────────
 async function pgMedicos(){
-  if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
+  if(!["admin","analista"].includes(STATE.userProfile?.rol)){go("agenda");return;}
   loading(true,"Cargando usuarios...");
   const {data:usuarios}=await SB.from("usuarios").select("*").order("apellidos");
   loading(false);
   const u=usuarios||[];
-  const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición","psicologo":"Psicólogo(a)","pasante":"Pasante"};
-  const ROL_COLORS={"admin":"#6A1B9A","medico":"#006BB6","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B","psicologo":"#5D4037","pasante":"#455A64"};
+  const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición","psicologo":"Psicólogo(a)","pasante":"Pasante","analista":"Analista"};
+  const ROL_COLORS={"admin":"#6A1B9A","medico":"#006BB6","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B","psicologo":"#5D4037","pasante":"#455A64","analista":"#37474F"};
   RR().innerHTML=nav()+`
   <div style="max-width:1200px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -1033,7 +1077,7 @@ window.abrirModalUsuario=async function(uid=""){
   } else {
     if(title)title.textContent="➕ Nuevo usuario";
   }
-  const ROLES=[["admin","Administrador"],["medico","Médico"],["fisioterapeuta","Fisioterapeuta / L.T.F. / L.F.T."],["nutricion","Lic. en Nutrición"],["psicologo","Psicólogo(a)"],["enfermeria","Enfermería"],["pasante","Pasante"],["recepcion","Recepcionista"]];
+  const ROLES=[["admin","Administrador"],["medico","Médico"],["fisioterapeuta","Fisioterapeuta / L.T.F. / L.F.T."],["nutricion","Lic. en Nutrición"],["psicologo","Psicólogo(a)"],["enfermeria","Enfermería"],["pasante","Pasante"],["recepcion","Recepcionista"],["analista","Analista (solo lectura)"]];
   
   body.innerHTML=`
     <!-- Datos de acceso y rol -->
@@ -1742,7 +1786,7 @@ async function pgTramites(){
 }
 
 async function pgBitacora(){
-  if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
+  if(!["admin","analista"].includes(STATE.userProfile?.rol)){go("agenda");return;}
   loading(true,"Cargando bitácora...");
   const {data}=await SB.from("bitacora_accesos").select("*").order("timestamp",{ascending:false}).limit(200);
   loading(false);
@@ -3617,7 +3661,7 @@ async function pgBuscar(){
   <div style="max-width:960px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <h2 style="font-size:18px;font-weight:800;color:${TX}">Buscar Paciente</h2>
-      ${btn("➕ Nuevo paciente","go('nuevo')","p",1)}
+      ${esAnalista()?"":btn("➕ Nuevo paciente","go('nuevo')","p",1)}
     </div>
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:14px;margin-bottom:14px">
       <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -3789,6 +3833,7 @@ window.abrirExpediente=async function(id){
 }
 // ── NUEVO PACIENTE ────────────────────────────────────────
 function pgNuevo(){
+  if(esAnalista()){showToast("Perfil de solo lectura",false);go('buscar');return;}
   STATE.pat=null;
   STATE.nuevoData={};
   // Limpiar TODOS los datos clínicos del paciente previo
@@ -5789,7 +5834,7 @@ window.abrirConsulta=async function(cid){
 async function renderInterconsultas(b){
   // Cargar médicos del sistema
   const {data:medicos}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2,telefono,rol").eq("activo",true).order("apellidos");
-  STATE._medicosIC=medicos||[]; // guardar para búsqueda en JS
+  STATE._medicosIC=(medicos||[]).filter(m=>m.rol!=="analista"); // excluye analistas (no son médicos)
   const med=STATE.userProfile||{};
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
   b.innerHTML=`<div style="max-width:1000px;margin:0 auto;padding:14px" class="fade">
@@ -8492,7 +8537,7 @@ window.borrarSignoAnest=async function(id){
 }
 
 async function pgListaPacientes(){
-  if(STATE.userProfile?.rol!=="admin"){go("agenda");return;}
+  if(!["admin","analista"].includes(STATE.userProfile?.rol)){go("agenda");return;}
   const PER=20;
   const page=Math.max(1,STATE.pacPage||1);
   const from=(page-1)*PER,to=from+PER-1;
@@ -12207,7 +12252,7 @@ window.imprimirCorte=function(){window.print();}
 // MÓDULO INVENTARIO DE INSUMOS — QP Clinic / QP Surgery Clinic
 // Tablas: inventario_insumos, inventario_movimientos
 // ══════════════════════════════════════════════════════════════════════════
-function puedeVerInventario(){return ["admin","enfermeria","recepcion"].includes(rolActual());}
+function puedeVerInventario(){return ["admin","enfermeria","recepcion","analista"].includes(rolActual());}
 function puedeMoverInventario(){return ["admin","enfermeria","recepcion"].includes(rolActual());}
 function ivEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function ivNum(v){const n=parseFloat(v);return isNaN(n)?0:n;}
@@ -13934,7 +13979,7 @@ async function pgUltrasonido(){
   if(!STATE.pat?.id){const b=RR();_sinPacienteMsg(b,"ultrasonido");return;}
   const b=RR();
   const rol=STATE.userProfile?.rol||"";
-  if(!["medico","admin"].includes(rol)){
+  if(!["medico","admin","analista"].includes(rol)){
     b.innerHTML=`<div style="padding:40px;text-align:center;color:${MU}">⛔ Acceso restringido a médicos y administradores.</div>`;
     return;
   }
