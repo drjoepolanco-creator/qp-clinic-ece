@@ -2351,14 +2351,14 @@ function renderSeccionEspecial(tipo,d){
     // Registro temporal (tabla de tiempos)
     const regs=d.registros_trans||[];
     const fila=(r,i)=>`<tr style="border-top:1px solid ${BR}">
-      <td style="padding:5px 7px;font-size:13px;font-weight:600;color:${P}">${r.hora||"—"}</td>
-      <td style="padding:5px 7px;font-size:13px">${r.ta||"—"}</td>
-      <td style="padding:5px 7px;font-size:13px">${r.fc||"—"}</td>
-      <td style="padding:5px 7px;font-size:13px">${r.spo2||"—"}%</td>
-      <td style="padding:5px 7px;font-size:13px">${r.etco2||"—"}</td>
-      <td style="padding:5px 7px;font-size:13px">${r.temp||"—"}</td>
-      <td style="padding:5px 7px;font-size:13px">${r.fr||"—"}</td>
-      <td style="padding:5px 7px;font-size:13px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.nota||""}</td>
+      <td style="padding:5px 7px;font-size:13px;font-weight:600;color:${P};white-space:nowrap">${r.hora||"—"}</td>
+      <td style="padding:5px 7px;font-size:13px;white-space:nowrap">${r.ta||"—"}</td>
+      <td style="padding:5px 7px;font-size:13px;text-align:center">${r.fc||"—"}</td>
+      <td style="padding:5px 7px;font-size:13px;text-align:center">${r.spo2?r.spo2+"%":"—"}</td>
+      <td style="padding:5px 7px;font-size:13px;text-align:center">${r.etco2||"—"}</td>
+      <td style="padding:5px 7px;font-size:13px;text-align:center">${r.temp||"—"}</td>
+      <td style="padding:5px 7px;font-size:13px;text-align:center">${r.fr||"—"}</td>
+      <td style="padding:5px 7px;font-size:13px;word-break:break-word">${r.nota||""}</td>
       <td style="padding:5px 7px"><button type="button" onclick="eliminarRegistroTrans(${i})" style="background:#FFEBEE;color:${DA};border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px">✕</button></td>
     </tr>`;
     return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
@@ -2411,21 +2411,26 @@ function renderSeccionEspecial(tipo,d){
         ${H("Registro temporal de signos vitales (NOM-006 Art. 10.1.4.2 — c/5 min)","#283593")}
         ${ALERTA("La norma exige medir y registrar TA en periodos no mayores de 5 minutos. Agrega cada medición con el botón. Mínimo: inicio, post-inducción, incisión, intraoperatorio c/15 min y cierre.","warn")}
         <div style="border:1px solid ${BR};border-radius:8px;overflow:hidden;margin-bottom:10px">
-          <div style="background:#F5F5F5;padding:6px 10px;display:grid;grid-template-columns:2fr 2fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 3fr 1fr;gap:4px">
-            <input id="tr_hora" type="time" placeholder="Hora" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
-            <input id="tr_ta" type="text" placeholder="TA (mmHg)" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
-            <input id="tr_fc" type="number" placeholder="FC" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
-            <input id="tr_spo2" type="number" placeholder="SpO₂" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
-            <input id="tr_etco2" type="number" placeholder="EtCO₂" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
-            <input id="tr_temp" type="number" step="0.1" placeholder="T°" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
-            <input id="tr_fr" type="number" placeholder="FR" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
-            <input id="tr_nota" type="text" placeholder="Evento / observación" style="padding:5px 7px;border:1px solid ${BR};border-radius:5px;font-size:13px">
-            <button type="button" onclick="agregarRegistroTrans()" style="background:${P};color:#fff;border:none;border-radius:5px;padding:5px 8px;cursor:pointer;font-size:12px;font-weight:700">+ Añadir</button>
+          <div style="background:#F5F5F5;padding:6px 10px;display:grid;grid-template-columns:80px 90px 60px 60px 65px 60px 55px 1fr 72px;gap:4px">
+            <input id="tr_hora" type="time" placeholder="Hora" style="width:100%;padding:5px 6px;border:1px solid ${BR};border-radius:5px;font-size:12px">
+            <input id="tr_ta" type="text" placeholder="TA (mmHg)" style="width:100%;padding:5px 6px;border:1px solid ${BR};border-radius:5px;font-size:12px">
+            <input id="tr_fc" type="number" placeholder="FC" style="width:100%;padding:5px 6px;border:1px solid ${BR};border-radius:5px;font-size:12px">
+            <input id="tr_spo2" type="number" placeholder="SpO₂" style="width:100%;padding:5px 6px;border:1px solid ${BR};border-radius:5px;font-size:12px">
+            <input id="tr_etco2" type="number" placeholder="EtCO₂" style="width:100%;padding:5px 6px;border:1px solid ${BR};border-radius:5px;font-size:12px">
+            <input id="tr_temp" type="number" step="0.1" placeholder="T°" style="width:100%;padding:5px 6px;border:1px solid ${BR};border-radius:5px;font-size:12px">
+            <input id="tr_fr" type="number" placeholder="FR" style="width:100%;padding:5px 6px;border:1px solid ${BR};border-radius:5px;font-size:12px">
+            <input id="tr_nota" type="text" placeholder="Evento / observación (hipotensión, incisión, medicamento...)" style="width:100%;padding:5px 6px;border:1px solid ${BR};border-radius:5px;font-size:12px">
+            <button type="button" onclick="agregarRegistroTrans()" style="background:${P};color:#fff;border:none;border-radius:5px;padding:5px 6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">+ Añadir</button>
           </div>
-          <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;min-width:600px">
+          <div style="overflow-x:auto;width:100%">
+            <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+              <colgroup>
+                <col style="width:80px"><col style="width:90px"><col style="width:60px">
+                <col style="width:60px"><col style="width:65px"><col style="width:60px">
+                <col style="width:55px"><col style="width:auto"><col style="width:48px">
+              </colgroup>
               <thead><tr style="background:${PL}">
-                ${["Hora","TA","FC","SpO₂","EtCO₂","Temp","FR","Evento",""].map(h=>`<th style="padding:6px 8px;text-align:left;font-size:12px;font-weight:700;color:${TX}">${h}</th>`).join("")}
+                ${["Hora","TA","FC","SpO₂","EtCO₂","Temp","FR","Evento / observación",""].map(h=>`<th style="padding:6px 8px;text-align:left;font-size:12px;font-weight:700;color:${TX};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h}</th>`).join("")}
               </tr></thead>
               <tbody id="tbody-trans">${regs.map((r,i)=>fila(r,i)).join("")}</tbody>
             </table>
@@ -2600,14 +2605,14 @@ window.agregarRegistroTrans=function(){
   const r=reg;
   const tr=document.createElement("tr");
   tr.style.borderTop=`1px solid #CFD8DC`;
-  tr.innerHTML=`<td style="padding:5px 7px;font-size:13px;font-weight:600;color:${P}">${r.hora}</td>
-    <td style="padding:5px 7px;font-size:13px">${r.ta||"—"}</td>
-    <td style="padding:5px 7px;font-size:13px">${r.fc||"—"}</td>
-    <td style="padding:5px 7px;font-size:13px">${r.spo2||"—"}%</td>
-    <td style="padding:5px 7px;font-size:13px">${r.etco2||"—"}</td>
-    <td style="padding:5px 7px;font-size:13px">${r.temp||"—"}</td>
-    <td style="padding:5px 7px;font-size:13px">${r.fr||"—"}</td>
-    <td style="padding:5px 7px;font-size:13px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.nota||""}</td>
+  tr.innerHTML=`<td style="padding:5px 7px;font-size:13px;font-weight:600;color:${P};white-space:nowrap">${r.hora}</td>
+    <td style="padding:5px 7px;font-size:13px;white-space:nowrap">${r.ta||"—"}</td>
+    <td style="padding:5px 7px;font-size:13px;text-align:center">${r.fc||"—"}</td>
+    <td style="padding:5px 7px;font-size:13px;text-align:center">${r.spo2?r.spo2+"%":"—"}</td>
+    <td style="padding:5px 7px;font-size:13px;text-align:center">${r.etco2||"—"}</td>
+    <td style="padding:5px 7px;font-size:13px;text-align:center">${r.temp||"—"}</td>
+    <td style="padding:5px 7px;font-size:13px;text-align:center">${r.fr||"—"}</td>
+    <td style="padding:5px 7px;font-size:13px;word-break:break-word">${r.nota||""}</td>
     <td style="padding:5px 7px"><button type="button" onclick="eliminarRegistroTrans(${i})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px">✕</button></td>`;
   tbody.appendChild(tr);
   showToast("✓ Registro añadido");
@@ -8100,7 +8105,7 @@ async function pgConsulta(){
       <button onclick="showRecipe('gab')" style="background:#6A1B9A;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600">📡 Sol. Gabinete</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px;background:#F0F4F8">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1200px;margin:0 auto">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1600px;margin:0 auto">
         <div id="seccion-especial" style="grid-column:span 2">
           ${renderSeccionEspecial(c.tipo_nota||"Nota de evolución",c.datos_clinicos||{})}
         </div>
