@@ -3269,75 +3269,83 @@ async function pgBuscar(){
   setTimeout(()=>document.getElementById("bq")?.focus(),100);
 }
 async function cargarPacientes(q=""){
-  const COLS="id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico";
-  const base=()=>SB.from("pacientes").select(COLS).eq("activo",true).order("apellido_paterno");
+  const t=document.getElementById("tbl");if(!t)return;
 
-  let data=[], error=null;
-
-  if(!q){
-    const r=await base();
-    data=r.data||[]; error=r.error;
-  } else {
-    // ── Búsqueda insensible a tildes (bidireccional) ──
-    // "aaron" encuentra "Aarón" y "Aarón" encuentra "Aaron"
-    const sinTilde=t=>t.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-    const sane=t=>t.replace(/[,()%]/g,"");  // caracteres que rompen el .or() de Supabase
-    const qOrig=sane(q.trim());
-    const qNorm=sinTilde(qOrig);
-
-    // Generar variantes: por cada vocal del término sin tildes, una versión
-    // con esa vocal acentuada (en español solo se acentúa una vocal por palabra);
-    // por cada "n", una versión con "ñ"
-    const ACC={a:"á",e:"é",i:"í",o:"ó",u:"ú",A:"Á",E:"É",I:"Í",O:"Ó",U:"Ú"};
-    const variantes=new Set([qOrig,qNorm]);
-    const low=qNorm;
-    for(let i=0;i<low.length&&variantes.size<14;i++){
-      const ch=low[i];
-      if(ACC[ch])variantes.add(low.slice(0,i)+ACC[ch]+low.slice(i+1));
-      if(ch==="n")variantes.add(low.slice(0,i)+"ñ"+low.slice(i+1));
-      if(ch==="N")variantes.add(low.slice(0,i)+"Ñ"+low.slice(i+1));
-    }
-
-    // Construir una sola query .or() con todas las variantes en los 3 campos de nombre
-    const filtros=[];
-    variantes.forEach(v=>{
-      filtros.push(`nombre.ilike.%${v}%`);
-      filtros.push(`apellido_paterno.ilike.%${v}%`);
-      filtros.push(`apellido_materno.ilike.%${v}%`);
-    });
-    filtros.push(`curp.ilike.%${qOrig}%`);
-
-    const r=await base().or(filtros.join(","));
-    error=r.error||null;
-
-    // Filtro fino en cliente: comparar normalizados (garantiza coincidencia exacta sin tildes)
-    const qCmp=qNorm.toLowerCase();
-    const matchNorm=p=>{
-      const full=sinTilde(`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""} ${p.curp||""}`).toLowerCase();
-      return full.includes(qCmp);
-    };
-    const seen=new Set();
-    for(const p of (r.data||[])){
-      if(!seen.has(p.id)&&matchNorm(p)){seen.add(p.id);data.push(p);}
-    }
-    // Ordenar por apellido_paterno
-    data.sort((a,b)=>(a.apellido_paterno||"").localeCompare(b.apellido_paterno||"","es"));
+  // Sin término de búsqueda → volver al estado vacío
+  if(!q.trim()){
+    t.innerHTML=`<div style="background:#fff;border-radius:10px;padding:40px;text-align:center;color:${MU};box-shadow:0 1px 4px #00000012">
+      <div style="font-size:40px;margin-bottom:12px">🔍</div>
+      <p style="font-size:16px;font-weight:700;color:${TX};margin-bottom:6px">Escriba para buscar un paciente</p>
+      <p style="font-size:14px">Ingrese nombre, apellido o CURP en el campo de arriba, o el número de expediente.</p>
+    </div>`;
+    return;
   }
 
-  const [{count:total}]=await Promise.all([
-    SB.from("pacientes").select("*",{count:"exact",head:true}).eq("activo",true)
-  ]);
-  const t=document.getElementById("tbl");if(!t)return;
+  t.innerHTML=`<div style="text-align:center;padding:28px;color:${MU}"><span class="spin" style="font-size:20px;display:block;margin-bottom:8px">⚙️</span>Buscando...</div>`;
+
+  const COLS="id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico";
+  const sinTilde=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const sane=s=>s.replace(/[,()%_]/g,"");
+
+  // Dividir búsqueda en términos individuales (permite "maria angeles" → dos términos)
+  const terminos=[...new Set(
+    sane(q.trim()).split(/\s+/).filter(t=>t.length>0)
+  )];
+
+  // Para cada término generar variantes con/sin tilde y con ñ
+  const ACC={a:"á",e:"é",i:"í",o:"ó",u:"ú"};
+  function variantes(term){
+    const norm=sinTilde(term);
+    const vs=new Set([term,norm]);
+    for(let i=0;i<norm.length&&vs.size<10;i++){
+      const c=norm[i];
+      if(ACC[c])vs.add(norm.slice(0,i)+ACC[c]+norm.slice(i+1));
+      if(c==="n")vs.add(norm.slice(0,i)+"ñ"+norm.slice(i+1));
+    }
+    return [...vs];
+  }
+
+  // Construir filtros OR por término — cada término puede estar en cualquier campo
+  // Supabase: hacemos un query por término y después intersectamos en cliente
+  // (Supabase no soporta AND entre grupos OR fácilmente en un solo query)
+  // Estrategia: traer candidatos del primer término (más restrictivo), filtrar en cliente
+  const filtrosPrimerTermino=[];
+  variantes(terminos[0]).forEach(v=>{
+    filtrosPrimerTermino.push(`nombre.ilike.%${v}%`);
+    filtrosPrimerTermino.push(`apellido_paterno.ilike.%${v}%`);
+    filtrosPrimerTermino.push(`apellido_materno.ilike.%${v}%`);
+    filtrosPrimerTermino.push(`curp.ilike.%${v}%`);
+  });
+
+  const {data:raw,error}=await SB.from("pacientes")
+    .select(COLS).eq("activo",true)
+    .or(filtrosPrimerTermino.join(","))
+    .order("apellido_paterno");
+
   if(error){t.innerHTML=`<p style="color:${DA};padding:16px">Error: ${error.message}</p>`;return;}
-  if(!data||data.length===0){t.innerHTML=`<div style="background:#fff;border-radius:10px;padding:32px;text-align:center;color:${MU}">No se encontraron pacientes${q?" con ese criterio":""}</div>`;return;}
-  const mostrando=q?`${data.length} resultado(s) para "${q}"`:`${data.length} paciente(s)${total&&total!==data.length?` de ${total} en total`:""}`;
+
+  // Filtro en cliente: TODOS los términos deben coincidir en el texto completo del paciente
+  const data=(raw||[]).filter(p=>{
+    const campo=sinTilde(`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""} ${p.curp||""}`);
+    return terminos.every(term=>campo.includes(sinTilde(term)));
+  });
+
+  if(!data.length){
+    t.innerHTML=`<div style="background:#fff;border-radius:10px;padding:32px;text-align:center;color:${MU};box-shadow:0 1px 4px #00000012">
+      <div style="font-size:32px;margin-bottom:10px">😕</div>
+      <p style="font-size:15px;font-weight:700;color:${TX};margin-bottom:4px">Sin resultados para "${q}"</p>
+      <p style="font-size:13px">Intente con otro nombre, apellido o CURP.</p>
+    </div>`;
+    return;
+  }
+
   t.innerHTML=`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:${PL}">${["Exp.","Nombre","Ap. Paterno","Ap. Materno","Nacimiento","Celular","Sexo",""].map(h=>`<th style="padding:9px 12px;text-align:left;font-size:14px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
       <tbody>${data.map((p,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
         <td style="padding:10px 12px;font-size:14px;color:${AC};font-weight:700">${p.numero_expediente||"—"}</td>
-        <td style="padding:10px 12px;font-weight:600">${p.nombre}</td>
-        <td style="padding:10px 12px">${p.apellido_paterno}</td>
+        <td style="padding:10px 12px;font-weight:600">${p.nombre||""}</td>
+        <td style="padding:10px 12px">${p.apellido_paterno||""}</td>
         <td style="padding:10px 12px">${p.apellido_materno||""}</td>
         <td style="padding:10px 12px;color:${MU};font-size:14px">${p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—"}</td>
         <td style="padding:10px 12px">${p.celular||"—"}</td>
@@ -3345,7 +3353,7 @@ async function cargarPacientes(q=""){
         <td style="padding:10px 12px">${btn("Ver expediente","abrirExpediente('"+p.id+"')","p",1)}</td>
       </tr>`).join("")}</tbody>
     </table>
-    <p style="font-size:13px;color:${MU};padding:8px 12px">${mostrando}</p>
+    <p style="font-size:13px;color:${MU};padding:8px 12px">${data.length} resultado(s) para "<b>${q}</b>"</p>
   </div>`;
 }
 window.buscarPacs=debounce(function(){
