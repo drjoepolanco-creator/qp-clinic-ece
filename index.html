@@ -316,7 +316,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"inventario":pgInventario};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"inventario":pgInventario,"lista_pacientes":pgListaPacientes};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -546,11 +546,12 @@ function nav(){
     ${["enfermeria","medico"].includes(STATE.userProfile?.rol)?`<button onclick="go('inventario')" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="inventario"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="inventario"?"3px solid #64B5F6":"3px solid transparent"}">Inventario</button>`:""}
     ${STATE.userProfile?.rol==="admin"?`
         <div style="position:relative" id="cfg-menu-wrap">
-      <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
+      <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora","lista_pacientes"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora","lista_pacientes"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
         <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">Solo Administrador</div>
         <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>
         <button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>
+        <button onclick="go('lista_pacientes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">👥 Lista de pacientes</button>
         <button onclick="go('tramites');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏛️ Trámites y Cumplimiento</button>
         <button onclick="go('reportes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📊 Reportes de Dirección</button>
         <button onclick="go('cortecaja');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">💰 Corte de caja</button>
@@ -3256,9 +3257,16 @@ async function pgBuscar(){
         <div style="display:flex;align-items:flex-end">${btn("🔍 Buscar","buscarPacs()","p",1)}</div>
       </div>
     </div>
-    <div id="tbl"><div style="text-align:center;padding:32px;color:${MU}"><span class="spin" style="font-size:24px;display:block;margin-bottom:8px">⚙️</span>Cargando pacientes...</div></div>
+    <div id="tbl">
+      <div style="background:#fff;border-radius:10px;padding:40px;text-align:center;color:${MU};box-shadow:0 1px 4px #00000012">
+        <div style="font-size:40px;margin-bottom:12px">🔍</div>
+        <p style="font-size:16px;font-weight:700;color:${TX};margin-bottom:6px">Escriba para buscar un paciente</p>
+        <p style="font-size:14px">Ingrese nombre, apellido o CURP en el campo de arriba, o el número de expediente.</p>
+      </div>
+    </div>
   </div>`;
-  await cargarPacientes();
+  // Focus en campo de búsqueda
+  setTimeout(()=>document.getElementById("bq")?.focus(),100);
 }
 async function cargarPacientes(q=""){
   const COLS="id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico";
@@ -3369,6 +3377,101 @@ async function buscarPorExpediente(exp){
     return;
   }
   renderTabla(data,data.length);
+}
+
+// ── LISTA DE PACIENTES (solo admin, paginada 20x20) ──────
+const LP_POR_PAG=20;
+async function pgListaPacientes(){
+  if(STATE.userProfile?.rol!=="admin"){showToast("Solo administradores",false);go("buscar");return;}
+  if(!STATE._lpPag)STATE._lpPag=1;
+  RR().innerHTML=nav()+`<div style="max-width:1100px;margin:0 auto;padding:20px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:${TX}">👥 Lista de Pacientes</h2>
+        <p style="font-size:13px;color:${MU};margin-top:2px">Solo visible para administradores</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${btn("➕ Nuevo paciente","go('nuevo')","p",1)}
+        ${btn("← Volver","go('medicos')","s",1)}
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:12px;margin-bottom:12px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:2;min-width:160px">${fld("Buscar",`<input id="lp_q" oninput="lpBuscar()" placeholder="Nombre, apellido o CURP..." style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;font-size:14px">`)}</div>
+        <div style="flex:1;min-width:80px">${fld("Sexo",`<select id="lp_sexo" onchange="lpBuscar()" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;font-size:14px"><option value="">Todos</option><option>Hombre</option><option>Mujer</option></select>`)}</div>
+      </div>
+    </div>
+    <div id="lp-tbl"><div style="text-align:center;padding:32px;color:${MU}"><span class="spin" style="font-size:22px;display:block;margin-bottom:8px">⚙️</span>Cargando...</div></div>
+  </div>`;
+  await lpCargar();
+}
+window.lpBuscar=debounce(async function(){
+  STATE._lpPag=1;await lpCargar();
+},300);
+async function lpCargar(){
+  const q=(document.getElementById("lp_q")||{value:""}).value.trim();
+  const sexo=(document.getElementById("lp_sexo")||{value:""}).value;
+  const pag=STATE._lpPag||1;
+  const desde=(pag-1)*LP_POR_PAG;
+
+  // Contar total
+  let countQ=SB.from("pacientes").select("*",{count:"exact",head:true}).eq("activo",true);
+  if(sexo)countQ=countQ.eq("sexo_biologico",sexo);
+  if(q)countQ=countQ.or(`nombre.ilike.%${q}%,apellido_paterno.ilike.%${q}%,apellido_materno.ilike.%${q}%,curp.ilike.%${q}%`);
+  const {count:total}=await countQ;
+
+  // Traer página
+  let dQ=SB.from("pacientes")
+    .select("id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico,created_at")
+    .eq("activo",true).order("apellido_paterno").range(desde,desde+LP_POR_PAG-1);
+  if(sexo)dQ=dQ.eq("sexo_biologico",sexo);
+  if(q)dQ=dQ.or(`nombre.ilike.%${q}%,apellido_paterno.ilike.%${q}%,apellido_materno.ilike.%${q}%,curp.ilike.%${q}%`);
+  const {data,error}=await dQ;
+
+  const t=document.getElementById("lp-tbl");if(!t)return;
+  if(error){t.innerHTML=`<p style="color:${DA};padding:12px">Error: ${error.message}</p>`;return;}
+  const totalPags=Math.ceil((total||0)/LP_POR_PAG);
+
+  // Paginador
+  const pagNav=totalPags>1?`<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:12px;flex-wrap:wrap">
+    <button onclick="lpIrPag(${pag-1})" ${pag<=1?"disabled":""} style="padding:5px 12px;border:1px solid ${BR};border-radius:7px;cursor:pointer;background:#fff;font-size:13px;${pag<=1?"opacity:.4":""}">← Anterior</button>
+    ${Array.from({length:totalPags},(_, i)=>i+1).filter(p=>p===1||p===totalPags||Math.abs(p-pag)<=2).reduce((acc,p,i,arr)=>{
+      if(i>0&&p-arr[i-1]>1)acc.push(`<span style="color:${MU}">…</span>`);
+      acc.push(`<button onclick="lpIrPag(${p})" style="padding:5px 10px;border:1px solid ${p===pag?P:BR};border-radius:7px;cursor:pointer;background:${p===pag?P:"#fff"};color:${p===pag?"#fff":TX};font-size:13px;font-weight:${p===pag?700:400}">${p}</button>`);
+      return acc;
+    },[]).join("")}
+    <button onclick="lpIrPag(${pag+1})" ${pag>=totalPags?"disabled":""} style="padding:5px 12px;border:1px solid ${BR};border-radius:7px;cursor:pointer;background:#fff;font-size:13px;${pag>=totalPags?"opacity:.4":""}">Siguiente →</button>
+  </div>`:"";
+
+  if(!data||data.length===0){
+    t.innerHTML=`<div style="background:#fff;border-radius:10px;padding:32px;text-align:center;color:${MU}">No se encontraron pacientes${q?" con ese criterio":""}</div>`;return;
+  }
+  t.innerHTML=`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+    <div style="padding:10px 14px;border-bottom:1px solid ${BR};display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;color:${MU}">Mostrando <b>${desde+1}–${Math.min(desde+LP_POR_PAG,total||0)}</b> de <b>${total||0}</b> paciente(s)</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:${PL}">${["Exp.","Nombre","Ap. Paterno","Ap. Materno","Nacimiento","Celular","Sexo","Registro",""].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${TX};text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
+      <tbody>${(data||[]).map((p,i)=>`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+        <td style="padding:8px 10px;font-size:14px;color:${AC};font-weight:700">${p.numero_expediente||"—"}</td>
+        <td style="padding:8px 10px;font-weight:600;font-size:13px">${p.nombre||""}</td>
+        <td style="padding:8px 10px;font-size:13px">${p.apellido_paterno||""}</td>
+        <td style="padding:8px 10px;font-size:13px">${p.apellido_materno||""}</td>
+        <td style="padding:8px 10px;font-size:12px;color:${MU}">${p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—"}</td>
+        <td style="padding:8px 10px;font-size:12px">${p.celular||"—"}</td>
+        <td style="padding:8px 10px;font-size:12px;color:${MU}">${p.sexo_biologico||"—"}</td>
+        <td style="padding:8px 10px;font-size:11px;color:${MU}">${p.created_at?new Date(p.created_at).toLocaleDateString("es-MX"):"—"}</td>
+        <td style="padding:8px 10px">${btn("Ver","abrirExpediente('"+p.id+"')","p",1)}</td>
+      </tr>`).join("")}</tbody>
+    </table>
+    ${pagNav}
+  </div>`;
+}
+window.lpIrPag=function(p){
+  const total=Math.ceil(1/1); // se recalcula en lpCargar
+  STATE._lpPag=Math.max(1,p);
+  lpCargar();
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 window.abrirExpediente=async function(id){
   // Limpiar TODOS los datos del paciente previo antes de cargar el nuevo
