@@ -9272,7 +9272,7 @@ window.renderListaSuplementos=function(){
 window.toggleMenuSuplementacion=function(){
   const menu=document.getElementById("menu-suplementacion");
   if(!menu)return;
-  if(menu.style.display!=="none"){menu.style.display="none";return;}
+  if(menu.style.display!=="none"){cerrarMenuSuplementacion();return;}
   menu.innerHTML=`
     <div style="padding:8px 10px;border-bottom:1px solid #ECEFF1;background:#FAFCFD;display:flex;gap:6px;align-items:center;flex:0 0 auto">
       <input id="busca-suplemento" type="text" placeholder="Buscar suplemento…" oninput="renderListaSuplementos()" style="flex:1;min-width:0;padding:7px 10px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:13px;outline:none">
@@ -9283,17 +9283,53 @@ window.toggleMenuSuplementacion=function(){
     <div id="lista-suplementos" style="flex:1 1 auto;min-height:0;overflow-y:auto"></div>
     <div id="sup-pie" style="padding:6px 10px;border-top:1px solid #ECEFF1;background:#FAFCFD;font-size:11px;color:#90A4AE;flex:0 0 auto"></div>`;
   menu.style.display="flex";
+  posicionarMenuSuplementos();
   renderListaSuplementos();
   setTimeout(()=>{document.getElementById("busca-suplemento")?.focus();},20);
+  window.addEventListener("resize",posicionarMenuSuplementos);
+  window.addEventListener("scroll",posicionarMenuSuplementos,true);
   setTimeout(()=>{
     document.addEventListener("click",function cerrar(e){
       if(!e.target.closest("#menu-suplementacion")&&!e.target.closest("#btn-suplementacion")){
-        const m=document.getElementById("menu-suplementacion");
-        if(m)m.style.display="none";
+        cerrarMenuSuplementacion();
         document.removeEventListener("click",cerrar);
       }
     });
   },10);
+}
+
+window.cerrarMenuSuplementacion=function(){
+  const m=document.getElementById("menu-suplementacion");
+  if(m)m.style.display="none";
+  window.removeEventListener("resize",posicionarMenuSuplementos);
+  window.removeEventListener("scroll",posicionarMenuSuplementos,true);
+}
+
+// Coloca el menú flotante junto al botón, siempre dentro de la pantalla.
+// Si no cabe abajo, lo abre hacia arriba.
+window.posicionarMenuSuplementos=function(){
+  const menu=document.getElementById("menu-suplementacion");
+  const btn=document.getElementById("btn-suplementacion");
+  if(!menu||!btn||menu.style.display==="none")return;
+  const r=btn.getBoundingClientRect();
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const ancho=Math.min(440,vw-16);
+  menu.style.width=ancho+"px";
+  let izq=r.right-ancho;
+  if(izq<8)izq=8;
+  if(izq+ancho>vw-8)izq=Math.max(8,vw-8-ancho);
+  menu.style.left=izq+"px";
+  const espacioAbajo=vh-r.bottom-16;
+  const espacioArriba=r.top-16;
+  if(espacioAbajo<280&&espacioArriba>espacioAbajo){
+    menu.style.top="auto";
+    menu.style.bottom=(vh-r.top+6)+"px";
+    menu.style.maxHeight=Math.max(220,espacioArriba-6)+"px";
+  } else {
+    menu.style.bottom="auto";
+    menu.style.top=(r.bottom+6)+"px";
+    menu.style.maxHeight=Math.max(220,espacioAbajo-6)+"px";
+  }
 }
 
 window.agregarSuplementoATratamiento=function(idx){
@@ -9447,7 +9483,9 @@ async function pgConsulta(){
             <b style="font-size:14px;color:${TX}">💊 Tratamiento</b>
             <div style="display:flex;gap:6px;align-items:center;position:relative">
               <button onclick="toggleMenuSuplementacion()" id="btn-suplementacion" style="background:#1565C0;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">💊 Suplementación</button>
-              <div id="menu-suplementacion" style="display:none;position:absolute;top:30px;right:0;background:#fff;border:1.5px solid ${BR};border-radius:8px;box-shadow:0 8px 24px #00000030;width:430px;max-width:92vw;max-height:72vh;overflow:hidden;z-index:9990;flex-direction:column"></div>
+              <!-- position:fixed para escapar del overflow:hidden de la tarjeta de Tratamiento,
+                   que antes recortaba la lista. La posición se calcula en posicionarMenuSuplementos(). -->
+              <div id="menu-suplementacion" style="display:none;position:fixed;background:#fff;border:1.5px solid ${BR};border-radius:8px;box-shadow:0 8px 24px #00000030;overflow:hidden;z-index:9990;flex-direction:column"></div>
               <button onclick="showRecipe()" style="background:#1B5E20;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">Receta electrónica</button>
             </div>
           </div>
