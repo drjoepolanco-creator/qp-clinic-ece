@@ -1900,8 +1900,9 @@ window.actualizarTipoNota=function(tipo){
   const sec=document.getElementById("seccion-especial");
   if(sec)sec.innerHTML=renderSeccionEspecial(tipo,STATE.consultaActual?.datos_clinicos||{});
   const _oc=CAMPOS_OCULTOS_NOTA[tipo]||[];
-  ["subj","eva","expl","anal","trat","lab","gab","plan","prono"].forEach(k=>{const el=document.getElementById("cardsoap-"+k);if(el)el.style.display=_oc.includes(k)?"none":"";});
-  const _ia=document.getElementById("btn-ia-nota");if(_ia)_ia.style.display=(CAMPOS_OCULTOS_NOTA[tipo])?"none":"inline-flex";
+  ["subj","eva","expl","anal","trat","lab","gab","plan","prono"].forEach(k=>{const el=document.getElementById("cardsoap-"+k);if(el)el.style.display=_oc.includes(k)?"none":(k==="expl"?"flex":"");});
+  const _ia=document.getElementById("btn-ia-nota");if(_ia)_ia.style.display=esNotaSinSOAP(tipo)?"none":"inline-flex";
+  if(tipo==="Nota nutricional"&&typeof nutriRecalcular==="function")setTimeout(nutriRecalcular,30);
   // Re-init GCS if urgencias
   if(tipo==="Nota de urgencias")actualizarGCS();
 }
@@ -1933,6 +1934,17 @@ function leerDatosClinicos(){
     // Primera vez / historia clínica
     "dc_tiempo_evol","dc_estado_general","dc_tipo_inicio","dc_imc_clas","dc_ta_clas","dc_cap_func",
     "dc_lab_primera","dc_gab_primera","dc_dx_inicial","dc_pronostico_pv","dc_proxima_cita_primera",
+    // Nota nutricional (evaluación ABCD + plan)
+    "dc_nu_peso","dc_nu_talla","dc_nu_imc","dc_nu_peso_hab","dc_nu_peso_meta","dc_nu_cambio_peso",
+    "dc_nu_cintura","dc_nu_cadera","dc_nu_icc","dc_nu_pgc","dc_nu_masa_musc","dc_nu_grasa_visc",
+    "dc_nu_dx","dc_nu_riesgo_cintura","dc_nu_bioq",
+    "dc_nu_alergias","dc_nu_intolerancias","dc_nu_apetito","dc_nu_evac","dc_nu_gi","dc_nu_sueno","dc_nu_clinico",
+    "dc_nu_r24","dc_nu_comidas_dia","dc_nu_agua","dc_nu_cafe","dc_nu_alcohol",
+    "dc_nu_come_fuera","dc_nu_cocina","dc_nu_af_tipo","dc_nu_af_frec","dc_nu_prefs",
+    "dc_nu_kcal","dc_nu_tipo_plan","dc_nu_formula","dc_nu_af_nivel",
+    "dc_nu_prot_gkg","dc_nu_lip_gkg","dc_nu_prot_g","dc_nu_lip_g","dc_nu_hc_g",
+    "dc_nu_desayuno","dc_nu_col1","dc_nu_comida","dc_nu_col2","dc_nu_cena","dc_nu_hidratacion",
+    "dc_nu_fase_famel","dc_nu_educacion","dc_nu_adherencia","dc_nu_proxima_cita","dc_nu_metas",
     // Urgencias
     "dc_va_urg","dc_resp_urg","dc_circ_urg","dc_neuro_urg","dc_exposicion_urg",
     "dc_triaje","dc_mecanismo","dc_tiempo_urg","dc_hora_atencion_urg",
@@ -2024,6 +2036,80 @@ function leerDatosClinicos(){
   ["int_soluciones","int_medicamentos","int_cronicos"].forEach(k=>{const a=STATE.consultaActual?.datos_clinicos?.[k];if(Array.isArray(a)&&a.length)obj[k]=a;});
   return Object.keys(obj).length?obj:null;
 }
+// ── NOTA NUTRICIONAL: cálculos automáticos y precarga ────────────────────────
+window.nutriRecalcular=function(){
+  const g=(id)=>document.getElementById(id);
+  const n=(id)=>{const el=g(id);const v=parseFloat((el?.value||"").replace(",","."));return isFinite(v)?v:0;};
+  const peso=n("dc_nu_peso"),talla=n("dc_nu_talla");
+  // IMC
+  const elImc=g("dc_nu_imc");
+  if(elImc){
+    if(peso>0&&talla>0){const imc=peso/Math.pow(talla/100,2);elImc.value=imc.toFixed(1);}
+    else elImc.value="";
+  }
+  // Índice cintura/cadera
+  const cin=n("dc_nu_cintura"),cad=n("dc_nu_cadera");
+  const elIcc=g("dc_nu_icc");
+  if(elIcc)elIcc.value=(cin>0&&cad>0)?(cin/cad).toFixed(2):"";
+  // Macronutrientes
+  const kcal=n("dc_nu_kcal"),pgk=n("dc_nu_prot_gkg"),lgk=n("dc_nu_lip_gkg");
+  const protG=peso>0&&pgk>0?peso*pgk:0;
+  const lipG=peso>0&&lgk>0?peso*lgk:0;
+  const kcalProt=protG*4,kcalLip=lipG*9;
+  const hcG=kcal>0?Math.max(0,(kcal-kcalProt-kcalLip)/4):0;
+  const elP=g("dc_nu_prot_g"),elL=g("dc_nu_lip_g"),elH=g("dc_nu_hc_g");
+  if(elP)elP.value=protG>0?Math.round(protG):"";
+  if(elL)elL.value=lipG>0?Math.round(lipG):"";
+  if(elH)elH.value=(kcal>0&&(protG>0||lipG>0))?Math.round(hcG):"";
+  const badge=g("nu-macros-badge");
+  if(badge){
+    if(kcal>0&&peso>0&&(protG>0||lipG>0)){
+      const kcalHC=hcG*4;
+      const pct=(x)=>kcal>0?Math.round(x/kcal*100):0;
+      const excede=(kcalProt+kcalLip)>kcal;
+      badge.style.background=excede?"#FFEBEE":"#E8F5E9";
+      badge.style.color=excede?"#C62828":"#2E7D32";
+      badge.innerHTML=excede
+        ?`⚠️ Proteína + lípidos (${Math.round(kcalProt+kcalLip)} kcal) superan el objetivo de ${Math.round(kcal)} kcal. Ajusta g/kg o el objetivo calórico.`
+        :`Distribución: <b>Proteína ${Math.round(protG)} g</b> (${Math.round(kcalProt)} kcal · ${pct(kcalProt)}%) · <b>Lípidos ${Math.round(lipG)} g</b> (${Math.round(kcalLip)} kcal · ${pct(kcalLip)}%) · <b>HC ${Math.round(hcG)} g</b> (${Math.round(kcalHC)} kcal · ${pct(kcalHC)}%) — Total ${Math.round(kcal)} kcal${peso>0?" · "+(kcal/peso).toFixed(1)+" kcal/kg":""}`;
+    } else {
+      badge.style.background="#E8F5E9";badge.style.color="#2E7D32";
+      badge.textContent="Captura peso y objetivo calórico para calcular la distribución de macronutrientes.";
+    }
+  }
+};
+window.nutriTraerInBody=async function(){
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("Abre un expediente primero",false);return;}
+  try{
+    const {data}=await SB.from("inbody_resultados").select("*").eq("paciente_id",pid).order("fecha",{ascending:false}).limit(1);
+    const ib=data&&data[0];
+    if(!ib){showToast("Sin mediciones InBody registradas",false);return;}
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=="")el.value=v;};
+    set("dc_nu_peso",ib.peso);set("dc_nu_talla",ib.altura);set("dc_nu_pgc",ib.pgc);
+    set("dc_nu_masa_musc",ib.masa_musculo);set("dc_nu_grasa_visc",ib.grasa_visceral);
+    nutriRecalcular();
+    showToast(`✓ Datos del InBody del ${ib.fecha||"último registro"} cargados`);
+  }catch(e){showToast("Error al leer InBody: "+e.message,false);}
+};
+window.nutriTraerObjetivoCalorico=async function(){
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("Abre un expediente primero",false);return;}
+  try{
+    const {data}=await SB.from("anexos").select("descripcion,created_at").eq("paciente_id",pid)
+      .like("descripcion","__OBJCAL__:%").order("created_at",{ascending:false}).limit(1);
+    if(!data||!data[0]){showToast("Sin objetivos calóricos guardados — usa 🧮 Cálculo nutricional",false);return;}
+    let o={};try{o=JSON.parse(data[0].descripcion.substring(11));}catch(e){}
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+    set("dc_nu_kcal",o.kcal);
+    const t=(o.tipo||"");
+    set("dc_nu_tipo_plan",t.includes("Déficit")||t.includes("Hipocal")?"Déficit calórico":t.includes("Superávit")||t.includes("Hipercal")?"Superávit calórico":t?"Normocalórico":"");
+    set("dc_nu_formula",o.formula);
+    set("dc_nu_af_nivel",o.nivel_actividad);
+    nutriRecalcular();
+    showToast(`✓ Objetivo calórico ${o.kcal||""} kcal cargado`);
+  }catch(e){showToast("Error: "+e.message,false);}
+};
 window.actualizarAldrete=function(campo,valor){
   const ids=["a_actividad","a_respiracion","a_circulacion","a_conciencia","a_color"];
   let total=0;
@@ -2033,7 +2119,12 @@ window.actualizarAldrete=function(campo,valor){
   const cont=document.querySelector(".aldrete-badge-container");
   if(cont)cont.innerHTML=`<b style="font-size:18px;color:${col}">Aldrete: ${total}/10 — ${lbl}</b><p style="font-size:12px;color:#546E7A;margin-top:4px">Puntaje mínimo para alta de UCPA: 9 puntos</p>`;
 }
-const CAMPOS_OCULTOS_NOTA={"Orden de Internamiento":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota preoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota posoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de valoración preanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de anestesia transoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota postanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de egreso":["subj","eva","expl","anal","trat","lab","gab","plan","prono"]};
+const CAMPOS_OCULTOS_NOTA={"Orden de Internamiento":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota preoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota posoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de valoración preanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de anestesia transoperatoria":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota postanestésica":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota de egreso":["subj","eva","expl","anal","trat","lab","gab","plan","prono"],"Nota nutricional":["eva","expl","prono"]};
+// Las notas quirúrgicas/administrativas ocultan TODO el bloque SOAP (incluyen "subj").
+// La Nota nutricional solo oculta algunos campos, por eso NO debe tratarse como nota sin SOAP
+// (conserva el botón de IA y el encabezado normal de signos vitales).
+function esNotaSinSOAP(tipo){return (CAMPOS_OCULTOS_NOTA[tipo]||[]).includes("subj");}
+window.esNotaSinSOAP=esNotaSinSOAP;
 function renderSeccionEspecial(tipo,d){
   d=d||{};
   const SI=`width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px`;
@@ -2061,11 +2152,110 @@ function renderSeccionEspecial(tipo,d){
   // NOTA NUTRICIONAL
   // ══════════════════════════════════════════════════════════
   if(tipo==="Nota nutricional"){
-    return`<div style="background:#E8F5E9;border-radius:10px;padding:10px 16px;display:flex;align-items:flex-start;gap:10px">
-      <span style="font-size:18px;margin-top:1px">🥗</span>
-      <div>
-        <p style="font-size:13px;font-weight:700;color:#2E7D32;margin-bottom:4px">Nota nutricional</p>
-        <p style="font-size:13px;color:${TX}">Documenta el seguimiento nutricional del paciente: evolución dietética, mediciones antropométricas/InBody, análisis y objetivo calórico, plan de alimentación y suplementación. Usa los campos SOAP de arriba — en <b>Tratamiento</b> encontrarás el botón <b>💊 Suplementación</b> para prescribir productos Famel directamente.</p>
+    const NV="#2E7D32";
+    const NUM=(id,val,ph,step="0.1")=>`<input id="${id}" type="number" step="${step}" value="${val||""}" placeholder="${ph}" oninput="nutriRecalcular()" style="${SI}">`;
+    const RO=(id,val,ph)=>`<input id="${id}" value="${val||""}" placeholder="${ph}" readonly style="${SI};background:#F5F7F8;font-weight:800;color:${NV}">`;
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#E8F5E9,#fff);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <b style="font-size:14px;color:${NV}">🥗 Nota nutricional — Evaluación ABCD y plan de alimentación</b>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" onclick="nutriTraerInBody()" style="background:${NV};color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">📥 Traer del InBody</button>
+          <button type="button" onclick="nutriTraerObjetivoCalorico()" style="background:#fff;color:${NV};border:1.5px solid ${NV};border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">🧮 Traer objetivo calórico</button>
+        </div>
+      </div>
+      <div style="padding:14px">
+        ${ALERTA("Los campos de <b>Exploración física</b>, <b>EVA</b> y <b>Pronóstico</b> se ocultan en esta nota por no aplicar a la consulta nutricional. Usa <b>Subjetivo</b> para el interrogatorio, <b>Análisis</b> para el diagnóstico nutricional integrado y <b>Tratamiento</b> (botón 💊 Suplementación) para la prescripción de productos Famel.","ok")}
+
+        ${H("A — Antropometría y composición corporal",NV)}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px">
+          ${fld("Peso actual (kg)",NUM("dc_nu_peso",d.nu_peso,"Ej: 78.4"))}
+          ${fld("Talla (cm)",NUM("dc_nu_talla",d.nu_talla,"Ej: 172"))}
+          ${fld("IMC (auto)",RO("dc_nu_imc",d.nu_imc,"—"))}
+          ${fld("Peso habitual (kg)",NUM("dc_nu_peso_hab",d.nu_peso_hab,"Ej: 82"))}
+          ${fld("Peso meta (kg)",NUM("dc_nu_peso_meta",d.nu_peso_meta,"Ej: 72"))}
+          ${fld("Cambio de peso desde la última consulta",INP("dc_nu_cambio_peso",d.nu_cambio_peso,"Ej: −2.1 kg en 4 semanas"))}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px">
+          ${fld("Cintura (cm)",NUM("dc_nu_cintura",d.nu_cintura,"Ej: 92"))}
+          ${fld("Cadera (cm)",NUM("dc_nu_cadera",d.nu_cadera,"Ej: 101"))}
+          ${fld("Índice cintura/cadera (auto)",RO("dc_nu_icc",d.nu_icc,"—"))}
+          ${fld("% Grasa corporal",NUM("dc_nu_pgc",d.nu_pgc,"Ej: 28.4"))}
+          ${fld("Masa muscular (kg)",NUM("dc_nu_masa_musc",d.nu_masa_musc,"Ej: 31.2"))}
+          ${fld("Grasa visceral (nivel)",NUM("dc_nu_grasa_visc",d.nu_grasa_visc,"Ej: 9","1"))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          ${fld("Diagnóstico nutricional (IMC/OMS)",SEL("dc_nu_dx",[["","—"],["Bajo peso","Bajo peso (IMC <18.5)"],["Normal","Peso normal (18.5–24.9)"],["Sobrepeso","Sobrepeso (25–29.9)"],["Obesidad I","Obesidad grado I (30–34.9)"],["Obesidad II","Obesidad grado II (35–39.9)"],["Obesidad III","Obesidad grado III (≥40)"],["Obesidad sarcopénica","Obesidad sarcopénica"],["Sarcopenia","Sarcopenia"],["Desnutrición leve","Desnutrición leve"],["Desnutrición moderada","Desnutrición moderada"],["Desnutrición grave","Desnutrición grave"]],d.nu_dx||""))}
+          ${fld("Riesgo cardiometabólico por cintura",SEL("dc_nu_riesgo_cintura",[["","—"],["Sin riesgo","Sin riesgo aumentado"],["Riesgo aumentado","Riesgo aumentado (H ≥90 / M ≥80 cm)"],["Riesgo muy aumentado","Riesgo muy aumentado (H ≥102 / M ≥88 cm)"]],d.nu_riesgo_cintura||""))}
+        </div>
+
+        ${H("B — Datos bioquímicos relevantes",NV)}
+        ${fld("Laboratorios de interés nutricional",TA("dc_nu_bioq",d.nu_bioq,"Glucosa, HbA1c, insulina/HOMA-IR, perfil lipídico, ácido úrico, perfil tiroideo, vitamina D, B12, ferritina, PFH…",2))}
+
+        ${H("C — Datos clínicos y funcionales",NV)}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Alergias alimentarias",INP("dc_nu_alergias",d.nu_alergias,"Ej: nuez, mariscos — o 'niega'"))}
+          ${fld("Intolerancias / restricciones",INP("dc_nu_intolerancias",d.nu_intolerancias,"Ej: lactosa, gluten, vegetariano"))}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:12px">
+          ${fld("Apetito",SEL("dc_nu_apetito",[["","—"],["Normal","Normal"],["Aumentado","Aumentado"],["Disminuido","Disminuido"],["Ansiedad por comer","Ansiedad por comer"]],d.nu_apetito||""))}
+          ${fld("Evacuaciones",SEL("dc_nu_evac",[["","—"],["Normal","Normal (diaria, Bristol 3-4)"],["Estreñimiento","Estreñimiento"],["Diarrea","Diarrea"],["Alternante","Alternante"]],d.nu_evac||""))}
+          ${fld("Síntomas gastrointestinales",INP("dc_nu_gi",d.nu_gi,"Reflujo, distensión, gases…"))}
+          ${fld("Horas de sueño",INP("dc_nu_sueno",d.nu_sueno,"Ej: 6-7 h"))}
+        </div>
+        ${fld("Medicamentos / condiciones que impactan el estado nutricional",TA("dc_nu_clinico",d.nu_clinico,"Ej: metformina 850 mg c/12 h, hipotiroidismo en control, SOP, uso de corticoides…",2))}
+
+        ${H("D — Evaluación dietética y estilo de vida",NV)}
+        ${fld("Recordatorio de 24 horas / dieta habitual",TA("dc_nu_r24",d.nu_r24,"Desayuno: … · Colación: … · Comida: … · Colación: … · Cena: …",3))}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px">
+          ${fld("Tiempos de comida al día",INP("dc_nu_comidas_dia",d.nu_comidas_dia,"Ej: 3 + 2 colaciones"))}
+          ${fld("Agua al día (litros)",INP("dc_nu_agua",d.nu_agua,"Ej: 1.5 L"))}
+          ${fld("Café / bebidas azucaradas",INP("dc_nu_cafe",d.nu_cafe,"Ej: 2 tazas café, 1 refresco"))}
+          ${fld("Alcohol",INP("dc_nu_alcohol",d.nu_alcohol,"Ej: 2 copas fin de semana"))}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px">
+          ${fld("Comidas fuera de casa (por semana)",INP("dc_nu_come_fuera",d.nu_come_fuera,"Ej: 5 comidas"))}
+          ${fld("Quién prepara los alimentos",INP("dc_nu_cocina",d.nu_cocina,"Ej: el paciente / cónyuge / restaurante"))}
+          ${fld("Actividad física — tipo",INP("dc_nu_af_tipo",d.nu_af_tipo,"Ej: fuerza + caminata"))}
+          ${fld("Actividad física — frecuencia",INP("dc_nu_af_frec",d.nu_af_frec,"Ej: 4 días/semana, 60 min"))}
+        </div>
+        ${fld("Preferencias, aversiones y barreras",TA("dc_nu_prefs",d.nu_prefs,"Alimentos que disfruta, los que rechaza, horarios laborales, presupuesto, apoyo familiar…",2))}
+
+        ${H("Objetivo calórico y distribución de macronutrientes",NV)}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px">
+          ${fld("Objetivo calórico (kcal/día)",NUM("dc_nu_kcal",d.nu_kcal,"Ej: 1800","10"))}
+          ${fld("Tipo de plan",SEL("dc_nu_tipo_plan",[["","—"],["Déficit calórico","Déficit calórico (hipocalórico)"],["Normocalórico","Normocalórico (mantenimiento)"],["Superávit calórico","Superávit calórico (hipercalórico)"]],d.nu_tipo_plan||""))}
+          ${fld("Fórmula utilizada",SEL("dc_nu_formula",[["","—"],["FAO/OMS/ONU","FAO/OMS/ONU (Schofield)"],["Harris-Benedict","Harris-Benedict"],["Valencia","Valencia (mexicanos)"],["Mifflin-St. Jeor","Mifflin-St. Jeor"],["Promedio","Promedio de las 4"],["kcal/kg","kcal por kg de peso"]],d.nu_formula||""))}
+          ${fld("Nivel de actividad aplicado",SEL("dc_nu_af_nivel",[["","—"],["Sedentario","Sedentario (0% · PAL 1.00)"],["Ligera","Ligera (30% · PAL 1.375)"],["Moderada","Moderada (45% · PAL 1.55)"],["Intensa","Intensa (65% · PAL 1.725)"],["Muy intensa","Muy intensa (85% · PAL 1.90)"]],d.nu_af_nivel||""))}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:8px">
+          ${fld("Proteína (g/kg)",NUM("dc_nu_prot_gkg",d.nu_prot_gkg,"Ej: 1.6"))}
+          ${fld("Lípidos (g/kg)",NUM("dc_nu_lip_gkg",d.nu_lip_gkg,"Ej: 0.8"))}
+          ${fld("Proteína (g/día)",RO("dc_nu_prot_g",d.nu_prot_g,"—"))}
+          ${fld("Lípidos (g/día)",RO("dc_nu_lip_g",d.nu_lip_g,"—"))}
+          ${fld("Hidratos de carbono (g/día)",RO("dc_nu_hc_g",d.nu_hc_g,"—"))}
+        </div>
+        <div id="nu-macros-badge" style="background:#E8F5E9;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:${NV};font-weight:700">Captura peso y objetivo calórico para calcular la distribución de macronutrientes.</div>
+
+        ${H("Plan de alimentación por tiempos de comida",NV)}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Desayuno",TA("dc_nu_desayuno",d.nu_desayuno,"Equivalentes / menú sugerido",2))}
+          ${fld("Colación matutina",TA("dc_nu_col1",d.nu_col1,"Equivalentes / menú sugerido",2))}
+          ${fld("Comida",TA("dc_nu_comida",d.nu_comida,"Equivalentes / menú sugerido",2))}
+          ${fld("Colación vespertina",TA("dc_nu_col2",d.nu_col2,"Equivalentes / menú sugerido",2))}
+          ${fld("Cena",TA("dc_nu_cena",d.nu_cena,"Equivalentes / menú sugerido",2))}
+          ${fld("Hidratación e indicaciones generales",TA("dc_nu_hidratacion",d.nu_hidratacion,"Ej: 2.5 L de agua natural al día, evitar bebidas azucaradas…",2))}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Fase del plan Famel",SEL("dc_nu_fase_famel",[["","—"],["Fase 1 — Cetosis franca","Fase 1 — Cetosis franca"],["Fase 2 — Cetosis mixta","Fase 2 — Cetosis mixta"],["Fase 3 — Transición","Fase 3 — Transición"],["Fase 4 — Mantenimiento","Fase 4 — Mantenimiento"],["No aplica","No aplica"]],d.nu_fase_famel||""))}
+          ${fld("Educación nutricional otorgada",INP("dc_nu_educacion",d.nu_educacion,"Ej: lectura de etiquetas, manejo de porciones"))}
+        </div>
+
+        ${H("Adherencia y seguimiento",NV)}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:12px">
+          ${fld("Adherencia al plan previo",SEL("dc_nu_adherencia",[["","—"],["Primera consulta","Primera consulta (no aplica)"],["Excelente (>90%)","Excelente (>90%)"],["Buena (70-90%)","Buena (70-90%)"],["Regular (50-69%)","Regular (50-69%)"],["Baja (<50%)","Baja (<50%)"]],d.nu_adherencia||""))}
+          ${fld("Próxima cita / seguimiento",INP("dc_nu_proxima_cita",d.nu_proxima_cita,"Ej: en 3 semanas"))}
+        </div>
+        ${fld("Metas para la próxima consulta",TA("dc_nu_metas",d.nu_metas,"Ej: bajar 1.5 kg de masa grasa, conservar masa muscular, 4 sesiones de fuerza por semana, registro de alimentos 5 días…",2))}
       </div>
     </div>`;
   }
@@ -9012,58 +9202,91 @@ const MOTIVOS_COMUNES={
   "🦴 Osteomuscular":["Dolor lumbar / Lumbalgia","Cervicalgia","Dorsalgia","Artralgia","Mialgia generalizada","Osteoartritis"],
   "🌡️ General":["Fiebre","Astenia / Fatiga crónica","Pérdida de peso involuntaria","Chequeo médico general","Seguimiento de tratamiento","Resultado de laboratorios"]
 };
-// ── CATÁLOGO DE SUPLEMENTOS FAMEL NUTRITION ───────────────────────────────────
+// ── CATÁLOGO FAMEL NUTRITION — 17 productos ──────────────────────────────────
+// Fuente: ficha técnica oficial "Productos Famel" (18 págs, sep-2025).
+// Los datos de porción, composición e instrucciones de uso están tomados
+// textualmente de la etiqueta de cada producto. NO recortar este catálogo.
 const FAMEL_SUPLEMENTOS=[
-  {nombre:"Vanilla Protein Mix",pres:"Polvo",porcion:"25 g (1.5 medidas)",
-    texto:"Vanilla Protein Mix. Suplemento alimenticio. Polvo. Porción 25 gramos.\n-Mezclar 1 medida y media (incluida) equivalente a 25g, en vaso con 250mL de agua o leche de su preferencia y tomar vía oral hasta 2 veces al día. Para mejor consistencia usar licuadora y hielos."},
-  {nombre:"Strawberry Protein Mix",pres:"Polvo",porcion:"25 g (1.5 medidas)",
-    texto:"Strawberry Protein Mix. Suplemento alimenticio. Polvo. Porción 25 gramos.\n-Mezclar 1 medida y media (incluida) equivalente a 25g, en vaso con 250mL de agua o leche de su preferencia y tomar vía oral hasta 2 veces al día. Para mejor consistencia usar licuadora y hielos."},
-  {nombre:"Chocolate Protein Mix",pres:"Polvo",porcion:"25 g (1.5 medidas)",
-    texto:"Chocolate Protein Mix. Suplemento alimenticio. Polvo. Porción 25 gramos.\n-Mezclar 1 medida y media (incluida) equivalente a 25g, en vaso con 250mL de agua o leche de su preferencia y tomar vía oral hasta 2 veces al día. Para mejor consistencia usar licuadora y hielos."},
-  {nombre:"Whey Moka Protein Mix",pres:"Polvo",porcion:"43 g (1.5 medidas)",
-    texto:"Whey Moka Protein Mix. Suplemento alimenticio. Polvo. Porción 43 gramos.\n-Mezclar 1 medida y media (incluida) equivalente a 25g de creatina*, en vaso con 250mL de agua o leche de su preferencia y tomar vía oral hasta 2 veces al día. Para mejor consistencia usar licuadora y hielos."},
-  {nombre:"Hot Cakes Protein",pres:"Harina para preparar",porcion:"1 medida (25 g)",
-    texto:"Hot Cakes Protein. Suplemento alimenticio. Harina para preparar. Porción 25 gramos.\n-Tomar 1 medida incluida de la harina y añadir una medida y media de agua. Mezclar vigorosamente hasta disolver los grumos. Calentar un sartén, rociar con aceite en aerosol, verter la mezcla y cocinar a fuego lento. Voltear una vez que se sequen las orillas y cocinar un minuto más. Contiene edulcorantes, no recomendable en niños."},
-  {nombre:"Creatine",pres:"Polvo",porcion:"5 g (1 medida)",
-    texto:"Creatine. Suplemento alimenticio. Polvo. Porción 5 gramos.\n-Mezclar 1 medida (incluida) equivalente a 5g de creatina, en vaso con 250mL de agua o jugo de su preferencia y tomar vía oral una vez al día."},
+  {nombre:"Vanilla Protein Mix",pres:"Polvo · Envase 500 g · 20 porciones",porcion:"25 g (1.5 medidas)",
+    texto:"Vanilla Protein Mix — proteína de suero de leche, proteína de soya y albúmina de huevo. Suplemento alimenticio en polvo. Porción: 25 g (1 medida y media incluida) que aportan 17.1 g de proteína y 94 kcal.\n-Mezclar 1 medida y media (25 g) en un vaso con 250 mL de agua o leche de su preferencia. Tomar vía oral cada 12 horas (máximo 2 tomas al día), por {DIAS} días. Para mejor consistencia usar licuadora y hielos."},
+  {nombre:"Strawberry Protein Mix",pres:"Polvo · Envase 500 g · 20 porciones",porcion:"25 g (1.5 medidas)",
+    texto:"Strawberry Protein Mix — proteína de suero de leche, proteína de soya y albúmina de huevo. Suplemento alimenticio en polvo. Porción: 25 g (1 medida y media incluida) que aportan 17.1 g de proteína y 94 kcal.\n-Mezclar 1 medida y media (25 g) en un vaso con 250 mL de agua o leche de su preferencia. Tomar vía oral cada 12 horas (máximo 2 tomas al día), por {DIAS} días. Para mejor consistencia usar licuadora y hielos."},
+  {nombre:"Chocolate Protein Mix",pres:"Polvo · Envase 500 g · 20 porciones",porcion:"25 g (1.5 medidas)",
+    texto:"Chocolate Protein Mix — proteína de suero de leche, proteína de soya y albúmina de huevo. Suplemento alimenticio en polvo. Porción: 25 g (1 medida y media incluida) que aportan 17 g de proteína y 93 kcal.\n-Mezclar 1 medida y media (25 g) en un vaso con 250 mL de agua o leche de su preferencia. Tomar vía oral cada 12 horas (máximo 2 tomas al día), por {DIAS} días. Para mejor consistencia usar licuadora y hielos."},
+  {nombre:"Whey Moka Protein Mix",pres:"Polvo · Envase 1.29 kg · 30 porciones",porcion:"43 g (1.5 medidas)",
+    texto:"Whey Moka Protein Mix — proteína de suero de leche. Suplemento alimenticio en polvo. Porción: 43 g (1 medida y media incluida) que aportan 30.1 g de proteína y 158 kcal.\n-Mezclar 1 medida y media (43 g) en un vaso con 250 mL de agua o leche de su preferencia. Tomar vía oral cada 12 horas (máximo 2 tomas al día), por {DIAS} días. Para mejor consistencia usar licuadora y hielos."},
+  {nombre:"Hot Cakes Protein",pres:"Harina para preparar · 17 porciones",porcion:"1 medida (25 g)",
+    texto:"Hot Cakes Protein — harina enriquecida con proteína de suero de leche, proteína de soya y albúmina de huevo. Suplemento alimenticio. Porción: 25 g (1 medida incluida) que aportan 11 g de proteína y 100 kcal.\n-Preparar 1 porción al día, por {DIAS} días: tomar 1 medida de la harina y añadir una medida y media de agua; mezclar vigorosamente hasta disolver los grumos. Calentar un sartén y rociar con aceite en aerosol, verter la mezcla y cocinar a fuego lento; voltear una vez que se sequen las orillas y cocinar un minuto más."},
+  {nombre:"Creatine",pres:"Polvo · Creatina monohidratada",porcion:"5 g (1 medida)",
+    texto:"Creatine — creatina monohidratada 5,000 mg (5 g) por porción. Suplemento alimenticio en polvo. Porción: 5 g (1 medida incluida).\n-Mezclar 1 medida (5 g) en un vaso con 250 mL de agua o jugo de su preferencia y tomar vía oral cada 24 horas, por {DIAS} días. Mayor efectividad combinada con ejercicio de fortalecimiento muscular."},
   {nombre:"Myo + D Chiro Inositol",pres:"Polvo",porcion:"4.1 g (1 medida)",
-    texto:"Myo + D Chiro Inositol. Suplemento alimenticio. Polvo. Porción 4.1 gramos.\n-Mezclar 1 medida (4.1g) en vaso con agua fría y tomar vía oral una vez al día."},
+    texto:"Myo + D Chiro Inositol — Myo-inositol 4,000 mg y D-Chiro inositol 100 mg por porción. Suplemento alimenticio en polvo. Porción: 4.1 g (1 medida incluida).\n-Mezclar 1 medida (4.1 g) en un vaso con agua fría y tomar vía oral cada 24 horas, por {DIAS} días.\nIndicado en síndrome de ovario poliquístico, resistencia a la insulina, síndrome metabólico e hígado graso."},
   {nombre:"Iso Flav Fem",pres:"Tabletas",porcion:"2 tabletas",
-    texto:"Iso Flav Fem (Isoflavonas de soya). Suplemento alimenticio. Tabletas. Porción 2 tabletas.\n-Tomar 2 tabletas vía oral al día, junto con los alimentos: 1 con el desayuno y 1 con la cena."},
-  {nombre:"Glutamine",pres:"Polvo",porcion:"10 g (1 medida)",
-    texto:"Glutamine. Suplemento alimenticio. Polvo. Porción 10 gramos.\n-Mezclar 1 medida equivalente a 10g de glutamina, en vaso con 250mL de la bebida de su preferencia o agua y tomar vía oral."},
-  {nombre:"Gli Mg Complex",pres:"Cápsulas",porcion:"4 cápsulas",
-    texto:"Gli Mg Complex (Glicinato de Magnesio). Suplemento alimenticio. Cápsulas. Porción 4 cápsulas.\n-Tomar 4 cápsulas vía oral en la noche, junto con la cena."},
-  {nombre:"Full CitraMag",pres:"Cápsulas",porcion:"3 cápsulas",
-    texto:"Full CitraMag (Citrato de Magnesio). Suplemento alimenticio. Cápsulas. Porción 3 cápsulas.\n-Tomar 3 cápsulas vía oral una vez al día, junto con cualquier alimento."},
-  {nombre:"Antiox C+D3",pres:"Tabletas",porcion:"1 tableta",
-    texto:"Antiox C+D3 (Acerola C + D3 + Zinc). Suplemento alimenticio. Tabletas. Porción 1 tableta.\n-Masticar 1 tableta vía oral al día."},
-  {nombre:"Calcium Plus",pres:"Tabletas",porcion:"2 tabletas",
-    texto:"Calcium Plus. Suplemento alimenticio. Tabletas de 1.2g. Porción 2 tabletas.\n-Masticar 2 tabletas vía oral al día."},
-  {nombre:"Tripto + B6 + CitMg",pres:"Tabletas",porcion:"1 cápsula",
-    texto:"Tripto + B6 + CitMg. Suplemento alimenticio. Tabletas. Porción 1 cápsula.\n-Tomar 1 cápsula vía oral al día, entre las 16:00 y 17:00 horas. Evitar consumir carnes, derivados cárnicos, huevos o queso en la cena."},
+    texto:"Iso Flav Fem — isoflavonas de soya 200 mg, calcio 800 mg, magnesio 58 mg (del citrato), ácido fólico 400 mcg, vitamina K2 30 mcg y vitamina D3 10 mcg por porción. Suplemento alimenticio en tabletas. Porción: 2 tabletas.\n-Tomar 1 tableta vía oral cada 12 horas junto con los alimentos (1 con el desayuno y 1 con la cena), por {DIAS} días. Se recomienda acompañar con un probiótico para su correcta metabolización."},
+  {nombre:"Glutamine",pres:"Polvo · Sabor natural",porcion:"10 g (1 medida)",
+    texto:"Glutamine — L-glutamina 10,000 mg (10 g) por porción. Suplemento alimenticio en polvo sabor natural. Porción: 10 g (1 medida incluida).\n-Mezclar 1 medida (10 g) en un vaso con 250 mL de agua o de la bebida de su preferencia y tomar vía oral cada 24 horas, por {DIAS} días."},
+  {nombre:"Gli Mg Complex",pres:"Cápsulas · Glicinato de magnesio",porcion:"4 cápsulas",
+    texto:"Gli Mg Complex — glicinato de magnesio, que aporta 408 mg de magnesio elemental (102 mg por cápsula) por porción de 4 cápsulas. Suplemento alimenticio en cápsulas. Porción: 4 cápsulas.\n-Tomar 4 cápsulas juntas vía oral cada 24 horas, por la noche con la cena, por {DIAS} días."},
+  {nombre:"Full CitraMag",pres:"Cápsulas · Citrato de magnesio",porcion:"3 cápsulas",
+    texto:"Full CitraMag — citrato de magnesio 2,400 mg (800 mg por cápsula), que aportan 390 mg de magnesio elemental, más semilla de arroz 150 mg por porción de 3 cápsulas. Suplemento alimenticio en cápsulas. Porción: 3 cápsulas.\n-Tomar 3 cápsulas juntas vía oral cada 24 horas, junto con cualquier alimento, por {DIAS} días."},
+  {nombre:"Antiox C+D3",pres:"Tabletas masticables",porcion:"1 tableta",
+    texto:"Antiox C+D3 — vitamina C 150 mg, acerola 50 mg, zinc 5 mg, Bacillus coagulans 2 mg (30 millones de UFC), vitamina A 500 mcg y vitamina D3 10 mcg (400 UI) por porción. Suplemento alimenticio en tabletas masticables. Porción: 1 tableta.\n-Masticar 1 tableta vía oral cada 24 horas, por {DIAS} días."},
+  {nombre:"Calcium Plus",pres:"Tabletas masticables de 1.2 g",porcion:"2 tabletas",
+    texto:"Calcium Plus — calcio 1,200 mg (600 mg por tableta), hierbabuena 80 mg, ácido fólico 400 mcg, vitamina K2 30 mcg y vitamina D3 10 mcg (400 UI) por porción de 2 tabletas. Suplemento alimenticio en tabletas masticables de 1.2 g. Porción: 2 tabletas.\n-Masticar 1 tableta vía oral cada 12 horas (2 tabletas al día), por {DIAS} días."},
+  {nombre:"Tripto + B6 + CitMg",pres:"Cápsulas",porcion:"1 cápsula",
+    texto:"Tripto + B6 + CitMg — L-triptófano 250 mg, magnesio 40 mg (del citrato) y vitamina B6 10 mg por porción. Suplemento alimenticio en cápsulas. Porción: 1 cápsula.\n-Tomar 1 cápsula vía oral cada 24 horas, entre las 16:00 y las 17:00 horas, por {DIAS} días. Evitar consumir carnes, derivados cárnicos, huevo o queso en la cena."},
   {nombre:"Omega +",pres:"Cápsulas",porcion:"1 cápsula",
-    texto:"Omega + (Aceite de pescado). Suplemento alimenticio. Cápsulas. Porción 1 cápsula.\n-Tomar 1 cápsula vía oral al día. Aumentar la dosis de acuerdo al caso particular, previa valoración médica."},
-  {nombre:"Vitam Fusion",pres:"Polvo",porcion:"1 medida",
-    texto:"Vitam Fusion. Suplemento alimenticio. Polvo. Porción 1 medida.\n-Agregar el contenido de 1 medida del polvo a 240mL de agua y tomar vía oral 1 a 2 veces al día."},
-  {nombre:"Akker + B. Lactis Probiotic",pres:"Cápsulas",porcion:"1 cápsula (428 mg)",
-    texto:"Akker + B. Lactis Probiotic. Suplemento alimenticio. Cápsulas. Porción 1 cápsula (428mg).\n-Tomar 1 cápsula vía oral al día. No exceder la porción recomendada. Producto exclusivo para mayores de 18 años."},
+    texto:"Omega + — aceite de omega 3 1,000 mg, con EPA 300 mg y DHA 200 mg por cápsula. Suplemento alimenticio en cápsulas. Porción: 1 cápsula.\n-Tomar 1 cápsula vía oral cada 24 horas, por {DIAS} días. La dosis puede incrementarse a 1 cápsula cada 12 horas de acuerdo al caso particular, previa valoración médica."},
+  {nombre:"Vitam Fusion",pres:"Polvo · Frutos, vitaminas y minerales",porcion:"1 medida",
+    texto:"Vitam Fusion — multivitamínico y multimineral a base de frutos: vitamina C 320 mg, magnesio 100 mg, calcio 60 mg, zinc 12 mg, fósforo 18 mg, inulina de raíz de achicoria 350 mg, complejo B, vitaminas A, D3 y K, cromo, manganeso, cobre, ácido fólico, biotina y B12 por porción. Sin hierro ni selenio; vitamina A limitada por seguridad. Suplemento alimenticio en polvo. Porción: 1 medida.\n-Agregar 1 medida del polvo a 240 mL de agua y tomar vía oral cada 12 a 24 horas (1 a 2 tomas al día), por {DIAS} días."},
+  {nombre:"Akker + B. Lactis Probiotic",pres:"Cápsulas de 428 mg · 30 porciones",porcion:"1 cápsula (428 mg)",
+    texto:"Akker + B. Lactis Probiotic — Akkermansia muciniphila Akk11 25 mg (5 mil millones de UFC), Bifidobacterium lactis 250 mg (250 millones de UFC) e inulina de raíz de achicoria 145 mg por cápsula de 428 mg. Suplemento alimenticio en cápsulas. Porción: 1 cápsula.\n-Tomar 1 cápsula vía oral cada 24 horas, por {DIAS} días. No exceder la porción recomendada. Producto exclusivo para mayores de 18 años."},
 ];
+// Duración por defecto de la prescripción (las citas suelen ser mensuales).
+// El selector del menú de suplementación sustituye el marcador {DIAS} del texto.
+let SUP_DIAS=30;
+
+// Normaliza texto para búsqueda (sin acentos, minúsculas)
+function _supNorm(s){return String(s||"").toLowerCase().normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]","g"),"");}
+
+window.renderListaSuplementos=function(){
+  const cont=document.getElementById("lista-suplementos");
+  if(!cont)return;
+  const q=_supNorm(document.getElementById("busca-suplemento")?.value||"").trim();
+  const items=FAMEL_SUPLEMENTOS
+    .map((s,i)=>({s,i}))
+    .filter(({s})=>!q||_supNorm(s.nombre+" "+s.pres+" "+s.texto).includes(q));
+  if(!items.length){
+    cont.innerHTML=`<div style="padding:18px 14px;text-align:center;font-size:12.5px;color:#90A4AE">Sin coincidencias para «${(document.getElementById("busca-suplemento")?.value||"")}»</div>`;
+    return;
+  }
+  cont.innerHTML=items.map(({s,i})=>`
+    <button type="button" onclick="agregarSuplementoATratamiento(${i})" style="width:100%;padding:9px 14px;border:none;border-bottom:1px solid #F0F0F0;background:#fff;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px" onmouseover="this.style.background='#F0F7FF'" onmouseout="this.style.background='#fff'">
+      <span style="font-size:13px;font-weight:700;color:#263238">${s.nombre}</span>
+      <span style="font-size:11px;color:#90A4AE">${s.pres} · Porción ${s.porcion}</span>
+    </button>`).join("");
+}
 
 window.toggleMenuSuplementacion=function(){
   const menu=document.getElementById("menu-suplementacion");
   if(!menu)return;
-  const visible=menu.style.display==="block";
-  if(visible){
-    menu.style.display="none";
-    return;
-  }
-  menu.innerHTML=FAMEL_SUPLEMENTOS.map((s,i)=>`
-    <button onclick="agregarSuplementoATratamiento(${i})" style="width:100%;padding:10px 14px;border:none;border-bottom:1px solid #F0F0F0;background:#fff;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px" onmouseover="this.style.background='#F0F7FF'" onmouseout="this.style.background='#fff'">
-      <span style="font-size:13px;font-weight:700;color:#263238">${s.nombre}</span>
-      <span style="font-size:11px;color:#90A4AE">${s.pres} · Porción ${s.porcion}</span>
-    </button>`).join("");
+  if(menu.style.display==="block"){menu.style.display="none";return;}
+  menu.innerHTML=`
+    <div style="padding:8px 10px;border-bottom:1px solid #ECEFF1;background:#FAFCFD;display:flex;gap:6px;align-items:center">
+      <input id="busca-suplemento" type="text" placeholder="Buscar suplemento…" oninput="renderListaSuplementos()" style="flex:1;padding:7px 10px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:13px;outline:none">
+      <span style="font-size:11px;color:#90A4AE;white-space:nowrap">${FAMEL_SUPLEMENTOS.length} productos</span>
+    </div>
+    <div style="padding:6px 10px;border-bottom:1px solid #ECEFF1;background:#FAFCFD;display:flex;gap:8px;align-items:center">
+      <label style="font-size:12px;color:#546E7A;font-weight:600;white-space:nowrap">Duración del tratamiento:</label>
+      <select id="sup-dias" onchange="SUP_DIAS=parseInt(this.value)||30" style="flex:1;padding:5px 8px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:12.5px;background:#fff">
+        ${[15,30,45,60,90].map(d=>`<option value="${d}" ${d===SUP_DIAS?"selected":""}>${d} días</option>`).join("")}
+      </select>
+    </div>
+    <div id="lista-suplementos" style="max-height:300px;overflow-y:auto"></div>
+    <div style="padding:6px 10px;border-top:1px solid #ECEFF1;background:#FAFCFD;font-size:11px;color:#90A4AE">Puedes agregar varios; el menú permanece abierto.</div>`;
   menu.style.display="block";
+  renderListaSuplementos();
+  setTimeout(()=>{document.getElementById("busca-suplemento")?.focus();},20);
   setTimeout(()=>{
     document.addEventListener("click",function cerrar(e){
       if(!e.target.closest("#menu-suplementacion")&&!e.target.closest("#btn-suplementacion")){
@@ -9080,11 +9303,15 @@ window.agregarSuplementoATratamiento=function(idx){
   if(!s)return;
   const campo=document.getElementById("cs_trat");
   if(!campo){showToast("Campo de tratamiento no encontrado",false);return;}
-  campo.value=(campo.value.trim()?campo.value.trim()+"\n\n":"")+s.texto;
-  campo.focus();
+  const dias=parseInt(document.getElementById("sup-dias")?.value)||SUP_DIAS||30;
+  SUP_DIAS=dias;
+  const texto=s.texto.replace(/\{DIAS\}/g,String(dias));
+  // Evitar duplicados aunque se haya prescrito con otra duración
+  const huella=s.texto.split("\n")[0];
+  if(campo.value.includes(huella)){showToast(`${s.nombre} ya está en el tratamiento`,false);return;}
+  campo.value=(campo.value.trim()?campo.value.trim()+"\n\n":"")+texto;
   campo.scrollTop=campo.scrollHeight;
-  document.getElementById("menu-suplementacion").style.display="none";
-  showToast(`✓ ${s.nombre} agregado al tratamiento`);
+  showToast(`✓ ${s.nombre} agregado — ${dias} días`);
 }
 
 async function pgConsulta(){
@@ -9222,7 +9449,7 @@ async function pgConsulta(){
             <b style="font-size:14px;color:${TX}">💊 Tratamiento</b>
             <div style="display:flex;gap:6px;align-items:center;position:relative">
               <button onclick="toggleMenuSuplementacion()" id="btn-suplementacion" style="background:#1565C0;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">💊 Suplementación</button>
-              <div id="menu-suplementacion" style="display:none;position:absolute;top:26px;left:0;background:#fff;border:1.5px solid ${BR};border-radius:8px;box-shadow:0 8px 24px #00000030;min-width:280px;max-height:340px;overflow-y:auto;z-index:9990"></div>
+              <div id="menu-suplementacion" style="display:none;position:absolute;top:26px;left:0;background:#fff;border:1.5px solid ${BR};border-radius:8px;box-shadow:0 8px 24px #00000030;width:380px;max-width:90vw;max-height:440px;overflow:hidden;z-index:9990"></div>
               <button onclick="showRecipe()" style="background:#1B5E20;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">Receta electrónica</button>
             </div>
           </div>
@@ -10324,7 +10551,7 @@ window.descargarNotaPDF=async function(){
 
     // ── SECCIONES QUIRÚRGICAS (datos_clinicos) ──────────────────
     const dc=(STATE.page==="consulta"&&typeof leerDatosClinicos==="function")?(leerDatosClinicos()||c.datos_clinicos||{}):(c.datos_clinicos||{});
-    const _dcv=(k)=>{const v=dc[k];if(v===true)return"Sí";if(v===false||v==null||v==="")return"";return String(v);};
+    const _dcv=(k)=>{const v=dc[k];if(v===true)return"Sí";if(v===false||v==null||v==="")return"";const s=String(v);return(s==="—"||s==="-")?"":s;};
     const _kv=(titulo,pares)=>{
       const filas=pares.map(([k,lbl])=>{const v=_dcv(k);return v?`<div style="flex:1 1 45%;min-width:45%;margin-bottom:4px"><div style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold">${lbl}</div><div style="font-size:9.2px;color:${TXT}">${String(v).replace(/\n/g,"<br>")}</div></div>`:"";}).filter(Boolean);
       if(!filas.length)return"";
@@ -10334,6 +10561,14 @@ window.descargarNotaPDF=async function(){
     const _svHTML=(()=>{const filas=_svPairs.map(([id,lbl])=>{const v=document.getElementById(id)?.value||"";return v?`<div style="margin-bottom:3px;margin-right:16px"><span style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold">${lbl}: </span><span style="font-size:9.2px;color:${TXT};font-weight:700">${v}</span></div>`:"";}).filter(Boolean);return filas.length?secBar("SIGNOS VITALES INICIALES")+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px;display:flex;flex-wrap:wrap">${filas.join("")}</div>`:"";})();
     const _regTransHTML=(()=>{const R=dc.registros_trans;if(!Array.isArray(R)||!R.length)return"";const rows=R.map(r=>`<tr>${[r.hora,r.ta,r.fc,r.spo2,r.etco2,r.temp,r.fr,r.nota].map(x=>`<td style="padding:3px 6px;border-bottom:1px solid ${BRD};font-size:8.5px;color:${TXT}">${x||""}</td>`).join("")}</tr>`).join("");return secBar("REGISTRO TEMPORAL DE SIGNOS VITALES")+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:6px 10px"><table style="width:100%;border-collapse:collapse"><thead><tr>${["Hora","TA","FC","SpO₂","EtCO₂","Temp","FR","Evento"].map(h=>`<th style="text-align:left;font-size:7px;color:${SEC};text-transform:uppercase;padding:3px 6px;border-bottom:1px solid ${BRD}">${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;})();
     const SEC_QX={
+      "Nota nutricional":[
+        ["Antropometría y composición corporal",[["nu_peso","Peso actual (kg)"],["nu_talla","Talla (cm)"],["nu_imc","IMC"],["nu_dx","Diagnóstico nutricional"],["nu_peso_hab","Peso habitual (kg)"],["nu_peso_meta","Peso meta (kg)"],["nu_cambio_peso","Cambio de peso"],["nu_cintura","Cintura (cm)"],["nu_cadera","Cadera (cm)"],["nu_icc","Índice cintura/cadera"],["nu_riesgo_cintura","Riesgo por cintura"],["nu_pgc","% Grasa corporal"],["nu_masa_musc","Masa muscular (kg)"],["nu_grasa_visc","Grasa visceral"]]],
+        ["Datos bioquímicos y clínicos",[["nu_bioq","Laboratorios de interés nutricional"],["nu_clinico","Medicamentos y condiciones relevantes"],["nu_alergias","Alergias alimentarias"],["nu_intolerancias","Intolerancias / restricciones"],["nu_apetito","Apetito"],["nu_evac","Evacuaciones"],["nu_gi","Síntomas gastrointestinales"],["nu_sueno","Horas de sueño"]]],
+        ["Evaluación dietética y estilo de vida",[["nu_r24","Recordatorio de 24 horas"],["nu_comidas_dia","Tiempos de comida al día"],["nu_agua","Agua al día"],["nu_cafe","Café / bebidas azucaradas"],["nu_alcohol","Alcohol"],["nu_come_fuera","Comidas fuera de casa"],["nu_cocina","Quién prepara los alimentos"],["nu_af_tipo","Actividad física — tipo"],["nu_af_frec","Actividad física — frecuencia"],["nu_prefs","Preferencias, aversiones y barreras"]]],
+        ["Objetivo calórico y macronutrientes",[["nu_kcal","Objetivo calórico (kcal/día)"],["nu_tipo_plan","Tipo de plan"],["nu_formula","Fórmula utilizada"],["nu_af_nivel","Nivel de actividad"],["nu_prot_gkg","Proteína (g/kg)"],["nu_lip_gkg","Lípidos (g/kg)"],["nu_prot_g","Proteína (g/día)"],["nu_lip_g","Lípidos (g/día)"],["nu_hc_g","Hidratos de carbono (g/día)"]]],
+        ["Plan de alimentación",[["nu_desayuno","Desayuno"],["nu_col1","Colación matutina"],["nu_comida","Comida"],["nu_col2","Colación vespertina"],["nu_cena","Cena"],["nu_hidratacion","Hidratación e indicaciones generales"],["nu_fase_famel","Fase del plan Famel"],["nu_educacion","Educación nutricional otorgada"]]],
+        ["Adherencia y seguimiento",[["nu_adherencia","Adherencia al plan previo"],["nu_metas","Metas para la próxima consulta"],["nu_proxima_cita","Próxima cita"]]]
+      ],
       "Nota preoperatoria":[
         ["Datos del acto quirúrgico planeado",[["dx_preop","Diagnóstico preoperatorio (CIE-10)"],["procedimiento_qx","Procedimiento / cirugía planeada"],["abordaje","Vía de abordaje"],["anestesia","Tipo de anestesia propuesta"],["ayuno","Ayuno (horas)"],["cirujano_principal","Cirujano principal"],["anestesiologo_asig","Anestesiólogo asignado"],["estudios_preop","Estudios preoperatorios"],["asa","Clasificación ASA"],["riesgo_qx","Riesgo quirúrgico"],["pronostico_qx","Pronóstico de la cirugía"],["posicion_qx","Posición quirúrgica"]]],
         ["Consentimiento informado y verificación",[["ci_cirujano","Consentimiento quirúrgico firmado"],["ci_anestesia","Consentimiento anestésico firmado"],["ci_transfusion","Consentimiento de transfusión"],["lateral_marcado","Lateralidad marcada en sitio"]]],
@@ -16538,6 +16773,10 @@ async function pgNutricionCalculo(){
   const sexo=(p.sexo_biologico||"").toLowerCase();
   const esHombre=sexo.includes("masculino")||sexo.includes("hombre");
 
+  // ── Mediciones EDITABLES: se precargan del InBody / expediente pero el
+  //    nutriólogo puede modificarlas y todo recalcula en vivo. ──────────────
+  if(!STATE.calcM||STATE.calcM._pid!==p.id)STATE.calcM=medicionesDesdeInBody(p,ib,edad,esHombre);
+
   b.innerHTML=`
   <div style="max-width:1000px;margin:0 auto;padding:16px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -16665,47 +16904,123 @@ window.eliminarObjetivoGuardado=async function(anexoId){
   renderCalcGuardados(document.getElementById("calc-body"));
 }
 
-// ── TAB 1: MEDICIONES (desde InBody) ─────────────────────────────────────────
-function renderCalcMediciones(cb){
-  const ib=STATE.calcIB;
+// ── TAB 1: MEDICIONES (editables, precargadas del InBody) ────────────────────
+// Devuelve el objeto de mediciones de trabajo. Todo cálculo posterior lee de aquí,
+// NUNCA directamente del InBody, para que el nutriólogo pueda ajustar los valores.
+function medicionesDesdeInBody(p,ib,edad,esHombre){
+  const num=(v)=>{const n=parseFloat(v);return isFinite(n)?n:"";};
+  return{
+    _pid:p?.id||null,
+    peso:num(ib?.peso),
+    talla:num(ib?.altura),
+    edad:(edad!=null?edad:""),
+    sexo:esHombre?"H":"M",
+    cintura:"",
+    cadera:"",
+    pgc:num(ib?.pgc),
+    masa_musc:num(ib?.masa_musculo),
+    masa_grasa:num(ib?.masa_grasa),
+    grasa_visc:num(ib?.grasa_visceral),
+    tmb_ib:num(ib?.tmb)
+  };
+}
+window.medicionesReset=function(){
   const p=STATE.pat||{};
-  if(!ib){
-    cb.innerHTML=`<div style="text-align:center;padding:40px 20px">
-      <p style="font-size:40px;margin-bottom:10px">📏</p>
-      <p style="font-size:15px;font-weight:700;color:${TX};margin-bottom:6px">Sin mediciones InBody registradas</p>
-      <p style="font-size:13px;color:${MU};margin-bottom:18px;max-width:420px;margin-left:auto;margin-right:auto">La composición corporal por impedancia bioeléctrica se obtiene del módulo InBody del expediente. Registra una evaluación para habilitar los cálculos automáticos.</p>
-      <button onclick="STATE.expTab='inbody';go('expediente')" style="background:${P};color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer">📲 Ir a InBody →</button>
-    </div>`;
+  const edad=edadAnios(p.fecha_nacimiento);
+  const sexo=(p.sexo_biologico||"").toLowerCase();
+  const esHombre=sexo.includes("masculino")||sexo.includes("hombre");
+  STATE.calcM=medicionesDesdeInBody(p,STATE.calcIB,edad,esHombre);
+  renderCalcTab();
+  showToast("✓ Valores restaurados desde el InBody / expediente");
+}
+window.setCalcM=function(campo,val){
+  STATE.calcM=STATE.calcM||{};
+  if(campo==="sexo")STATE.calcM.sexo=val;
+  else{const n=parseFloat(String(val).replace(",","."));STATE.calcM[campo]=isFinite(n)?n:"";}
+  // Los resultados de las otras pestañas dependen de estos valores → se invalidan
+  STATE.calcDatos=STATE.calcDatos||{};
+  renderMedicionesResumen();
+}
+function medicionesActuales(){
+  const m=STATE.calcM||{};
+  const f=(v)=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:null;};
+  return{
+    peso:f(m.peso),talla:f(m.talla),
+    edad:(m.edad===""||m.edad==null)?null:parseFloat(m.edad),
+    esHombre:(m.sexo||"H")==="H",
+    cintura:f(m.cintura),cadera:f(m.cadera),
+    pgc:f(m.pgc),masa_musc:f(m.masa_musc),masa_grasa:f(m.masa_grasa),
+    grasa_visc:f(m.grasa_visc),tmb_ib:f(m.tmb_ib)
+  };
+}
+function renderMedicionesResumen(){
+  const box=document.getElementById("med-resumen");if(!box)return;
+  const m=medicionesActuales();
+  if(!m.peso||!m.talla||m.edad==null){
+    box.innerHTML=`<span style="color:#E65100">⚠️ Captura peso, talla y edad para calcular el gasto energético.</span>`;
     return;
   }
-  const campo=(l,v,u)=>`<div style="background:#F8FAFB;border-radius:8px;padding:10px 12px;text-align:center">
-    <div style="font-size:11px;color:${MU};text-transform:uppercase;font-weight:700;margin-bottom:3px">${l}</div>
-    <div style="font-size:17px;font-weight:800;color:${TX}">${v!=null&&v!==""?v:"—"}${v!=null&&v!==""&&u?" "+u:""}</div>
-  </div>`;
+  const imc=m.peso/Math.pow(m.talla/100,2);
+  const clas=imc<18.5?"Bajo peso":imc<25?"Peso normal":imc<30?"Sobrepeso":imc<35?"Obesidad I":imc<40?"Obesidad II":"Obesidad III";
+  const icc=(m.cintura&&m.cadera)?(m.cintura/m.cadera):null;
+  const r=calcularFormulasGEB(m.peso,m.talla,m.edad,m.esHombre);
+  const prom=(r.fao+r.hb+r.val+r.msj)/4;
+  const mlg=(m.pgc!=null)?m.peso*(1-m.pgc/100):null;
+  const katch=mlg?370+21.6*mlg:null;
+  box.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center">
+      <div><b style="font-size:20px;color:${P}">${imc.toFixed(1)}</b> <span style="font-size:12px;color:${MU}">IMC · ${clas}</span></div>
+      ${icc?`<div><b style="font-size:20px;color:${P}">${icc.toFixed(2)}</b> <span style="font-size:12px;color:${MU}">Índice cintura/cadera</span></div>`:""}
+      ${mlg?`<div><b style="font-size:20px;color:${P}">${mlg.toFixed(1)} kg</b> <span style="font-size:12px;color:${MU}">Masa libre de grasa</span></div>`:""}
+      <div><b style="font-size:20px;color:${P}">${Math.round(prom)}</b> <span style="font-size:12px;color:${MU}">kcal GEB (promedio 4 fórmulas)</span></div>
+      ${katch?`<div><b style="font-size:20px;color:${P}">${Math.round(katch)}</b> <span style="font-size:12px;color:${MU}">kcal Katch-McArdle</span></div>`:""}
+    </div>`;
+}
+function renderCalcMediciones(cb){
+  const ib=STATE.calcIB;
+  const m=STATE.calcM||{};
+  const INPN=(campo,val,ph,step="0.1")=>`<input type="number" step="${step}" value="${val===""||val==null?"":val}" placeholder="${ph}" oninput="setCalcM('${campo}',this.value)" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;font-size:15px;font-weight:700;color:${TX};outline:none;text-align:center">`;
+  const CAMPO=(lbl,html,hint)=>`<div><div style="font-size:11px;color:${MU};text-transform:uppercase;font-weight:700;margin-bottom:4px">${lbl}</div>${html}${hint?`<div style="font-size:10.5px;color:${MU};margin-top:3px">${hint}</div>`:""}</div>`;
+  const refIB=(v,u)=>ib&&v!=null&&v!==""?`InBody: ${v}${u?" "+u:""}`:"";
+
   cb.innerHTML=`
-    <div style="background:${PL};border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <span style="font-size:13px;color:${P}">📅 Última evaluación InBody: <b>${ib.fecha||"—"}</b> ${ib.hora?"· "+ib.hora:""} ${ib.modelo?"· "+ib.modelo:""}</span>
-      <button onclick="STATE.expTab='inbody';go('expediente')" style="background:#fff;color:${P};border:1px solid ${P};border-radius:6px;padding:4px 11px;font-size:12px;font-weight:700;cursor:pointer">Ver / actualizar →</button>
+    <div style="background:${ib?PL:"#FFF8E1"};border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span style="font-size:13px;color:${ib?P:"#E65100"}">${ib?`📅 Valores precargados del InBody del <b>${ib.fecha||"—"}</b>${ib.hora?" · "+ib.hora:""}${ib.modelo?" · "+ib.modelo:""} — puedes editarlos libremente.`:"⚠️ Sin InBody registrado — captura las mediciones manualmente para calcular."}</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="medicionesReset()" style="background:#fff;color:${P};border:1px solid ${P};border-radius:6px;padding:4px 11px;font-size:12px;font-weight:700;cursor:pointer">↺ Restaurar del InBody</button>
+        <button onclick="STATE.expTab='inbody';go('expediente')" style="background:#fff;color:${P};border:1px solid ${P};border-radius:6px;padding:4px 11px;font-size:12px;font-weight:700;cursor:pointer">Ver InBody →</button>
+      </div>
     </div>
-    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Composición corporal por impedancia bioeléctrica</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px">
-      ${campo("Peso",ib.peso,"kg")}
-      ${campo("Altura",ib.altura,"cm")}
-      ${campo("IMC",ib.imc,"")}
-      ${campo("% Grasa corporal",ib.pgc,"%")}
-      ${campo("Masa grasa",ib.masa_grasa,"kg")}
-      ${campo("Masa muscular",ib.masa_musculo,"kg")}
-      ${campo("Agua corporal",ib.agua_corporal,"L")}
-      ${campo("Proteína",ib.proteina,"kg")}
-      ${campo("Minerales",ib.minerales,"kg")}
-      ${campo("Grasa visceral",ib.grasa_visceral,"")}
-      ${campo("TMB (InBody)",ib.tmb,"kcal")}
-      ${campo("Masa celular",ib.masa_celular,"kg")}
+
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Datos base del cálculo — editables</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px">
+      ${CAMPO("Peso (kg)",INPN("peso",m.peso,"Ej: 78.4"),refIB(ib?.peso,"kg"))}
+      ${CAMPO("Talla (cm)",INPN("talla",m.talla,"Ej: 172"),refIB(ib?.altura,"cm"))}
+      ${CAMPO("Edad (años)",INPN("edad",m.edad,"Ej: 45","1"),"Del expediente")}
+      ${CAMPO("Sexo",`<select onchange="setCalcM('sexo',this.value)" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;font-size:15px;font-weight:700;color:${TX};background:#fff;text-align:center">
+        <option value="H" ${(m.sexo||"H")==="H"?"selected":""}>Hombre</option>
+        <option value="M" ${m.sexo==="M"?"selected":""}>Mujer</option>
+      </select>`,"Fórmulas por sexo")}
     </div>
+
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Antropometría y composición corporal — opcional</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px">
+      ${CAMPO("Cintura (cm)",INPN("cintura",m.cintura,"Ej: 92"),"Riesgo cardiometabólico")}
+      ${CAMPO("Cadera (cm)",INPN("cadera",m.cadera,"Ej: 101"),"Para índice C/C")}
+      ${CAMPO("% Grasa corporal",INPN("pgc",m.pgc,"Ej: 28.4"),refIB(ib?.pgc,"%")||"Habilita Katch-McArdle")}
+      ${CAMPO("Masa muscular (kg)",INPN("masa_musc",m.masa_musc,"Ej: 31.2"),refIB(ib?.masa_musculo,"kg"))}
+      ${CAMPO("Masa grasa (kg)",INPN("masa_grasa",m.masa_grasa,"Ej: 22.3"),refIB(ib?.masa_grasa,"kg"))}
+      ${CAMPO("Grasa visceral",INPN("grasa_visc",m.grasa_visc,"Ej: 9","1"),refIB(ib?.grasa_visceral,""))}
+      ${CAMPO("TMB del equipo (kcal)",INPN("tmb_ib",m.tmb_ib,"Ej: 1620","1"),refIB(ib?.tmb,"kcal"))}
+    </div>
+
+    <div id="med-resumen" style="background:${PL};border-radius:8px;padding:14px;font-size:13px;color:${TX};margin-bottom:14px"></div>
+
     <div style="background:#FFF8E1;border-radius:8px;padding:12px 14px;font-size:13px;color:#E65100">
-      💡 Estos valores (peso, altura, edad) se usan automáticamente en la pestaña <b>Cálculos</b> para estimar el gasto energético basal con las 4 fórmulas.
+      💡 Cualquier cambio aquí se refleja de inmediato en las pestañas <b>Cálculos</b> y <b>Calorías</b>. Los valores del InBody solo son el punto de partida.
     </div>
   `;
+  renderMedicionesResumen();
 }
 
 // ── TAB 2: CÁLCULOS (gasto energético) ───────────────────────────────────────
@@ -16719,24 +17034,25 @@ const NIVELES_AF=[
 ];
 
 function renderCalcCalculos(cb){
-  const ib=STATE.calcIB;
-  const p=STATE.pat||{};
-  const edad=edadAnios(p.fecha_nacimiento);
-  const sexo=(p.sexo_biologico||"").toLowerCase();
-  const esHombre=sexo.includes("masculino")||sexo.includes("hombre");
-  const peso=ib?.peso?parseFloat(ib.peso):null;
-  const talla=ib?.altura?parseFloat(ib.altura):null;
+  const M=medicionesActuales();
+  const peso=M.peso,talla=M.talla,edad=M.edad,esHombre=M.esHombre;
 
-  if(!peso||!talla||edad==null){
+  if(!peso||!talla||edad==null||!isFinite(edad)){
     cb.innerHTML=`<div style="text-align:center;padding:30px 20px">
       <p style="font-size:36px;margin-bottom:8px">⚠️</p>
       <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:6px">Datos insuficientes</p>
-      <p style="font-size:13px;color:${MU}">Se requiere peso y altura del InBody, además de fecha de nacimiento del paciente, para calcular el gasto energético.</p>
+      <p style="font-size:13px;color:${MU};margin-bottom:16px">Se requieren peso, talla y edad. Captúralos o edítalos en la pestaña <b>Mediciones</b>.</p>
+      <button onclick="setCalcTab('mediciones')" style="background:${P};color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer">📏 Ir a Mediciones →</button>
     </div>`;
     return;
   }
 
   const r=calcularFormulasGEB(peso,talla,edad,esHombre);
+  // Katch-McArdle: requiere % de grasa corporal (masa libre de grasa)
+  const mlg=(M.pgc!=null)?peso*(1-M.pgc/100):null;
+  if(mlg)r.katch=370+21.6*mlg;
+  if(M.tmb_ib)r.tmbib=M.tmb_ib;
+  STATE.calcDatos=STATE.calcDatos||{};
   STATE.calcDatos.geb=r;
   STATE.calcAFNivel=STATE.calcAFNivel||"ligera";
   STATE.calcFormulaSel=STATE.calcFormulaSel||"promedio";
@@ -16746,7 +17062,11 @@ function renderCalcCalculos(cb){
 
   const promBasal=(r.fao+r.hb+r.val+r.msj)/4;
   const formulas={fao:r.fao,hb:r.hb,val:r.val,msj:r.msj,promedio:promBasal};
-  const nombresFormulas={fao:"FAO/OMS/ONU",hb:"Harris-Benedict",val:"Valencia",msj:"Mifflin-St. Jeor",promedio:"Promedio"};
+  if(r.katch)formulas.katch=r.katch;
+  if(r.tmbib)formulas.tmbib=r.tmbib;
+  const nombresFormulas={fao:"FAO/OMS/ONU",hb:"Harris-Benedict",val:"Valencia",msj:"Mifflin-St. Jeor",promedio:"Promedio",katch:"Katch-McArdle",tmbib:"TMB del equipo (InBody)"};
+  // Si la fórmula elegida ya no está disponible (p.ej. se borró el % de grasa), volver al promedio
+  if(!formulas[STATE.calcFormulaSel])STATE.calcFormulaSel="promedio";
 
   const filaFormula=(key,nombre,basal)=>{
     const total=basal*(1+pctAF);
@@ -16808,6 +17128,8 @@ function renderCalcCalculos(cb){
           ${filaFormula("val","Valencia",r.val)}
           ${filaFormula("msj","Mifflin-St. Jeor",r.msj)}
           ${filaFormula("promedio","Promedio de las 4",promBasal)}
+          ${r.katch?filaFormula("katch","Katch-McArdle (masa magra)",r.katch):""}
+          ${r.tmbib?filaFormula("tmbib","TMB del equipo (InBody)",r.tmbib):""}
         </tbody>
       </table>
     </div>
@@ -16825,7 +17147,10 @@ function renderCalcCalculos(cb){
         <div><b>Talla:</b> ${talla} cm</div>
         <div><b>Edad:</b> ${edad} años</div>
         <div><b>Sexo:</b> ${esHombre?"Hombre":"Mujer"}</div>
+        ${M.pgc!=null?`<div><b>% Grasa:</b> ${M.pgc}%</div>`:""}
+        ${mlg?`<div><b>Masa magra:</b> ${mlg.toFixed(1)} kg</div>`:""}
       </div>
+      <button onclick="setCalcTab('mediciones')" style="margin-top:10px;background:#fff;color:${P};border:1px solid ${P};border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">✏️ Editar mediciones</button>
     </div>
 
     <details style="margin-top:14px">
@@ -16835,6 +17160,7 @@ function renderCalcCalculos(cb){
         <b>Harris-Benedict</b> (1919): Hombres = 66.5 + 13.75×peso + 5.08×talla − 6.78×edad. Mujeres = 655.1 + 9.56×peso + 1.85×talla − 4.68×edad.<br>
         <b>Valencia</b> (2008, validada en mexicanos): coeficientes por rango de edad y sexo, basada en peso.<br>
         <b>Mifflin-St. Jeor</b> (1990): Hombres = (9.99×peso) + (6.25×talla) − (4.92×edad) + 5. Mujeres = mismo − 161.<br>
+        <b>Katch-McArdle</b>: 370 + 21.6 × masa libre de grasa (kg). Requiere el % de grasa corporal; es la más precisa cuando se cuenta con composición corporal.<br>
         <i>% AF = porcentaje aplicado sobre el gasto basal según el nivel de actividad física elegido (equivalente clínico al Factor OMS/PAL y a la escala de METs).</i>
       </div>
     </details>
@@ -16897,25 +17223,42 @@ function calcularFormulasGEB(peso,talla,edad,esHombre){
 
 // ── TAB 3: CALORÍAS (Balance energético) ─────────────────────────────────────
 function renderCalcCalorias(cb){
-  const geb=STATE.calcDatos?.geb;
-  if(!geb){
+  const M=medicionesActuales();
+  if(!M.peso||!M.talla||M.edad==null||!isFinite(M.edad)){
     cb.innerHTML=`<div style="text-align:center;padding:30px 20px">
       <p style="font-size:36px;margin-bottom:8px">📊</p>
-      <p style="font-size:14px;font-weight:700;color:${TX}">Primero calcula el gasto energético</p>
-      <p style="font-size:13px;color:${MU};margin-top:6px">Ve a la pestaña <b>Cálculos</b> para generar las cifras base.</p>
+      <p style="font-size:14px;font-weight:700;color:${TX}">Faltan mediciones</p>
+      <p style="font-size:13px;color:${MU};margin:6px 0 16px">Captura peso, talla y edad en la pestaña <b>Mediciones</b>.</p>
+      <button onclick="setCalcTab('mediciones')" style="background:${P};color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer">📏 Ir a Mediciones →</button>
     </div>`;
     return;
   }
+  // Recalcular SIEMPRE desde las mediciones vigentes (no depender de que ya se
+  // haya visitado la pestaña Cálculos ni de valores en caché).
+  const geb=calcularFormulasGEB(M.peso,M.talla,M.edad,M.esHombre);
+  const mlg=(M.pgc!=null)?M.peso*(1-M.pgc/100):null;
+  if(mlg)geb.katch=370+21.6*mlg;
+  if(M.tmb_ib)geb.tmbib=M.tmb_ib;
+  STATE.calcDatos=STATE.calcDatos||{};
+  STATE.calcDatos.geb=geb;
+  STATE.calcAFNivel=STATE.calcAFNivel||"ligera";
+  STATE.calcFormulaSel=STATE.calcFormulaSel||"promedio";
+  const nivelActivo=NIVELES_AF.find(n=>n.k===STATE.calcAFNivel)||NIVELES_AF[1];
+  const promBasal=(geb.fao+geb.hb+geb.val+geb.msj)/4;
+  const _f={fao:geb.fao,hb:geb.hb,val:geb.val,msj:geb.msj,promedio:promBasal,katch:geb.katch,tmbib:geb.tmbib};
+  const _n={fao:"FAO/OMS/ONU",hb:"Harris-Benedict",val:"Valencia",msj:"Mifflin-St. Jeor",promedio:"Promedio",katch:"Katch-McArdle",tmbib:"TMB del equipo (InBody)"};
+  if(!_f[STATE.calcFormulaSel])STATE.calcFormulaSel="promedio";
+  const get=_f[STATE.calcFormulaSel]*(1+nivelActivo.pct/100);
+  STATE.calcDatos.get=get;
+  STATE.calcDatos.formulaUsada=_n[STATE.calcFormulaSel];
+  STATE.calcDatos.nivelAF=nivelActivo.label;
   const balance=STATE.calcBalance||"deficit";
-  const get=STATE.calcDatos.get||((geb.fao+geb.hb+geb.val+geb.msj)/4*1.375);
-  const formulaUsada=STATE.calcDatos.formulaUsada||"Promedio";
-  const nivelAF=STATE.calcDatos.nivelAF||"Ligera";
-  const ib=STATE.calcIB;
-  const pesoKg=ib?.peso?parseFloat(ib.peso):0;
+  const formulaUsada=STATE.calcDatos.formulaUsada;
+  const nivelAF=nivelActivo.label;
 
   cb.innerHTML=`
     <div style="background:${PL};border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:12.5px;color:${P}">
-      📐 GET base: <b>${Math.round(get)} kcal</b> — calculado con <b>${formulaUsada}</b> y actividad <b>${nivelAF}</b> (ajustable en la pestaña Cálculos)
+      📐 GET base: <b>${Math.round(get)} kcal</b> — ${M.peso} kg · ${M.talla} cm · ${M.edad} años · ${M.esHombre?"Hombre":"Mujer"} · <b>${formulaUsada}</b> con actividad <b>${nivelAF}</b> (ajustable en Cálculos)
     </div>
     <div style="display:grid;grid-template-columns:220px 1fr;gap:16px">
       <div>
@@ -16939,15 +17282,70 @@ window.seleccionarBalance=function(k){
   renderCalcCalorias(document.getElementById("calc-body"));
 }
 
+// ── Panel de macronutrientes: reparte un objetivo calórico en P/L/HC ─────────
+// Proteína y lípidos se prescriben en g/kg; los hidratos se obtienen por diferencia.
+window.updateMacro=function(campo,val){
+  STATE.calcMacros=STATE.calcMacros||{prot:1.6,lip:0.8};
+  const n=parseFloat(val);
+  STATE.calcMacros[campo]=isFinite(n)?n:0;
+  const r=document.getElementById(`mac-${campo}-range`),v=document.getElementById(`mac-${campo}-val`);
+  if(r)r.value=STATE.calcMacros[campo];
+  if(v)v.value=STATE.calcMacros[campo];
+  renderMacroResultado();
+}
+function macroPanelHTML(){
+  STATE.calcMacros=STATE.calcMacros||{prot:1.6,lip:0.8};
+  const s=STATE.calcMacros;
+  const fila=(k,lbl,max,step)=>`<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+    <label style="font-size:13px;font-weight:600;color:${TX};width:96px">${lbl}</label>
+    <input type="range" min="0" max="${max}" step="${step}" value="${s[k]}" id="mac-${k}-range" oninput="updateMacro('${k}',this.value)" style="flex:1;accent-color:${P}">
+    <input type="number" min="0" max="${max}" step="${step}" value="${s[k]}" id="mac-${k}-val" oninput="updateMacro('${k}',this.value)" style="width:64px;padding:6px 8px;border:1.5px solid ${BR};border-radius:6px;text-align:center;font-size:13px">
+  </div>`;
+  return`<div style="border:1px solid ${BR};border-radius:8px;padding:14px;margin-top:14px">
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Distribución de macronutrientes (g por kg de peso)</p>
+    ${fila("prot","Proteína",3,0.1)}
+    ${fila("lip","Lípidos",2,0.1)}
+    <p style="font-size:11px;color:${MU};font-style:italic;margin-bottom:10px">Los hidratos de carbono se calculan por diferencia respecto al objetivo calórico.</p>
+    <div id="macro-resultado"></div>
+  </div>`;
+}
+function renderMacroResultado(){
+  const div=document.getElementById("macro-resultado");if(!div)return;
+  const s=STATE.calcMacros||{prot:1.6,lip:0.8};
+  const peso=medicionesActuales().peso||0;
+  const kcal=STATE.calcObjetivoKcal||0;
+  if(!peso||!kcal){div.innerHTML=`<p style="font-size:12px;color:${MU}">Selecciona un objetivo calórico para ver la distribución.</p>`;return;}
+  const protG=s.prot*peso,lipG=s.lip*peso;
+  const kProt=protG*4,kLip=lipG*9;
+  const kHC=kcal-kProt-kLip;
+  const hcG=kHC/4;
+  const pct=(x)=>Math.round(x/kcal*100);
+  if(kHC<0){
+    div.innerHTML=`<div style="background:#FFEBEE;border-radius:8px;padding:12px;font-size:13px;color:#C62828;font-weight:700">⚠️ Proteína + lípidos suman ${Math.round(kProt+kLip)} kcal y superan el objetivo de ${Math.round(kcal)} kcal. Reduce los g/kg o aumenta el objetivo.</div>`;
+    return;
+  }
+  const celda=(lbl,g,k,c)=>`<div style="flex:1;min-width:110px;background:#F8FAFB;border-radius:8px;padding:10px 12px;text-align:center">
+    <div style="font-size:11px;color:${MU};text-transform:uppercase;font-weight:700">${lbl}</div>
+    <div style="font-size:19px;font-weight:800;color:${c}">${Math.round(g)} g</div>
+    <div style="font-size:11px;color:${MU}">${Math.round(k)} kcal · ${pct(k)}%</div>
+  </div>`;
+  div.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap">
+    ${celda("Proteína",protG,kProt,"#C62828")}
+    ${celda("Lípidos",lipG,kLip,"#E65100")}
+    ${celda("Hidratos",hcG,kHC,"#2E7D32")}
+  </div>
+  <p style="font-size:11.5px;color:${MU};margin-top:8px">Total ${Math.round(kcal)} kcal · ${(kcal/peso).toFixed(1)} kcal/kg · Proteína ${s.prot} g/kg · Lípidos ${s.lip} g/kg</p>`;
+}
+
 function renderBalanceDetalle(){
   const det=document.getElementById("calc-balance-detalle");if(!det)return;
   const balance=STATE.calcBalance||"deficit";
   const geb=STATE.calcDatos.geb;
   const get=STATE.calcDatos.get||((geb.fao+geb.hb+geb.val+geb.msj)/4*1.375);
-  const ib=STATE.calcIB;
-  const pesoKg=ib?.peso?parseFloat(ib.peso):0;
+  const pesoKg=medicionesActuales().peso||0;
 
   if(balance==="normocalorico"){
+    STATE.calcObjetivoKcal=Math.round(get);
     det.innerHTML=`
     <div style="border:1px solid ${BR};border-radius:8px;padding:16px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -16958,9 +17356,12 @@ function renderBalanceDetalle(){
       <div style="background:${PL};border-radius:8px;padding:16px;text-align:center">
         <p style="font-size:12px;color:${P};text-transform:uppercase;font-weight:700">Objetivo calórico</p>
         <p style="font-size:30px;font-weight:800;color:${P}">${Math.round(get)} kcal</p>
+        ${pesoKg?`<p style="font-size:12px;color:${MU};margin-top:4px">${(get/pesoKg).toFixed(1)} kcal por kg de peso</p>`:""}
       </div>
       <button onclick="asignarObjetivoCalorico(${Math.round(get)},'Normocalórico')" style="margin-top:14px;background:${P};color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Usar como Objetivo</button>
+      ${macroPanelHTML()}
     </div>`;
+    renderMacroResultado();
     return;
   }
 
@@ -16970,26 +17371,36 @@ function renderBalanceDetalle(){
       {l:"Déficit moderado: 20 kcal/kg peso",v:20},
       {l:"Déficit intenso: 15 kcal/kg peso",v:15},
       {l:"Déficit muy intenso: 11 kcal/kg peso",v:11},
-      {l:"Ingresar cantidad manualmente",v:"manual"},
+      {l:"−300 kcal sobre el GET (≈0.3 kg/semana)",v:"get-300"},
+      {l:"−500 kcal sobre el GET (≈0.5 kg/semana)",v:"get-500"},
+      {l:"−750 kcal sobre el GET (≈0.7 kg/semana)",v:"get-750"},
+      {l:"−15% del GET",v:"get-15%"},
+      {l:"−20% del GET",v:"get-20%"},
+      {l:"−25% del GET",v:"get-25%"},
+      {l:"Ingresar kcal/kg manualmente",v:"manual"},
+      {l:"Ingresar kcal totales manualmente",v:"manual-kcal"},
     ];
+    const sel=STATE.calcDeficitSel||"";
     det.innerHTML=`
     <div style="border:1px solid ${BR};border-radius:8px;padding:16px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <span style="font-size:20px">⚖️</span>
         <b style="font-size:15px;color:${TX}">Cálculo para déficit calórico</b>
       </div>
-      <p style="font-size:13px;color:${MU};margin-bottom:14px">Normalmente utilizado para pacientes que inician su proceso de pérdida de peso.</p>
+      <p style="font-size:13px;color:${MU};margin-bottom:14px">Normalmente utilizado para pacientes que inician su proceso de pérdida de peso. GET de referencia: <b>${Math.round(get)} kcal</b>${pesoKg?` · Peso: <b>${pesoKg} kg</b>`:""}</p>
       <select id="deficit-sel" onchange="calcDeficitChange()" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;outline:none;margin-bottom:14px">
         <option value="">Seleccionar</option>
-        ${opciones.map(o=>`<option value="${o.v}">${o.l}</option>`).join("")}
+        ${opciones.map(o=>`<option value="${o.v}" ${sel===String(o.v)?"selected":""}>${o.l}</option>`).join("")}
       </select>
       <div id="deficit-manual" style="display:none;margin-bottom:14px">
-        ${fld("kcal por kg de peso",`<input type="number" id="deficit-manual-val" step="0.5" oninput="calcDeficitChange()" placeholder="Ej: 18" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
+        ${fld("Valor manual",`<input type="number" id="deficit-manual-val" step="0.5" value="${STATE.calcDeficitManual||""}" oninput="calcDeficitChange()" placeholder="Ej: 18" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none">`)}
       </div>
       <div id="deficit-resultado"></div>
       <p style="font-size:11px;color:${MU};margin-top:12px">Fuente: <a href="https://aspenjournals.onlinelibrary.wiley.com/doi/10.1177/0148607115621863" target="_blank" style="color:${P}">aspenjournals.onlinelibrary.wiley.com/doi/10.1177/0148607115621863</a></p>
       <p style="font-size:11px;color:${MU};font-style:italic;margin-top:4px">• Las calorías seleccionadas aparecen como Objetivo en la sección de Dietas</p>
+      ${macroPanelHTML()}
     </div>`;
+    calcDeficitChange();
     return;
   }
 
@@ -17036,31 +17447,61 @@ function renderBalanceDetalle(){
 }
 
 window.calcDeficitChange=function(){
-  const sel=document.getElementById("deficit-sel")?.value;
+  const sel=document.getElementById("deficit-sel")?.value||"";
+  STATE.calcDeficitSel=sel;
   const manualDiv=document.getElementById("deficit-manual");
   const resDiv=document.getElementById("deficit-resultado");
-  if(!sel){if(manualDiv)manualDiv.style.display="none";if(resDiv)resDiv.innerHTML="";return;}
-  let kcalPorKg;
-  if(sel==="manual"){
-    if(manualDiv)manualDiv.style.display="block";
-    kcalPorKg=parseFloat(document.getElementById("deficit-manual-val")?.value)||0;
-  } else {
+  const peso=medicionesActuales().peso||0;
+  const get=STATE.calcDatos?.get||0;
+  if(!sel){
     if(manualDiv)manualDiv.style.display="none";
-    kcalPorKg=parseFloat(sel);
+    if(resDiv)resDiv.innerHTML="";
+    STATE.calcObjetivoKcal=0;renderMacroResultado();
+    return;
   }
-  const ib=STATE.calcIB;
-  const peso=ib?.peso?parseFloat(ib.peso):0;
-  const total=Math.round(kcalPorKg*peso);
+  const esManual=sel==="manual"||sel==="manual-kcal";
+  if(manualDiv)manualDiv.style.display=esManual?"block":"none";
+  const manualVal=parseFloat(document.getElementById("deficit-manual-val")?.value)||0;
+  if(esManual)STATE.calcDeficitManual=manualVal||"";
+  let total=0,detalle="";
+  if(sel==="manual"){
+    total=Math.round(manualVal*peso);
+    detalle=`${manualVal} kcal/kg × ${peso} kg`;
+  } else if(sel==="manual-kcal"){
+    total=Math.round(manualVal);
+    detalle="Valor capturado manualmente";
+  } else if(sel.startsWith("get-")){
+    const arg=sel.substring(4);
+    if(arg.endsWith("%")){
+      const pc=parseFloat(arg);
+      total=Math.round(get*(1-pc/100));
+      detalle=`${Math.round(get)} kcal (GET) − ${pc}% = −${Math.round(get*pc/100)} kcal`;
+    } else {
+      const resta=parseFloat(arg);
+      total=Math.round(get-resta);
+      detalle=`${Math.round(get)} kcal (GET) − ${resta} kcal`;
+    }
+  } else {
+    const kcalPorKg=parseFloat(sel);
+    total=Math.round(kcalPorKg*peso);
+    detalle=`${kcalPorKg} kcal/kg × ${peso} kg`;
+  }
+  STATE.calcObjetivoKcal=total>0?total:0;
   if(resDiv){
+    const deficitDiario=get>0&&total>0?Math.round(get-total):0;
     resDiv.innerHTML=total>0?`
     <div style="background:${PL};border-radius:8px;padding:16px;text-align:center">
       <p style="font-size:12px;color:${P};text-transform:uppercase;font-weight:700">Objetivo calórico</p>
       <p style="font-size:30px;font-weight:800;color:${P}">${total} kcal</p>
-      <p style="font-size:12px;color:${MU};margin-top:4px">${kcalPorKg} kcal × ${peso} kg</p>
+      <p style="font-size:12px;color:${MU};margin-top:4px">${detalle}</p>
+      ${peso?`<p style="font-size:12px;color:${MU}">${(total/peso).toFixed(1)} kcal por kg de peso</p>`:""}
+      ${deficitDiario>0?`<p style="font-size:12px;color:#C62828;font-weight:700;margin-top:6px">Déficit de ${deficitDiario} kcal/día ≈ ${(deficitDiario*7/7700).toFixed(2)} kg de grasa por semana</p>`:""}
+      ${deficitDiario<0?`<p style="font-size:12px;color:#E65100;font-weight:700;margin-top:6px">⚠️ Este valor está por ENCIMA del GET (${Math.round(get)} kcal): no genera déficit.</p>`:""}
     </div>
     <button onclick="asignarObjetivoCalorico(${total},'Déficit calórico')" style="margin-top:14px;background:${P};color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Usar como Objetivo</button>
     `:"";
   }
+  renderMacroResultado();
 }
 
 window.updateSup=function(campo,val){
@@ -17077,20 +17518,39 @@ window.updateSup=function(campo,val){
 function renderSupResultado(){
   const resDiv=document.getElementById("sup-resultado");if(!resDiv)return;
   const s=STATE.calcSup||{hdec:4,prot:1.5,lip:0.5};
-  const ib=STATE.calcIB;
-  const peso=ib?.peso?parseFloat(ib.peso):0;
+  const peso=medicionesActuales().peso||0;
+  const get=STATE.calcDatos?.get||0;
 
-  // Cálculo de equilibrio calórico: proteína (4 kcal/g) + lípidos (9 kcal/g) por kg de peso + hidratos restantes
-  const kcalProt=s.prot*peso*4;
-  const kcalLip=s.lip*peso*9;
-  const kcalHdec=s.hdec*peso*4; // hidratos de carbono ~4 kcal/g, usando Hdec como g/kg
+  if(!peso){
+    resDiv.innerHTML=`<div style="background:#FFF8E1;border-radius:8px;padding:14px;font-size:13px;color:#E65100">⚠️ Captura el peso en la pestaña <b>Mediciones</b> para calcular el superávit.</div>`;
+    STATE.calcObjetivoKcal=0;
+    return;
+  }
+  // Aquí las calorías se construyen DESDE los macros (g/kg × peso), no al revés.
+  const protG=s.prot*peso,lipG=s.lip*peso,hcG=s.hdec*peso;
+  const kcalProt=protG*4,kcalLip=lipG*9,kcalHdec=hcG*4;
   const total=Math.round(kcalProt+kcalLip+kcalHdec);
+  STATE.calcObjetivoKcal=total;
+  const pct=(x)=>total>0?Math.round(x/total*100):0;
+  const superavit=get>0?total-Math.round(get):0;
+  const celda=(lbl,g,k,c)=>`<div style="flex:1;min-width:104px;background:#F8FAFB;border-radius:8px;padding:9px 11px;text-align:center">
+    <div style="font-size:11px;color:${MU};text-transform:uppercase;font-weight:700">${lbl}</div>
+    <div style="font-size:18px;font-weight:800;color:${c}">${Math.round(g)} g</div>
+    <div style="font-size:11px;color:${MU}">${Math.round(k)} kcal · ${pct(k)}%</div>
+  </div>`;
 
   resDiv.innerHTML=`
     <div style="background:${PL};border-radius:8px;padding:16px;text-align:center">
       <p style="font-size:12px;color:${P};text-transform:uppercase;font-weight:700">Equilibrio calórico</p>
       <p style="font-size:30px;font-weight:800;color:${P}">${total} kcal</p>
-      <p style="font-size:12px;color:${MU};margin-top:6px">Hdec ${s.hdec}g/kg + Prot ${s.prot}g/kg + Lip ${s.lip}g/kg × ${peso}kg</p>
+      <p style="font-size:12px;color:${MU};margin-top:6px">Hdec ${s.hdec} g/kg + Prot ${s.prot} g/kg + Lip ${s.lip} g/kg × ${peso} kg</p>
+      <p style="font-size:12px;color:${MU}">${(total/peso).toFixed(1)} kcal por kg de peso</p>
+      ${get>0?`<p style="font-size:12px;font-weight:700;margin-top:6px;color:${superavit>0?"#2E7D32":"#E65100"}">${superavit>0?`Superávit de ${superavit} kcal/día sobre el GET (${Math.round(get)} kcal)`:`⚠️ ${Math.abs(superavit)} kcal por DEBAJO del GET (${Math.round(get)} kcal): no genera superávit.`}</p>`:""}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+      ${celda("Proteína",protG,kcalProt,"#C62828")}
+      ${celda("Lípidos",lipG,kcalLip,"#E65100")}
+      ${celda("Hidratos",hcG,kcalHdec,"#2E7D32")}
     </div>
     <button onclick="asignarObjetivoCalorico(${total},'Superávit calórico')" style="margin-top:14px;background:${P};color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;width:100%">✓ Usar como Objetivo</button>
   `;
@@ -17104,10 +17564,21 @@ window.asignarObjetivoCalorico=async function(kcal,tipo){
   const med=STATE.userProfile||{};
   const registradoPor=`${med.titulo||""} ${med.nombre||""} ${med.apellidos||""}`.trim();
 
+  // Se guardan también las mediciones y los macros con los que se calculó,
+  // para que el objetivo sea reproducible y auditable en el expediente.
+  const _M=(typeof medicionesActuales==="function")?medicionesActuales():{};
+  const _mac=STATE.calcMacros||{};
+  const _pesoM=_M.peso||0;
   const nuevoObjetivo={
     kcal,tipo,fecha,hora,
     formula:STATE.calcDatos?.formulaUsada||null,
     nivel_actividad:STATE.calcDatos?.nivelAF||null,
+    get_base:STATE.calcDatos?.get?Math.round(STATE.calcDatos.get):null,
+    peso:_pesoM||null,talla:_M.talla||null,edad:(_M.edad!=null?_M.edad:null),
+    sexo:_M.esHombre?"Hombre":"Mujer",
+    kcal_kg:_pesoM?Number((kcal/_pesoM).toFixed(1)):null,
+    prot_g:(tipo==="Superávit calórico")?(STATE.calcSup?.prot&&_pesoM?Math.round(STATE.calcSup.prot*_pesoM):null):(_mac.prot&&_pesoM?Math.round(_mac.prot*_pesoM):null),
+    lip_g:(tipo==="Superávit calórico")?(STATE.calcSup?.lip&&_pesoM?Math.round(STATE.calcSup.lip*_pesoM):null):(_mac.lip&&_pesoM?Math.round(_mac.lip*_pesoM):null),
     registrado_por:registradoPor,
   };
 
