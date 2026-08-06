@@ -9256,35 +9256,33 @@ window.renderListaSuplementos=function(){
   const items=FAMEL_SUPLEMENTOS
     .map((s,i)=>({s,i}))
     .filter(({s})=>!q||_supNorm(s.nombre+" "+s.pres+" "+s.texto).includes(q));
+  const pie=document.getElementById("sup-pie");
+  if(pie)pie.textContent=`Mostrando ${items.length} de ${FAMEL_SUPLEMENTOS.length} productos · desliza para ver todos`;
   if(!items.length){
     cont.innerHTML=`<div style="padding:18px 14px;text-align:center;font-size:12.5px;color:#90A4AE">Sin coincidencias para «${(document.getElementById("busca-suplemento")?.value||"")}»</div>`;
     return;
   }
-  cont.innerHTML=items.map(({s,i})=>`
+  cont.innerHTML=items.map(({s,i},n)=>`
     <button type="button" onclick="agregarSuplementoATratamiento(${i})" style="width:100%;padding:9px 14px;border:none;border-bottom:1px solid #F0F0F0;background:#fff;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px" onmouseover="this.style.background='#F0F7FF'" onmouseout="this.style.background='#fff'">
-      <span style="font-size:13px;font-weight:700;color:#263238">${s.nombre}</span>
-      <span style="font-size:11px;color:#90A4AE">${s.pres} · Porción ${s.porcion}</span>
+      <span style="font-size:13px;font-weight:700;color:#263238"><span style="color:#B0BEC5;font-weight:600">${n+1}.</span> ${s.nombre}</span>
+      <span style="font-size:11px;color:#90A4AE;white-space:normal;line-height:1.35">${s.pres} · Porción ${s.porcion}</span>
     </button>`).join("");
 }
 
 window.toggleMenuSuplementacion=function(){
   const menu=document.getElementById("menu-suplementacion");
   if(!menu)return;
-  if(menu.style.display==="block"){menu.style.display="none";return;}
+  if(menu.style.display!=="none"){menu.style.display="none";return;}
   menu.innerHTML=`
-    <div style="padding:8px 10px;border-bottom:1px solid #ECEFF1;background:#FAFCFD;display:flex;gap:6px;align-items:center">
-      <input id="busca-suplemento" type="text" placeholder="Buscar suplemento…" oninput="renderListaSuplementos()" style="flex:1;padding:7px 10px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:13px;outline:none">
-      <span style="font-size:11px;color:#90A4AE;white-space:nowrap">${FAMEL_SUPLEMENTOS.length} productos</span>
-    </div>
-    <div style="padding:6px 10px;border-bottom:1px solid #ECEFF1;background:#FAFCFD;display:flex;gap:8px;align-items:center">
-      <label style="font-size:12px;color:#546E7A;font-weight:600;white-space:nowrap">Duración del tratamiento:</label>
-      <select id="sup-dias" onchange="SUP_DIAS=parseInt(this.value)||30" style="flex:1;padding:5px 8px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:12.5px;background:#fff">
+    <div style="padding:8px 10px;border-bottom:1px solid #ECEFF1;background:#FAFCFD;display:flex;gap:6px;align-items:center;flex:0 0 auto">
+      <input id="busca-suplemento" type="text" placeholder="Buscar suplemento…" oninput="renderListaSuplementos()" style="flex:1;min-width:0;padding:7px 10px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:13px;outline:none">
+      <select id="sup-dias" onchange="SUP_DIAS=parseInt(this.value)||30" title="Duración del tratamiento" style="flex:0 0 auto;padding:6px 8px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:12.5px;background:#fff">
         ${[15,30,45,60,90].map(d=>`<option value="${d}" ${d===SUP_DIAS?"selected":""}>${d} días</option>`).join("")}
       </select>
     </div>
-    <div id="lista-suplementos" style="max-height:300px;overflow-y:auto"></div>
-    <div style="padding:6px 10px;border-top:1px solid #ECEFF1;background:#FAFCFD;font-size:11px;color:#90A4AE">Puedes agregar varios; el menú permanece abierto.</div>`;
-  menu.style.display="block";
+    <div id="lista-suplementos" style="flex:1 1 auto;min-height:0;overflow-y:auto"></div>
+    <div id="sup-pie" style="padding:6px 10px;border-top:1px solid #ECEFF1;background:#FAFCFD;font-size:11px;color:#90A4AE;flex:0 0 auto"></div>`;
+  menu.style.display="flex";
   renderListaSuplementos();
   setTimeout(()=>{document.getElementById("busca-suplemento")?.focus();},20);
   setTimeout(()=>{
@@ -9449,7 +9447,7 @@ async function pgConsulta(){
             <b style="font-size:14px;color:${TX}">💊 Tratamiento</b>
             <div style="display:flex;gap:6px;align-items:center;position:relative">
               <button onclick="toggleMenuSuplementacion()" id="btn-suplementacion" style="background:#1565C0;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">💊 Suplementación</button>
-              <div id="menu-suplementacion" style="display:none;position:absolute;top:26px;left:0;background:#fff;border:1.5px solid ${BR};border-radius:8px;box-shadow:0 8px 24px #00000030;width:380px;max-width:90vw;max-height:440px;overflow:hidden;z-index:9990"></div>
+              <div id="menu-suplementacion" style="display:none;position:absolute;top:30px;right:0;background:#fff;border:1.5px solid ${BR};border-radius:8px;box-shadow:0 8px 24px #00000030;width:430px;max-width:92vw;max-height:72vh;overflow:hidden;z-index:9990;flex-direction:column"></div>
               <button onclick="showRecipe()" style="background:#1B5E20;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">Receta electrónica</button>
             </div>
           </div>
