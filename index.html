@@ -976,12 +976,6 @@ async function pgMedicos(){
   const u=usuarios||[];
   const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición","psicologo":"Psicólogo(a)","pasante":"Pasante","analista":"Analista"};
   const ROL_COLORS={"admin":"#6A1B9A","medico":"#006BB6","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B","psicologo":"#5D4037","pasante":"#455A64","analista":"#37474F"};
-  const _GA={"Identificación":["ficha","sv"],"Antecedentes clínicos":["ant","inter"],
-    "Consultas / Notas":["cons","interconsultas"],"Documentos y estudios":["anexos","imagenes","inbody"],
-    "Herramientas":["herramientas"]};
-  const GRUPOS_VIS=esAmfa()
-    ? GRUPOS.filter(g=>_GA[g.label]).map(g=>({...g,items:g.items.filter(i=>_GA[g.label].includes(i.k))})).filter(g=>g.items.length)
-    : GRUPOS;
   RR().innerHTML=nav()+`
   <div style="max-width:1200px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -4623,6 +4617,13 @@ function pgExp(){
       {k:"herramientas",icon:"ti-calculator",label:"Herramientas",ext:true},
     ]},
   ];
+  // amfa solo ve las secciones que le competen
+  const _GA={"Identificación":["ficha","sv"],"Antecedentes clínicos":["ant","inter"],
+    "Consultas / Notas":["cons","interconsultas"],"Documentos y estudios":["anexos","imagenes","inbody"],
+    "Herramientas":["herramientas"]};
+  const GRUPOS_VIS=esAmfa()
+    ? GRUPOS.filter(g=>_GA[g.label]).map(g=>({...g,items:g.items.filter(i=>_GA[g.label].includes(i.k))})).filter(g=>g.items.length)
+    : GRUPOS;
   RR().innerHTML=nav()+`
   <div style="display:flex;flex-direction:column;height:calc(100vh - 46px);overflow:hidden">
     <div style="background:${PD};padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
