@@ -1,0 +1,13 @@
+#!/bin/sh
+# Hook de pre-commit del ECE QP Clinic.
+# Corre verificar.py y aborta el commit si hay fallas.
+# Instalación:  git config core.hooksPath .githooks
+echo ""
+echo "Verificando index.html antes de publicar..."
+python verificar.py index.html || python3 verificar.py index.html
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "Commit detenido. Corrige las fallas o usa 'git commit --no-verify' si sabes lo que haces."
+  exit 1
+fi
+exit 0

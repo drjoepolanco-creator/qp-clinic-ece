@@ -3999,7 +3999,16 @@ async function buscarPorExpediente(exp){
     abrirExpediente(data[0].id);
     return;
   }
-  renderTabla(data,data.length);
+  // Más de un expediente con el mismo número (duplicados): se listan para que
+  // el usuario elija, en vez de abrir uno al azar.
+  if(tbl)tbl.innerHTML=`<div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
+    <div style="padding:9px 13px;background:#FFF3E0;color:#E65100;font-size:13px;font-weight:700">⚠️ ${data.length} expedientes comparten el número ${exp}. Verifica cuál corresponde.</div>
+    ${data.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border-top:1px solid ${BR};flex-wrap:wrap">
+      <div><b style="font-size:14px;color:${TX}">${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}</b>
+      <div style="font-size:12px;color:${MU};margin-top:2px">Exp. ${p.numero_expediente||"—"} · ${p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—"} · ${p.sexo_biologico||"—"}</div></div>
+      <button onclick="abrirExpediente('${p.id}')" style="background:${P};color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer">Ver expediente</button>
+    </div>`).join("")}
+  </div>`;
 }
 window.abrirExpediente=async function(id){
   // Limpiar TODOS los datos del paciente previo antes de cargar el nuevo
