@@ -1851,8 +1851,12 @@ async function pgAgenda(){
   const isAdmin=u.rol==="admin";
   let medicos=[];
   if(isAdmin){
-    const {data}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,calendar_url,calendar_color,rol").eq("activo",true);
-    medicos=(data||[]).filter(m=>m.calendar_url?.trim());
+    const {data}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,calendar_url,calendar_color,rol,sede").eq("activo",true);
+    // Aislamiento de agenda: un administrador de amfa no ve los calendarios de
+    // QP Clinic ni QP Surgery, y viceversa. Misma regla que el padrón de pacientes.
+    const _mia=sedeUsuario();
+    medicos=(data||[]).filter(m=>m.calendar_url?.trim())
+      .filter(m=>_mia==="amfa" ? m.sede==="amfa" : m.sede!=="amfa");
     window._medicosCal=medicos;
   }
   RR().innerHTML=nav()+`
