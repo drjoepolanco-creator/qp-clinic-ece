@@ -32,6 +32,15 @@ CREATE TABLE IF NOT EXISTS public.paciente_sedes (
 CREATE INDEX IF NOT EXISTS idx_pac_sedes_sede ON public.paciente_sedes (sede);
 CREATE INDEX IF NOT EXISTS idx_pac_sedes_pac  ON public.paciente_sedes (paciente_id);
 
+-- Protegida desde el momento en que se crea: sin sesión iniciada, nadie la
+-- alcanza. La política definitiva, que la limita a la propia unidad, entra en
+-- el paso 2B. Los disparadores y funciones llevan SECURITY DEFINER, así que
+-- siguen funcionando sin importar qué política tenga.
+ALTER TABLE public.paciente_sedes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS auth_all_paciente_sedes ON public.paciente_sedes;
+CREATE POLICY auth_all_paciente_sedes ON public.paciente_sedes
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
 
 -- ── 1.3 · Carga inicial ────────────────────────────────────────────────────
 -- Todo lo que existe hoy pertenece a QP Clinic y QP Surgery, que es como se ha

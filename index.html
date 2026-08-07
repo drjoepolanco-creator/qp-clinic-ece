@@ -1112,6 +1112,11 @@ window.abrirModalUsuario=async function(uid=""){
       ${fld("Apellidos *",inp("mu_ap",u.apellidos||"","Apellido Paterno Materno"),1)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Unidad *",`<select id="mu_sede" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${
+        (sedeUsuario()==="amfa"?[["amfa","amfa Nutrición Especializada"]]
+         :[["clinic","QP Clinic"],["surgery","QP Surgery Clinic"],["ambas","QP Clinic y QP Surgery"],["amfa","amfa Nutrición Especializada"]])
+        .map(([v,l])=>`<option value="${v}" ${(u.sede||sedeActiva())===v?"selected":""}>${l}</option>`).join("")}</select>
+        <div style="font-size:11px;color:${MU};margin-top:4px">Define qué pacientes y qué agenda alcanza. amfa queda aislada de QP.</div>`,1)}
       ${fld("Rol *",`<select id="mu_rol" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${ROLES.map(([v,l])=>`<option value="${v}" ${(u.rol||"medico")===v?"selected":""}>${l}</option>`).join("")}</select>`,1)}
       ${fld("Nombre de usuario *",inp("mu_user",u.username||"","Ej: dr.garcia"),1)}
       ${fld("Teléfono",inp("mu_tel",u.telefono||"","55XXXXXXXX","tel"))}
@@ -1290,6 +1295,7 @@ window.guardarUsuario=async function(uid=""){
   });
   const profilePayload={
     username:usuario,titulo:gv("mu_titulo"),nombre:nom,apellidos:ap,rol:gv("mu_rol"),
+    sede:gv("mu_sede")||sedeActiva(),
     // Formación académica (campos legacy = primera entrada, para compatibilidad)
     licenciatura:gv("mu_lic")||null,
     cedula_medico:cedMed||null,
