@@ -1,5 +1,41 @@
 # QP Clinic ECE — Contexto completo para continuación
 
+## ⚠️ LEER PRIMERO — reglas de operación (7 agosto 2026)
+
+1. **Fuente de verdad: `C:\Users\Alan\Documents\qp-clinic-ece`** (repo git conectado a GitHub → Vercel).
+   La carpeta de Google Drive quedó OBSOLETA. No editar ahí: ya causó una divergencia de versiones.
+   Publicar con: `git add -A` → `git commit -m "..."` → `git push`. Vercel despliega solo.
+
+2. **Correr `python verificar.py index.html` antes de entregar.** Está enganchado como hook de
+   pre-commit (`git config core.hooksPath .githooks`). Nueve comprobaciones nacidas de errores
+   reales. La más importante es CHK-3: detecta variables usadas fuera de la función donde se
+   declaran, que fue lo que tumbó los expedientes en producción.
+
+3. **Supabase YA TIENE RLS configurado** en las 34 tablas, con políticas `auth_all_<tabla>`
+   (FOR ALL TO authenticated). **NO crear políticas nuevas ni activar/desactivar RLS.**
+   Agregar una política `USING (true)` a una tabla que ya tiene otras las AFLOJA, porque en
+   PostgreSQL las políticas se suman con OR.
+   Antes de proponer cualquier cambio de seguridad, pedir primero:
+   `SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname='public';`
+   y `SELECT tablename, policyname, cmd, roles FROM pg_policies WHERE schemaname='public';`
+
+4. **Al aplicar parches en el índice de 20 mil líneas, verificar el punto de inserción.**
+   Los patrones de texto se repiten. Un bloque destinado a `pgExp` cayó en `pgMedicos` porque
+   se reemplazó la primera coincidencia sin comprobar en qué función estaba.
+
+5. **Excepciones que NO deben cerrarse sin cambiar código:**
+   `usuarios` (el login la consulta sin sesión para traducir usuario→correo) y
+   `pre_registros` (los pacientes llenan su pre-registro desde un enlace con token).
+
+## Pendientes
+- Certificación NOM-024-SSA3-2012: consultar el texto vigente y los lineamientos de la DGIS
+  antes de planear. Falta trazabilidad de *consultas* (quién vio qué expediente), no solo de
+  escrituras; política de retención y respaldos verificables; documentación de evidencia.
+- Mover a funciones RPC las consultas anónimas a `usuarios` y `pre_registros`.
+- amfa necesita su propio aviso de privacidad y consentimientos con su razón social
+  (los 11 textos legales del sistema siguen nombrando a QP Clinic, S.C. — es correcto por ahora).
+
+
 ## Identidad del usuario
 **Dr. José Alan Polanco Fierro** — Director General de QP Clinic  
 - Médico Cirujano (UNAM) + Especialista en Medicina del Deporte (IPN)  
