@@ -553,7 +553,6 @@ async function guardarConsultaSilencioso(){
       res=await SB.from("consultas").update(payload).eq("id",STATE.consultaActual.id).select().single();
     } else {
       payload.hora_inicio=ahora.toTimeString().substring(0,5);
-      payload.sede=sedeActiva();   // sella la unidad donde se otorgó la consulta
       res=await SB.from("consultas").insert(payload).select().single();
     }
     if(res?.data&&!res?.error){
@@ -3888,26 +3887,11 @@ async function pgBuscar(){
   </div>`;
   await cargarPacientes();
 }
-// IDs de pacientes con al menos una consulta registrada en amfa.
-// Se memoriza por sesión para no repetir la consulta en cada búsqueda.
-async function idsPacientesAmfa(){
-  if(!esAmfa())return[];
-  if(STATE._amfaIds)return STATE._amfaIds;
-  try{
-    const{data}=await SB.from("consultas").select("paciente_id").eq("sede","amfa").limit(5000);
-    STATE._amfaIds=[...new Set((data||[]).map(r=>r.paciente_id).filter(Boolean))];
-  }catch(e){STATE._amfaIds=[];}
-  return STATE._amfaIds;
-}
 async function cargarPacientes(q=""){
   if(!q||!q.trim()){const t0=document.getElementById("tbl");if(t0)t0.innerHTML=`<div style="background:#fff;border-radius:10px;padding:34px;text-align:center;color:${MU}"><i class="ti ti-search" style="font-size:26px;display:block;margin-bottom:8px;color:${BR}"></i>Escriba un nombre, apellido, CURP o número de expediente para buscar un paciente.</div>`;return;}
   const COLS="id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico";
-  // Aislamiento de amfa: solo ve a quien registró ella o a quien ya atendió.
-  // QP Clinic y QP Surgery siguen viendo el padrón completo.
-  const _amfaIds=await idsPacientesAmfa();
-  const base=()=>{let q=SB.from("pacientes").select(COLS).eq("activo",true);
-    if(esAmfa())q=_amfaIds.length?q.or(`sede_origen.eq.amfa,id.in.(${_amfaIds.join(",")})`):q.eq("sede_origen","amfa");
-    return q.order("apellido_paterno");};
+  // Las tres unidades comparten el padrón completo de pacientes.
+  const base=()=>SB.from("pacientes").select(COLS).eq("activo",true).order("apellido_paterno");
 
   let data=[], error=null;
 
@@ -4566,7 +4550,6 @@ window.guardarNuevoPac=async function(){
   }
 
   loading(true,"Registrando paciente...");
-  payload.sede_origen=sedeActiva();   // deja rastro de en qué unidad se dio de alta
   const {data,error}=await SB.from("pacientes").insert(payload).select().single();
   loading(false);
   if(error){
@@ -9996,8 +9979,7 @@ window.guardarConsulta=async function(){
     res=await SB.from("consultas").update(payload).eq("id",STATE.consultaActual.id).select().single();
   } else {
     payload.hora_inicio=horaAhora;
-    payload.sede=sedeActiva();   // sella la unidad donde se otorgó la consulta
-      res=await SB.from("consultas").insert(payload).select().single();
+    res=await SB.from("consultas").insert(payload).select().single();
   }
   loading(false);
   if(res.error){showToast("Error: "+res.error.message,false);return;}
