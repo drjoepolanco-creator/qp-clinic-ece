@@ -645,10 +645,10 @@ function nav(){
         <div style="padding:6px 16px;font-size:11px;font-weight:700;color:#546E7A;text-transform:uppercase;background:#F5F5F5;letter-spacing:.5px">${esAnalista()?"Consulta — solo lectura":"Solo Administrador"}</div>
         <button onclick="go('medicos');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏥 Gestión de médicos y usuarios</button>
         <button onclick="go('listapac',{pacPage:1});toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px"><i class="ti ti-users"></i> Padrón de pacientes</button>
-        <button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>
-        <button onclick="go('tramites');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏛️ Trámites y Cumplimiento</button>
-        <button onclick="go('reportes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📊 Reportes de Dirección</button>
-        <button onclick="go('cortecaja');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">💰 Corte de caja</button>
+        ${esAmfa()?"":`<button onclick="go('bitacora');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📋 Bitácora de acceso (NOM-024)</button>`}
+        ${esAmfa()?"":`<button onclick="go('tramites');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🏛️ Trámites y Cumplimiento</button>`}
+        ${esAmfa()?"":`<button onclick="go('reportes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📊 Reportes de Dirección</button>`}
+        ${esAmfa()?"":`<button onclick="go('cortecaja');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">💰 Corte de caja</button>`}
         `:""}
         ${puedeVerInventario()?`<button onclick="go('inventario');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📦 Inventario de insumos</button>`:""}
         ${rolActual()==="admin"?`
@@ -976,7 +976,9 @@ async function pgMedicos(){
   loading(true,"Cargando usuarios...");
   const {data:usuarios}=await SB.from("usuarios").select("*").order("apellidos");
   loading(false);
-  const u=usuarios||[];
+  // Cada unidad administra solo a su propia gente.
+  const _mi=sedeUsuario();
+  const u=(usuarios||[]).filter(x=>_mi==="amfa" ? x.sede==="amfa" : x.sede!=="amfa");
   const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición","psicologo":"Psicólogo(a)","pasante":"Pasante","analista":"Analista"};
   const ROL_COLORS={"admin":"#6A1B9A","medico":"#006BB6","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B","psicologo":"#5D4037","pasante":"#455A64","analista":"#37474F"};
   RR().innerHTML=nav()+`
@@ -1655,6 +1657,7 @@ window.cambiarContrasena=async function(){
 }
 // ── TRÁMITES Y CUMPLIMIENTO INSTITUCIONAL ────────────────
 async function pgTramites(){
+  if(esAmfa()){showToast("Este módulo no está disponible en amfa",false);go("agenda");return;}
   RR().innerHTML=nav()+`
   <div style="max-width:1100px;margin:0 auto;padding:20px 14px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
@@ -1808,6 +1811,7 @@ async function pgTramites(){
 }
 
 async function pgBitacora(){
+  if(esAmfa()){showToast("Este módulo no está disponible en amfa",false);go("agenda");return;}
   if(!["admin","analista"].includes(STATE.userProfile?.rol)){go("agenda");return;}
   loading(true,"Cargando bitácora...");
   const {data}=await SB.from("bitacora_accesos").select("*").order("timestamp",{ascending:false}).limit(200);
@@ -11149,6 +11153,7 @@ function repBuckets(periodo,rango){
 }
 
 async function pgReportes(){
+  if(esAmfa()){showToast("Este módulo no está disponible en amfa",false);go("agenda");return;}
   if(!STATE.repPeriodo)STATE.repPeriodo="mes";
   if(!STATE.repTab)STATE.repTab="resumen";
   if(!STATE.repDesde)STATE.repDesde=new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().split("T")[0];
@@ -12491,6 +12496,7 @@ window.calcFczonas=function(){
 
 // ── CORTE DE CAJA ─────────────────────────────────────────
 async function pgCorteCaja(){
+  if(esAmfa()){showToast("Este módulo no está disponible en amfa",false);go("agenda");return;}
   RR().innerHTML=nav()+`<div style="max-width:1000px;margin:0 auto;padding:20px 14px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div>
