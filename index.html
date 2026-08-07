@@ -4655,7 +4655,7 @@ function pgExp(){
         </div>
       </div>
       <div style="display:flex;gap:6px">
-        ${[["🏥 Enfermería","pgEnfermeria()"],["📅 Citas","showToast('Agenda próximamente')"],["💳 Pagos","pgPagos()"]].map(([a,fn])=>`<button onclick="${fn}" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:7px;padding:5px 10px;color:#fff;cursor:pointer;font-size:13px;font-weight:500">${a}</button>`).join("")}
+        ${[["📄 Resumen médico","abrirResumenMedico()"],["🏥 Enfermería","pgEnfermeria()"],["📅 Citas","showToast('Agenda próximamente')"],["💳 Pagos","pgPagos()"]].map(([a,fn])=>`<button onclick="${fn}" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:7px;padding:5px 10px;color:#fff;cursor:pointer;font-size:13px;font-weight:500">${a}</button>`).join("")}
         <button onclick="go('buscar')" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:5px 10px;color:rgba(255,255,255,.7);cursor:pointer;font-size:13px">✕</button>
       </div>
     </div>
@@ -18711,6 +18711,326 @@ window.ejecutarUnificacion=async function(){
   else{showToast("✅ Expedientes unificados correctamente");}
   await logBitacora("UNIFICAR_EXPEDIENTE",`Secundario ${sid} → Principal ${pid}`);
   cargarPacientes();
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RESUMEN MÉDICO DEL PACIENTE
+// Genera un documento con las secciones del expediente que el médico elija,
+// en el formato del expediente clínico impreso: encabezado con paciente y
+// médico responsable, y las secciones en orden.
+// ══════════════════════════════════════════════════════════════════════════════
+const RES_SECCIONES=[
+  {k:"ficha",    label:"Ficha de identificación del paciente", def:true},
+  {k:"fam",      label:"Antecedentes familiares",              def:true},
+  {k:"pat",      label:"Antecedentes personales patológicos",  def:true},
+  {k:"nopat",    label:"Antecedentes personales no patológicos",def:true},
+  {k:"gineco",   label:"Antecedentes gineco-obstétricos",      def:false},
+  {k:"alergias", label:"Alergias",                             def:true},
+  {k:"meds",     label:"Medicamentos usados",                  def:false},
+  {k:"interrog", label:"Interrogatorio por aparatos y sistemas",def:true},
+  {k:"anotac",   label:"Anotaciones generales",                def:false},
+  {k:"vacunas",  label:"Inmunizaciones / Vacunas",             def:false},
+  {k:"sv",       label:"Signos vitales",                       def:false},
+  {k:"inbody",   label:"InBody / Composición corporal",        def:false},
+  {k:"lab",      label:"Resultados de laboratorio",            def:false},
+  {k:"usg",      label:"Ultrasonido",                          def:false},
+  {k:"inter",    label:"Interconsultas",                       def:false},
+  {k:"fisio",    label:"Fisioterapia",                         def:false},
+  {k:"consultas",label:"Consultas y notas de evolución",       def:true},
+];
+
+window.abrirResumenMedico=async function(){
+  const p=STATE.pat;
+  if(!p?.id){showToast("Abre un expediente primero",false);return;}
+  loading(true,"Preparando resumen...");
+  let cons=[];
+  try{
+    const{data}=await SB.from("consultas")
+      .select("id,fecha,tipo_nota,medico_nombre").eq("paciente_id",p.id)
+      .order("fecha",{ascending:false});
+    cons=data||[];
+  }catch(e){}
+  loading(false);
+  STATE._resSec=STATE._resSec||Object.fromEntries(RES_SECCIONES.map(s=>[s.k,s.def]));
+  STATE._resCons=Object.fromEntries(cons.map(c=>[c.id,true]));
+  STATE._resConsLista=cons;
+  document.getElementById("modal-resumen")?.remove();
+  const m=document.createElement("div");
+  m.id="modal-resumen";
+  m.style.cssText="position:fixed;inset:0;background:#00000070;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.innerHTML=`<div style="background:#fff;border-radius:12px;width:820px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px #00000040">
+    <div style="background:${PD};padding:12px 18px;display:flex;justify-content:space-between;align-items:center">
+      <b style="color:#fff;font-size:15px">Resumen médico del paciente</b>
+      <button onclick="document.getElementById('modal-resumen').remove()" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;width:30px;height:30px;color:#fff;font-size:17px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:16px 18px;overflow-y:auto;flex:1">
+      <div style="border:1px solid ${BR};border-radius:10px;overflow:hidden;margin-bottom:14px">
+        <div style="background:#F8FAFB;padding:9px 14px;border-bottom:1px solid ${BR};font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;letter-spacing:.5px;text-align:center">Secciones del expediente clínico</div>
+        <div id="res-secciones" style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:9px 18px"></div>
+      </div>
+      <div id="res-consultas"></div>
+      <p style="text-align:center;font-size:13px;font-weight:700;color:${TX};margin-top:14px">Seleccione las secciones del expediente clínico que desea incluir.</p>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid ${BR};display:flex;gap:10px;justify-content:center;background:#FAFCFD">
+      <button onclick="resumenSalida('pdf')" style="background:${P};color:#fff;border:none;border-radius:8px;padding:11px 30px;font-size:14px;font-weight:700;cursor:pointer">Generar PDF</button>
+      <button onclick="resumenSalida('print')" style="background:#2E7D32;color:#fff;border:none;border-radius:8px;padding:11px 30px;font-size:14px;font-weight:700;cursor:pointer">Imprimir</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  resumenPintarSecciones();
+};
+
+window.resumenToggle=function(k,v){STATE._resSec[k]=v;if(k==="consultas")resumenPintarConsultas();};
+window.resumenToggleCons=function(id,v){STATE._resCons[id]=v;resumenPintarConsultas();};
+window.resumenTodasCons=function(v){Object.keys(STATE._resCons).forEach(k=>STATE._resCons[k]=v);resumenPintarConsultas();};
+
+function resumenPintarSecciones(){
+  const c=document.getElementById("res-secciones");if(!c)return;
+  c.innerHTML=RES_SECCIONES.map(s=>`
+    <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13.5px;color:${TX}">
+      <input type="checkbox" ${STATE._resSec[s.k]?"checked":""} onchange="resumenToggle('${s.k}',this.checked)" style="accent-color:${P};width:15px;height:15px;margin-top:1px">
+      <span>${s.label}</span>
+    </label>`).join("");
+  resumenPintarConsultas();
+}
+
+function resumenPintarConsultas(){
+  const c=document.getElementById("res-consultas");if(!c)return;
+  const lista=STATE._resConsLista||[];
+  if(!STATE._resSec.consultas||!lista.length){c.innerHTML="";return;}
+  const n=Object.values(STATE._resCons).filter(Boolean).length;
+  c.innerHTML=`<div style="border:1px solid ${BR};border-radius:10px;overflow:hidden">
+    <div style="background:#F8FAFB;padding:9px 14px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;letter-spacing:.5px">Consultas a incluir — ${n} de ${lista.length}</span>
+      <span style="display:flex;gap:6px">
+        <button onclick="resumenTodasCons(true)" style="background:#fff;color:${P};border:1px solid ${P};border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">Todas</button>
+        <button onclick="resumenTodasCons(false)" style="background:#fff;color:${MU};border:1px solid ${BR};border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">Ninguna</button>
+      </span>
+    </div>
+    <div style="max-height:190px;overflow-y:auto">
+      ${lista.map(x=>`<label style="display:flex;align-items:center;gap:9px;padding:7px 14px;border-bottom:1px solid #F4F6F7;cursor:pointer;font-size:13px">
+        <input type="checkbox" ${STATE._resCons[x.id]?"checked":""} onchange="resumenToggleCons('${x.id}',this.checked)" style="accent-color:${P};width:14px;height:14px">
+        <span style="color:${TX};font-weight:600;min-width:88px">${(x.fecha||"").split("T")[0].split("-").reverse().join("/")}</span>
+        <span style="color:${MU}">${x.tipo_nota||"Nota de evolución"}</span>
+      </label>`).join("")}
+    </div></div>`;
+}
+
+// Convierte los objetos JSONB de antecedentes en texto legible.
+function resLista(obj,filtro){
+  if(!obj)return[];
+  return Object.entries(obj)
+    .filter(([k,v])=>v===true&&(!filtro||filtro(k)))
+    .map(([k])=>k.replace(/^oc_/,"").replace(/_/g," "))
+    .map(s=>s.charAt(0).toUpperCase()+s.slice(1));
+}
+function resTexto(t){return (t||"").toString().trim();}
+
+async function resumenDatos(){
+  const p=STATE.pat||{};const pid=p.id;
+  const q=(tabla,cols="*",orden=null)=>{
+    let x=SB.from(tabla).select(cols).eq("paciente_id",pid);
+    if(orden)x=x.order(orden,{ascending:false});
+    return x.then(r=>r.data||[]).catch(()=>[]);
+  };
+  const ids=Object.entries(STATE._resCons||{}).filter(([,v])=>v).map(([k])=>k);
+  const [interrog,anotac,vac,sv,inbody,lab,usg,inter,fisio,cons]=await Promise.all([
+    STATE._resSec.interrog ? q("interrogatorio_aparatos") : [],
+    STATE._resSec.anotac   ? q("anotaciones","*","created_at") : [],
+    STATE._resSec.vacunas  ? q("vacunas","*","fecha") : [],
+    STATE._resSec.sv       ? q("signos_vitales","*","fecha") : [],
+    STATE._resSec.inbody   ? q("inbody_resultados","*","fecha") : [],
+    STATE._resSec.lab      ? q("resultados_laboratorio","*","fecha") : [],
+    STATE._resSec.usg      ? SB.from("anexos").select("*").eq("paciente_id",pid).ilike("tipo_documento","%ltrasonido%").order("fecha",{ascending:false}).then(r=>r.data||[]).catch(()=>[]) : [],
+    STATE._resSec.inter    ? q("interconsultas","*","fecha") : [],
+    STATE._resSec.fisio    ? q("fisioterapia_prescripciones","*","fecha") : [],
+    (STATE._resSec.consultas&&ids.length)
+      ? SB.from("consultas").select("*").in("id",ids).order("fecha",{ascending:false}).then(r=>r.data||[]).catch(()=>[])
+      : [],
+  ]);
+  return{interrog,anotac,vac,sv,inbody,lab,usg,inter,fisio,cons};
+}
+
+function resumenHTML(d){
+  const p=STATE.pat||{};
+  const med=STATE.medProfile||STATE.userProfile||{};
+  const nomMed=[med.titulo||"Dr.",med.nombre,med.apellido_paterno,med.apellido_materno].filter(Boolean).join(" ");
+  const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim().toUpperCase();
+  const fnac=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
+  const S=(t)=>`<div style="font-size:11px;font-weight:700;color:#263238;letter-spacing:.5px;margin:16px 0 6px;padding-bottom:2px">${t}</div>`;
+  const T=(t)=>`<div style="font-size:10px;color:#263238;line-height:1.55;white-space:pre-wrap">${(t||"").replace(/</g,"&lt;")}</div>`;
+  const VACIO=`<div style="font-size:10px;color:#90A4AE;font-style:italic">NO HAY INFORMACION REGISTRADA</div>`;
+  const campo=(l,v)=>`<div style="flex:1 1 22%;min-width:22%;margin-bottom:7px"><div style="font-size:7.5px;color:#78909C;text-transform:uppercase;font-weight:700">${l}</div><div style="font-size:10px;color:#263238">${v||"—"}</div></div>`;
+  const caja=(t,html)=>`<div style="font-size:8.5px;font-weight:700;color:#546E7A;text-transform:uppercase;text-align:center;background:#F5F7F8;padding:3px;margin:9px 0 6px">${t}</div><div style="display:flex;flex-wrap:wrap;gap:0 10px">${html}</div>`;
+  const enc=`
+    <div style="border-bottom:1.5px solid #263238;padding-bottom:6px;margin-bottom:10px">
+      <div style="text-align:center;font-size:12px;font-weight:700;color:#263238;letter-spacing:1px;margin-bottom:6px">EXPEDIENTE CLINICO</div>
+      <table style="width:100%;font-size:9px;color:#263238">
+        <tr><td><b>Paciente:</b> ${nomPac}</td><td style="text-align:right"><b>Médico responsable:</b> ${nomMed}</td></tr>
+        <tr><td><b>Fecha de nacimiento:</b> ${fnac}</td><td style="text-align:right"><b>Especialidad:</b> ${(med.especialidad||"—").toUpperCase()}</td></tr>
+        <tr><td><b>No Expediente:</b> ${p.numero_expediente||"—"}</td><td style="text-align:right"><b>Céd. Prof.</b> ${med.cedula_medico||"—"}</td></tr>
+      </table>
+    </div>`;
+  let h=enc;
+  const sec=STATE._resSec||{};
+
+  if(sec.ficha){
+    const dom=p.domicilio||{},seg=p.seguro_medico||{};
+    h+=S("FICHA DE IDENTIFICACION DEL PACIENTE");
+    h+=caja("Datos generales",
+      campo("No. Expediente",p.numero_expediente)+campo("CURP",p.curp)+campo("Fecha de registro",(p.created_at||"").split("T")[0].split("-").reverse().join("/"))+
+      campo("Nombre",p.nombre)+campo("Apellido paterno",p.apellido_paterno)+campo("Apellido materno",p.apellido_materno)+campo("Fecha de nacimiento",fnac)+
+      campo("Sexo",p.sexo_biologico)+campo("Estado civil",p.estado_civil)+campo("Tipo de sangre",p.tipo_sangre)+campo("Nacionalidad",p.nacionalidad)+
+      campo("Entidad de nacimiento",p.entidad_nacimiento)+campo("Ocupación",p.ocupacion)+campo("Escolaridad",p.escolaridad));
+    h+=caja("Datos del seguro médico",
+      campo("Cuenta con seguro",seg.tiene||"NO")+campo("Aseguradora",seg.aseguradora)+campo("Número de póliza",seg.poliza)+campo("Titular",seg.titular));
+    h+=caja("Domicilio y datos de contacto",
+      campo("Calle y número",[dom.calle,dom.num_ext,dom.num_int].filter(Boolean).join(" "))+campo("Colonia",dom.colonia)+
+      campo("Municipio / Alcaldía",dom.municipio)+campo("Entidad federativa",dom.estado)+campo("Código postal",dom.cp)+
+      campo("Celular",p.celular)+campo("Teléfono",p.telefono)+campo("Correo electrónico",p.email));
+  }
+  if(sec.fam){
+    h+=S("ANTECEDENTES FAMILIARES");
+    const l=resLista(STATE.famData).map(x=>{const q=x.split(" ");return "• "+q.slice(0,-1).join(" ")+" — "+q.slice(-1);});
+    h+=(l.length||resTexto(STATE.famNotas))?T([...l,resTexto(STATE.famNotas)].filter(Boolean).join("\n")):VACIO;
+  }
+  if(sec.pat){
+    h+=S("ANTECEDENTES PERSONALES PATOLOGICOS");
+    const l=resLista(STATE.patData,k=>!k.startsWith("tab_"));
+    h+=(l.length||resTexto(STATE.patOtrasNotes))?T([...l.map(x=>"• "+x),resTexto(STATE.patOtrasNotes)].filter(Boolean).join("\n")):VACIO;
+  }
+  if(sec.nopat){
+    h+=S("ANTECEDENTES PERSONALES NO PATOLOGICOS");
+    const t=[resTexto(STATE.antNoPatText),resTexto(STATE.otrosText)].filter(Boolean).join("\n\n");
+    h+=t?T(t):VACIO;
+  }
+  if(sec.gineco){
+    h+=S("ANTECEDENTES GINECO-OBSTETRICOS");
+    const g=STATE.ginData||{};
+    const pares=Object.entries(g).filter(([k,v])=>v&&!["id","paciente_id","created_at","updated_at"].includes(k));
+    h+=pares.length?`<div style="display:flex;flex-wrap:wrap;gap:0 10px">${pares.map(([k,v])=>campo(k.replace(/_/g," "),v)).join("")}</div>`:VACIO;
+  }
+  if(sec.alergias){
+    h+=S("ALERGIAS");
+    const a=(STATE.alergs||[]).filter(Boolean);
+    h+=(a.length||resTexto(STATE.alOtrosText))?T([...a.map(x=>"- "+x),resTexto(STATE.alOtrosText)].filter(Boolean).join("\n")):VACIO;
+  }
+  if(sec.meds){
+    h+=S("MEDICAMENTOS USADOS");
+    const t=[resTexto(STATE.medText),resTexto(STATE.medOtrosText)].filter(Boolean).join("\n\n");
+    h+=t?T(t):VACIO;
+  }
+  if(sec.interrog){
+    h+=S("INTERROGATORIO POR APARATOS Y SISTEMAS");
+    const r=(d.interrog||[])[0];
+    const l=r?resLista(r.datos||r.seleccionados||{}):[];
+    h+=(l.length||resTexto(r?.notas))?T([...l.map(x=>"• "+x),resTexto(r?.notas)].filter(Boolean).join("\n")):VACIO;
+  }
+  if(sec.anotac){
+    h+=S("ANOTACIONES GENERALES");
+    h+=(d.anotac||[]).length?(d.anotac.map(a=>T(`${(a.created_at||"").split("T")[0].split("-").reverse().join("/")} — ${a.texto||a.contenido||""}`)).join("")):VACIO;
+  }
+  if(sec.vacunas){
+    h+=S("INMUNIZACIONES / VACUNAS");
+    h+=(d.vac||[]).length?T(d.vac.map(v=>`• ${v.vacuna||v.nombre||""} — ${(v.fecha||"").split("T")[0].split("-").reverse().join("/")} ${v.dosis?"("+v.dosis+")":""}`).join("\n")):VACIO;
+  }
+  if(sec.sv){
+    h+=S("SIGNOS VITALES");
+    h+=(d.sv||[]).length?T(d.sv.slice(0,20).map(s=>`${(s.fecha||"").split("T")[0].split("-").reverse().join("/")} — TA ${s.tension_sistolica||"—"}/${s.tension_diastolica||"—"} · FC ${s.frecuencia_cardiaca||"—"} · FR ${s.frecuencia_respiratoria||"—"} · Temp ${s.temperatura||"—"} · SpO₂ ${s.saturacion_o2||"—"} · Peso ${s.peso||"—"} kg`).join("\n")):VACIO;
+  }
+  if(sec.inbody){
+    h+=S("INBODY / COMPOSICION CORPORAL");
+    h+=(d.inbody||[]).length?T(d.inbody.slice(0,12).map(b=>`${(b.fecha||"").split("T")[0].split("-").reverse().join("/")} — Peso ${b.peso||"—"} kg · IMC ${b.imc||"—"} · Grasa ${b.pgc||"—"}% · Músculo ${b.masa_musculo||"—"} kg · TMB ${b.tmb||"—"} kcal`).join("\n")):VACIO;
+  }
+  if(sec.lab){
+    h+=S("RESULTADOS DE LABORATORIO");
+    h+=(d.lab||[]).length?T(d.lab.slice(0,30).map(x=>`${(x.fecha||"").split("T")[0].split("-").reverse().join("/")} — ${x.estudio||x.panel||""}: ${x.resultado||x.valor||""} ${x.unidad||""}`).join("\n")):VACIO;
+  }
+  if(sec.usg){
+    h+=S("ULTRASONIDO");
+    h+=(d.usg||[]).length?d.usg.map(u=>T(`${(u.fecha||"").split("T")[0].split("-").reverse().join("/")} — ${u.titulo||u.tipo_documento||""}`)).join(""):VACIO;
+  }
+  if(sec.inter){
+    h+=S("INTERCONSULTAS");
+    h+=(d.inter||[]).length?d.inter.map(i=>T(`${(i.fecha||"").split("T")[0].split("-").reverse().join("/")} — ${i.especialidad||""} · ${i.estatus||""}\nMotivo: ${i.motivo||""}`)).join(""):VACIO;
+  }
+  if(sec.fisio){
+    h+=S("FISIOTERAPIA");
+    h+=(d.fisio||[]).length?d.fisio.map(f=>T(`${(f.fecha||"").split("T")[0].split("-").reverse().join("/")} — ${f.diagnostico||""}\n${f.plan||f.objetivos||""}`)).join(""):VACIO;
+  }
+  if(sec.consultas){
+    h+=S("CONSULTAS");
+    const cs=(d.cons||[]);
+    if(!cs.length)h+=VACIO;
+    cs.forEach(c=>{
+      const f=(c.fecha||"").split("T");
+      const sub=(t,v)=>v?`<div style="font-size:9px;font-weight:700;color:#546E7A;margin-top:5px">${t}</div>${T(v)}`:"";
+      h+=`<div style="border-top:1px solid #CFD8DC;margin-top:12px;padding-top:7px">
+        <div style="font-size:10px;font-weight:700;color:#006BB6">${(c.tipo_nota||"CONSULTA").toUpperCase()}</div>
+        <div style="font-size:9px;color:#546E7A;margin-top:2px">FECHA: ${(f[0]||"").split("-").reverse().join("/")} &nbsp; HORA: ${(f[1]||"").slice(0,5)} &nbsp; REGISTRADA POR: ${c.medico_nombre||"—"}</div>
+        ${sub("MOTIVO DE CONSULTA / SUBJETIVO",c.subjetivo)}
+        ${sub("EXPLORACION FISICA",c.exploracion_fisica)}
+        ${sub("DIAGNOSTICO",c.analisis)}
+        ${sub("TRATAMIENTO",c.tratamiento)}
+        ${sub("LABORATORIO",c.laboratorio)}
+        ${sub("GABINETE",c.gabinete)}
+        ${sub("PLAN",c.plan)}
+      </div>`;
+    });
+  }
+  h+=`<div style="margin-top:22px;border-top:1px solid #CFD8DC;padding-top:6px;font-size:7.5px;color:#78909C;text-align:center">
+    ${brand().nombre} · ${sedeDir()} · Tel: ${sedeTels()}<br>
+    Documento generado el ${new Date().toLocaleString("es-MX")} por ${nomMed}. Contiene información confidencial protegida por la Ley Federal de Protección de Datos Personales.</div>`;
+  return h;
+}
+
+window.resumenSalida=async function(modo){
+  const p=STATE.pat||{};
+  loading(true,"Reuniendo información del expediente...");
+  let d;
+  try{ d=await resumenDatos(); }
+  catch(e){ loading(false); showToast("Error al reunir datos: "+e.message,false); return; }
+  const html=resumenHTML(d);
+  document.getElementById("modal-resumen")?.remove();
+
+  if(modo==="print"){
+    loading(false);
+    const w=window.open("","_blank");
+    if(!w){showToast("El navegador bloqueó la ventana de impresión",false);return;}
+    w.document.write(`<html><head><title>Expediente clínico — ${p.nombre||""} ${p.apellido_paterno||""}</title>
+      <style>@page{size:letter;margin:14mm} body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:10px}</style>
+      </head><body>${html}</body></html>`);
+    w.document.close();
+    setTimeout(()=>{w.focus();w.print();},400);
+    try{await logBitacora("RESUMEN_MEDICO","Impresión · Paciente "+p.id);}catch(e){}
+    return;
+  }
+
+  const{jsPDF}=window.jspdf||{};
+  if(!jsPDF){loading(false);showToast("jsPDF no disponible",false);return;}
+  if(typeof html2canvas==="undefined"){
+    await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  try{
+    const cont=document.createElement("div");
+    cont.style.cssText="position:fixed;left:-9999px;top:0;width:720px;background:#fff;padding:26px;font-family:system-ui,-apple-system,sans-serif";
+    cont.innerHTML=html;
+    document.body.appendChild(cont);
+    const canvas=await html2canvas(cont,{scale:2.5,backgroundColor:"#fff"});
+    document.body.removeChild(cont);
+    const doc=new jsPDF({orientation:"p",unit:"mm",format:"letter"});
+    const W=216,H=279;
+    const alto=canvas.height*W/canvas.width;
+    let pos=0,resto=alto;
+    doc.addImage(canvas.toDataURL("image/jpeg",0.9),"JPEG",0,0,W,alto);
+    resto-=H;
+    while(resto>0){pos-=H;doc.addPage();doc.addImage(canvas.toDataURL("image/jpeg",0.9),"JPEG",0,pos,W,alto);resto-=H;}
+    loading(false);
+    const nom=`${p.nombre||"paciente"}_${p.apellido_paterno||""}`.replace(/\s+/g,"_");
+    doc.save(`Expediente_${nom}_${new Date().toISOString().split("T")[0].replace(/-/g,"")}.pdf`);
+    showToast("PDF generado correctamente");
+    try{await logBitacora("RESUMEN_MEDICO","PDF · Paciente "+p.id);}catch(e){}
+  }catch(err){loading(false);console.error(err);showToast("Error al generar PDF: "+err.message,false);}
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
