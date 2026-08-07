@@ -553,6 +553,7 @@ async function guardarConsultaSilencioso(){
       res=await SB.from("consultas").update(payload).eq("id",STATE.consultaActual.id).select().single();
     } else {
       payload.hora_inicio=ahora.toTimeString().substring(0,5);
+      payload.sede=sedeActiva();   // sella la unidad donde se otorgó la consulta
       res=await SB.from("consultas").insert(payload).select().single();
     }
     if(res?.data&&!res?.error){
@@ -565,27 +566,44 @@ async function guardarConsultaSilencioso(){
 // ── BRANDING DINÁMICO POR SEDE (QP Clinic / QP Surgery Clinic) ──
 const BRANDING={
   clinic:{nombre:"QP Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",acento:"#006BB6",razon:"QP Clinic, S.C.",direccion:"Insurgentes Sur 933, Piso 12, Col. Nápoles, C.P. 03810, CDMX",rfc:"QCL230518J66",tel:"5644237028",web:"www.qpclinic.org"},
+  amfa:{nombre:"amfa Nutrición Especializada",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/AMFA%20LOGO.png",acento:"#0E3B32",razon:"amfa Nutrición Especializada",direccion:"Anillo Periférico 3332, Consultorio 1811, Piso 18, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México, CDMX",rfc:"",tel:"5594628295",tel2:"5594628296",web:""},
   surgery:{nombre:"QP Surgery Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",acento:"#1F8FE8",razon:"QP Surgery Clinic S.C.",direccion:"Boulevard Adolfo Ruiz Cortines No. 3332, Int. 816 y 801, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México",licencia:"Licencia Sanitaria 26-AM-09-010-0002",autorizacion:"Actos quirúrgicos (cirugía ambulatoria)",rfc:"",tel:"5592247091",web:""}
 };
 function sedeUsuario(){return STATE.userProfile?.sede||"clinic";}
 function sedeActiva(){
-  if(puedeCambiarSede()){return STATE.sedeActiva||(function(){try{return localStorage.getItem("qp_sede_activa");}catch(e){return null;}})()||"clinic";}
+  // Un usuario adscrito a amfa queda confinado a su sede, sin importar lo guardado.
+  if(sedeUsuario()==="amfa")return"amfa";
+  if(puedeCambiarSede()){const g=STATE.sedeActiva||(function(){try{return localStorage.getItem("qp_sede_activa");}catch(e){return null;}})()||"clinic";return BRANDING[g]?g:"clinic";}
   return sedeUsuario()==="surgery"?"surgery":"clinic";
 }
+// True cuando la sede activa es amfa Nutrición Especializada.
+function esAmfa(){return sedeActiva()==="amfa";}
+// True cuando el USUARIO pertenece a amfa (no puede salir de ahí).
+function usuarioAmfa(){return sedeUsuario()==="amfa";}
 function brand(){return BRANDING[sedeActiva()]||BRANDING.clinic;}
+// Datos de contacto de la unidad activa, para encabezados y pies de documentos.
+function sedeDir(){return brand().direccion||BRANDING.clinic.direccion;}
+function sedeTels(){const b=brand();return[b.tel,b.tel2].filter(Boolean).join(" / ");}
+function sedePie(){return brand().nombre+"  |  "+sedeDir()+"  |  Tel: "+sedeTels();}
 window.setSedeActiva=function(s){STATE.sedeActiva=s;try{localStorage.setItem("qp_sede_activa",s);}catch(e){}draw();}
-function puedeCambiarSede(){return !!STATE.userProfile&&(sedeUsuario()==="ambas"||rolActual()==="admin");}
+function puedeCambiarSede(){
+  if(sedeUsuario()==="amfa")return false;   // amfa no cambia de unidad
+  return !!STATE.userProfile&&(sedeUsuario()==="ambas"||rolActual()==="admin");
+}
 window.elegirSede=function(s){STATE.sedeActiva=s;STATE.sedePicker=false;try{localStorage.setItem("qp_sede_activa",s);}catch(e){}draw();}
 window.togglePickerSede=function(){STATE.sedePicker=!STATE.sedePicker;draw();}
 function logoSwitcherHTML(){
   const puede=puedeCambiarSede();
   if(!STATE.userProfile) return '<img src="'+BRANDING.clinic.logo+'" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">';
-  const otra=sedeActiva()==="surgery"?"clinic":"surgery";
+  const _ord=["clinic","surgery","amfa"];
+  const otra=_ord[(_ord.indexOf(sedeActiva())+1)%_ord.length];
   return '<img src="'+brand().logo+'" alt="'+brand().nombre+'" title="'+(puede?("Cambiar a "+BRANDING[otra].nombre):brand().nombre)+'" '+(puede?'onclick="toggleSede()" ':'')+'style="height:32px;border-radius:4px;background:#fff;padding:2px;'+(puede?"cursor:pointer":"")+'">';
 }
-function sedeHome(s){return s==="surgery"?"quirofano":"agenda";}
+function sedeHome(s){return s==="surgery"?"quirofano":"agenda";}  // clinic y amfa entran por Agenda
 window.toggleSede=function(){
-  const nxt=sedeActiva()==="surgery"?"clinic":"surgery";
+  if(!puedeCambiarSede())return;
+  const orden=["clinic","surgery","amfa"];
+  const nxt=orden[(orden.indexOf(sedeActiva())+1)%orden.length];
   STATE.sedeActiva=nxt;STATE.sedePicker=false;
   try{localStorage.setItem("qp_sede_activa",nxt);}catch(e){}
   try{sessionStorage.setItem("qp_sede_confirmada","1");}catch(e){}
@@ -601,7 +619,9 @@ function nav(){
   const online=navigator.onLine;
   return`<div id="topnav" style="background:${PD};height:46px;display:flex;align-items:center;padding:0 14px;gap:0;position:sticky;top:0;z-index:9990">
     <div style="display:flex;align-items:center;gap:8px;margin-right:16px">${logoSwitcherHTML()}</div>
-    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].filter(([k])=>{const _sa=sedeActiva();if(k==="quirofano"&&_sa==="clinic")return false;if((k==="ultrasonido"||k==="agenda")&&_sa==="surgery")return false;if(k==="nuevo"&&esAnalista())return false;return true;}).map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
+    ${[["agenda","Agenda"],["quirofano","Quirófano"],["buscar","Pacientes"],["nuevo","Nuevo paciente"],["herramientas","Herramientas"],["ultrasonido","Ultrasonido"],["seguros","Seguros"]].filter(([k])=>{const _sa=sedeActiva();
+      if(_sa==="amfa")return["agenda","buscar","nuevo","herramientas"].includes(k)&&!(k==="nuevo"&&esAnalista());
+      if(k==="quirofano"&&_sa==="clinic")return false;if((k==="ultrasonido"||k==="agenda")&&_sa==="surgery")return false;if(k==="nuevo"&&esAnalista())return false;return true;}).map(([k,l])=>`<button onclick="go('${k}')" style="padding:0 11px;height:46px;border:none;background:${STATE.page===k?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page===k?"3px solid #64B5F6":"3px solid transparent"}">${l}</button>`).join("")}
     ${sedeActiva()!=="surgery"?`<div style="position:relative" id="nutri-menu-wrap">
       <button onclick="toggleNutriMenu()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="nutricion"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="nutricion"?"3px solid #64B5F6":"3px solid transparent"}">Nutrición ▾</button>
       <div id="nutri-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:260px;z-index:9995;overflow:hidden">
@@ -614,7 +634,7 @@ function nav(){
         <button onclick="go('nutricion',{nutriModulo:'plantillas',nutriTipo:'transicion'});toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍎 Fase 3: Transición</button>
       </div>
     </div>
-    `:""}${sedeActiva()!=="surgery"?`<button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>`:""}
+    `:""}${(sedeActiva()!=="surgery"&&!esAmfa())?`<button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>`:""}
     ${(STATE.userProfile?.rol==="admin"||puedeVerInventario())?`
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora","inventario"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora","inventario"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
@@ -957,6 +977,12 @@ async function pgMedicos(){
   const u=usuarios||[];
   const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición","psicologo":"Psicólogo(a)","pasante":"Pasante","analista":"Analista"};
   const ROL_COLORS={"admin":"#6A1B9A","medico":"#006BB6","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B","psicologo":"#5D4037","pasante":"#455A64","analista":"#37474F"};
+  const _GA={"Identificación":["ficha","sv"],"Antecedentes clínicos":["ant","inter"],
+    "Consultas / Notas":["cons","interconsultas"],"Documentos y estudios":["anexos","imagenes","inbody"],
+    "Herramientas":["herramientas"]};
+  const GRUPOS_VIS=esAmfa()
+    ? GRUPOS.filter(g=>_GA[g.label]).map(g=>({...g,items:g.items.filter(i=>_GA[g.label].includes(i.k))})).filter(g=>g.items.length)
+    : GRUPOS;
   RR().innerHTML=nav()+`
   <div style="max-width:1200px;margin:0 auto;padding:20px" class="fade">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -3862,10 +3888,26 @@ async function pgBuscar(){
   </div>`;
   await cargarPacientes();
 }
+// IDs de pacientes con al menos una consulta registrada en amfa.
+// Se memoriza por sesión para no repetir la consulta en cada búsqueda.
+async function idsPacientesAmfa(){
+  if(!esAmfa())return[];
+  if(STATE._amfaIds)return STATE._amfaIds;
+  try{
+    const{data}=await SB.from("consultas").select("paciente_id").eq("sede","amfa").limit(5000);
+    STATE._amfaIds=[...new Set((data||[]).map(r=>r.paciente_id).filter(Boolean))];
+  }catch(e){STATE._amfaIds=[];}
+  return STATE._amfaIds;
+}
 async function cargarPacientes(q=""){
   if(!q||!q.trim()){const t0=document.getElementById("tbl");if(t0)t0.innerHTML=`<div style="background:#fff;border-radius:10px;padding:34px;text-align:center;color:${MU}"><i class="ti ti-search" style="font-size:26px;display:block;margin-bottom:8px;color:${BR}"></i>Escriba un nombre, apellido, CURP o número de expediente para buscar un paciente.</div>`;return;}
   const COLS="id,numero_expediente,nombre,apellido_paterno,apellido_materno,fecha_nacimiento,celular,sexo_biologico";
-  const base=()=>SB.from("pacientes").select(COLS).eq("activo",true).order("apellido_paterno");
+  // Aislamiento de amfa: solo ve a quien registró ella o a quien ya atendió.
+  // QP Clinic y QP Surgery siguen viendo el padrón completo.
+  const _amfaIds=await idsPacientesAmfa();
+  const base=()=>{let q=SB.from("pacientes").select(COLS).eq("activo",true);
+    if(esAmfa())q=_amfaIds.length?q.or(`sede_origen.eq.amfa,id.in.(${_amfaIds.join(",")})`):q.eq("sede_origen","amfa");
+    return q.order("apellido_paterno");};
 
   let data=[], error=null;
 
@@ -4524,6 +4566,7 @@ window.guardarNuevoPac=async function(){
   }
 
   loading(true,"Registrando paciente...");
+  payload.sede_origen=sedeActiva();   // deja rastro de en qué unidad se dio de alta
   const {data,error}=await SB.from("pacientes").insert(payload).select().single();
   loading(false);
   if(error){
@@ -4617,7 +4660,7 @@ function pgExp(){
     </div>
     <div style="display:flex;flex:1;overflow:hidden">
       <div style="width:210px;flex-shrink:0;background:#fff;border-right:1px solid ${BR};overflow-y:auto;padding:8px 0">
-        ${GRUPOS.map(g=>`
+        ${GRUPOS_VIS.map(g=>`
           ${g.label?`<div style="padding:10px 10px 4px">
             <div style="background:${P};border-radius:6px;padding:4px 10px">
               <p style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.6px;margin:0">${g.label}</p>
@@ -6045,7 +6088,7 @@ async function renderInterconsultas(b){
             <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:11px;font-size:14px;line-height:1.8">
               <b>${medNom}</b><br>
               ${med.especialidad_2||med.especialidad_1||"QP Clinic"}<br>
-              Insurgentes Sur 933, CDMX
+              ${sedeDir()}
             </div>
           </div>
           <div>
@@ -6428,7 +6471,7 @@ window.imprimirInterconsulta=async function(id){
     <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
       <div style="flex:1;min-width:0">
         <div style="font-size:15px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic - Especialistas en Salud Integral</div>
-        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:7px">Insurgentes Sur 933, Piso 12, Col. Nápoles, Benito Juárez, CDMX &nbsp;|&nbsp; Tel. 55 6442-3702 &nbsp;|&nbsp; qpclinic.org &nbsp;|&nbsp; RFC: QCL230518J66</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:7px">${sedeDir()} &nbsp;|&nbsp; Tel. 55 6442-3702 &nbsp;|&nbsp; qpclinic.org &nbsp;|&nbsp; RFC: QCL230518J66</div>
         <div style="font-size:10.5px;font-weight:bold;color:#fff;margin-bottom:2px">${medSolNom}</div>
         <div style="font-size:8px;color:rgba(255,255,255,.85)">${credLines.join(" &nbsp;·&nbsp; ")}</div>
       </div>
@@ -6908,7 +6951,7 @@ ${motivos?"Motivo de interconsulta: "+motivos:""}
 
 Por favor revise el expediente en QP Clinic para mas detalles.
 
-QP Clinic - Insurgentes Sur 933, Piso 12, Col. Napoles, CDMX
+${brand().nombre} - ${sedeDir()}
 Tel: +52 5644237028`;
 
   window.open(`https://web.whatsapp.com/send?phone=${celFinal}&text=${encodeURIComponent(msg)}`,"_blank");
@@ -8086,15 +8129,17 @@ const OMS_ITEMS={
 
 // ── PANTALLA DE ENTRADA: elección de unidad (QP Clinic / QP Surgery) ──
 function pgSelSede(){
+  // Los usuarios de amfa entran directo a su unidad, sin pantalla de selección.
+  if(usuarioAmfa()){try{sessionStorage.setItem("qp_sede_confirmada","1");}catch(e){}return go("agenda");}
   const card=(s)=>`<button onclick="entrarSede('${s}')" style="flex:1;min-width:240px;max-width:340px;background:#fff;border:2px solid ${BR};border-radius:16px;padding:34px 24px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:18px;transition:border-color .15s,box-shadow .15s;box-shadow:0 2px 8px #00000010" onmouseover="this.style.borderColor='${BRANDING[s].acento}';this.style.boxShadow='0 8px 24px #00000022'" onmouseout="this.style.borderColor='${BR}';this.style.boxShadow='0 2px 8px #00000010'">
-    <img src="${BRANDING[s].logo}" alt="${BRANDING[s].nombre}" style="max-width:${s==="surgery"?"300":"220"}px;max-height:${s==="surgery"?"120":"110"}px;object-fit:contain">
+    <img src="${BRANDING[s].logo}" alt="${BRANDING[s].nombre}" style="max-width:${s==="clinic"?"220":"300"}px;max-height:${s==="clinic"?"110":"120"}px;object-fit:contain">
     <span style="font-size:16px;font-weight:700;color:${BRANDING[s].acento}">Entrar a ${BRANDING[s].nombre}</span>
   </button>`;
   RR().innerHTML=`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:${PL}">
     <h1 style="font-size:22px;font-weight:800;color:${TX};margin-bottom:6px">Seleccione la unidad</h1>
     <p style="font-size:14px;color:${MU};margin-bottom:28px">Elija a qué clínica desea ingresar</p>
-    <div style="display:flex;gap:22px;flex-wrap:wrap;justify-content:center;width:100%;max-width:760px">
-      ${card("clinic")}${card("surgery")}
+    <div style="display:flex;gap:22px;flex-wrap:wrap;justify-content:center;width:100%;max-width:1120px">
+      ${card("clinic")}${card("surgery")}${card("amfa")}
     </div>
   </div>`;
 }
@@ -9404,7 +9449,7 @@ async function pgConsulta(){
     <div style="background:#fff;border-bottom:1px solid ${BR};padding:7px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <!-- Tipo de nota -->
       <select id="cs_tipo_nota" onchange="actualizarTipoNota(this.value)" title="Tipo de nota" style="padding:7px 13px;border:none;border-radius:8px;font-size:14px;font-weight:800;color:#fff;background:${PD};cursor:pointer;outline:none;box-shadow:0 1px 3px #00000026">
-        ${["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Orden de Internamiento","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"].map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
+        ${(esAmfa()?["Nota nutricional","Nota de interconsulta"]:["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Orden de Internamiento","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"]).map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
       </select>
       <div style="width:1px;height:24px;background:${BR}"></div>
       <button id="btn-ia-nota" onclick="abrirModalIA()" title="Generar nota con IA" style="background:#fff;color:#6A1B9A;border:1.5px solid #E1BEE7;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;align-items:center;gap:6px;display:${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""])?'none':'inline-flex'}"><i class="ti ti-sparkles"></i> Nota con IA</button>
@@ -9951,7 +9996,8 @@ window.guardarConsulta=async function(){
     res=await SB.from("consultas").update(payload).eq("id",STATE.consultaActual.id).select().single();
   } else {
     payload.hora_inicio=horaAhora;
-    res=await SB.from("consultas").insert(payload).select().single();
+    payload.sede=sedeActiva();   // sella la unidad donde se otorgó la consulta
+      res=await SB.from("consultas").insert(payload).select().single();
   }
   loading(false);
   if(res.error){showToast("Error: "+res.error.message,false);return;}
@@ -10254,7 +10300,7 @@ window.imprimirHojaReferencia=async function(){
   doc.setFontSize(11);doc.setFont("helvetica","bold");
   doc.text("QP Clinic - Especialistas en Salud Integral",M,9);
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");
-  doc.text("Insurgentes Sur 933, Piso 12, Col. Napoles, Benito Juarez, CDMX",M,14);
+  doc.text(sedeDir(),M,14);
   doc.text("Tel. 55 5682 4345 / 56 4423 7028  |  qpclinic.org  |  RFC: QCL230518J66",M,18);
   doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(S(medNom),M,25);
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");
@@ -13796,7 +13842,7 @@ window.generarPDFFisio=async function(){
     <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic Especialistas en Salud Integral</div>
-        <div style="font-size:7.5px;color:rgba(255,255,255,.85);margin-bottom:5px">Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX, C.P. 03810 &nbsp;|&nbsp; Tel. 55 5682 4345 / 56 4423 7028 &nbsp;|&nbsp; qpclinic.org</div>
+        <div style="font-size:7.5px;color:rgba(255,255,255,.85);margin-bottom:5px">${sedeDir()} &nbsp;|&nbsp; Tel. 55 5682 4345 / 56 4423 7028 &nbsp;|&nbsp; qpclinic.org</div>
         <div style="border-top:1px solid rgba(255,255,255,.35);margin:5px 0"></div>
         <div style="font-size:10px;font-weight:bold;color:#fff;margin-bottom:1px">${medNom}</div>
         <div style="font-size:7.2px;color:rgba(255,255,255,.85)">${credLine1}</div>
@@ -14850,7 +14896,7 @@ window.generarPDFUltrasonido=async function(){
       doc.setFillColor(238,244,248);doc.rect(0,PH-FH,PW,FH,"F");
       doc.setDrawColor(217,228,236);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
       doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(6);
-      doc.text(`QP Clinic  |  Insurgentes Sur 933 Piso 12, Col. Nápoles, CDMX  |  (55) 6442-3702  |  ${tipo}  |  ${datos.paciente||"—"}  |  ${datos.fecha||""}  |  Página ${pg} de ${total}`,PW/2,PH-3.5,{align:"center",maxWidth:PW-4});
+      doc.text(`${sedePie()}  |  ${tipo}  |  ${datos.paciente||"—"}  |  ${datos.fecha||""}  |  Página ${pg} de ${total}`,PW/2,PH-3.5,{align:"center",maxWidth:PW-4});
     };
 
     // Pegar canvas en PDF, rompiendo en páginas si excede altura disponible
@@ -14882,7 +14928,7 @@ window.generarPDFUltrasonido=async function(){
     <div style="background:${AZ};padding:14px 16px;display:flex;gap:12px;align-items:flex-start;border-radius:4px">
       <div style="flex:1;min-width:0">
         <div style="font-size:16px;font-weight:bold;color:#fff;margin-bottom:3px">QP CLINIC</div>
-        <div style="font-size:8.5px;color:rgba(255,255,255,.85);margin-bottom:6px">Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX &nbsp;|&nbsp; (55) 6442-3702</div>
+        <div style="font-size:8.5px;color:rgba(255,255,255,.85);margin-bottom:6px">${sedeDir()} &nbsp;|&nbsp; (55) 6442-3702</div>
         <div style="font-size:11px;font-weight:bold;color:#fff;margin-bottom:3px">${nomMed.toUpperCase()}</div>
         <div style="font-size:8px;color:rgba(255,255,255,.85);line-height:1.5">${credsToShow.join(" &nbsp;·&nbsp; ")}</div>
       </div>
@@ -14945,7 +14991,7 @@ window.generarPDFUltrasonido=async function(){
       <div style="background:${AZLT};border-radius:8px;padding:18px 16px;min-width:160px;text-align:center">
         ${logoQPB64?`<img src="${logoQPB64}" style="max-height:40px;max-width:130px;object-fit:contain;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto">`:""}
         <div style="font-size:11px;font-weight:bold;color:${AZ};margin-bottom:8px">QP CLINIC</div>
-        <div style="font-size:8.5px;color:${SEC};margin-bottom:4px">Insurgentes Sur 933, Piso 12</div>
+        <div style="font-size:8.5px;color:${SEC};margin-bottom:4px">${sedeDir()}</div>
         <div style="font-size:8.5px;color:${SEC};margin-bottom:4px">Col. Nápoles, CDMX</div>
         <div style="font-size:8.5px;color:${SEC}">(55) 6442-3702</div>
       </div>
@@ -15080,7 +15126,7 @@ window.generarPDFUltrasonido=async function(){
       doc2.setFillColor(238,244,248);doc2.rect(0,PH-FH,PW,FH,"F");
       doc2.setDrawColor(217,228,236);doc2.setLineWidth(0.2);doc2.line(0,PH-FH,PW,PH-FH);
       doc2.setTextColor(107,114,128);doc2.setFont("helvetica","normal");doc2.setFontSize(6);
-      doc2.text("QP Clinic  |  Insurgentes Sur 933 Piso 12, Col. Nápoles, CDMX  |  (55) 6442-3702  |  "+tipo+"  |  "+(datos.paciente||"—")+"  |  "+(datos.fecha||"")+"  |  Página "+n+" de "+tot,PW/2,PH-3.5,{align:"center",maxWidth:PW-4});
+      doc2.text(sedePie()+"  |  "+tipo+"  |  "+(datos.paciente||"—")+"  |  "+(datos.fecha||"")+"  |  Página "+n+" de "+tot,PW/2,PH-3.5,{align:"center",maxWidth:PW-4});
     };
 
     // Pre-render pág1 y firma
@@ -16630,7 +16676,7 @@ window.generarPDFNutricion=async function(soloDescargar){
       doc.setFillColor(244,250,253);doc.rect(0,PH-FH,PW,FH,"F");
       doc.setDrawColor(214,228,236);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
       doc.setTextColor(95,107,115);doc.setFont("helvetica","normal");doc.setFontSize(6);
-      doc.text(`Famel Nutrition  |  QP Clinic — Insurgentes Sur 933, Piso 12, Col. Nápoles, CDMX  |  Generado: ${new Date().toLocaleDateString("es-MX")}  |  Página ${pg} de ${total}`,PW/2,PH-3,{align:"center",maxWidth:PW-6});
+      doc.text(`Famel Nutrition  |  ${sedePie()}  |  Generado: ${new Date().toLocaleDateString("es-MX")}  |  Página ${pg} de ${total}`,PW/2,PH-3,{align:"center",maxWidth:PW-6});
     };
 
     const AVAIL_H=PH-FH-ML;
@@ -19918,7 +19964,7 @@ window.pdfPrescripcionEjercicio=async function(){
     cont.innerHTML=`
       <div style="border-bottom:2px solid #006BB6;padding-bottom:10px;margin-bottom:14px">
         <div style="font-size:17px;font-weight:800;color:#006BB6">QP Clinic — Prescripción de ejercicio</div>
-        <div style="font-size:10px;color:#546E7A;margin-top:3px">Insurgentes Sur 933, Piso 12, Col. Nápoles, Benito Juárez, CDMX · Tel. 55 5682 4345</div>
+        <div style="font-size:10px;color:#546E7A;margin-top:3px">${sedeDir()} · Tel. ${sedeTels()}</div>
       </div>
       <table style="width:100%;font-size:10.5px;color:#263238;margin-bottom:12px">
         <tr><td><b>Paciente:</b> ${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}</td><td><b>Fecha:</b> ${new Date().toLocaleDateString("es-MX")}</td></tr>
