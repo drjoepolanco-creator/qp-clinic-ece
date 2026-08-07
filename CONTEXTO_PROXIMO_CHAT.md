@@ -62,6 +62,17 @@ Sub-pestañas: Ficha | Signos Vitales (enfermería) | Antecedentes | Consultas |
 - Autoguardado cada 90 segundos
 - IA médica integrada (claude-opus-4-6): diagnósticos sugeridos, SOAP, análisis InBody, análisis laboratorio
 
+### Prescripción de Ejercicio (v2 — motor volumétrico VME/VMR)
+Reprogramado desde las 6 plantillas de Excel del Dr. Polanco. Ocupa ~1,300 líneas.
+- **`EJ_PASOS`**: 11 variables secuenciales con los deltas exactos de las fórmulas IFS del Excel (nivel → edad → talla → peso → sueño → recuperación → estrés → novedad → dieta → esteroides → sexo). `ejCalcularVolumen()` devuelve la traza paso a paso para auditoría.
+- **⚠️ Única desviación del Excel**: el bucket «Mujer >175 cm» se corrigió de +1/+2 a **−1/−2** por simetría con «Hombre >195 cm» (decisión del Dr. Polanco). Va marcado con `corregido:true` y se avisa en pantalla.
+- **`EJ_BIBLIO`**: 11 grupos · 31 patrones · **457 ejercicios**, extraídos de las listas desplegables. NO recortar.
+- **`EJ_SECUENCIAS`**: 5 secuencias (3d, 4d, 5d_inf, 5d_sup, 6d) con superseries `3A/3B` respetadas.
+- **Topes de seguridad**: `EJ_MAX_SESION=10` series por grupo/sesión, `EJ_MAX_FILA=5`. Si la secuencia no alcanza el objetivo para un grupo, se avisa en `plan.aviso`.
+- **Progresión por Ajuste**: compuestos mueven CARGA (±5%/±2.5%), aislados mueven REPETICIONES (±2/±1). `ejAplicarAjuste()`.
+- **Cuestionario de bienestar**: 6×5 = 30 pts, 6 rangos de recomendación.
+- Guarda en `anexos` con prefijo `__EJERCICIO__:` y `version:2`. `verPlanEjercicio()` detecta los planes del motor anterior y los abre en modo lectura.
+
 ## Módulos especiales
 
 ### Interconsultas

@@ -18666,1111 +18666,1302 @@ window.ejecutarUnificacion=async function(){
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MÓDULO: PRESCRIPCIÓN DE EJERCICIO
+// MÓDULO: PRESCRIPCIÓN DE EJERCICIO  (v2 — modelo volumétrico VME/VMR)
+// Reprogramado a partir de las 6 plantillas de Excel del Dr. Polanco:
+// se conservaron las fórmulas IFS del cálculo de volumen, la biblioteca de
+// medios con sus patrones de movimiento, las secuencias de días y la lógica
+// de progresión por Ajuste (carga en compuestos, repeticiones en aislados).
 // ══════════════════════════════════════════════════════════════════════════════
 window.goEjercicio=function(){
   if(!STATE.pat?.id){showToast("Selecciona un paciente primero",false);return;}
   STATE.page="ejercicio";
   draw();
 };
-
-// ── Banco de ejercicios por grupo muscular y subcategoría ─────────────────────
-const EJ_BANCO={
-  cuadriceps:{
-    bilateral:["Sentadilla trasera con barra","Sentadilla frontal con barra","Sentadilla goblet con mancuerna","Sentadilla hack","Prensa para pierna","Sentadilla Sissy","Sentadilla trasera en máquina smith","Extensión de rodilla en máquina"],
-    unilateral:["Desplantes con barra","Desplantes con mancuernas","Sentadilla búlgara","Sentadilla split","Step Up","Step Up con mancuernas","Extensión de rodilla en máquina unilateral","Prensa para pierna unilateral"],
-    casa:["Sentadilla con peso corporal","Sentadilla goblet con mancuerna","Sentadilla sumo con mancuernas","Sentadilla búlgara con mancuernas","Desplantes con mancuernas","Step Up con mancuernas","Sentadilla isométrica (pared, 30s)","Extensión de rodilla desde cuadrúpedo"],
-    terapeutico:["Sentadilla isométrica (pared, 30s)","Sentadilla goblet con mancuerna","Extensión de rodilla desde cuadrúpedo","Levantarse y sentarse de una silla","Step Up con mancuernas","Sentadilla goblet con mancuerna o pesa rusa"]
+// ── Biblioteca de medios: 11 grupos · 31 patrones · 457 ejercicios ──────────
+// Extraída de las listas desplegables de las plantillas de Excel del Dr. Polanco.
+const EJ_BIBLIO={
+  "Cuadríceps":{
+    "Bilateral":{comp:true,ejs:[
+      "Levantarse y sentarse de una silla",
+      "Levantarse y sentarse de una silla con carga",
+      "Prensa para pierna",
+      "Prensa para pierna excéntrica (4 segundos)",
+      "Prensa para pierna isométrica (3 segundos)",
+      "Sentadilla",
+      "Sentadilla Sissy",
+      "Sentadilla Sissy con mancuernas",
+      "Sentadilla excéntrica (4 segundos)",
+      "Sentadilla frontal con barra",
+      "Sentadilla frontal con barra y cadenas",
+      "Sentadilla frontal con barra y talones elevados",
+      "Sentadilla frontal con ligas",
+      "Sentadilla frontal en máquina smith",
+      "Sentadilla frontal excéntrica (4 segundos)",
+      "Sentadilla frontal isométrica (3 segundos)",
+      "Sentadilla frontal isométrica con ligas (3 segundos)",
+      "Sentadilla goblet con mancuerna o pesa rusa",
+      "Sentadilla goblet con mancuerna o pesa rusa con talones elevados",
+      "Sentadilla goblet con mancuerna o pesa rusa excéntrica (4 segundos)",
+      "Sentadilla goblet isométrica (3 segundos)",
+      "Sentadilla hack",
+      "Sentadilla hack isométrica (3 segundos)",
+      "Sentadilla hindú",
+      "Sentadilla hindú con mancuerna",
+      "Sentadilla isométrica (3 segundos)",
+      "Sentadilla trasera con barra",
+      "Sentadilla trasera con barra y cadenas",
+      "Sentadilla trasera con barra y talones elevados",
+      "Sentadilla trasera con ligas",
+      "Sentadilla trasera con ligas isométrica (3 segundos)",
+      "Sentadilla trasera en máquina smith",
+      "Sentadilla trasera excéntrica (4 segundos)",
+      "Sentadilla trasera isométrica (3 segundos)",
+    ]},
+    "Dominantes de rodilla unilateral":{comp:true,ejs:[
+      "Desplantes",
+      "Desplantes con barra",
+      "Desplantes con barra y pie frontal elevado",
+      "Desplantes con mancuernas",
+      "Desplantes con mancuernas y pie frontal elevado",
+      "Desplantes con pie frontal elevado",
+      "Prensa para pierna unilateral",
+      "Sentadilla búlgara",
+      "Sentadilla búlgara con barra",
+      "Sentadilla búlgara con barra y pie frontal elevado",
+      "Sentadilla búlgara con mancuernas",
+      "Sentadilla búlgara con mancuernas y pie frontal elevado",
+      "Sentadilla búlgara con pie frontal elevado",
+      "Sentadilla pistol",
+      "Sentadilla skater",
+      "Sentadilla split",
+      "Sentadilla split con barra",
+      "Sentadilla split con barra y pie frontal elevado",
+      "Sentadilla split con mancuernas",
+      "Sentadilla split con mancuernas y pie frontal elevado",
+      "Sentadilla split con pie frontal elevado",
+      "Step Up",
+      "Step Up con mamcuernas",
+      "Step Up con mancuernas",
+      "Step up con barra",
+    ]},
+    "Exclusivos":{comp:false,ejs:[
+      "Curl nórdico invertido",
+      "Curl nórdico invertido con carga",
+      "Extension de rodilla desde hincado con carga",
+      "Extensión de rodilla desde cuadrúpedo",
+      "Extensión de rodilla desde cuadrúpedo con ligas",
+      "Extensión de rodilla desde cuadrúpedo unilateral",
+      "Extensión de rodilla desde cuadrúpedo unilateral con ligas",
+      "Extensión de rodilla desde hincado",
+      "Extensión de rodilla en máquina",
+      "Extensión de rodilla en máquina unilateral",
+      "Extensión de rodilla excéntrico (4 segundos) en máquina",
+      "Extensión de rodilla isométrico (3 segundos) en máquina",
+      "Extensión de rodilla supramáximal (2 piernas concéntrica - 1 pierna excénrica)",
+      "Extensión para cuadríceps desde cuadrúpedo",
+      "Extensión para cuadríceps desde cuadrúpedo con ligas",
+      "Extensión para cuadríceps desde cuadrúpedo unilateral",
+      "Extensión para cuadríceps desde cuadrúpedo unilateral con ligas",
+      "Extensión para cuadríceps en máquina unilateral",
+      "Extensión para cuadríceps excéntrico (4 segundos) en máquina",
+      "Extensión para cuadríceps isométrico (3 segundos) en máquina",
+      "Extensión para cuadríceps máquina",
+      "Extensión para cuadríceps supramáximal (2 piernas concéntrica - 1 pierna excénrica)",
+    ]},
   },
-  gluteo:{
-    bilateral:["Hip thrust tradicional con barra","Hip thrust americano con barra","Puentes para glúteo con barra","Peso muerto rumano con barra","Peso muerto con barra"],
-    unilateral:["Hip thrust tradicional unilateral","Patada para glúteo desde cuadrúpedo","Abducción de cadera de pie en máquina","Abducción de cadera sentado en máquina","Peso muerto rumano unilateral"],
-    casa:["Puentes para glúteo","Puentes para glúteo con mancuerna","Hip thrust con mancuerna","Patada para glúteo desde cuadrúpedo","Abducción de cadera acostado","Frog pumps"],
-    terapeutico:["Puentes para glúteo","Frog pumps","Abducción de cadera acostado","Puentes para glúteo unilateral","Patada para glúteo desde cuadrúpedo"]
+  "Glúteo":{
+    "Empuje vertical":{comp:true,ejs:[
+      "Peso muerto con T-bar",
+      "Peso muerto con T-bell",
+      "Peso muerto con barra",
+      "Peso muerto con barra hexagonal",
+      "Peso muerto con ligas",
+      "Peso muerto con mancuerna",
+      "Peso muerto con pesa rusa",
+      "Peso muerto elevado con barra",
+      "Peso muerto elevado con mancuernas",
+      "Peso muerto elevado con pesa rusa",
+      "Peso muerto en déficit con barra",
+      "Peso muerto en déficit con mancuernas",
+      "Peso muerto sumo con barra",
+      "Peso muerto sumo con ligas",
+      "Peso muerto sumo con mancuernas",
+      "Peso muerto sumo con pesa rusa",
+    ]},
+    "Empuje horizontal":{comp:true,ejs:[
+      "Hip thrust americano",
+      "Hip thrust americano con barra",
+      "Hip thrust americano con barra con piernas elevadas",
+      "Hip thrust americano con mancuerna",
+      "Hip thrust americano con mancuerna con piernas elevadas",
+      "Hip thrust americano con pesa rusa",
+      "Hip thrust americano con pesa rusa y piernas elevadas",
+      "Hip thrust americano con piernas elevadas",
+      "Hip thrust americano unilateral",
+      "Hip thrust americano unilateral con barra",
+      "Hip thrust americano unilateral con barra con piernas elevadas",
+      "Hip thrust americano unilateral con mancuerna",
+      "Hip thrust americano unilateral con mancuerna con piernas elevadas",
+      "Hip thrust americano unilateral con pesa rusa",
+      "Hip thrust americano unilateral con pesa rusa y piernas elevadas",
+      "Hip thrust americano unilateral con piernas elevadas",
+      "Hip thrust tradicional",
+      "Hip thrust tradicional con barra",
+      "Hip thrust tradicional con barra con piernas elevadas",
+      "Hip thrust tradicional con mancuerna",
+      "Hip thrust tradicional con mancuerna con piernas elevadas",
+      "Hip thrust tradicional con pesa rusa",
+      "Hip thrust tradicional con pesa rusa y piernas elevadas",
+      "Hip thrust tradicional con piernas elevadas",
+      "Hip thrust tradicional unilateral",
+      "Hip thrust tradicional unilateral con barra",
+      "Hip thrust tradicional unilateral con barra con piernas elevadas",
+      "Hip thrust tradicional unilateral con mancuerna",
+      "Hip thrust tradicional unilateral con mancuerna con piernas elevadas",
+      "Hip thrust tradicional unilateral con pesa rusa",
+      "Hip thrust tradicional unilateral con pesa rusa y piernas elevadas",
+      "Hip thrust tradicional unilateral con piernas elevadas",
+      "Puentes invertidos",
+      "Puentes invertidos con ligas",
+      "Puentes invertidos unilateral",
+      "Puentes invertidos unilateral con ligas",
+      "Puentes para glúteo",
+      "Puentes para glúteo con barra",
+      "Puentes para glúteo con mancuerna",
+      "Puentes para glúteo con pesa rusa",
+      "Puentes para glúteo unilateral",
+      "Puentes para glúteo unilateral con barra",
+      "Puentes para glúteo unilateral con mancuerna",
+      "Puentes para glúteo unilateral con pesa rusa",
+    ]},
+    "Abducción horizontal de cadera":{comp:false,ejs:[
+      "Abducción de cadera desde acostado con miniban en las piernas",
+      "Abducción de cadera desde acostado con rodilla y cadera en flexión",
+      "Abducción de cadera sentado con miniband en las piernas",
+      "Abducción de cadera sentado en máquina",
+      "Abducción de cadera sentado en máquina con tronco inclinado",
+      "Abducción e cadera sentado con mini and en las piernas y tronco inclinado",
+    ]},
+    "Abducción de cadera":{comp:false,ejs:[
+      "Abducción de cadera acostado con polaina y rodilla extendida",
+      "Abducción de cadera de pie con grillete en polea baja",
+      "Abducción de cadera de pie con liga",
+      "Abducción de cadera de pie en máquina",
+      "Abducción de cadera desde acostado",
+      "Monster walks con miniband en la punta de los pies",
+      "Monster walks con miniband en las piernas",
+      "Monster walks con miniband en los muslos",
+    ]},
+    "Accesorios":{comp:false,ejs:[
+      "Extensión de tronco en banco rumano 45º",
+      "Frog pumps",
+      "Frog pumps con barra",
+      "Frog pumps con mancuerna",
+      "Frog pumps invertidos",
+      "Patada para glúteo con grilletes en polea baja",
+      "Patada para glúteo de pie con grillete en polea baja + rotación lateral de cadera",
+      "Patada para glúteo desde cuadrúpedo",
+      "Patada para glúteo desde cuadrúpedo con mancuerna en rodilla",
+      "Patada para glúteo desde cuadrúpedo con polainas",
+      "Patada para glúteo en máquina",
+      "Patada para glúteo pie con ligas + rotación lateral de cadera",
+      "pull through con polea baja",
+    ]},
   },
-  isquiosurales:{
-    bilateral:["Peso muerto rumano con barra","Peso muerto con barra","Curl acostado en máquina","Curl de rodilla en suelo con deslizadores"],
-    unilateral:["Peso muerto rumano unilateral","Curl acostado en máquina unilateral","Curl nórdico","Curl nórdico asistido"],
-    casa:["Peso muerto rumano con mancuernas","Curl de rodilla en suelo con deslizadores","Curl nórdico asistido con pelota de yoga","Puentes para glúteo (isquios secundario)"],
-    terapeutico:["Curl isométrico (4s) acostado en máquina","Puentes para glúteo","Peso muerto rumano con mancuernas","Curl nórdico asistido"]
+  "Isquiosurales":{
+    "Dominante de cadera":{comp:true,ejs:[
+      "Peso muerto rumano con barra",
+      "Peso muerto rumano con ligas",
+      "Peso muerto rumano con mancuerna",
+      "Peso muerto rumano con pesa rusa",
+      "Peso muerto rumano elevado con barra",
+      "Peso muerto rumano elevado con mancuerna",
+      "Peso muerto rumano elevado con pesa rusa",
+      "Peso muerto rumano unilateral",
+      "Peso muerto rumano unilateral con barra",
+      "Peso muerto rumano unilateral con ligas",
+      "Peso muerto rumano unilateral con mancuerna",
+      "Peso muerto rumano unilateral con pesa rusa",
+    ]},
+    "Dominante de rodilla":{comp:false,ejs:[
+      "Curl acostado en máquina",
+      "Curl acostado en máquina excéntrico supramaximal (2 piernas concéntrico - 1 pierna excéntrico)",
+      "Curl acostado en máquina unilateral",
+      "Curl de rodilla en suelo con deslizadores",
+      "Curl de rodilla en suelo con deslizadores unilateral",
+      "Curl de rodilla en suelo con pelota",
+      "Curl de rodilla en suelo con pelota unilateral",
+      "Curl de rodilla en suelo con sliders excéntrico (2 piernas concéntrico - 1 pierna excéntrico)",
+      "Curl de rodilla en sulo con pelota excéntrico (2 piernas concéntrico - 1 pierna excéntrico)",
+      "Curl de rodilla en suspension",
+      "Curl de rodilla unilateral en suspension",
+      "Curl isométrico (4 segundos) acostado en máquina",
+      "Curl isométrico (4 segundos) unilateral acostado en máquina",
+      "Curl nordíco",
+      "Curl nórdico asistido con pelota de yoga",
+    ]},
   },
-  pantorrilla:{
-    bilateral:["Elevación de talones de pie en máquina","Elevación de talones de pie","Elevación de talones de cuclillas","Elevación de talones en costurera"],
-    unilateral:["Elevación de talones unilateral de pie","Elevación de talones unilateral en máquina","Elevación de talones excéntrica unilateral"],
-    casa:["Elevación de talones sobre escalón","Elevación de talones con mancuerna","Elevación de talones unilateral sobre escalón"],
-    terapeutico:["Elevación de talones sobre escalón","Elevación de talones excéntrica unilateral","Elevación de talones de pie"]
+  "Pantorrilla":{
+    "Rodilla en extensión":{comp:false,ejs:[
+      "Elevacion de talones de pie con mancuerna",
+      "Elevación de talones de pie",
+      "Elevación de talones de pie con mancuerna",
+      "Elevación de talones de pie con mancuerna sobre step",
+      "Elevación de talones de pie en máquina",
+      "Elevación de talones de pie en máquina smith",
+      "Elevación de talones de pie en máquina smith unilateral",
+      "Elevación de talones de pie sobre step",
+      "Elevación de talones de pie, sobre step, con mancuerna",
+      "Elevación de talones de pie, sobre step, en máquina smith",
+      "Elevación de talones en máquina de prensa para pierna",
+      "Elevación de talones unilateral de pie con mancuerna",
+      "Elevación de talones unilateral de pie en máquina",
+      "Elevación de talones unilateral de pie sobre step",
+      "Elevación de talones unilateral de pie sobre step con mancuerna",
+      "Elevación de talones unilateral de pie, sobre step, con mancuerna",
+      "Elevación de talones unilateral de pie, sobre step, en máquina smith",
+      "Elevación de talones unilateral en máquina de prensa para pierna",
+    ]},
+    "Rodilla en flexión":{comp:false,ejs:[
+      "Elevación de talones de cuclillas",
+      "Elevación de talones de cuclillas con carga",
+      "Elevación de talones en costurera",
+      "Elevación de talones excéntrica supramaximal en costurera (2 piernas concéntrica - 1 pierna excéntrica)",
+      "Elevación de talones unilaterales en costurera",
+    ]},
+    "Rodilla en extensión cadera en flexión":{comp:false,ejs:[
+      "Elevación de talones en máquina de prensa para pierna",
+      "Elevación de talones tipo burro",
+      "Elevación de talones unilateral en máquina de prensa para pierna",
+    ]},
   },
-  pectorales:{
-    empuje_horizontal:["Prensa para pecho en banco plano con barra","Prensa para pecho en banco plano con mancuernas","Press de pecho en máquina","Lagartijas","Lagartijas con piernas elevadas"],
-    empuje_inclinado:["Prensa para pecho inclinado con barra","Prensa para pecho inclinado con mancuernas","Prensa para pecho inclinado en máquina"],
-    aislado:["Aperturas en banco plano con mancuernas","Aperturas en máquina de fly","Cross over con poleas en posición media","Pec dec"],
-    casa:["Lagartijas","Lagartijas con pies sobre silla","Press de pecho con mancuernas sobre el suelo","Aperturas con mancuernas en suelo","Lagartijas con rodillas sobre almohada"],
-    terapeutico:["Lagartijas en la pared","Medias lagartijas","Lagartijas apoyado en banco/silla","Press de pecho con mancuernas sobre el suelo"]
+  "Abdomen/Psoas":{
+    "Flexión de tronco":{comp:false,ejs:[
+      "Abdominal con cuerda en polea alta",
+      "Abdominal con rueda desde bipedestación",
+      "Abdominal con rueda desde hincado",
+      "Crunch abdominal",
+      "Crunch abdominal con piernas elevadas",
+      "Crunch abdominal cruzado",
+      "Crunch abdominal en V",
+      "Crunch abdominal en máquina",
+      "Crunch abdominal reverso",
+    ]},
+    "Flexión de cadera":{comp:false,ejs:[
+      "Abdominal en suspension (TRX)",
+      "Abdominal invertido en suspensión ( TRX pike push up)",
+      "Elevación de piernas colgando",
+      "Elevación de piernas colgando con polainas",
+      "Elevación de piernas desde paralelas",
+      "Elevación de piernas desde paralelas con polainas",
+      "Elevación de piernas unilateral colgando",
+      "Elevación de piernas unilateral colgando con polainas",
+      "Elevación de piernas unilateral desde paralelas",
+      "Elevación de piernas unilateral desde paralelas con polainas",
+      "Elevación de rodillas colgando",
+      "Elevación de rodillas colgando con polainas",
+      "Elevación de rodillas desde paralelas",
+      "Elevación de rodillas desde paralelas con polainas",
+      "Elevación de rodillas unilateral colgando",
+      "Elevación de rodillas unilateral colgando con polailas",
+      "Elevación de rodillas unilateral desde paralelas",
+      "Elevación de rodillas unilateral desde paralelas con polainas",
+    ]},
+    "Isométricos":{comp:false,ejs:[
+      "Bird dog",
+      "Bird dog con rodillas elevadas",
+      "Dead bug",
+      "Dead bug con pelota de yoga",
+      "Media plancha abdominal",
+      "Media plancha abdominal con brazos alejados",
+      "Media plancha lateral",
+      "Plancha abdominal",
+      "Plancha abdominal con brazos alejados",
+      "Plancha lateral",
+    ]},
   },
-  espalda_alta:{
-    jalon_vertical:["Jalón al pecho supino agarre cerrado","Jalón al pecho neutro","Jalón al pecho prono agarre amplio","Dominada supina","Dominada neutra","Dominada prono agarre amplio"],
-    remo_horizontal:["Remo de pie con barra","Remo de pie con mancuernas","Remo sentado con polea baja","Remo sentado en máquina","Remo con mancuernas y pecho apoyado"],
-    casa:["Remo alternado con mancuernas","Pullover con mancuerna","Remo con liga","Pull down con liga","Dominada en barra del parque"],
-    terapeutico:["Remo de pie unilateral con mancuerna","Remo sentado con polea baja","Extensión de tronco en banco rumano 45°","Bird dog","Dead bug"]
+  "Pectorales":{
+    "Empuje horizontal":{comp:true,ejs:[
+      "Lagartijas",
+      "Lagartijas apoyado en banco/silla",
+      "Lagartijas apoyado en banco/silla con ligas",
+      "Lagartijas con ligas",
+      "Lagartijas en la pared",
+      "Lagartijas en la pared con ligas",
+      "Lagartijas en suspensión (TRX)",
+      "Medias lagartijas",
+      "Medias lagartijas con ligas",
+      "Prensa para pecho acostado en suelo con barra",
+      "Prensa para pecho acostado en suelo con mancuernas",
+      "Prensa para pecho alternado en banco plano con mancuernas",
+      "Prensa para pecho alternado, acostado en suelo con mancuernas",
+      "Prensa para pecho en banco plano con barra",
+      "Prensa para pecho en banco plano con barra y banda elásticas",
+      "Prensa para pecho en banco plano con barra y cadenas",
+      "Prensa para pecho en banco plano con mancuernas",
+      "Prensa para pecho horizontal alternado en máquina",
+      "Prensa para pecho horizontal sentado en máquina",
+      "Prensa para pecho horizontal unilateral en máquina",
+      "Prensa para pecho sentado con ligas",
+      "Prensa para pecho unilateral acostado en suelo con mancuernas",
+      "Prensa para pecho unilateral en banco plano con mancuernas",
+    ]},
+    "Empuje diagonal":{comp:true,ejs:[
+      "Lagartijas  con ligas y piernas elevadas",
+      "Lagartijas con piernas elevadas",
+      "Prensa para pecho inclinado alternado con mancuerna",
+      "Prensa para pecho inclinado alternado en máquina",
+      "Prensa para pecho inclinado con barra",
+      "Prensa para pecho inclinado con barra y banda elastica",
+      "Prensa para pecho inclinado con barra y cadenas",
+      "Prensa para pecho inclinado con mancuerna",
+      "Prensa para pecho inclinado en máquina",
+      "Prensa para pecho inclinado unilateral con mancuerna",
+      "Prensa para pecho inclinado unilateral en máquina",
+    ]},
+    "Aislados":{comp:false,ejs:[
+      "Aperturas en banco plano con mancuernas",
+      "Aperturas en máquina de fly",
+      "Aperturas en pec dec",
+      "Aperturas en suelo con mancuernas",
+      "Aperturas para pecho con deslizadores",
+      "Aperturas para pecho en suelo con mancuerna",
+      "Aperturas para pecho en suelo con mancuernas",
+      "Aperturas para pecho en suspensión (TRX)",
+      "Cross over con ligas en posición alta",
+      "Cross over con ligas en posición baja",
+      "Cross over con ligas en posición media",
+      "Cross over con poleas en posición alta",
+      "Cross over con poleas en posición baja",
+      "Cross over con poleas en posición media",
+    ]},
   },
-  hombro:{
-    deltoides_anterior:["Prensa militar de pie con barra","Prensa militar de pie con mancuernas","Prensa militar sentado en máquina","Elevaciones frontales con mancuerna","Press Arnold de pie"],
-    deltoides_lateral:["Elevaciones laterales con mancuerna","Elevaciones laterales en máquina","Elevaciones laterales con ligas","Elevaciones laterales unilaterales"],
-    deltoides_posterior:["Jalón a la cara con soga","Pajaros","Aperturas posteriores en máquina","Remo a la cara de pie con barra"],
-    casa:["Press Arnold de pie","Elevaciones laterales con mancuernas","Elevaciones frontales con mancuerna","Jalón a la cara con liga","Press militar de pie con mancuernas"],
-    terapeutico:["Elevaciones laterales con mancuerna ligera","Press Arnold de pie","Jalón a la cara con soga","Elevaciones frontales con mancuerna","Rotación externa con liga"]
+  "Espalda alta":{
+    "Jalón vertical":{comp:true,ejs:[
+      "Dominada neutra",
+      "Dominada neutra con lastre",
+      "Dominada neutra con lastre excéntrica (4 segundos)",
+      "Dominada neutra excéntrica (4 segundos)",
+      "Dominada prono agarre amplio",
+      "Dominada prono agarre amplio con lastre",
+      "Dominada prono con lastre excéntrica (4 segundos)",
+      "Dominada prono excéntrica (4 segundos)",
+      "Dominada supina agarre cerrado",
+      "Dominada supina agarre cerrado con lastre",
+      "Dominada supina con lastre excéntrica (4 segundos)",
+      "Dominada supina excéntrica (4 segundos)",
+      "Jalón al pecho alterno agarre amplio",
+      "Jalón al pecho neutro",
+      "Jalón al pecho neutro excéntrico (4 segundos)",
+      "Jalón al pecho prono agarre amplio",
+      "Jalón al pecho prono excéntrico (4 segundos)",
+      "Jalón al pecho supino agarre cerrado",
+      "Jalón al pecho supino excéntrico (4 segundos)",
+    ]},
+    "Jalón horizontal":{comp:true,ejs:[
+      "Remo con barra en T",
+      "Remo con barra y pecho apoyado",
+      "Remo con ligas y pecho apoyado",
+      "Remo con mancuernas y pecho apoyado",
+      "Remo de pie con barra",
+      "Remo de pie con barra hexagonal",
+      "Remo de pie con ligas",
+      "Remo de pie con mancuernas",
+      "Remo en suspensión (TRX)",
+      "Remo horizontal con mancuernas con pecho apoyado sobre banco",
+      "Remo sentado con polea baja agarre amplio y neutro",
+      "Remo sentado con polea baja agarre amplio y prono",
+      "Remo sentado con polea baja agarre amplio y supino",
+      "Remo sentado con polea baja en triángulo",
+      "Remo sentado en máquina",
+    ]},
+    "Jalón horizontal (accesorios)":{comp:false,ejs:[
+      "Remo de pie unilateral con ligas",
+      "Remo de pie unilateral con mancuernas",
+      "Remo sentado alternado sentado en máquina",
+      "Remo sentado con polea baja unilateral",
+      "Remo sentado unilateral sentado en máquina",
+    ]},
   },
-  biceps:{
-    vertical:["Curl para bíceps de pie con barra","Curl para bíceps de pie con mancuerna","Curl para bíceps en máquina tipo scott","Curl concentrado con mancuerna"],
-    inclinado:["Curl para bíceps supino en banco inclinado","Curl bayesian prono con polea baja","Curl araña para bíceps"],
-    casa:["Curl de bíceps con mancuerna","Curl concentrado con mancuerna","Curl martillo con mancuerna","Curl con liga"],
-    terapeutico:["Curl de bíceps con mancuerna ligera","Curl concentrado con mancuerna","Curl isométrico con liga"]
+  "Hombro":{
+    "Deltoides anterior":{comp:true,ejs:[
+      "Elevaciones frontales con barra",
+      "Elevaciones frontales con barra corta en polea baja",
+      "Elevaciones frontales con disco",
+      "Elevaciones frontales con mancuerna",
+      "Elevaciones frontales con pesa rusa",
+      "Elevaciones frontales isométricas (3 segundos) con barra",
+      "Elevaciones frontales isométricas (3 segundos) con mancuerna",
+      "Elevaciones frontales unilaterales en polea baja",
+      "Lagartijas en V",
+      "Lagartijas en V con piernas elevadas",
+      "Prensa militar con ligas",
+      "Prensa militar de pie con barra",
+      "Prensa militar de pie con barra hexagonal",
+      "Prensa militar de pie con ligas",
+      "Prensa militar de pie con mancuernas",
+      "Prensa militar sentado con barra",
+      "Prensa militar sentado con barra hexagonal",
+      "Prensa militar sentado con mancuernas",
+      "Prensa militar sentado en máquina",
+      "Prensa militar unilateral sentado con ligas",
+      "Prensa militar uniltareral sentado con mancuernas",
+    ]},
+    "Deltoides lateral":{comp:false,ejs:[
+      "Elevaciones laterales alternadas con mancuerna",
+      "Elevaciones laterales alternadas sentado en maquina",
+      "Elevaciones laterales con ligas",
+      "Elevaciones laterales con mancuerna",
+      "Elevaciones laterales sentado en maquina",
+      "Elevaciones laterales unilaterales con ligas",
+      "Elevaciones laterales unilaterales sentado en maquina",
+      "Elevación lateral sentado en maquina isométricas (3 segundos)",
+      "Elevación lateral unilateral con mancuerna",
+      "Elevación lateral unilateral con polea baja",
+      "Elevación lateral unilateral isométrica (3 segundos) con mancuerna",
+      "Elevaciónes laterales con polea baja",
+      "Elevaciónes laterales isométricas (3 segundos) con mancuerna",
+      "Remo al mentón con barra agarre amplio",
+      "Remo al mentón isométrico (3 segundos) con barra agarre amplio",
+    ]},
+    "Deltoides posterior":{comp:false,ejs:[
+      "Apertura posterior es con liga en posición alta",
+      "Aperturas posteriores con polea en posición media/alta",
+      "Aperturas posteriores en máquina",
+      "Aperturas posteriores en suspensión (TRX)",
+      "Jalón a la cara con liga",
+      "Jalón a la cara con liga + rotación lateral",
+      "Jalón a la cara con soga",
+      "Jalón a la cara con soga + rotación lateral",
+      "Pajaros",
+      "Remo a la cara con barra sentado en máquina",
+      "Remo a la cara de pie con barra",
+      "Remo a la cara de pie con mancuerna",
+    ]},
   },
-  triceps:{
-    extension:["Extensión para tríceps trasnuca de pie con barra","Press francés con barra","Press californiano con barra","Jalón para tríceps con cuerda en polea alta"],
-    aislado:["Extensión para tríceps con soga en polea alta","Fondos en paralelas","Patada para tríceps con soga","Press California con mancuerna"],
-    casa:["Extensión de tríceps acostado con mancuernas","Fondos en banco/silla","Lagartijas con codos cerrados","Press californiano con mancuerna"],
-    terapeutico:["Extensión de tríceps acostado con mancuerna ligera","Fondos en banco/silla","Jalón para tríceps con liga"]
+  "Trapecio":{
+    "Trapecio":{comp:false,ejs:[
+      "Encogimiento de hombro isométrico (4 segundos) anterior con barra",
+      "Encogimiento de hombro isométrico (4 segundos) anterior con mancuernas",
+      "Encogimiento de hombro posterior con barra",
+      "Encogimiento de hombro posterior con mancuernas",
+      "Encogimientos de hombro anterior con barra",
+      "Encogimientos de hombro anterior con mancuernas",
+      "Remo al mentón con barra",
+      "Remo al mentón con barra corta en polea baja",
+    ]},
   },
-  abdomen:{
-    flexion_tronco:["Crunch abdominal","Crunch abdominal en máquina","Crunch abdominal en V","Elevación de rodillas colgando","Elevación de piernas colgando"],
-    isometrico:["Plancha abdominal","Media plancha abdominal","Plancha lateral","Bird dog","Dead bug"],
-    casa:["Crunch abdominal","Plancha abdominal","Crunch con piernas elevadas","Dead bug","Bird dog","Abdominal con cuerda en polea alta"],
-    terapeutico:["Plancha abdominal","Dead bug","Bird dog","Crunch abdominal","Media plancha abdominal"]
+  "Bíceps":{
+    "Hombro en flexión":{comp:false,ejs:[
+      "Curl araña para bíceps",
+      "Curl concentrado para bíceps con mancuerna",
+      "Curl para biceps en suspension (TRX)",
+      "Curl para bíceps con barra Z en banco scott",
+      "Curl para bíceps con barra en banco scott",
+      "Curl para bíceps en máquina tipo scott",
+      "Curl para bíceps unilateral con mancuerna en banco scott",
+      "Curl para bíceps unilateral en máquina tipo scott",
+    ]},
+    "Hombro neutro":{comp:false,ejs:[
+      "Curl con barra Romana",
+      "Curl con barra corta de pie en polea baja",
+      "Curl martillo alternado con mamcierna",
+      "Curl martillo con soga de pie en polea baja",
+      "Curl martillo de pie con mancuerna",
+      "Curl para bíceps de pie alternado con mancuerna",
+      "Curl para bíceps de pie co barra Z, agarre prono",
+      "Curl para bíceps de pie con barra",
+      "Curl para bíceps de pie con barra Z",
+      "Curl para bíceps de pie con barra, agarre prono",
+      "Curl para bíceps de pie con mancuerna",
+    ]},
+    "Hombro en extensión":{comp:false,ejs:[
+      "Curl bayesian neutro con polea baja",
+      "Curl bayesian prono con polea baja",
+      "Curl bayesian supino con polea baja",
+      "Curl para bíceps neutro en banco inclinado con mancuernas",
+      "Curl para bíceps prono en banco inclinado con mancuernas",
+      "Curl para bíceps supino en banco inclinado con mancuernas",
+    ]},
   },
-  trapecio:{
-    encogimientos:["Encogimientos de hombro anterior con barra","Encogimientos de hombro anterior con mancuernas","Encogimiento de hombro isométrico (4s) anterior"],
-    casa:["Encogimientos de hombro con mancuernas","Remo de pie con mancuernas (trapecio secundario)"],
-    terapeutico:["Encogimientos de hombro con mancuernas ligeras","Remo de pie con ligas"]
-  }
+  "Tríceps":{
+    "Vertical (inferior a superior)":{comp:false,ejs:[
+      "Copa a 1 mano de pie con ligas",
+      "Copa a 1 mano de pie con mancuerna",
+      "Copa a 1 mano sentado con ligas",
+      "Copa a 1 mano sentado con mancuerna",
+      "Copa a 2 manos de pie con ligas",
+      "Copa a 2 manos de pie con mancuerna",
+      "Copa a 2 manos sentado con ligas",
+      "Copa a 2 manos sentado con mancuerna",
+      "Extension para tríceps trasnuca de pie con barra",
+      "Extensión para tríceps trasnuca de pie con barra Z",
+      "Extensión para tríceps trasnuca sentado con barra",
+      "Extensión para tríceps trasnuca sentado con barra Z",
+      "Jalón para tríceps trasnuca con cuerda en polea alta",
+      "Jalón para tríceps trasnuca con cuerda en polea baja",
+      "Jalón para tríceps trasnuca unilateral con cuerda en polea alta",
+      "Jalón para tríceps trasnuca unilateral con cuerda en polea baja",
+      "Press francés con barra",
+      "Press francés con mancuerna",
+      "Press francés unilateral alternado con mancuerna",
+      "Press francés unilateral con mancuerna",
+    ]},
+    "Vertical (superior a inferior)":{comp:false,ejs:[
+      "Extensión para triceps con barra corta en polea alta agarre prono",
+      "Extensión para triceps con barra corta en polea alta agarre supino",
+      "Extensión para tríceps  con soga en polea alta",
+      "Extensión para tríceps con soga unilateral en polea alta",
+      "Fondos en paralelas para tríceps",
+      "Patada para tríceps con mancuerna",
+      "Patada para tríceps con soga en polea baja",
+      "Press California alternado con mancuerna",
+      "Press California con barra",
+      "Press California con mancuerna",
+      "Press California unilateral con mancuerna",
+    ]},
+  },
 };
 
-// ── Reglas clínicas: ejercicios contraindicados por condición ─────────────────
-const EJ_CONTRAIND={
-  "Dolor lumbar crónico":["Peso muerto con barra","Peso muerto sumo con barra","Sentadilla trasera con barra","Sentadilla frontal con barra","Buenos días con barra","Hiperextensión de tronco"],
-  "Osteoartritis de rodilla":["Sentadilla trasera con barra","Sentadilla frontal con barra","Sentadilla hack","Desplantes con barra","Prensa para pierna con mucho ROM","Extensión de rodilla en máquina (arco completo)"],
-  "HTA (Hipertensión)":["Jalón excéntrico supramaximal","Peso muerto máximo","Ejercicio isométrico de alta intensidad prolongado"],
-  "DM2 / Prediabetes":[],
-  "Obesidad grado III":["Peso muerto convencional","Sentadilla trasera con barra","Desplantes"],
-  "Osteoporosis":["Ejercicio de alto impacto","Flexión forzada de columna","Sentadilla trasera con barra y carga alta"],
-  "Rehabilitación postquirúrgica (rodilla)":["Sentadilla trasera con barra","Desplantes","Step Up con carga","Prensa para pierna ROM completo","Extensión de rodilla en máquina"],
-  "Embarazo":["Ejercicio acostada en supino >20 semanas","Valsalva","Contacto","Alto impacto","Peso muerto convencional"],
-  "Dolor de hombro / manguito rotador":["Prensa militar con barra sobre la cabeza","Jalón detrás de la nuca","Press Arnold","Dips","Elevaciones laterales con carga alta"]
+// ── Secuencias de días tomadas tal cual de las 5 plantillas ────────────────
+const EJ_SECUENCIAS={
+  "3d":{label:"3 días · Cuerpo completo",dias:[
+    [{s:"1",g:"Pectorales",p:"Empuje horizontal"},{s:"2",g:"Pectorales",p:"Aislados"},{s:"3A",g:"Hombro",p:"Deltoides anterior"},{s:"3B",g:"Espalda alta",p:"Jalón vertical"},{s:"4A",g:"Hombro",p:"Deltoides posterior"},{s:"4B",g:"Tríceps",p:"Vertical (superior a inferior)"},{s:"5A",g:"Cuadríceps",p:"Exclusivos"},{s:"5B",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"5C",g:"Abdomen/Psoas",p:"Flexión de tronco"}],
+    [{s:"1",g:"Cuadríceps",p:"Bilateral"},{s:"2",g:"Glúteo",p:"Empuje horizontal"},{s:"3A",g:"Isquiosurales",p:"Dominante de cadera"},{s:"3B",g:"Cuadríceps",p:"Dominantes de rodilla unilateral"},{s:"4A",g:"Pectorales",p:"Empuje horizontal"},{s:"4B",g:"Espalda alta",p:"Jalón horizontal"},{s:"5A",g:"Bíceps",p:"Hombro en flexión"},{s:"5B",g:"Tríceps",p:"Vertical (inferior a superior)"}],
+    [{s:"1",g:"Glúteo",p:"Empuje vertical"},{s:"2",g:"Espalda alta",p:"Jalón vertical"},{s:"3A",g:"Espalda alta",p:"Jalón horizontal"},{s:"3B",g:"Pectorales",p:"Empuje diagonal"},{s:"4A",g:"Hombro",p:"Deltoides lateral"},{s:"4B",g:"Bíceps",p:"Hombro en extensión"},{s:"5A",g:"Glúteo",p:"Accesorios"},{s:"5B",g:"Glúteo",p:"Abducción de cadera"},{s:"5C",g:"Abdomen/Psoas",p:"Flexión de cadera"}],
+  ]},
+  "4d":{label:"4 días · Superior / Inferior",dias:[
+    [{s:"1",g:"Pectorales",p:"Empuje horizontal"},{s:"2A",g:"Pectorales",p:"Aislados"},{s:"2B",g:"Espalda alta",p:"Jalón horizontal"},{s:"3A",g:"Espalda alta",p:"Jalón vertical"},{s:"3B",g:"Hombro",p:"Deltoides anterior"},{s:"4A",g:"Bíceps",p:"Hombro en flexión"},{s:"4B",g:"Tríceps",p:"Vertical (superior a inferior)"},{s:"4C",g:"Hombro",p:"Deltoides posterior"}],
+    [{s:"1",g:"Cuadríceps",p:"Bilateral"},{s:"2",g:"Glúteo",p:"Empuje horizontal"},{s:"3A",g:"Cuadríceps",p:"Dominantes de rodilla unilateral"},{s:"3B",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"4A",g:"Glúteo",p:"Accesorios"},{s:"4B",g:"Abdomen/Psoas",p:"Flexión de tronco"},{s:"5",g:"Pantorrilla",p:"Rodilla en extensión"}],
+    [{s:"1",g:"Espalda alta",p:"Jalón vertical"},{s:"2A",g:"Espalda alta",p:"Jalón horizontal"},{s:"2B",g:"Pectorales",p:"Empuje diagonal"},{s:"3A",g:"Pectorales",p:"Aislados"},{s:"3B",g:"Trapecio",p:"Trapecio"},{s:"4A",g:"Tríceps",p:"Vertical (inferior a superior)"},{s:"4B",g:"Bíceps",p:"Hombro en extensión"},{s:"4C",g:"Hombro",p:"Deltoides lateral"}],
+    [{s:"1",g:"Isquiosurales",p:"Dominante de cadera"},{s:"2",g:"Glúteo",p:"Empuje horizontal"},{s:"3A",g:"Cuadríceps",p:"Dominantes de rodilla unilateral"},{s:"3B",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"4A",g:"Glúteo",p:"Accesorios"},{s:"4B",g:"Glúteo",p:"Abducción horizontal de cadera"},{s:"5A",g:"Abdomen/Psoas",p:"Flexión de cadera"},{s:"5B",g:"Pantorrilla",p:"Rodilla en flexión"}],
+  ]},
+  "5d_inf":{label:"5 días · Inf-Sup-Inf-Sup-Inf (énfasis inferior)",dias:[
+    [{s:"1",g:"Cuadríceps",p:"Bilateral"},{s:"2",g:"Isquiosurales",p:"Dominante de cadera"},{s:"3",g:"Glúteo",p:"Empuje horizontal"},{s:"4A",g:"Cuadríceps",p:"Exclusivos"},{s:"4B",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"5",g:"Abdomen/Psoas",p:"Flexión de tronco"}],
+    [{s:"1",g:"Pectorales",p:"Empuje horizontal"},{s:"2",g:"Espalda alta",p:"Jalón horizontal"},{s:"3",g:"Hombro",p:"Deltoides anterior"},{s:"4A",g:"Pectorales",p:"Aislados"},{s:"4B",g:"Trapecio",p:"Trapecio"},{s:"5A",g:"Tríceps",p:"Vertical (inferior a superior)"},{s:"5B",g:"Bíceps",p:"Hombro en flexión"},{s:"6",g:"Pantorrilla",p:"Rodilla en extensión"}],
+    [{s:"1",g:"Isquiosurales",p:"Dominante de cadera"},{s:"2",g:"Glúteo",p:"Empuje horizontal"},{s:"3",g:"Cuadríceps",p:"Bilateral"},{s:"4A",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"4B",g:"Glúteo",p:"Accesorios"},{s:"5A",g:"Glúteo",p:"Abducción de cadera"},{s:"5B",g:"Glúteo",p:"Abducción horizontal de cadera"},{s:"6A",g:"Abdomen/Psoas",p:"Flexión de cadera"},{s:"6B",g:"Abdomen/Psoas",p:"Flexión de tronco"}],
+    [{s:"1",g:"Espalda alta",p:"Jalón vertical"},{s:"2",g:"Hombro",p:"Deltoides anterior"},{s:"3A",g:"Espalda alta",p:"Jalón horizontal (accesorios)"},{s:"3B",g:"Hombro",p:"Deltoides posterior"},{s:"4A",g:"Pectorales",p:"Empuje diagonal"},{s:"4B",g:"Hombro",p:"Deltoides lateral"},{s:"5A",g:"Tríceps",p:"Vertical (superior a inferior)"},{s:"5B",g:"Bíceps",p:"Hombro en extensión"},{s:"6",g:"Pantorrilla",p:"Rodilla en flexión"}],
+    [{s:"1",g:"Glúteo",p:"Empuje horizontal"},{s:"2",g:"Cuadríceps",p:"Bilateral"},{s:"3",g:"Isquiosurales",p:"Dominante de cadera"},{s:"4A",g:"Cuadríceps",p:"Dominantes de rodilla unilateral"},{s:"4B",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"5",g:"Abdomen/Psoas",p:"Flexión de cadera"}],
+  ]},
+  "5d_sup":{label:"5 días · Sup-Inf-Sup-Inf-Sup (énfasis superior)",dias:[
+    [{s:"1",g:"Pectorales",p:"Empuje horizontal"},{s:"2",g:"Espalda alta",p:"Jalón horizontal"},{s:"3A",g:"Pectorales",p:"Empuje diagonal"},{s:"3B",g:"Trapecio",p:"Trapecio"},{s:"4A",g:"Pectorales",p:"Aislados"},{s:"4B",g:"Hombro",p:"Deltoides lateral"},{s:"5A",g:"Tríceps",p:"Vertical (inferior a superior)"},{s:"5B",g:"Bíceps",p:"Hombro en flexión"},{s:"5C",g:"Hombro",p:"Deltoides anterior"},{s:"6",g:"Pantorrilla",p:"Rodilla en extensión"}],
+    [{s:"1",g:"Cuadríceps",p:"Bilateral"},{s:"2",g:"Isquiosurales",p:"Dominante de cadera"},{s:"3",g:"Glúteo",p:"Empuje horizontal"},{s:"4A",g:"Isquiosurales",p:"Dominante de cadera"},{s:"4B",g:"Cuadríceps",p:"Exclusivos"},{s:"4C",g:"Glúteo",p:"Accesorios"},{s:"5",g:"Abdomen/Psoas",p:"Flexión de cadera"},{s:"6",g:"Abdomen/Psoas",p:"Isométricos"}],
+    [{s:"1",g:"Hombro",p:"Deltoides anterior"},{s:"2A",g:"Pectorales",p:"Empuje diagonal"},{s:"2B",g:"Espalda alta",p:"Jalón vertical"},{s:"3A",g:"Espalda alta",p:"Jalón horizontal (accesorios)"},{s:"3B",g:"Hombro",p:"Deltoides posterior"},{s:"3C",g:"Hombro",p:"Deltoides lateral"},{s:"4A",g:"Tríceps",p:"Vertical (superior a inferior)"},{s:"4B",g:"Bíceps",p:"Hombro en extensión"},{s:"5",g:"Pantorrilla",p:"Rodilla en extensión cadera en flexión"}],
+    [{s:"1",g:"Glúteo",p:"Empuje horizontal"},{s:"2",g:"Cuadríceps",p:"Bilateral"},{s:"3",g:"Isquiosurales",p:"Dominante de cadera"},{s:"4A",g:"Glúteo",p:"Accesorios"},{s:"4B",g:"Cuadríceps",p:"Dominantes de rodilla unilateral"},{s:"4C",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"5A",g:"Glúteo",p:"Abducción horizontal de cadera"},{s:"5B",g:"Glúteo",p:"Abducción de cadera"},{s:"6",g:"Abdomen/Psoas",p:"Flexión de tronco"}],
+    [{s:"1",g:"Espalda alta",p:"Jalón vertical"},{s:"2",g:"Pectorales",p:"Empuje horizontal"},{s:"3A",g:"Espalda alta",p:"Jalón horizontal"},{s:"3B",g:"Pectorales",p:"Aislados"},{s:"4A",g:"Espalda alta",p:"Jalón horizontal (accesorios)"},{s:"4B",g:"Hombro",p:"Deltoides posterior"},{s:"5A",g:"Tríceps",p:"Vertical (superior a inferior)"},{s:"5B",g:"Bíceps",p:"Hombro neutro"},{s:"6",g:"Pantorrilla",p:"Rodilla en flexión"}],
+  ]},
+  "6d":{label:"6 días · Superior / Inferior",dias:[
+    [{s:"1",g:"Pectorales",p:"Empuje horizontal"},{s:"2",g:"Espalda alta",p:"Jalón horizontal"},{s:"3",g:"Hombro",p:"Deltoides anterior"},{s:"4A",g:"Pectorales",p:"Empuje diagonal"},{s:"4B",g:"Trapecio",p:"Trapecio"},{s:"5",g:"Pectorales",p:"Aislados"},{s:"6A",g:"Bíceps",p:"Hombro en flexión"},{s:"6B",g:"Tríceps",p:"Vertical (inferior a superior)"},{s:"7A",g:"Bíceps",p:"Hombro en extensión"},{s:"7B",g:"Hombro",p:"Deltoides posterior"}],
+    [{s:"1",g:"Cuadríceps",p:"Bilateral"},{s:"2",g:"Isquiosurales",p:"Dominante de cadera"},{s:"3",g:"Glúteo",p:"Empuje horizontal"},{s:"4A",g:"Cuadríceps",p:"Dominantes de rodilla unilateral"},{s:"4B",g:"Glúteo",p:"Accesorios"},{s:"5A",g:"Cuadríceps",p:"Exclusivos"},{s:"5B",g:"Pantorrilla",p:"Rodilla en flexión"},{s:"5C",g:"Abdomen/Psoas",p:"Flexión de tronco"}],
+    [{s:"1",g:"Hombro",p:"Deltoides anterior"},{s:"2",g:"Espalda alta",p:"Jalón vertical"},{s:"3",g:"Pectorales",p:"Empuje diagonal"},{s:"4A",g:"Espalda alta",p:"Jalón horizontal (accesorios)"},{s:"4B",g:"Hombro",p:"Deltoides lateral"},{s:"5A",g:"Tríceps",p:"Vertical (superior a inferior)"},{s:"5B",g:"Bíceps",p:"Hombro neutro"},{s:"5C",g:"Hombro",p:"Deltoides posterior"}],
+    [{s:"1",g:"Glúteo",p:"Empuje vertical"},{s:"2",g:"Isquiosurales",p:"Dominante de cadera"},{s:"3",g:"Cuadríceps",p:"Bilateral"},{s:"4A",g:"Glúteo",p:"Empuje horizontal"},{s:"4B",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"5A",g:"Glúteo",p:"Accesorios"},{s:"5B",g:"Glúteo",p:"Abducción horizontal de cadera"},{s:"6",g:"Pantorrilla",p:"Rodilla en extensión cadera en flexión"}],
+    [{s:"1",g:"Espalda alta",p:"Jalón vertical"},{s:"2",g:"Pectorales",p:"Empuje horizontal"},{s:"3",g:"Trapecio",p:"Trapecio"},{s:"4A",g:"Espalda alta",p:"Jalón horizontal"},{s:"4B",g:"Pectorales",p:"Aislados"},{s:"5",g:"Espalda alta",p:"Jalón horizontal (accesorios)"},{s:"6A",g:"Tríceps",p:"Vertical (superior a inferior)"},{s:"6B",g:"Bíceps",p:"Hombro en flexión"},{s:"7A",g:"Tríceps",p:"Vertical (inferior a superior)"},{s:"7B",g:"Hombro",p:"Deltoides lateral"}],
+    [{s:"1",g:"Isquiosurales",p:"Dominante de cadera"},{s:"2",g:"Cuadríceps",p:"Bilateral"},{s:"3",g:"Glúteo",p:"Empuje horizontal"},{s:"4A",g:"Isquiosurales",p:"Dominante de cadera"},{s:"4B",g:"Cuadríceps",p:"Exclusivos"},{s:"5",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"6A",g:"Abdomen/Psoas",p:"Flexión de cadera"},{s:"6B",g:"Pantorrilla",p:"Rodilla en extensión"}],
+  ]},
 };
 
-// ── VME/VMR por grupo (series semanales mínimas y máximas) ────────────────────
-// Fuente: plantillas Excel + Israetel et al. 2019
-const VME_VMR={
-  cuadriceps:   {vme:6, vmr_base:20},
-  gluteo:       {vme:4, vmr_base:16},
-  isquiosurales:{vme:4, vmr_base:12},
-  pantorrilla:  {vme:6, vmr_base:20},
-  pectorales:   {vme:6, vmr_base:20},
-  espalda_alta: {vme:6, vmr_base:20},
-  hombro:       {vme:6, vmr_base:16},
-  biceps:       {vme:4, vmr_base:14},
-  triceps:      {vme:4, vmr_base:14},
-  abdomen:      {vme:2, vmr_base:10},
-  trapecio:     {vme:2, vmr_base:12}
+// ── Motor VME/VMR ─────────────────────────────────────────────────────────────
+// 11 pasos secuenciales, en el mismo orden y con los mismos deltas que las
+// fórmulas IFS de la hoja "Cálculo VME y VMR" de las plantillas.
+// VME = volumen mínimo efectivo · VMR = volumen máximo recuperable
+// (series directas por grupo muscular por semana).
+const EJ_PASOS=[
+  {k:"nivel",label:"Nivel de experiencia en fuerza",base:true,ops:[
+    {v:"Novato (0-12 meses)",vme:6,vmr:16},
+    {v:"Principiante (1-3 años)",vme:10,vmr:20},
+    {v:"Intermedio (4-8 años)",vme:12,vmr:24},
+    {v:"Avanzado (>8 años)",vme:18,vmr:32}]},
+  {k:"edad",label:"Edad",ops:[
+    {v:"<20",vme:-1,vmr:2},{v:"20-29",vme:-0.5,vmr:1},{v:"30-39",vme:0,vmr:0},
+    {v:"40-49",vme:0.5,vmr:-1},{v:">49",vme:1,vmr:-2}]},
+  {k:"talla",label:"Talla",ops:[
+    {v:"Mujer <160 cm",vme:1,vmr:2},{v:"Mujer 160 - 167 cm",vme:0.5,vmr:1},
+    {v:"Mujer 168 - 175 cm",vme:-0.5,vmr:-1},{v:"Mujer >175 cm",vme:-1,vmr:-2,corregido:true},
+    {v:"Hombre <170 cm",vme:1,vmr:2},{v:"Hombre 170 - 182 cm",vme:0.5,vmr:1},
+    {v:"Hombre 183 - 195 cm",vme:-0.5,vmr:-1},{v:"Hombre >195 cm",vme:-1,vmr:-2}]},
+  {k:"peso",label:"Peso corporal",ops:[
+    {v:"Mujer <57 kg",vme:1.5,vmr:3},{v:"Mujer 57 - 75 kg",vme:0.5,vmr:1},
+    {v:"Mujer 76 - 90 kg",vme:-0.5,vmr:-1},{v:"Mujer >90 kg",vme:-1.5,vmr:-3},
+    {v:"Hombre <75 kg",vme:1.5,vmr:3},{v:"Hombre 76 - 99 kg",vme:0.5,vmr:1},
+    {v:"Hombre 100 - 125 kg",vme:-0.5,vmr:-1},{v:"Hombre >125 kg",vme:-1.5,vmr:-3}]},
+  {k:"sueno",label:"Sueño",ops:[
+    {v:"<5 horas promedio",vme:0.5,vmr:-2},{v:"5 - 7 horas promedio",vme:0,vmr:0},
+    {v:">7 horas promedio",vme:-0.5,vmr:1}]},
+  {k:"recup",label:"Recuperación histórica",ops:[
+    {v:"Presenta dolor por hasta 3 días después del entrenamiento y aumentar las cargas de trabajo es difícil",vme:1,vmr:-2},
+    {v:"Presenta dolor por hasta 2 días después del entrenamiento",vme:0.5,vmr:-1},
+    {v:"Presenta dolor por hasta 1-2 días después del entrenamiento y responde a las cargas de trabajo",vme:0,vmr:0},
+    {v:"Raramente presenta dolor por más de 1 día y es capaz de aumentar continuamente las cargas de trabajo",vme:-0.5,vmr:1},
+    {v:"Raramente se presenta dolor por más de 1 día, responde a las cargas de trabajo altas y posiblemente tiene antecedentes de deportes de endurance y/o CrossFit",vme:-1,vmr:2}]},
+  {k:"estres",label:"Estrés físico externo",ops:[
+    {v:"El entrenamiento representa la actividad física principal y el empleo no es físicamente demandante",vme:-0.5,vmr:1},
+    {v:"Exigencias físicas a traves de actividades recreacionales (1-2 veces por semana) de baja intensidad y/o duración",vme:0,vmr:0},
+    {v:"Exigencias físicas a través de actividades recreacionales (2-3 veces por semana) de moderada intensidad y/o duración",vme:1,vmr:-2},
+    {v:"Entrenamiento adicional relacionado a distintas actividades deportivas/atléticas, labor manual y/o otros factores que resultan en un alto nivel de estrés físico",vme:1.5,vmr:-3}]},
+  {k:"novedad",label:"Novedad del programa",ops:[
+    {v:"El programa es repetido con cambios en la intensidad/volumen relativo",vme:1.5,vmr:3},
+    {v:"El programa manifiesta cambios en la intensidad/volumen relativo y adicionalemnte existen ajuste ligeros a la seleción de ejercicios/aplicación de medios",vme:0.5,vmr:1},
+    {v:"El programa manifiesta cambios en la intensidad/volumen relativo y adicionalemnte existen ajustes moderados a la selección/aplicación de medios y/o la frecuencia de entrenamiento",vme:0,vmr:-1},
+    {v:"El programa manifiesta cambios en la intensidad/volumen relativo y adicionalmente, existen ajustes moderados a la selección/aplicación de medios, la frecuencia de entrenamiento y/o existe una transición de la fase de entrenamiento.",vme:-0.5,vmr:-3}]},
+  {k:"dieta",label:"Balance energético",ops:[
+    {v:"Déficit calórico alto",vme:1.5,vmr:-3},{v:"Déficit calórico moderado",vme:1,vmr:-2},
+    {v:"Déficit calórico bajo",vme:0.5,vmr:-1},{v:"Isocalórica",vme:0,vmr:0},
+    {v:"Superávit calórico bajo",vme:-0.5,vmr:1},{v:"Superávit calórico moderado",vme:-1,vmr:2},
+    {v:"Superávit calórico alto",vme:-1.5,vmr:3}]},
+  {k:"esteroides",label:"Uso de esteroides anabólicos",ops:[
+    {v:"No",vme:0,vmr:0},{v:"Sí",vme:-1.5,vmr:3}]},
+  {k:"sexo",label:"Sexo",ops:[
+    {v:"Hombre",vme:0,vmr:0},{v:"Mujer",vme:1.5,vmr:3}]},
+];
+
+// Calcula VME/VMR paso a paso y devuelve la traza completa para auditoría.
+function ejCalcularVolumen(cfg){
+  let vme=0,vmr=0;const pasos=[];
+  EJ_PASOS.forEach(p=>{
+    const sel=(cfg||{})[p.k];
+    const op=p.ops.find(o=>o.v===sel);
+    if(!op){pasos.push({label:p.label,opcion:null,dVme:0,dVmr:0,vme,vmr,falta:true});return;}
+    if(p.base){vme=op.vme;vmr=op.vmr;}
+    else{vme+=op.vme;vmr+=op.vmr;}
+    pasos.push({label:p.label,opcion:op.v,dVme:p.base?op.vme:op.vme,dVmr:p.base?op.vmr:op.vmr,vme,vmr,base:!!p.base,corregido:!!op.corregido});
+  });
+  return{vme:Math.max(0,vme),vmr:Math.max(0,vmr),pasos,completo:pasos.every(x=>!x.falta)};
+}
+
+// ── Cuestionario de bienestar (6 × 5 = 30 puntos) ─────────────────────────────
+const EJ_BIENESTAR={
+  preguntas:[
+    {k:"fatiga",label:"Fatiga",ops:["Muy energético","Energético","Normal","Más cansado de lo normal","Siempre cansado"]},
+    {k:"sueno",label:"Calidad de sueño",ops:["Muy descansado","Descansado","Dificultad para dormir","Sueño agitado","Insomnio"]},
+    {k:"dolor",label:"Dolor muscular generalizado",ops:["Aptitud física aumentada","Sin dolor","Normal","Incremento en dolor y tensión","Muy adolorido"]},
+    {k:"estres",label:"Nivel de estrés",ops:["Muy relajado","Relajado","Normal","Estresado","Muy estresado"]},
+    {k:"animo",label:"Estado de ánimo",ops:["Muy positivo","Positivo","Falta de interés en otros y/o en actividades","Apático con compañeros y/o familiares","Irritado y molesto"]},
+    {k:"lesion",label:"Vulnerable a lesiones",ops:["Nunca","Raramente","Ocasionalmente","Frecuentemente","Siempre"]},
+  ],
+  // La primera opción vale 5 puntos y la última 1, igual que en la hoja.
+  rangos:[
+    {min:6,max:12,color:"#C62828",bg:"#FFEBEE",msg:"Pareces estar en un estado muy estresado, tómate unos días de descanso, entre 5 - 7 días, al reincorporarte a la actividad hazlo con volumen e intensidad bajos"},
+    {min:13,max:16,color:"#E65100",bg:"#FFF3E0",msg:"¡Oh!, parece que estás un poco cansado, es buena idea que bajes en un 20% el volumen y la intensidad de tu entrenamiento, incluso sería prudente disminuir un poco la frecuencia, ánimo y no desesperes, es más importante recuperarte y prevenir lesiones"},
+    {min:17,max:19,color:"#F9A825",bg:"#FFF8E1",msg:"Tus valores son un poco bajos, es buena idea no hacer una progresión en esta semana, mantén el volumen y la intensidad por ahora"},
+    {min:20,max:22,color:"#F9A825",bg:"#FFF8E1",msg:"Tus valores subjetivos de fatiga son normales, sin embargo es buena idea mantener el volumen/intensidad por ahora"},
+    {min:23,max:26,color:"#2E7D32",bg:"#E8F5E9",msg:"BIEN, tus valores subjetivos de fatiga son buenos, es un buen momento para subir el volumen/intensidad en un 20%"},
+    {min:27,max:30,color:"#1B5E20",bg:"#E8F5E9",msg:"EXCELENTE, tus valores subjetivos de fatiga son MUY BUENOS, puedes progresar a como lo tienes planeado"},
+  ]
 };
 
-// ── Calcular factor VMR según cuestionario ────────────────────────────────────
-function calcFactorVMR(recup,estres,novedad,dieta){
-  // Cada factor baja el VMR disponible (0=peor, 4=mejor)
-  const r=(recup-1)/4;   // recuperación
-  const e=1-(estres-1)/4;// estrés externo (inverso)
-  const n=(novedad-1)/2; // novedad del programa
-  const d=(dieta-1)/4;   // estado dietético
-  const factor=(r*0.35 + e*0.25 + n*0.2 + d*0.2);
-  return 0.5 + factor*0.5; // rango 0.5 a 1.0
+// ── Progresión por Ajuste ─────────────────────────────────────────────────────
+// Compuestos: se mueve la CARGA. Aislados: se mueven las REPETICIONES.
+const EJ_AJUSTES=[
+  {v:"Muy fácil",pct:5,reps:2},
+  {v:"Fácil",pct:2.5,reps:1},
+  {v:"Moderado",pct:0,reps:0},
+  {v:"Difícil",pct:-2.5,reps:-1},
+  {v:"Muy difícil",pct:-5,reps:-2},
+];
+
+// ── Contraindicaciones clínicas ───────────────────────────────────────────────
+// Se evalúan por expresión regular sobre el nombre del ejercicio, para que
+// atrapen variantes ("Sentadilla trasera con barra y cadenas", etc.).
+const EJ_CONTRA=[
+  {k:"hombro",label:"Hombro doloroso / manguito rotador",re:/(tr[aá]s de nuca|jal[oó]n vertical.*nuca|press militar tras|fondos|dips|lagartijas en anillas|arranque|envi[oó]n)/i,
+   nota:"Evitar rotación externa forzada y abducción sobre 90°. Preferir plano escapular y agarre neutro."},
+  {k:"lumbalgia",label:"Lumbalgia / hernia discal",re:/(peso muerto(?! rumano unilateral)|sentadilla trasera|buenos d[ií]as|remo de pie con barra|remo inclinado|hiperextensi|sentadilla frontal)/i,
+   nota:"Evitar carga axial y flexión lumbar cargada. Preferir variantes con apoyo o en máquina."},
+  {k:"rodilla",label:"Gonartrosis / prótesis de rodilla",re:/(sentadilla profunda|sentadilla sissy|hack|extensi[oó]n de rodilla|salto|pliom|desplante en caminata)/i,
+   nota:"Limitar flexión de rodilla a rango indoloro. Evitar impacto y cizallamiento."},
+  {k:"cadera",label:"Prótesis de cadera",re:/(sentadilla profunda|abducci[oó]n|aducci[oó]n|desplante|zancada|peso muerto sumo)/i,
+   nota:"Respetar restricciones de flexión, aducción y rotación interna según el protocolo quirúrgico."},
+  {k:"embarazo",label:"Embarazo",re:/(acostado en suelo|acostada|flexi[oó]n de tronco|abdominal|crunch|plancha|valsalva|peso muerto|sentadilla trasera)/i,
+   nota:"Evitar decúbito supino prolongado a partir del 2.º trimestre, Valsalva y ejercicio abdominal directo."},
+  {k:"has",label:"Hipertensión no controlada",re:/(isom[eé]trico|plancha|valsalva|prensa|sobre la cabeza|militar)/i,
+   nota:"Evitar maniobra de Valsalva e isometrías sostenidas. Mantener respiración continua."},
+  {k:"hernia_ing",label:"Hernia inguinal / abdominal",re:/(abdominal|crunch|flexi[oó]n de tronco|elevaci[oó]n de piernas|plancha|peso muerto|sentadilla trasera)/i,
+   nota:"Evitar aumentos bruscos de presión intraabdominal hasta resolución quirúrgica."},
+  {k:"retinopatia",label:"Retinopatía diabética proliferativa",re:/(isom[eé]trico|valsalva|invertid|cabeza abajo|peso muerto|sentadilla trasera)/i,
+   nota:"Evitar Valsalva, isometrías máximas y posiciones con la cabeza por debajo del corazón."},
+  {k:"osteoporosis",label:"Osteoporosis",re:/(flexi[oó]n de tronco|crunch|abdominal|rotaci[oó]n de tronco|salto|pliom)/i,
+   nota:"Evitar flexión y rotación vertebral cargada. Priorizar carga axial controlada y equilibrio."},
+  {k:"epicondil",label:"Epicondilitis / epitrocleitis",re:/(curl|extensi[oó]n de tr[ií]ceps|agarre|mu[ñn]eca|press franc)/i,
+   nota:"Reducir carga en prensión y evitar excéntricos rápidos de muñeca hasta control del dolor."},
+  {k:"cardiopatia",label:"Cardiopatía isquémica estable",re:/(isom[eé]trico|valsalva|m[aá]xim|1rm|fallo)/i,
+   nota:"Trabajar por debajo del fallo, con RIR ≥ 3. Evitar Valsalva. Vigilar síntomas."},
+];
+
+// ── Clasificación por lugar de entrenamiento y complejidad ────────────────────
+function ejLugar(n){
+  const s=n.toLowerCase();
+  if(/(liga|banda el[aá]stica|suspensi[oó]n|trx)/.test(s))return"ligas";
+  if(/(m[aá]quina|polea|smith|hack|prensa|multipower|cable)/.test(s))return"gimnasio";
+  if(/(barra|disco|cadena)/.test(s))return"gimnasio";
+  if(/(mancuerna|pesa rusa|kettlebell)/.test(s))return"mancuernas";
+  return"corporal";
+}
+const EJ_LUGARES={gimnasio:"Gimnasio completo",mancuernas:"Mancuernas en casa",ligas:"Ligas / TRX",corporal:"Peso corporal"};
+// Un lugar habilita también los menos equipados.
+const EJ_LUGAR_INCLUYE={gimnasio:["gimnasio","mancuernas","ligas","corporal"],mancuernas:["mancuernas","ligas","corporal"],ligas:["ligas","corporal"],corporal:["corporal"]};
+
+function ejComplejidad(n){
+  const s=n.toLowerCase();
+  if(/(arranque|envi[oó]n|cargada|nórdico|n[oó]rdico|sissy|pistol|anillas|b[uú]lgara|unilateral con barra)/.test(s))return 3;
+  if(/(barra|peso muerto|sentadilla|desplante|zancada|dominada|fondo)/.test(s))return 2;
+  return 1;
+}
+const EJ_NIVEL_MAX={"Novato (0-12 meses)":1,"Principiante (1-3 años)":2,"Intermedio (4-8 años)":3,"Avanzado (>8 años)":3};
+
+// ── Generador de plan ─────────────────────────────────────────────────────────
+// Reparte el volumen semanal objetivo entre los días en que cada grupo aparece,
+// usando ondulación diaria (pesado / moderado / ligero). La intención está
+// descrita en el audio del Dr. Polanco: si el lunes pecho es pesado, espalda va
+// ligero y hombro moderado; al día siguiente rotan.
+// Topes de seguridad: series directas por grupo en una sesión y en una fila.
+const EJ_MAX_SESION=10,EJ_MAX_FILA=5;
+const EJ_ONDA={1:[1],2:[1,.7],3:[1,.6,.8],4:[1,.6,.85,.7],5:[1,.6,.85,.7,.75],6:[1,.6,.85,.7,.75,.65]};
+
+function ejCandidatos(grupo,patron,cfg){
+  const nodo=(EJ_BIBLIO[grupo]||{})[patron];
+  if(!nodo)return{comp:false,lista:[]};
+  const permitidos=EJ_LUGAR_INCLUYE[cfg.lugar||"gimnasio"]||["gimnasio","mancuernas","ligas","corporal"];
+  const maxC=EJ_NIVEL_MAX[cfg.nivel]||3;
+  const contras=(cfg.condiciones||[]).map(k=>EJ_CONTRA.find(c=>c.k===k)).filter(Boolean);
+  const todos=nodo.ejs.map(n=>{
+    const choca=contras.filter(c=>c.re.test(n));
+    return{n,lugar:ejLugar(n),cx:ejComplejidad(n),contra:choca.map(c=>c.k),notas:choca.map(c=>c.nota)};
+  });
+  // Respaldo escalonado: si el lugar elegido no ofrece ningún medio para este
+  // patrón (p. ej. no hay jalón horizontal con peso corporal), se amplía el
+  // equipamiento y se marca la fila para que el clínico lo vea.
+  let lista=todos.filter(e=>permitidos.includes(e.lugar)&&e.cx<=maxC),fuera=false;
+  if(!lista.length){lista=todos.filter(e=>e.cx<=maxC);fuera=lista.length>0;}
+  if(!lista.length){lista=todos.slice();fuera=true;}
+  const limpios=lista.filter(e=>!e.contra.length);
+  return{comp:nodo.comp,lista:limpios.length?limpios:lista,fuera};
 }
 
-// ── Definir splits según días/semana ─────────────────────────────────────────
-function getSplit(dias){
-  if(dias<=3) return {nombre:"Cuerpo Completo (3×)",dias:[
-    {id:1,grupos:["cuadriceps","gluteo","isquiosurales","pantorrilla","pectorales","espalda_alta","abdomen"]},
-    {id:2,grupos:["cuadriceps","gluteo","pectorales","espalda_alta","hombro","biceps","triceps"]},
-    {id:3,grupos:["cuadriceps","gluteo","isquiosurales","pantorrilla","hombro","biceps","triceps","abdomen"]}
-  ]};
-  if(dias===4) return {nombre:"Superior / Inferior (4×)",dias:[
-    {id:1,grupos:["pectorales","espalda_alta","hombro","trapecio","biceps","triceps","abdomen"]},
-    {id:2,grupos:["cuadriceps","gluteo","isquiosurales","pantorrilla","abdomen"]},
-    {id:3,grupos:["pectorales","espalda_alta","hombro","biceps","triceps"]},
-    {id:4,grupos:["cuadriceps","gluteo","isquiosurales","pantorrilla","abdomen"]}
-  ]};
-  if(dias===5) return {nombre:"Sup / Inf / Sup / Inf / Sup (5×)",dias:[
-    {id:1,grupos:["pectorales","hombro","triceps","trapecio"]},
-    {id:2,grupos:["cuadriceps","gluteo","isquiosurales","pantorrilla"]},
-    {id:3,grupos:["espalda_alta","hombro","biceps","abdomen"]},
-    {id:4,grupos:["cuadriceps","gluteo","isquiosurales","pantorrilla","abdomen"]},
-    {id:5,grupos:["pectorales","espalda_alta","hombro","biceps","triceps"]}
-  ]};
-  return {nombre:"Push / Pull / Legs (6×)",dias:[
-    {id:1,grupos:["pectorales","hombro","triceps","trapecio"]},
-    {id:2,grupos:["espalda_alta","biceps","abdomen"]},
-    {id:3,grupos:["cuadriceps","gluteo","isquiosurales","pantorrilla"]},
-    {id:4,grupos:["pectorales","hombro","triceps"]},
-    {id:5,grupos:["espalda_alta","biceps","trapecio","abdomen"]},
-    {id:6,grupos:["cuadriceps","gluteo","isquiosurales","pantorrilla"]}
-  ]};
+// Distribuye n series entre k filas de la forma más pareja posible.
+function ejRepartir(n,k){
+  if(k<=0)return[];
+  const base=Math.floor(n/k);let resto=n-base*k;
+  return Array.from({length:k},(_,i)=>base+(i<resto?1:0));
 }
 
-// ── Elegir subcategoría de ejercicio según lugar y condición ─────────────────
-function getSubcat(grupo,lugar,condiciones,sexo,exp){
-  if(lugar==="casa") return "casa";
-  const esTerapeutico=condiciones.length>0;
-  if(esTerapeutico&&exp<=2) return "terapeutico";
-  const banco=EJ_BANCO[grupo];
-  if(!banco) return null;
-  // Para gym: rotar subcategorías según experiencia
-  const keys=Object.keys(banco).filter(k=>k!=="casa"&&k!=="terapeutico");
-  return keys[Math.floor(exp/2)%keys.length]||keys[0];
-}
+function ejGenerarPlan(cfg){
+  const seq=EJ_SECUENCIAS[cfg.secuencia];
+  if(!seq)return null;
+  const vol=ejCalcularVolumen(cfg);
+  // Objetivo semanal por grupo: punto medio de la banda, sesgado por el objetivo clínico.
+  const sesgo=cfg.objetivo==="fuerza"?0.25:cfg.objetivo==="mantenimiento"?0.1:0.4;
+  const objetivo=Math.max(vol.vme,Math.round(vol.vme+(vol.vmr-vol.vme)*sesgo));
 
-// ── Seleccionar ejercicio del banco (filtrado por contraindicaciones) ─────────
-function elegirEjercicio(grupo,subcat,contrainds,mesNum,semNum,diaNum,posIdx){
-  const banco=EJ_BANCO[grupo];
-  if(!banco) return null;
-  const lista=banco[subcat]||banco[Object.keys(banco)[0]]||[];
-  const permitidos=lista.filter(ej=>!contrainds.some(c=>EJ_CONTRAIND[c]?.includes(ej)));
-  if(!permitidos.length) return lista[0]||"(seleccionar ejercicio)";
-  // Variabilidad real: cada combinación mes+semana+día+posición da un ejercicio diferente
-  // El mes rota el bloque de ejercicios completo para que mes 2 ≠ mes 1
-  // La semana dentro del mes varía el accesorio (no el principal)
-  const esAccesorio=posIdx>=2;
-  const baseOffset=(mesNum-1)*7; // desplaza 7 posiciones por mes → variedad total
-  const semOffset=esAccesorio?(semNum-1)*2:0; // accesorios rotan por semana
-  const diaOffset=diaNum*3;
-  const idx=(baseOffset+semOffset+diaOffset+posIdx)%permitidos.length;
-  return permitidos[idx];
-}
+  // Dónde aparece cada grupo
+  const apar={};
+  seq.dias.forEach((filas,d)=>filas.forEach(f=>{(apar[f.g]=apar[f.g]||[]).push(d);}));
+  Object.keys(apar).forEach(g=>{apar[g]=[...new Set(apar[g])];});
 
-// ── Dosificación según ACSM 11ª edición (FITT-VP) ─────────────────────────────
-// Fuerza: 2-6 reps, 80-90% RM · Hipertrofia: 8-12 reps, 70-85% RM
-// Salud/terapéutico: 10-15 reps, 50-70% RM · Resistencia muscular: 15-20 reps
-// Progresión ACSM: aumentar carga 2-10% cuando pueda completar 1-2 reps extra
-// en dos sesiones consecutivas. Prescripción única mensual.
-function calcDosis(exp,objetivo,orden){
-  // orden: 1=compuesto principal, 2=compuesto secundario, 3=accesorio
-  let s,r,rir,intensidad,descanso,tempo;
-  if(objetivo==="fuerza"){
-    s=orden===1?4:orden===2?3:3;
-    r=orden===1?5:orden===2?6:8;
-    rir="RIR 2-3";
-    intensidad=orden===1?"80-85% RM":"75-80% RM";
-    descanso=orden===1?"3-5 minutos":orden===2?"2-3 minutos":"2 minutos";
-    tempo="2-1-2";
-  } else if(objetivo==="hipertrofia"||objetivo==="recomposicion"){
-    s=orden===1?4:3;
-    r=orden===1?8:orden===2?10:12;
-    rir="RIR 1-3";
-    intensidad=orden===1?"70-80% RM":orden===2?"65-75% RM":"60-70% RM";
-    descanso=orden===1?"2-3 minutos":"60-90 segundos";
-    tempo="2-0-2";
-  } else if(objetivo==="perdida_grasa"){
-    s=3;
-    r=orden===1?10:orden===2?12:15;
-    rir="RIR 1-2";
-    intensidad="60-70% RM";
-    descanso=orden===1?"90 segundos":"60 segundos";
-    tempo="2-0-1";
-  } else { // salud_general, terapeutico
-    s=orden===1?3:2;
-    r=orden===1?10:12;
-    rir="RIR 2-3";
-    intensidad="50-65% RM";
-    descanso="90 segundos";
-    tempo=exp<=1?"3-1-3":"2-0-2";
-  }
-  return {s,r,rir,intensidad,descanso,tempo};
-}
-
-// ── Generar plan MENSUAL único según ACSM ─────────────────────────────────────
-// Una sola estructura semanal que se repite todo el mes.
-// La progresión es por CARGA (2-10% según ACSM), no por cambiar ejercicios.
-function generarPlan(cfg){
-  const {exp,recup,estres,novedad,dieta,objetivo,lugar,dias,condiciones,sexo,mesNum}=cfg;
-  const split=getSplit(dias);
-  const factor=calcFactorVMR(recup,estres,novedad,dieta);
-  const contrainds=condiciones;
-  const plan={split:split.nombre,sesiones:[],volumen:{},progresion:{}};
-
-  // Volumen semanal objetivo por grupo (Israetel MEV/MRV ajustado)
-  Object.entries(VME_VMR).forEach(([g,{vme,vmr_base}])=>{
-    const vmr=Math.round(vmr_base*factor);
-    plan.volumen[g]={vme,vmr,semanal:Math.max(vme,Math.min(vmr,vme+Math.round((vmr-vme)*0.5)))};
+  // Reparto con ondulación: cada grupo arranca su onda en una fase distinta.
+  // Techo por sesión: más de ~10 series directas por grupo en una misma sesión
+  // no aporta estímulo adicional y compromete la recuperación (Schoenfeld 2019,
+  // Baz-Valle 2022). El audio del Dr. Polanco fija el mismo tope práctico.
+  const seriesDia={},aviso=[];
+  Object.keys(apar).sort().forEach((g,gi)=>{
+    const dias=apar[g],k=dias.length;
+    const techo=EJ_MAX_SESION*k;
+    const meta=Math.min(objetivo,techo);
+    const onda=EJ_ONDA[k]||Array(k).fill(1);
+    const rot=onda.map((_,i)=>onda[(i+gi)%k]);
+    const suma=rot.reduce((a,b)=>a+b,0);
+    let ent=rot.map(w=>Math.min(EJ_MAX_SESION,Math.max(1,Math.round(meta*w/suma))));
+    // Cuadrar la suma respetando el techo por sesión
+    let dif=meta-ent.reduce((a,b)=>a+b,0);
+    for(let it=0;dif!==0&&it<200;it++){
+      const j=it%k,nv=ent[j]+(dif>0?1:-1);
+      if(nv>=1&&nv<=EJ_MAX_SESION){ent[j]=nv;dif+=dif>0?-1:1;}
+      else if(it%k===k-1&&ent.every(x=>dif>0?x>=EJ_MAX_SESION:x<=1))break;
+    }
+    if(meta<objetivo)aviso.push({grupo:g,meta,objetivo,dias:k});
+    dias.forEach((d,i)=>{seriesDia[g+"|"+d]=ent[i];});
   });
 
-  // Nota de progresión ACSM según objetivo
-  plan.progresion={
-    regla:"Cuando pueda completar 1-2 repeticiones adicionales a las prescritas en la última serie durante dos sesiones consecutivas, incrementar la carga 2-10% (menor incremento en tren superior, mayor en tren inferior).",
-    semanal:"Semanas 1-2: familiarización con las cargas. Semanas 3-4: aplicar los incrementos según la regla de progresión.",
-    registro:"Anotar el peso utilizado en cada ejercicio para dar seguimiento objetivo a la progresión."
-  };
-
-  // Generar UNA sesión por día de entrenamiento (estructura mensual fija)
-  split.dias.forEach((dia,dIdx)=>{
-    const sesion={dia:dia.id,ejercicios:[]};
-    dia.grupos.forEach((grupo,gIdx)=>{
-      const subcat=getSubcat(grupo,lugar,condiciones,sexo,exp);
-      if(!subcat) return;
-      // Ejercicios por grupo: balance tren superior/inferior equilibrado
-      // Grupos grandes (cuádriceps, glúteo, pecho, espalda) → 2 ejercicios
-      // Grupos pequeños (bíceps, tríceps, pantorrilla, trapecio) → 1 ejercicio
-      const grande=["cuadriceps","gluteo","pectorales","espalda_alta"].includes(grupo);
-      const nEj=grande?2:1;
-      for(let ei=0;ei<nEj;ei++){
-        const ej=elegirEjercicio(grupo,subcat,contrainds,mesNum,ei,dIdx,gIdx*5+ei);
-        if(!ej) continue;
-        const orden=gIdx===0&&ei===0?1:ei===0?2:3;
-        const dosis=calcDosis(exp,objetivo,orden);
-        const num=sesion.ejercicios.length+1;
-        sesion.ejercicios.push({num:String(num),grupo,ejercicio:ej,...dosis,peso:"___",nota:""});
-      }
+  const usados={};
+  const dias=seq.dias.map((filas,d)=>{
+    const porGrupo={};
+    filas.forEach((f,i)=>{(porGrupo[f.g]=porGrupo[f.g]||[]).push(i);});
+    const ejercicios=filas.map(()=>null);
+    Object.entries(porGrupo).forEach(([g,idxs])=>{
+      const total=seriesDia[g+"|"+d]||1;
+      const rep=ejRepartir(Math.min(total,EJ_MAX_FILA*idxs.length),idxs.length);
+      idxs.forEach((i,j)=>{
+        const f=filas[i];
+        const{comp,lista,fuera}=ejCandidatos(f.g,f.p,cfg);
+        const clave=f.g+"|"+f.p;
+        usados[clave]=(usados[clave]||0);
+        const pick=lista.length?lista[usados[clave]%lista.length]:null;
+        usados[clave]++;
+        ejercicios[i]={
+          seq:f.s,grupo:f.g,patron:f.p,comp,
+          ejercicio:pick?pick.n:"",
+          contra:pick?pick.contra:[],notasContra:pick?pick.notas:[],fueraLugar:!!fuera,
+          series:Math.max(1,rep[j]),
+          reps:comp?8:12,
+          rir:comp?2:1,
+          descanso:comp?150:75,
+          peso:"",nota:"",ajuste:""
+        };
+      });
     });
-    plan.sesiones.push(sesion);
+    return ejercicios;
   });
-  // Compatibilidad con visor/PDF antiguos
-  plan.semanas=[{semana:1,dias:plan.sesiones}];
-  return plan;
+
+  const semanas=[1,2,3,4].map(n=>({
+    n,descarga:false,
+    dias:dias.map(fs=>fs.map(e=>({...e})))
+  }));
+  if(cfg.descarga){
+    const s4=semanas[3];s4.descarga=true;
+    s4.dias.forEach(fs=>fs.forEach(e=>{e.series=Math.max(1,Math.round(e.series*0.5));e.rir=e.rir+2;}));
+  }
+  return{version:2,secuencia:cfg.secuencia,label:seq.label,objetivo,vol,semanas,aviso,cfg,generado:new Date().toISOString()};
 }
 
-// ── Protocolo cardio detallado con HIIT y continuo ───────────────────────────
-function calcCardio(objetivo,condiciones,diasSemana,tipoCardio,exp){
-  const esDM2=condiciones.includes("DM2 / Prediabetes");
-  const esHTA=condiciones.includes("HTA (Hipertensión)");
-  const esObes=condiciones.includes("Obesidad grado III");
-  const esRehab=condiciones.includes("Rehabilitación postquirúrgica (rodilla)");
-  const esTerapeutico=esObes||esRehab;
-
-  // Equipos según contexto
-  const equipoHIIT=esTerapeutico||esHTA?"bicicleta estacionaria o elíptica":"elíptica, bicicleta o banda sin fin";
-  const equipoCont=esTerapeutico?"bicicleta estacionaria":"bicicleta, elíptica o banda sin fin";
-
-  // Protocolo HIIT base (varía por objetivo y mes/experiencia)
-  const hiitIntervalos=exp<=2?"4 intervalos":exp<=3?"5 intervalos":"6 intervalos";
-  const hiitAlta=esHTA?"7/10":"9/10";
-  const hiitBaja=esHTA?"4/10":"4-5/10";
-  const hiitTiempoAlta=exp<=2?"30 segundos":exp<=3?"1 minuto":"90 segundos";
-  const hiitTiempoBaja=exp<=2?"90 segundos":exp<=3?"2 minutos":"2 minutos";
-
-  // Protocolo continuo base
-  const contMinutos=esTerapeutico?20:objetivo==="perdida_grasa"?40:30;
-  const contPE=esHTA||esTerapeutico?"5-6/10":objetivo==="perdida_grasa"?"6-7/10":"6/10";
-
-  // Distribución semanal
-  const diasHIIT=objetivo==="fuerza"?1:objetivo==="perdida_grasa"?3:2;
-  const diasCont=Math.min(diasSemana-diasHIIT, objetivo==="perdida_grasa"?3:2);
-
-  if(esTerapeutico||esRehab){
-    return {
-      tipo:"Ejercicio cardiopulmonar de baja intensidad",
-      frecuencia:`${diasCont+diasHIIT} veces por semana`,
-      protocolos:[{
-        nombre:"Entrenamiento continuo",
-        dias:`${diasCont+diasHIIT} días por semana`,
-        equipo:equipoCont,
-        detalle:`Realizar ${contMinutos} minutos a una percepción de esfuerzo de ${contPE}. Incrementar 5 minutos cada semana según tolerancia.`
-      }],
-      notas:"Monitorear frecuencia cardíaca. Suspender ante mareo, disnea excesiva o dolor."
-    };
-  }
-
-  if(objetivo==="fuerza"){
-    return {
-      tipo:"Ejercicio cardiopulmonar complementario",
-      frecuencia:"2-3 veces por semana (días de descanso del entrenamiento de fuerza)",
-      protocolos:[{
-        nombre:"Entrenamiento continuo",
-        dias:"2-3 días por semana",
-        equipo:equipoCont,
-        detalle:`Realizar 20-30 minutos a una percepción de esfuerzo de 5-6/10. Evitar exceso de cardio que interfiera con la recuperación muscular.`
-      }],
-      notas:"Prioridad: recuperación entre sesiones de fuerza. El cardio es complementario."
-    };
-  }
-
-  // Para hipertrofia, recomposición, pérdida de grasa, salud general
-  return {
-    tipo:tipoCardio==="solo_continuo"?"Entrenamiento cardiopulmonar continuo":tipoCardio==="solo_hiit"?"Entrenamiento por intervalos de alta intensidad (HIIT)":"Entrenamiento cardiopulmonar mixto (HIIT + continuo)",
-    frecuencia:`${diasHIIT+diasCont} veces por semana`,
-    protocolos:[
-      ...(tipoCardio!=="solo_continuo"?[{
-        nombre:"HIIT — Intervalos de alta intensidad",
-        dias:`${diasHIIT} ${diasHIIT===1?"día":"días"} por semana`,
-        equipo:equipoHIIT,
-        detalle:`Realizar ${hiitIntervalos}:\n• ${hiitTiempoAlta} a una percepción de esfuerzo de ${hiitAlta}\n• ${hiitTiempoBaja} a una percepción de esfuerzo de ${hiitBaja}\nRepetir ${hiitIntervalos}.\nCalentamiento previo: 5 min percepción de esfuerzo 4/10.\nEnfriamiento posterior: 5 min percepción de esfuerzo 3/10.`
-      }]:[]),
-      ...(tipoCardio!=="solo_hiit"&&diasCont>0?[{
-        nombre:"Entrenamiento continuo de estado estable",
-        dias:`${diasCont} ${diasCont===1?"día":"días"} por semana`,
-        equipo:equipoCont,
-        detalle:`Realizar ${contMinutos} minutos a una percepción de esfuerzo de ${contPE}.\n${esDM2?"Preferir realizarlo después de las comidas para mejor control glucémico.":""}`
-      }]:[]),
-    ],
-    notas:`${esDM2?"Monitorear glucemia antes y después del ejercicio. ":""}${esHTA?"No exceder percepción de esfuerzo 7/10. Monitorear presión arterial. ":""}Tomar 250 mL de agua cada 15 minutos.`
-  };
+// Volumen real por grupo/día a partir del plan editado
+function ejVolumenReal(semana){
+  const porGrupo={},porDia=[];
+  semana.dias.forEach((fs,d)=>{
+    const dia={};
+    fs.forEach(e=>{
+      const s=parseInt(e.series)||0;
+      porGrupo[e.grupo]=(porGrupo[e.grupo]||0)+s;
+      dia[e.grupo]=(dia[e.grupo]||0)+s;
+    });
+    porDia.push(dia);
+  });
+  return{porGrupo,porDia};
 }
 
-// ── Página principal del módulo ───────────────────────────────────────────────
-
-// ── Formulario de prescripción ────────────────────────────────────────────────
-function renderEjercicioForm(){
-  const p=STATE.pat||{};
-  const inBody=STATE.inBodyData||{};
-  const pesoEst=inBody.peso_corporal||p.peso||"";
-  const slider=(id,label,min,max,val,desc)=>`<div style="margin-bottom:14px">
-    <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-      <span style="font-size:13px;font-weight:600;color:${TX}">${label}</span>
-      <span id="${id}_val" style="font-size:13px;font-weight:700;color:${P}">${val}</span>
-    </div>
-    <input type="range" id="${id}" min="${min}" max="${max}" value="${val}" oninput="document.getElementById('${id}_val').textContent=this.value" style="width:100%;accent-color:${P}">
-    <div style="font-size:11px;color:${MU};margin-top:3px">${desc}</div>
-  </div>`;
-  const chkCond=(k)=>`<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:${TX};margin-bottom:6px"><input type="checkbox" id="cond_${k.replace(/[^a-z]/gi,'_')}" style="width:15px;height:15px;accent-color:${P}"> ${k}</label>`;
-  return `<div style="padding:18px;max-width:900px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-      <!-- Columna izquierda: datos del paciente y clínicos -->
-      <div>
-        <div style="background:#F4FAFD;border:1px solid ${BR};border-radius:10px;padding:14px;margin-bottom:14px">
-          <div style="font-size:11px;font-weight:700;color:${P};text-transform:uppercase;margin-bottom:10px;letter-spacing:.4px">Datos del paciente</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            ${fld("Peso actual (kg)",`<input id="ej_peso" type="number" value="${pesoEst}" placeholder="kg" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">`)}
-            ${fld("Talla (cm)",`<input id="ej_talla" type="number" value="${p.altura||''}" placeholder="cm" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px">`)}
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:6px">
-            ${fld("Mes del programa",`<select id="ej_mes" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;background:#fff">
-              <option value="1">Mes 1 — Familiarización</option>
-              <option value="2">Mes 2 — Acumulación</option>
-              <option value="3">Mes 3 — Intensificación</option>
-              <option value="4">Mes 4 — Variación</option>
-              <option value="5">Mes 5+</option>
-            </select>`)}
-            ${fld("Lugar de entrenamiento",`<select id="ej_lugar" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;background:#fff">
-              <option value="gym">Gimnasio completo</option>
-              <option value="casa">Casa con mancuernas</option>
-              <option value="casa_ligas">Casa con ligas</option>
-            </select>`)}
-            ${fld("Días disponibles/semana",`<select id="ej_dias" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;background:#fff">
-              <option value="3">3 días</option>
-              <option value="4">4 días</option>
-              <option value="5" selected>5 días</option>
-              <option value="6">6 días</option>
-            </select>`)}
-          </div>
-          ${fld("Objetivo principal",`<select id="ej_objetivo" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;background:#fff">
-            <option value="hipertrofia">Hipertrofia / Aumento de masa muscular</option>
-            <option value="perdida_grasa">Pérdida de grasa corporal</option>
-            <option value="recomposicion">Recomposición corporal</option>
-            <option value="fuerza">Fuerza máxima / Rendimiento</option>
-            <option value="salud_general">Salud general / Sedentario</option>
-            <option value="terapeutico">Terapéutico / Enfermedad crónica</option>
-          </select>`)}
-          ${fld("Tipo de ejercicio cardiovascular",`<select id="ej_cardio" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px;background:#fff">
-            <option value="mixto">HIIT + Continuo (recomendado)</option>
-            <option value="solo_hiit">Solo HIIT</option>
-            <option value="solo_continuo">Solo continuo (estado estable)</option>
-          </select>`)}
-        </div>
-        <!-- Condiciones clínicas -->
-        <div style="background:#FFF8E6;border:1px solid #F59E0B;border-radius:10px;padding:14px">
-          <div style="font-size:11px;font-weight:700;color:#7F5900;text-transform:uppercase;margin-bottom:10px;letter-spacing:.4px">Condiciones clínicas (contraindicaciones)</div>
-          ${Object.keys(EJ_CONTRAIND).map(chkCond).join("")}
-        </div>
-      </div>
-      <!-- Columna derecha: sliders clínicos -->
-      <div>
-        <div style="background:#F4FAFD;border:1px solid ${BR};border-radius:10px;padding:14px;margin-bottom:14px">
-          <div style="font-size:11px;font-weight:700;color:${P};text-transform:uppercase;margin-bottom:12px;letter-spacing:.4px">Variables clínicas (VME/VMR)</div>
-          ${slider("ej_exp","Experiencia en entrenamiento de fuerza",1,5,2,"1=Ninguna  2=Principiante  3=Intermedio  4=Avanzado  5=Elite")}
-          ${slider("ej_recup","Recuperación (sueño + dolor post)",1,5,3,"1=Muy mala  2=Mala  3=Regular  4=Buena  5=Excelente")}
-          ${slider("ej_estres","Estrés físico externo",1,5,2,"1=Sedentario  2=Activo leve  3=Moderado  4=Alto (deporte)  5=Elite")}
-          ${slider("ej_novedad","Novedad del programa",1,3,2,"1=Mismo programa  2=Cambios moderados  3=Programa nuevo")}
-          ${slider("ej_dieta","Estado dietético",1,5,3,"1=Déficit alto  2=Déficit mod  3=Isocalórico  4=Superávit mod  5=Superávit alto")}
-        </div>
-        <!-- Cuestionario bienestar -->
-        <div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px">
-          <div style="font-size:11px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:10px;letter-spacing:.4px">Cuestionario de bienestar (0–30 puntos)</div>
-          ${["Fatiga","Calidad de sueño","Dolor muscular","Nivel de estrés","Estado de ánimo","Vulnerabilidad a lesiones"].map((item,i)=>`
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <span style="font-size:12px;color:${TX};min-width:160px">${item}</span>
-            <input type="range" id="bien_${i}" min="0" max="5" value="3" oninput="calcBienestar()" style="flex:1;accent-color:#2E7D32">
-            <span id="bien_${i}_v" style="font-size:12px;font-weight:700;color:#2E7D32;min-width:20px;text-align:right">3</span>
-          </div>`).join("")}
-          <div style="margin-top:8px;padding:8px 12px;background:#D4EDDA;border-radius:6px;display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:13px;color:#155724;font-weight:600">Puntaje total:</span>
-            <span id="bien_total" style="font-size:16px;font-weight:700;color:#155724">18 / 30</span>
-          </div>
-          <div id="bien_recom" style="font-size:12px;color:${MU};margin-top:6px">Recuperación adecuada — programa normal.</div>
-        </div>
-      </div>
-    </div>
-    <!-- Botón generar -->
-    <div style="margin-top:18px;display:flex;justify-content:center">
-      ${btn("Generar prescripción de ejercicio","generarPrescripcionEjercicio()","ok",1)}
-    </div>
-  </div>`;
+// Aplica el Ajuste de una semana para producir la siguiente
+function ejAplicarAjuste(semOrigen,semDestino){
+  semOrigen.dias.forEach((fs,d)=>fs.forEach((e,i)=>{
+    const dest=semDestino.dias[d]&&semDestino.dias[d][i];
+    if(!dest)return;
+    const aj=EJ_AJUSTES.find(a=>a.v===e.ajuste);
+    if(!aj){dest.peso=e.peso;dest.reps=e.reps;return;}
+    if(e.comp){
+      const p=parseFloat(e.peso);
+      dest.peso=isFinite(p)&&p>0?Math.round(p*(100+aj.pct)/100*10)/10:e.peso;
+      dest.reps=e.reps;
+    } else {
+      dest.peso=e.peso;
+      dest.reps=Math.max(4,(parseInt(e.reps)||12)+aj.reps);
+    }
+  }));
 }
 
-// ── Calcular bienestar en tiempo real ────────────────────────────────────────
-window.calcBienestar=function(){
-  let total=0;
-  for(let i=0;i<6;i++){
-    const v=parseInt(document.getElementById(`bien_${i}`)?.value||3);
-    document.getElementById(`bien_${i}_v`).textContent=v;
-    total+=v;
+// Puntaje del cuestionario de bienestar
+function ejPuntajeBienestar(resp){
+  let t=0,n=0;
+  EJ_BIENESTAR.preguntas.forEach(p=>{
+    const i=(p.ops||[]).indexOf((resp||{})[p.k]);
+    if(i>=0){t+=5-i;n++;}
+  });
+  return{total:t,contestadas:n,completo:n===EJ_BIENESTAR.preguntas.length,
+    rango:EJ_BIENESTAR.rangos.find(r=>t>=r.min&&t<=r.max)||null};
+}
+
+// ── Interfaz del módulo ───────────────────────────────────────────────────────
+function ejCfg(){
+  if(!STATE.ejCfg)STATE.ejCfg={lugar:"gimnasio",objetivo:"hipertrofia",secuencia:"4d",condiciones:[],descarga:true,esteroides:"No"};
+  return STATE.ejCfg;
+}
+// Precarga desde el expediente e InBody
+async function ejPrecargar(){
+  const p=STATE.pat||{};const c=ejCfg();
+  const ed=edadAnios(p.fecha_nacimiento);
+  const esH=(p.sexo_biologico||"").toLowerCase().includes("masculin")||(p.sexo_biologico||"").toLowerCase().includes("hombre");
+  if(!c.sexo)c.sexo=esH?"Hombre":"Mujer";
+  if(!c.edad&&ed!=null)c.edad=ed<20?"<20":ed<=29?"20-29":ed<=39?"30-39":ed<=49?"40-49":">49";
+  if(!c.talla||!c.peso){
+    try{
+      const{data}=await SB.from("inbody_resultados").select("peso,altura").eq("paciente_id",p.id).order("fecha",{ascending:false}).limit(1);
+      const ib=data&&data[0];
+      if(ib){
+        const t=parseFloat(ib.altura),w=parseFloat(ib.peso);
+        if(!c.talla&&isFinite(t))c.talla=esH?(t<170?"Hombre <170 cm":t<=182?"Hombre 170 - 182 cm":t<=195?"Hombre 183 - 195 cm":"Hombre >195 cm")
+                                              :(t<160?"Mujer <160 cm":t<=167?"Mujer 160 - 167 cm":t<=175?"Mujer 168 - 175 cm":"Mujer >175 cm");
+        if(!c.peso&&isFinite(w))c.peso=esH?(w<75?"Hombre <75 kg":w<=99?"Hombre 76 - 99 kg":w<=125?"Hombre 100 - 125 kg":"Hombre >125 kg")
+                                            :(w<57?"Mujer <57 kg":w<=75?"Mujer 57 - 75 kg":w<=90?"Mujer 76 - 90 kg":"Mujer >90 kg");
+      }
+    }catch(e){}
   }
-  const el=document.getElementById("bien_total");
-  const rel=document.getElementById("bien_recom");
-  if(el)el.textContent=`${total} / 30`;
-  if(rel){
-    if(total<=10)rel.textContent="⚠️ Puntaje bajo — considerar reducir volumen o tomar día de descanso.";
-    else if(total<=18)rel.textContent="Recuperación aceptable — programa normal con ajuste posible.";
-    else rel.textContent="✅ Recuperación excelente — puedes incrementar carga progresivamente.";
-  }
+}
+window.ejSet=function(k,v){ejCfg()[k]=v;ejPintarBanda();};
+window.ejSetCond=function(k,on){
+  const c=ejCfg();c.condiciones=c.condiciones||[];
+  if(on&&!c.condiciones.includes(k))c.condiciones.push(k);
+  if(!on)c.condiciones=c.condiciones.filter(x=>x!==k);
 };
-
-// ── Historial de prescripciones ───────────────────────────────────────────────
-function renderEjercicioHistorial(planes){
-  if(!planes.length) return`<div style="padding:40px;text-align:center;color:${MU}">Sin prescripciones previas.</div>`;
-  return`<div style="padding:18px">
-    ${planes.map((item,idx)=>{
-      let meta={objetivo:"—",semanas:"—",split:"—"};
-      try{const c=JSON.parse(item.descripcion.replace("__EJERCICIO__:",""));meta=c.meta||meta;}catch(e){}
-      return`<div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:14px;font-weight:700;color:${TX}">Prescripción #${planes.length-idx} — ${meta.objetivo||"—"}</div>
-          <div style="font-size:12px;color:${MU};margin-top:2px">${new Date(item.created_at).toLocaleDateString("es-MX",{year:"numeric",month:"long",day:"numeric"})} · ${meta.split||"—"} · ${meta.dias_semana||"—"} días/semana</div>
-        </div>
-        <div style="display:flex;gap:6px">
-          ${btn("Ver plan",`verPlanEjercicio('${item.id}')`, "p",1)}
-          ${btn("PDF",`pdfPlanEjercicio('${item.id}')`, "s",1)}
-        </div>
-      </div>`;
-    }).join("")}
-  </div>`;
+function ejPintarBanda(){
+  const box=document.getElementById("ej-banda");if(!box)return;
+  const v=ejCalcularVolumen(ejCfg());
+  const faltan=v.pasos.filter(p=>p.falta).length;
+  box.innerHTML=`
+    <div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
+      <div><div style="font-size:11px;color:${MU};text-transform:uppercase;font-weight:700">VME</div>
+        <div style="font-size:26px;font-weight:800;color:${P}">${v.vme}</div></div>
+      <div style="font-size:20px;color:${MU}">—</div>
+      <div><div style="font-size:11px;color:${MU};text-transform:uppercase;font-weight:700">VMR</div>
+        <div style="font-size:26px;font-weight:800;color:${P}">${v.vmr}</div></div>
+      <div style="font-size:12px;color:${MU};max-width:340px">series directas por grupo muscular por semana${faltan?` · <b style="color:#E65100">faltan ${faltan} campos</b>`:""}</div>
+    </div>
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:${P}">Ver el cálculo paso a paso</summary>
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px">
+        <thead><tr style="background:${PL}"><th style="text-align:left;padding:5px 8px;color:${P}">Variable</th><th style="padding:5px 8px;color:${P}">Δ VME</th><th style="padding:5px 8px;color:${P}">Δ VMR</th><th style="padding:5px 8px;color:${P}">VME</th><th style="padding:5px 8px;color:${P}">VMR</th></tr></thead>
+        <tbody>${v.pasos.map(p=>`<tr style="border-bottom:1px solid #F0F0F0;${p.falta?"opacity:.45":""}">
+          <td style="padding:5px 8px;color:${TX}">${p.label}${p.base?" <i style='color:#90A4AE'>(base)</i>":""}${p.corregido?" <span title='Corregido respecto al Excel original' style='color:#E65100'>✎</span>":""}</td>
+          <td style="padding:5px 8px;text-align:center;color:${p.dVme>0?"#C62828":p.dVme<0?"#2E7D32":MU}">${p.falta?"—":(p.base?"=":(p.dVme>0?"+":""))+p.dVme}</td>
+          <td style="padding:5px 8px;text-align:center;color:${p.dVmr>0?"#2E7D32":p.dVmr<0?"#C62828":MU}">${p.falta?"—":(p.base?"=":(p.dVmr>0?"+":""))+p.dVmr}</td>
+          <td style="padding:5px 8px;text-align:center;font-weight:700;color:${TX}">${p.vme}</td>
+          <td style="padding:5px 8px;text-align:center;font-weight:700;color:${TX}">${p.vmr}</td></tr>`).join("")}</tbody>
+      </table>
+      <p style="font-size:11px;color:${MU};margin-top:6px">✎ El bucket «Mujer &gt;175 cm» se corrigió a −1/−2 por simetría con «Hombre &gt;195 cm»; en la plantilla original figuraba +1/+2, idéntico a «Mujer &lt;160 cm».</p>
+    </details>`;
 }
 
-// ── Generar prescripción ───────────────────────────────────────────────────────
-window.generarPrescripcionEjercicio=async function(){
-  const gv2=(id)=>{const e=document.getElementById(id);return e?e.value:null;};
-  const gi=(id)=>parseInt(gv2(id))||0;
-  const condiciones=Object.keys(EJ_CONTRAIND).filter(k=>{
-    const safe=k.replace(/[^a-z]/gi,'_');
-    return document.getElementById(`cond_${safe}`)?.checked;
-  });
-  const cfg={
-    peso:gv2("ej_peso"),talla:gv2("ej_talla"),
-    exp:gi("ej_exp"),recup:gi("ej_recup"),estres:gi("ej_estres"),
-    novedad:gi("ej_novedad"),dieta:gi("ej_dieta"),
-    objetivo:gv2("ej_objetivo"),lugar:gv2("ej_lugar"),
-    tipoCardio:gv2("ej_cardio")||"mixto",
-    dias:gi("ej_dias"),condiciones,
-    sexo:STATE.pat?.sexo_biologico||"M",
-    mesNum:gi("ej_mes"),
-  };
-  loading(true,"Generando prescripción...");
-  await new Promise(r=>setTimeout(r,400));
-  const plan=generarPlan(cfg);
-  const cardio=calcCardio(cfg.objetivo,condiciones,cfg.dias,cfg.tipoCardio,cfg.exp);
-  STATE._ejPlanActual={plan,cfg,cardio};
-  loading(false);
-  STATE.ejTab="resultado";
+window.ejGenerar=function(){
+  const c=ejCfg();
+  const v=ejCalcularVolumen(c);
+  if(!v.completo){showToast("Faltan variables por capturar para calcular el volumen",false);return;}
+  const plan=ejGenerarPlan(c);
+  if(!plan){showToast("Selecciona una secuencia de días",false);return;}
+  STATE._ejPlanActual=plan;STATE._ejSemana=1;STATE.ejTab="plan";
   pgEjercicio();
 };
 
-// ── Renderizar plan generado ──────────────────────────────────────────────────
+window.ejEditar=function(sem,dia,fila,campo,val){
+  const s=STATE._ejPlanActual?.semanas?.[sem-1];if(!s)return;
+  const e=s.dias[dia][fila];if(!e)return;
+  if(campo==="series"||campo==="reps"||campo==="rir"||campo==="descanso")e[campo]=Math.max(0,parseInt(val)||0);
+  else e[campo]=val;
+  if(campo==="ejercicio"){
+    const nodo=(EJ_BIBLIO[e.grupo]||{})[e.patron];
+    e.comp=nodo?nodo.comp:e.comp;
+    const contras=(ejCfg().condiciones||[]).map(k=>EJ_CONTRA.find(c=>c.k===k)).filter(Boolean).filter(c=>c.re.test(val));
+    e.contra=contras.map(c=>c.k);e.notasContra=contras.map(c=>c.nota);
+  }
+  if(campo==="series")ejPintarSemaforo();
+};
+window.ejPropagar=function(){
+  const p=STATE._ejPlanActual;if(!p)return;
+  const n=STATE._ejSemana;
+  if(n>=4){showToast("La semana 4 es la última del mesociclo",false);return;}
+  ejAplicarAjuste(p.semanas[n-1],p.semanas[n]);
+  STATE._ejSemana=n+1;pgEjercicio();
+  showToast(`✓ Ajustes aplicados a la semana ${n+1}`);
+};
+function ejPintarSemaforo(){
+  const box=document.getElementById("ej-semaforo");if(!box)return;
+  const p=STATE._ejPlanActual;const s=p.semanas[STATE._ejSemana-1];
+  const v=ejVolumenReal(s);const{vme,vmr}=p.vol;
+  box.innerHTML=Object.entries(v.porGrupo).sort().map(([g,n])=>{
+    const bajo=n<vme,alto=n>vmr;
+    const col=bajo?"#E65100":alto?"#C62828":"#2E7D32";
+    const bg=bajo?"#FFF3E0":alto?"#FFEBEE":"#E8F5E9";
+    return`<span title="${bajo?"Por debajo del VME":alto?"Por encima del VMR":"Dentro de la banda"}" style="background:${bg};color:${col};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap">${g} ${n}</span>`;
+  }).join(" ");
+}
+
 async function pgEjercicio(){
-  const b=RR();
-  if(!STATE.pat?.id){_sinPacienteMsg(b,"prescripción de ejercicio");return;}
-  const pid=STATE.pat.id;
-  const {data:prevPlan}=await SB.from("anexos").select("id,created_at,descripcion").eq("paciente_id",pid).like("descripcion","__EJERCICIO__%").order("created_at",{ascending:false}).limit(6);
-  const planes=prevPlan||[];
-  if(!STATE.ejTab||(!STATE._ejPlanActual&&STATE.ejTab==="resultado")) STATE.ejTab=planes.length>0?"historial":"nuevo";
-  const tabSt=(a)=>`padding:10px 18px;border:none;cursor:pointer;font-size:14px;font-weight:${a?700:500};color:${a?P:MU};background:${a?"#E3F4FB":"transparent"};border-bottom:2px solid ${a?P:"transparent"}`;
-  const p=STATE.pat;
-  const nomPac=`${p.nombre} ${p.apellido_paterno}${p.apellido_materno?" "+p.apellido_materno:""}`.trim();
-  b.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:14px" class="fade">
-    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-      <div style="background:${PD};padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Prescripción de Ejercicio</div>
-          <div style="font-size:16px;font-weight:700;color:#fff">${nomPac}</div>
-        </div>
-        <button onclick="go('expediente')" style="padding:8px 16px;border:1.5px solid rgba(255,255,255,.4);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:13px;font-weight:600">← Regresar al expediente</button>
-      </div>
-      <div style="border-bottom:1px solid ${BR};display:flex;flex-wrap:wrap;padding:0 4px;background:#FAFAFA">
-        <button onclick="STATE.ejTab='nuevo';pgEjercicio()" style="${tabSt(STATE.ejTab==='nuevo')}">Nueva prescripción</button>
-        ${STATE._ejPlanActual?`<button onclick="STATE.ejTab='resultado';pgEjercicio()" style="${tabSt(STATE.ejTab==='resultado')}">Plan generado</button>`:""}
-        ${planes.length>0?`<button onclick="STATE.ejTab='historial';pgEjercicio()" style="${tabSt(STATE.ejTab==='historial')}">Historial (${planes.length})</button>`:""}
-      </div>
-      <div id="ej-content">
-        ${STATE.ejTab==="nuevo"?renderEjercicioForm():
-          STATE.ejTab==="resultado"&&STATE._ejPlanActual?renderPlanEjercicio(STATE._ejPlanActual):
-          renderEjercicioHistorial(planes)}
+  const b=RR();const p=STATE.pat||{};
+  if(!p?.id){b.innerHTML=`<div style="max-width:520px;margin:60px auto;text-align:center;background:#fff;border-radius:14px;padding:36px;box-shadow:0 1px 6px #00000012" class="fade">
+    <p style="font-size:44px">🏋️</p><h3 style="font-size:17px;font-weight:800;color:${TX};margin:8px 0">Abre un expediente primero</h3>
+    <button onclick="go('buscar')" style="background:${P};color:#fff;border:none;border-radius:9px;padding:11px 22px;font-weight:700;cursor:pointer">🔍 Buscar paciente →</button></div>`;return;}
+  STATE.ejTab=STATE.ejTab||"config";
+  await ejPrecargar();
+  let planes=[];
+  try{const{data}=await SB.from("anexos").select("id,titulo,fecha,created_at,descripcion").eq("paciente_id",p.id).like("descripcion","__EJERCICIO__:%").order("created_at",{ascending:false});planes=data||[];}catch(e){}
+  const tab=(k,l)=>`<button onclick="STATE.ejTab='${k}';pgEjercicio()" style="padding:10px 15px;border:none;cursor:pointer;font-weight:${STATE.ejTab===k?700:500};font-size:14px;color:${STATE.ejTab===k?P:MU};border-bottom:3px solid ${STATE.ejTab===k?P:"transparent"};background:${STATE.ejTab===k?"#fff":"transparent"};white-space:nowrap">${l}</button>`;
+  b.innerHTML=`<div style="max-width:1180px;margin:0 auto;padding:16px" class="fade">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="go('expediente')" style="background:${PL};color:${P};border:1.5px solid #B3E5FC;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:700">← Expediente</button>
+        <div><h2 style="font-size:18px;font-weight:800;color:${TX}">🏋️ Prescripción de ejercicio</h2>
+        <p style="font-size:13px;color:${MU}">${p.nombre} ${p.apellido_paterno}</p></div>
       </div>
     </div>
-  </div>`;
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 6px #00000012;overflow:hidden">
+      <div style="display:flex;border-bottom:2px solid ${BR};background:#F8FAFB;padding:0 8px;overflow-x:auto">
+        ${tab("config","1 · Variables y volumen")}
+        ${STATE._ejPlanActual?tab("plan","2 · Plan de entrenamiento"):""}
+        ${tab("bienestar","3 · Cuestionario de bienestar")}
+        ${planes.length?tab("historial",`Historial (${planes.length})`):""}
+      </div>
+      <div id="ej-body" style="padding:18px"></div>
+    </div></div>`;
+  const cb=document.getElementById("ej-body");
+  if(STATE.ejTab==="config")ejVistaConfig(cb);
+  else if(STATE.ejTab==="plan")ejVistaPlan(cb);
+  else if(STATE.ejTab==="bienestar")ejVistaBienestar(cb);
+  else ejVistaHistorial(cb,planes);
 }
 
-function renderPlanEjercicio({plan,cfg,cardio}){
-  const objLabel={hipertrofia:"Hipertrofia",perdida_grasa:"Pérdida de grasa",recomposicion:"Recomposición corporal",fuerza:"Fuerza máxima",salud_general:"Salud general",terapeutico:"Terapéutico"};
-  // Estructura mensual única: sesiones (compatibilidad con planes viejos que usan semanas[0].dias)
-  const sesiones=plan.sesiones||plan.semanas?.[0]?.dias||[];
-  const prog=plan.progresion||{};
+function ejVistaConfig(cb){
+  const c=ejCfg();
+  const sel=(k,paso)=>`<select onchange="ejSet('${k}',this.value)" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;font-size:13px;background:#fff">
+    <option value="">— Seleccionar —</option>
+    ${paso.ops.map(o=>`<option value="${o.v.replace(/"/g,"&quot;")}" ${c[k]===o.v?"selected":""}>${o.v.length>72?o.v.slice(0,72)+"…":o.v}</option>`).join("")}</select>`;
+  const paso=k=>EJ_PASOS.find(p=>p.k===k);
+  cb.innerHTML=`
+    <div id="ej-banda" style="background:${PL};border-radius:10px;padding:14px;margin-bottom:16px"></div>
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Variables del modelo volumétrico</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:12px">
+      ${fld("Nivel de experiencia",sel("nivel",paso("nivel")))}
+      ${fld("Edad",sel("edad",paso("edad")))}
+      ${fld("Sexo",sel("sexo",paso("sexo")))}
+      ${fld("Talla",sel("talla",paso("talla")))}
+      ${fld("Peso corporal",sel("peso",paso("peso")))}
+      ${fld("Sueño",sel("sueno",paso("sueno")))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${fld("Recuperación histórica",sel("recup",paso("recup")))}
+      ${fld("Estrés físico externo",sel("estres",paso("estres")))}
+      ${fld("Novedad del programa",sel("novedad",paso("novedad")))}
+      ${fld("Balance energético",sel("dieta",paso("dieta")))}
+    </div>
+    ${fld("Uso de esteroides anabólicos",sel("esteroides",paso("esteroides")))}
+    <hr style="border:none;border-top:1px solid ${BR};margin:18px 0">
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Diseño del programa</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:12px">
+      ${fld("Secuencia de días",`<select onchange="ejSet('secuencia',this.value)" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;font-size:13px;background:#fff">
+        ${Object.entries(EJ_SECUENCIAS).map(([k,s])=>`<option value="${k}" ${c.secuencia===k?"selected":""}>${s.label}</option>`).join("")}</select>`)}
+      ${fld("Lugar de entrenamiento",`<select onchange="ejSet('lugar',this.value)" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;font-size:13px;background:#fff">
+        ${Object.entries(EJ_LUGARES).map(([k,l])=>`<option value="${k}" ${c.lugar===k?"selected":""}>${l}</option>`).join("")}</select>`)}
+      ${fld("Objetivo",`<select onchange="ejSet('objetivo',this.value)" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;font-size:13px;background:#fff">
+        <option value="hipertrofia" ${c.objetivo==="hipertrofia"?"selected":""}>Hipertrofia</option>
+        <option value="fuerza" ${c.objetivo==="fuerza"?"selected":""}>Fuerza</option>
+        <option value="mantenimiento" ${c.objetivo==="mantenimiento"?"selected":""}>Mantenimiento</option></select>`)}
+      ${fld("Semana 4",`<label style="display:flex;align-items:center;gap:8px;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;cursor:pointer;font-size:13px">
+        <input type="checkbox" ${c.descarga?"checked":""} onchange="ejSet('descarga',this.checked)" style="accent-color:${P};width:15px;height:15px"> Descarga (50% del volumen)</label>`)}
+    </div>
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin:14px 0 8px">Contraindicaciones clínicas</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+      ${EJ_CONTRA.map(x=>`<label style="display:flex;align-items:center;gap:6px;padding:6px 11px;border:1.5px solid ${(c.condiciones||[]).includes(x.k)?"#C62828":BR};border-radius:20px;cursor:pointer;background:${(c.condiciones||[]).includes(x.k)?"#FFEBEE":"#fff"};font-size:12.5px">
+        <input type="checkbox" ${(c.condiciones||[]).includes(x.k)?"checked":""} onchange="ejSetCond('${x.k}',this.checked)" style="accent-color:#C62828;width:14px;height:14px">${x.label}</label>`).join("")}
+    </div>
+    <button onclick="ejGenerar()" style="background:${P};color:#fff;border:none;border-radius:9px;padding:12px 24px;font-size:15px;font-weight:700;cursor:pointer;width:100%">⚡ Generar plan de 4 semanas</button>
+    <p style="font-size:11px;color:${MU};margin-top:10px;line-height:1.6">El reparto de series usa ondulación diaria por grupo (pesado / moderado / ligero) con un tope de ${EJ_MAX_SESION} series directas por grupo y sesión. Referencias: ACSM Guidelines 11.ª ed. (2021); Schoenfeld et al., <i>J Sports Sci</i> 2017 y <i>Med Sci Sports Exerc</i> 2019; Baz-Valle et al., <i>PLoS One</i> 2022; Grgic et al., <i>J Sport Health Sci</i> 2018.</p>`;
+  ejPintarBanda();
+}
 
-  return`<div style="padding:18px">
-    <!-- Encabezado del plan -->
-    <div style="background:#F4FAFD;border:1px solid #B3D9F0;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:14px;font-weight:700;color:${P};margin-bottom:4px">${plan.split} — Prescripción mensual</div>
-        <div style="font-size:13px;color:${MU}">${objLabel[cfg.objetivo]||cfg.objetivo} · Mes ${cfg.mesNum} del programa · ${cfg.dias} días por semana · ${cfg.lugar==="gym"?"Gimnasio":"Casa"}</div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${btn("Guardar prescripción","guardarPrescripcionEjercicio()","ok",1)}
-        ${btn("Descargar PDF","pdfPrescripcionEjercicio()","s",1)}
+function ejVistaPlan(cb){
+  const p=STATE._ejPlanActual;if(!p){cb.innerHTML="";return;}
+  const n=STATE._ejSemana||1;const s=p.semanas[n-1];
+  const seq=EJ_SECUENCIAS[p.secuencia];
+  const opciones=(e)=>{
+    const{lista}=ejCandidatos(e.grupo,e.patron,p.cfg||ejCfg());
+    const nombres=lista.map(x=>x.n);
+    if(e.ejercicio&&!nombres.includes(e.ejercicio))nombres.unshift(e.ejercicio);
+    return nombres.map(nm=>`<option value="${nm.replace(/"/g,"&quot;")}" ${e.ejercicio===nm?"selected":""}>${nm}</option>`).join("");
+  };
+  const num=(v,cb2,w)=>`<input type="number" value="${v}" oninput="${cb2}" style="width:${w||52}px;padding:5px 6px;border:1.5px solid ${BR};border-radius:6px;text-align:center;font-size:12.5px">`;
+  cb.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      <div style="display:flex;gap:6px">${[1,2,3,4].map(w=>`<button onclick="STATE._ejSemana=${w};pgEjercicio()" style="padding:7px 15px;border:1.5px solid ${n===w?P:BR};background:${n===w?P:"#fff"};color:${n===w?"#fff":TX};border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">Sem ${w}${p.semanas[w-1].descarga?" ↓":""}</button>`).join("")}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="ejPropagar()" style="background:#fff;color:${P};border:1.5px solid ${P};border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">→ Aplicar ajustes a la semana ${Math.min(4,n+1)}</button>
+        <button onclick="guardarPrescripcionEjercicio()" style="background:#2E7D32;color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">💾 Guardar</button>
+        <button onclick="pdfPrescripcionEjercicio()" style="background:${P};color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">📄 PDF</button>
       </div>
     </div>
-
-    <!-- Principio FITT-VP del ACSM -->
-    <div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px 18px;margin-bottom:14px">
-      <div style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px;letter-spacing:.4px">Prescripción según principio FITT-VP (Colegio Americano de Medicina del Deporte)</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
-        <div style="background:#F8F9FA;border-radius:8px;padding:10px 12px"><div style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:3px">Frecuencia</div><div style="font-size:13px;color:${TX};font-weight:600">${cfg.dias} días/semana</div></div>
-        <div style="background:#F8F9FA;border-radius:8px;padding:10px 12px"><div style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:3px">Intensidad</div><div style="font-size:13px;color:${TX};font-weight:600">${cfg.objetivo==="fuerza"?"75-85% RM":cfg.objetivo==="hipertrofia"||cfg.objetivo==="recomposicion"?"60-80% RM":"50-70% RM"}</div></div>
-        <div style="background:#F8F9FA;border-radius:8px;padding:10px 12px"><div style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:3px">Tiempo</div><div style="font-size:13px;color:${TX};font-weight:600">45-70 min/sesión</div></div>
-        <div style="background:#F8F9FA;border-radius:8px;padding:10px 12px"><div style="font-size:11px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:3px">Tipo</div><div style="font-size:13px;color:${TX};font-weight:600">Fuerza + Cardiovascular</div></div>
-      </div>
+    <div style="background:#F8FAFB;border-radius:8px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:11px;color:${MU};text-transform:uppercase;font-weight:700;margin-bottom:6px">Volumen semanal · banda VME ${p.vol.vme} – VMR ${p.vol.vmr}</div>
+      <div id="ej-semaforo" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
-
-    <!-- Regla de progresión ACSM -->
-    <div style="background:#EDE7F6;border:1px solid #B39DDB;border-radius:10px;padding:14px 18px;margin-bottom:14px">
-      <div style="font-size:12px;font-weight:700;color:#4527A0;text-transform:uppercase;margin-bottom:6px;letter-spacing:.4px">Progresión durante el mes</div>
-      <div style="font-size:13px;color:#311B92;line-height:1.8">
-        ${prog.regla||"Cuando pueda completar 1-2 repeticiones adicionales a las prescritas en la última serie durante dos sesiones consecutivas, incrementar la carga 2-10%."}<br>
-        ${prog.semanal?`<b>Ritmo sugerido:</b> ${prog.semanal}<br>`:""}
-        ${prog.registro?`<b>Registro:</b> ${prog.registro}`:""}
-      </div>
-    </div>
-
-    <!-- Plan de sesiones (estructura mensual) -->
-    <div id="plan-tabla">
-      ${renderPlanSemana({dias:sesiones})}
-    </div>
-
-    <!-- Cardio -->
-    <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:14px 18px;margin-top:14px">
-      <div style="font-size:12px;font-weight:700;color:#2E7D32;text-transform:uppercase;margin-bottom:8px">${cardio.tipo}</div>
-      <div style="font-size:13px;color:#1B5E20;margin-bottom:6px;font-weight:600">Frecuencia: ${cardio.frecuencia}</div>
-      ${(cardio.protocolos||[]).map(proto=>`
-      <div style="background:#fff;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:8px">
-        <div style="font-size:12px;font-weight:700;color:#2E7D32;margin-bottom:4px">${proto.nombre} — ${proto.dias}</div>
-        <div style="font-size:13px;color:#1B5E20;font-weight:600;margin-bottom:3px">Equipo: ${proto.equipo}</div>
-        <div style="font-size:12px;color:#2E7D32;white-space:pre-line;line-height:1.7">${proto.detalle}</div>
+    ${p.aviso&&p.aviso.length?`<div style="background:#FFF3E0;border-left:3px solid #E65100;border-radius:0 8px 8px 0;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:#E65100">
+      ⚠️ Esta secuencia no alcanza el objetivo de ${p.objetivo} series en: ${p.aviso.map(a=>`<b>${a.grupo}</b> (máx ${a.meta}, entrena ${a.dias} día${a.dias>1?"s":""})`).join(", ")}. Considera otra distribución si ese grupo es prioritario.</div>`:""}
+    ${s.descarga?`<div style="background:#E3F4FB;border-left:3px solid ${P};border-radius:0 8px 8px 0;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:${P}">Semana de descarga: volumen al 50% y RIR +2 respecto a la semana 3.</div>`:""}
+    ${s.dias.map((fs,d)=>`
+      <div style="border:1px solid ${BR};border-radius:10px;margin-bottom:12px;overflow:hidden">
+        <div style="background:${PL};padding:8px 13px;font-weight:800;color:${P};font-size:13.5px">Día ${d+1}${seq?` · ${fs.length} ejercicios`:""}</div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:920px">
+          <thead><tr style="background:#FAFCFD">
+            ${["#","Grupo / patrón","Ejercicio","S","R","RIR","Desc.","Peso","Ajuste","Nota"].map(h=>`<th style="text-align:left;padding:6px 8px;font-size:11px;color:${MU};text-transform:uppercase;border-bottom:1px solid ${BR}">${h}</th>`).join("")}
+          </tr></thead><tbody>
+          ${fs.map((e,i)=>`<tr style="border-bottom:1px solid #F4F6F7">
+            <td style="padding:5px 8px;font-weight:700;color:${TX}">${e.seq}</td>
+            <td style="padding:5px 8px;color:${MU};font-size:11.5px">${e.grupo}<br><span style="color:#B0BEC5">${e.patron}</span>${e.comp?` <span title="Compuesto: progresa por carga" style="color:${P};font-weight:700">C</span>`:` <span title="Aislado: progresa por repeticiones" style="color:#8E24AA;font-weight:700">A</span>`}</td>
+            <td style="padding:5px 8px;min-width:250px">
+              <select onchange="ejEditar(${n},${d},${i},'ejercicio',this.value)" style="width:100%;padding:5px 7px;border:1.5px solid ${e.contra&&e.contra.length?"#C62828":BR};border-radius:6px;font-size:12px;background:${e.contra&&e.contra.length?"#FFEBEE":"#fff"}">${opciones(e)}</select>
+              ${e.contra&&e.contra.length?`<div style="font-size:10.5px;color:#C62828;margin-top:3px">⚠️ ${e.notasContra.join(" ")}</div>`:""}
+              ${e.fueraLugar?`<div style="font-size:10.5px;color:#E65100;margin-top:3px">Requiere más equipo del seleccionado</div>`:""}
+            </td>
+            <td style="padding:5px 8px">${num(e.series,`ejEditar(${n},${d},${i},'series',this.value)`,46)}</td>
+            <td style="padding:5px 8px">${num(e.reps,`ejEditar(${n},${d},${i},'reps',this.value)`,46)}</td>
+            <td style="padding:5px 8px">${num(e.rir,`ejEditar(${n},${d},${i},'rir',this.value)`,42)}</td>
+            <td style="padding:5px 8px">${num(e.descanso,`ejEditar(${n},${d},${i},'descanso',this.value)`,56)}</td>
+            <td style="padding:5px 8px"><input value="${e.peso||""}" placeholder="kg" oninput="ejEditar(${n},${d},${i},'peso',this.value)" style="width:60px;padding:5px 6px;border:1.5px solid ${BR};border-radius:6px;text-align:center;font-size:12.5px"></td>
+            <td style="padding:5px 8px"><select onchange="ejEditar(${n},${d},${i},'ajuste',this.value)" style="padding:5px 6px;border:1.5px solid ${BR};border-radius:6px;font-size:12px;background:#fff">
+              <option value="">—</option>${EJ_AJUSTES.map(a=>`<option value="${a.v}" ${e.ajuste===a.v?"selected":""}>${a.v}</option>`).join("")}</select></td>
+            <td style="padding:5px 8px"><input value="${(e.nota||"").replace(/"/g,"&quot;")}" placeholder="nota" oninput="ejEditar(${n},${d},${i},'nota',this.value)" style="width:110px;padding:5px 6px;border:1.5px solid ${BR};border-radius:6px;font-size:12.5px"></td>
+          </tr>`).join("")}
+          </tbody></table></div>
       </div>`).join("")}
-      ${cardio.notas?`<div style="font-size:12px;color:#1B5E20;font-style:italic;margin-top:4px">${cardio.notas}</div>`:""}
-    </div>
-
-    <!-- Volumen por grupo -->
-    <div style="background:#fff;border:1px solid ${BR};border-radius:10px;padding:14px 18px;margin-top:14px">
-      <div style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:10px">Volumen semanal por grupo muscular</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px">
-        ${Object.entries(plan.volumen).map(([g,{vme,vmr,semanal}])=>`
-        <div style="background:#F8F9FA;border-radius:8px;padding:8px 10px">
-          <div style="font-size:11px;font-weight:700;color:${MU};text-transform:capitalize;margin-bottom:4px">${g.replace(/_/g," ")}</div>
-          <div style="font-size:12px;color:${TX}">Mínimo: <b>${vme}</b> · Máximo: <b>${vmr}</b> · Objetivo: <b style="color:${P}">${semanal}</b> series</div>
-        </div>`).join("")}
-      </div>
-    </div>
-
-    <!-- Precauciones -->
-    <div style="background:#FFF3E0;border:1px solid #FFB74D;border-radius:10px;padding:14px 18px;margin-top:14px">
-      <div style="font-size:12px;font-weight:700;color:#E65100;text-transform:uppercase;margin-bottom:8px">Precauciones generales</div>
-      <div style="font-size:13px;color:#BF360C;line-height:1.8">
-        • Realizar calentamiento de 10 minutos: movilización articular activa + estiramientos activos-asistidos (8 segundos).<br>
-        • Realizar los ejercicios en el orden indicado.<br>
-        • Detener la actividad en caso de: mareo, náusea, vómito, fatiga excesiva, dolor de cabeza, dolor en el pecho, falta excesiva de aire, dolor muscular o articular.<br>
-        • Tomar 250 mL de agua cada 15 minutos a temperatura ambiente durante el entrenamiento.<br>
-        • Enfriamiento: estiramientos activos-asistidos inhibitorios (12 segundos), 10 minutos, músculos ejercitados.<br>
-        • Dormir 8 horas diariamente.
-        ${cfg.condiciones.length>0?`<br>• <b>Condiciones especiales:</b> ${cfg.condiciones.join(", ")}.`:""}
-      </div>
-    </div>
-  </div>`;
+    <p style="font-size:11px;color:${MU}">C = compuesto (el Ajuste mueve la carga ±5% / ±2.5%) · A = aislado (el Ajuste mueve las repeticiones ±2 / ±1), tal como en las plantillas originales.</p>`;
+  ejPintarSemaforo();
 }
 
-window.renderPlanSemana=function(sem){
-  if(!sem) return"";
-  const SB_IMG="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/ejercicios";
-  // Mapa ejercicio → ruta en Storage (grupo/subcarpeta/archivo_001.webp)
-  // El sistema busca la primera imagen disponible de la categoría correspondiente
-  const EJ_IMG_MAP={
-    // CUÁDRICEPS
-    "Sentadilla trasera con barra":"cuadriceps/sentadilla/sentadilla_001.webp",
-    "Sentadilla frontal con barra":"cuadriceps/sentadilla/sentadilla_002.webp",
-    "Sentadilla goblet con mancuerna":"cuadriceps/sentadilla-goblet/sentadilla-goblet_001.webp",
-    "Sentadilla hack":"cuadriceps/sentadilla-hack/sentadilla-hack_001.webp",
-    "Prensa para pierna":"cuadriceps/prensa-para-pierna/prensa-para-pierna_001.webp",
-    "Sentadilla Sissy":"cuadriceps/sentadilla-sissy/sentadilla-sissy_001.webp",
-    "Sentadilla trasera en máquina smith":"cuadriceps/sentadilla/sentadilla_003.webp",
-    "Extensión de rodilla en máquina":"cuadriceps/extension-de-rodilla/extension-de-rodilla_001.webp",
-    "Desplantes con barra":"cuadriceps/desplantes/desplantes_001.webp",
-    "Desplantes con mancuernas":"cuadriceps/desplantes/desplantes_002.webp",
-    "Sentadilla búlgara":"cuadriceps/sentadilla-bulgara/sentadilla-bulgara_001.webp",
-    "Sentadilla split":"cuadriceps/desplantes/desplantes_003.webp",
-    "Step Up":"cuadriceps/step-up/step-up_001.webp",
-    "Step Up con mancuernas":"cuadriceps/step-up/step-up_002.webp",
-    "Extensión de rodilla en máquina unilateral":"cuadriceps/extension-de-rodilla/extension-de-rodilla_002.webp",
-    "Prensa para pierna unilateral":"cuadriceps/prensa-para-pierna/prensa-para-pierna_002.webp",
-    "Sentadilla con peso corporal":"cuadriceps/sentadilla/sentadilla_004.webp",
-    "Sentadilla sumo con mancuernas":"cuadriceps/sentadilla/sentadilla_005.webp",
-    "Sentadilla búlgara con mancuernas":"cuadriceps/sentadilla-bulgara/sentadilla-bulgara_001.webp",
-    "Sentadilla isométrica (pared, 30s)":"cuadriceps/sentadilla/sentadilla_006.webp",
-    "Extensión de rodilla desde cuadrúpedo":"cuadriceps/extension-de-rodilla/extension-de-rodilla_003.webp",
-    "Levantarse y sentarse de una silla":"cuadriceps/sentadilla/sentadilla_007.webp",
-    // GLÚTEO
-    "Hip thrust tradicional con barra":"gluteo/hip-thrust/hip-thrust_001.webp",
-    "Hip thrust americano con barra":"gluteo/hip-thrust/hip-thrust_002.webp",
-    "Puentes para glúteo con barra":"gluteo/hip-thrust/hip-thrust_003.webp",
-    "Puentes para glúteo":"gluteo/hip-thrust/hip-thrust_004.webp",
-    "Puentes para glúteo con mancuerna":"gluteo/hip-thrust/hip-thrust_005.webp",
-    "Hip thrust con mancuerna":"gluteo/hip-thrust/hip-thrust_006.webp",
-    "Patada para glúteo desde cuadrúpedo":"gluteo/patada-gluteo/patada-gluteo_001.webp",
-    "Patada para glúteo desde cuadrúpedo con mancuerna en rodilla":"gluteo/patada-gluteo/patada-gluteo_002.webp",
-    "Patada para glúteo de pie con grillete en polea baja":"gluteo/patada-gluteo/patada-gluteo_003.webp",
-    "Abducción de cadera de pie en máquina":"gluteo/abduccion-de-cadera/abduccion-de-cadera_001.webp",
-    "Abducción de cadera sentado en máquina":"gluteo/abduccion-de-cadera/abduccion-de-cadera_002.webp",
-    "Abducción de cadera acostado":"gluteo/abduccion-de-cadera/abduccion-de-cadera_003.webp",
-    "Peso muerto rumano unilateral":"gluteo/extension-cadera/extension-cadera_001.webp",
-    "Frog pumps":"gluteo/frog-pump/frog-pump_001.webp",
-    // ISQUIOSURALES
-    "Peso muerto rumano con barra":"isquiosurales/peso-muerto-rumano/peso-muerto-rumano_001.webp",
-    "Peso muerto rumano con mancuerna":"isquiosurales/peso-muerto-rumano/peso-muerto-rumano_002.webp",
-    "Peso muerto con barra":"isquiosurales/peso-muerto/peso-muerto_001.webp",
-    "Peso muerto con mancuerna":"isquiosurales/peso-muerto/peso-muerto_002.webp",
-    "Curl acostado en máquina":"isquiosurales/curl-de-pierna/curl-de-pierna_001.webp",
-    "Curl acostado en máquina unilateral":"isquiosurales/curl-de-pierna/curl-de-pierna_002.webp",
-    "Curl nórdico":"isquiosurales/curl-nordico/curl-de-pierna_003.webp",
-    "Curl nórdico asistido con pelota de yoga":"isquiosurales/curl-nordico/curl-de-pierna_004.webp",
-    "Curl de rodilla en suelo con deslizadores":"isquiosurales/curl-deslizadores/curl-de-pierna_005.webp",
-    // PANTORRILLA
-    "Elevación de talones de pie en máquina":"pantorrilla/elevacion-de-talones/elevacion-de-talones_001.webp",
-    "Elevación de talones de pie":"pantorrilla/elevacion-de-talones/elevacion-de-talones_002.webp",
-    "Elevación de talones sobre escalón":"pantorrilla/elevacion-de-talones/elevacion-de-talones_003.webp",
-    "Elevación de talones unilateral de pie":"pantorrilla/elevacion-de-talones/elevacion-de-talones_004.webp",
-    "Elevación de talones excéntrica unilateral":"pantorrilla/elevacion-de-talones/elevacion-de-talones_005.webp",
-    // PECTORAL
-    "Prensa para pecho en banco plano con barra":"pectoral/press-de-pecho/press-de-pecho_001.webp",
-    "Prensa para pecho en banco plano con mancuernas":"pectoral/press-de-pecho/press-de-pecho_002.webp",
-    "Press de pecho en máquina":"pectoral/press-de-pecho/press-de-pecho_003.webp",
-    "Prensa para pecho inclinado con barra":"pectoral/press-inclinado/press-inclinado_001.webp",
-    "Prensa para pecho inclinado con mancuernas":"pectoral/press-inclinado/press-inclinado_002.webp",
-    "Prensa para pecho inclinado en máquina":"pectoral/press-inclinado/press-inclinado_003.webp",
-    "Aperturas en banco plano con mancuernas":"pectoral/aperturas/aperturas_001.webp",
-    "Aperturas en máquina de fly":"pectoral/aperturas/aperturas_002.webp",
-    "Cross over con poleas en posición media":"pectoral/crossover/crossover_001.webp",
-    "Lagartijas":"pectoral/lagartijas/lagartijas_001.webp",
-    "Lagartijas con piernas elevadas":"pectoral/lagartijas/lagartijas_002.webp",
-    "Lagartijas con rodillas sobre almohada":"pectoral/lagartijas/lagartijas_003.webp",
-    "Lagartijas en la pared":"pectoral/lagartijas/lagartijas_004.webp",
-    "Medias lagartijas":"pectoral/lagartijas/lagartijas_005.webp",
-    "Press de pecho con mancuernas sobre el suelo":"pectoral/press-de-pecho/press-de-pecho_004.webp",
-    "Lagartijas apoyado en banco/silla":"pectoral/lagartijas/lagartijas_006.webp",
-    // ESPALDA
-    "Jalón al pecho supino agarre cerrado":"espalda/jalon-al-pecho/jalon-al-pecho_001.webp",
-    "Jalón al pecho neutro":"espalda/jalon-al-pecho/jalon-al-pecho_002.webp",
-    "Jalón al pecho prono agarre amplio":"espalda/jalon-al-pecho/jalon-al-pecho_003.webp",
-    "Dominada supina agarre cerrado":"espalda/dominadas/dominadas_001.webp",
-    "Dominada neutra":"espalda/dominadas/dominadas_002.webp",
-    "Dominada prono agarre amplio":"espalda/dominadas/dominadas_003.webp",
-    "Remo de pie con barra":"espalda/remo/remo_001.webp",
-    "Remo de pie con mancuernas":"espalda/remo/remo_002.webp",
-    "Remo sentado con polea baja":"espalda/remo/remo_003.webp",
-    "Remo sentado en máquina":"espalda/remo/remo_004.webp",
-    "Remo con mancuernas y pecho apoyado":"espalda/remo/remo_005.webp",
-    "Remo alternado con mancuernas":"espalda/remo/remo_006.webp",
-    "Pullover con mancuerna":"espalda/pullover/pullover_001.webp",
-    "Bird dog":"abdomen/bird-dog/bird-dog_001.webp",
-    "Dead bug":"abdomen/dead-bug/dead-bug_001.webp",
-    "Extensión de tronco en banco rumano 45°":"espalda/extension-espalda/extension-espalda_001.webp",
-    // HOMBRO
-    "Prensa militar de pie con barra":"hombro/press-militar/press-militar_001.webp",
-    "Prensa militar de pie con mancuernas":"hombro/press-militar/press-militar_002.webp",
-    "Prensa militar sentado en máquina":"hombro/press-militar/press-militar_003.webp",
-    "Press Arnold de pie":"hombro/press-arnold/press-arnold_001.webp",
-    "Elevaciones laterales con mancuerna":"hombro/elevaciones-laterales/elevaciones-laterales_001.webp",
-    "Elevaciones laterales en máquina":"hombro/elevaciones-laterales/elevaciones-laterales_002.webp",
-    "Elevaciones laterales con ligas":"hombro/elevaciones-laterales/elevaciones-laterales_003.webp",
-    "Elevaciones frontales con mancuerna":"hombro/elevaciones-frontales/elevaciones-frontales_001.webp",
-    "Elevaciones frontales con barra":"hombro/elevaciones-frontales/elevaciones-frontales_002.webp",
-    "Jalón a la cara con soga":"hombro/face-pull/face-pull_001.webp",
-    "Pajaros":"hombro/aperturas-posteriores/aperturas-posteriores_001.webp",
-    "Aperturas posteriores en máquina":"hombro/aperturas-posteriores/aperturas-posteriores_002.webp",
-    "Remo a la cara de pie con barra":"hombro/face-pull/face-pull_002.webp",
-    "Rotación externa con liga":"hombro/rotacion-hombro/rotacion-hombro_001.webp",
-    // BÍCEPS
-    "Curl para bíceps de pie con barra":"biceps/curl-de-biceps/curl-de-biceps_001.webp",
-    "Curl para bíceps de pie con mancuerna":"biceps/curl-de-biceps/curl-de-biceps_002.webp",
-    "Curl para bíceps en máquina tipo scott":"biceps/curl-predicador/curl-predicador_001.webp",
-    "Curl concentrado con mancuerna":"biceps/curl-concentrado/curl-concentrado_001.webp",
-    "Curl martillo con mancuerna":"biceps/curl-martillo/curl-martillo_001.webp",
-    "Curl para bíceps supino en banco inclinado":"biceps/curl-de-biceps/curl-de-biceps_003.webp",
-    "Curl bayesian prono con polea baja":"biceps/curl-de-biceps/curl-de-biceps_004.webp",
-    "Curl de bíceps con mancuerna":"biceps/curl-de-biceps/curl-de-biceps_005.webp",
-    "Curl con liga":"biceps/curl-de-biceps/curl-de-biceps_006.webp",
-    "Curl isométrico con liga":"biceps/curl-de-biceps/curl-de-biceps_007.webp",
-    // TRÍCEPS
-    "Extensión para tríceps trasnuca de pie con barra":"triceps/extension/extension_001.webp",
-    "Press francés con barra":"triceps/extension/extension_002.webp",
-    "Press californiano con barra":"triceps/extension/extension_003.webp",
-    "Jalón para tríceps con cuerda en polea alta":"triceps/extension/extension_004.webp",
-    "Extensión para tríceps con soga en polea alta":"triceps/extension/extension_005.webp",
-    "Fondos en paralelas":"triceps/fondos/fondos_001.webp",
-    "Fondos en banco/silla":"triceps/fondos/fondos_002.webp",
-    "Patada para tríceps con soga":"triceps/kickback/kickback_001.webp",
-    "Press California con mancuerna":"triceps/extension/extension_006.webp",
-    "Extensión de tríceps acostado con mancuernas":"triceps/extension/extension_007.webp",
-    "Lagartijas con codos cerrados":"pectoral/lagartijas/lagartijas_007.webp",
-    // ABDOMEN
-    "Crunch abdominal":"abdomen/crunch/crunch_001.webp",
-    "Crunch abdominal en máquina":"abdomen/crunch/crunch_002.webp",
-    "Elevación de rodillas colgando":"abdomen/elevacion-piernas/elevacion-piernas_001.webp",
-    "Elevación de piernas colgando":"abdomen/elevacion-piernas/elevacion-piernas_002.webp",
-    "Plancha abdominal":"abdomen/plancha/plancha_001.webp",
-    "Media plancha abdominal":"abdomen/plancha/plancha_002.webp",
-    "Plancha lateral":"abdomen/plancha-lateral/plancha-lateral_001.webp",
-    "Abdominal con cuerda en polea alta":"abdomen/crunch/crunch_003.webp",
-    "Crunch abdominal reverso":"abdomen/crunch/crunch_004.webp",
-    // TRAPECIO
-    "Encogimientos de hombro anterior con barra":"trapecio/encogimientos/encogimientos_001.webp",
-    "Encogimientos de hombro anterior con mancuernas":"trapecio/encogimientos/encogimientos_002.webp",
-    "Encogimiento de hombro isométrico (4s) anterior con barra":"trapecio/encogimientos/encogimientos_003.webp",
-  };
+window.ejBien=function(k,v){STATE._ejBienestar=STATE._ejBienestar||{};STATE._ejBienestar[k]=v;ejVistaBienestar(document.getElementById("ej-body"));};
+function ejVistaBienestar(cb){
+  const r=STATE._ejBienestar||{};const res=ejPuntajeBienestar(r);
+  cb.innerHTML=`
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:12px">Cuestionario de bienestar — aplicar cada semana antes de progresar</p>
+    ${EJ_BIENESTAR.preguntas.map(q=>`<div style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:${TX};margin-bottom:6px">${q.label}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${q.ops.map((o,i)=>`<button onclick="ejBien('${q.k}',this.dataset.v)" data-v="${o.replace(/"/g,"&quot;")}" style="padding:6px 12px;border:1.5px solid ${r[q.k]===o?P:BR};background:${r[q.k]===o?PL:"#fff"};color:${r[q.k]===o?P:TX};border-radius:20px;font-size:12.5px;font-weight:${r[q.k]===o?700:500};cursor:pointer">${o} <span style="color:#B0BEC5">${5-i}</span></button>`).join("")}
+      </div></div>`).join("")}
+    <div style="background:${res.rango?res.rango.bg:"#F8FAFB"};border-radius:10px;padding:16px;margin-top:16px;text-align:center">
+      <div style="font-size:12px;color:${MU};text-transform:uppercase;font-weight:700">Puntaje final</div>
+      <div style="font-size:32px;font-weight:800;color:${res.rango?res.rango.color:MU}">${res.total} <span style="font-size:16px;color:${MU}">de 30</span></div>
+      ${res.completo&&res.rango?`<p style="font-size:13.5px;color:${res.rango.color};margin-top:8px;line-height:1.6">${res.rango.msg}</p>`:`<p style="font-size:12.5px;color:${MU};margin-top:6px">Contesta las 6 preguntas para obtener la recomendación (${res.contestadas}/6)</p>`}
+    </div>
+    <p style="font-size:11px;color:${MU};margin-top:10px">Escala tipo Hooper & Mackinnon (1995), con los rangos de recomendación de las plantillas originales.</p>`;
+}
 
-  // Función para obtener URL de imagen del ejercicio
-  const getImgUrl=(nombreEj,grupo)=>{
-    // Buscar coincidencia exacta primero
-    if(EJ_IMG_MAP[nombreEj]) return `${SB_IMG}/${EJ_IMG_MAP[nombreEj]}`;
-    // Buscar por grupo muscular (imagen genérica del grupo)
-    const grupoFolder={cuadriceps:"cuadriceps/sentadilla",gluteo:"gluteo/hip-thrust",isquiosurales:"isquiosurales/peso-muerto",pantorrilla:"pantorrilla/elevacion-de-talones",pectorales:"pectoral/press-de-pecho",pectoral:"pectoral/press-de-pecho",espalda_alta:"espalda/remo",espalda:"espalda/remo",hombro:"hombro/press-militar",biceps:"biceps/curl-de-biceps",triceps:"triceps/extension",abdomen:"abdomen/crunch",trapecio:"trapecio/encogimientos"};
-    const folder=grupoFolder[grupo]||grupoFolder[grupo?.replace("_alta","")];
-    if(folder){
-      const cat=folder.split("/").pop();
-      return `${SB_IMG}/${folder}/${cat}_001.webp`;
-    }
-    return null;
-  };
-
-  let html="";
-  sem.dias.forEach(dia=>{
-    html+=`<div style="margin-bottom:14px">
-      <div style="background:#006BB6;padding:7px 14px;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:space-between">
-        <b style="color:#fff;font-size:14px">Día ${dia.dia}</b>
-        <span style="font-size:12px;color:rgba(255,255,255,.8)">${dia.ejercicios.length} ejercicios</span>
-      </div>
-      <table style="width:100%;border-collapse:collapse;border:1px solid #D7E3EA;border-top:none;border-radius:0 0 6px 6px;overflow:hidden">
-        <thead>
-          <tr style="background:#EAF6FB">
-            <th style="padding:6px 8px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:52px"></th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:left;width:36px">#</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:left">Ejercicio</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:52px">Series × Reps</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:90px">Intensidad</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:80px">RIR</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:90px">Descanso</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:70px">Tempo</th>
-            <th style="padding:6px 10px;font-size:11px;font-weight:700;color:#546E7A;text-align:center;width:80px">Peso (kg)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${dia.ejercicios.map((ej,i)=>{
-            const imgUrl=getImgUrl(ej.ejercicio,ej.grupo);
-            return`<tr style="background:${i%2?"#FAFAFA":"#fff"};border-top:1px solid #EEE">
-              <td style="padding:4px 6px;text-align:center;width:52px">
-                ${imgUrl?`<img src="${imgUrl}" alt="${ej.ejercicio}" loading="lazy" style="width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid #E0E0E0;background:#F5F5F5" onerror="this.style.display='none'">`:`<div style="width:46px;height:46px;border-radius:6px;background:#EEF4FB;display:flex;align-items:center;justify-content:center;font-size:18px">🏋️</div>`}
-              </td>
-              <td style="padding:7px 10px;font-weight:700;font-size:13px;color:${ej.num.length>1?"#7B1FA2":"#006BB6"}">${ej.num}</td>
-              <td style="padding:7px 10px">
-                <div style="font-size:13px;font-weight:600;color:#1F2933">${ej.ejercicio}</div>
-                <div style="font-size:11px;color:#90A4AE;text-transform:capitalize">${ej.grupo.replace(/_/g," ")}</div>
-              </td>
-              <td style="padding:7px 10px;text-align:center;font-size:13px;font-weight:700;color:#006BB6">${ej.s}×${ej.r}</td>
-              <td style="padding:7px 10px;text-align:center;font-size:11px;color:#546E7A">${ej.intensidad||"—"}</td>
-              <td style="padding:7px 10px;text-align:center;font-size:11px;color:#546E7A">${ej.rir||ej.rer||"—"}</td>
-              <td style="padding:7px 10px;text-align:center;font-size:11px;color:#546E7A">${ej.descanso}</td>
-              <td style="padding:7px 10px;text-align:center;font-size:11px;color:#546E7A">${ej.tempo}</td>
-              <td style="padding:7px 10px;text-align:center">
-                <input type="number" placeholder="___" min="0" step="0.5" style="width:66px;padding:4px 6px;border:1.5px solid #CFD8DC;border-radius:6px;font-size:13px;text-align:center;outline:none">
-              </td>
-            </tr>`;
-          }).join("")}
-        </tbody>
-      </table>
-    </div>`;
-  });
-  return html;
+function ejVistaHistorial(cb,planes){
+  if(!planes||!planes.length){cb.innerHTML=`<div style="text-align:center;padding:36px;color:${MU}">Sin planes guardados todavía.</div>`;return;}
+  cb.innerHTML=planes.map(a=>{
+    let meta={};let v2=false;
+    try{const o=JSON.parse(a.descripcion.replace("__EJERCICIO__:",""));v2=o.version===2;meta=v2?{lab:o.label,vme:o.vol?.vme,vmr:o.vol?.vmr,obj:o.objetivo}:{lab:(o.meta?.split||"plan previo")+" · "+(o.meta?.dias_semana||"?")+" días"};}catch(e){}
+    return`<div style="border:1px solid ${BR};border-radius:10px;padding:12px 14px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div><div style="font-size:13.5px;font-weight:700;color:${TX}">${meta.lab||"Prescripción"} ${v2?"":`<span style="background:#ECEFF1;color:#546E7A;border-radius:10px;padding:1px 8px;font-size:11px">motor anterior</span>`}</div>
+      <div style="font-size:12px;color:${MU};margin-top:3px">📅 ${a.fecha||(a.created_at||"").slice(0,10)}${meta.vme!=null?` · banda ${meta.vme}–${meta.vmr} · objetivo ${meta.obj} series`:""}</div></div>
+      <div style="display:flex;gap:6px">
+        <button onclick="verPlanEjercicio('${a.id}')" style="background:${P};color:#fff;border:none;border-radius:7px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer">Abrir</button>
+        <button onclick="ejEliminarPlan('${a.id}')" style="background:#FFEBEE;color:${DA};border:none;border-radius:7px;padding:6px 10px;font-size:12.5px;cursor:pointer">🗑️</button>
+      </div></div>`;
+  }).join("");
+}
+window.ejEliminarPlan=async function(id){
+  if(!await qpConfirm("¿Eliminar este plan del expediente?",{title:"Eliminar prescripción",okLabel:"Eliminar",danger:true}))return;
+  loading(true,"Eliminando...");const{error}=await SB.from("anexos").delete().eq("id",id);loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("✓ Plan eliminado");pgEjercicio();
 };
 
-// ── Guardar prescripción en Supabase ─────────────────────────────────────────
+// ── Guardado (NOM-004: cada mesociclo es una versión nueva, no se sobrescribe) ─
 window.guardarPrescripcionEjercicio=async function(){
   const pid=STATE.pat?.id;if(!pid){showToast("Sin paciente activo",false);return;}
-  const {plan,cfg,cardio}=STATE._ejPlanActual;
-  const payload={
-    meta:{objetivo:cfg.objetivo,split:plan.split,dias_semana:cfg.dias,mes:cfg.mesNum,lugar:cfg.lugar,condiciones:cfg.condiciones},
-    plan,cfg,cardio,generado:new Date().toISOString()
-  };
+  const p=STATE._ejPlanActual;if(!p){showToast("No hay plan generado",false);return;}
+  const payload={...p,cfg:p.cfg||ejCfg(),bienestar:STATE._ejBienestar||null,guardado:new Date().toISOString()};
   loading(true,"Guardando prescripción...");
-  const {error}=await SB.from("anexos").insert({
+  const{error}=await SB.from("anexos").insert({
     paciente_id:pid,
-    titulo:`PRESCRIPCIÓN EJERCICIO — Mes ${cfg.mesNum} — ${new Date().toLocaleDateString("es-MX")}`,
+    titulo:`PRESCRIPCIÓN EJERCICIO — ${p.label} — ${new Date().toLocaleDateString("es-MX")}`,
     tipo_documento:"Prescripción de ejercicio",
-    origen:"generado",
-    firmado:false,
+    origen:"generado",firmado:false,
     descripcion:"__EJERCICIO__:"+JSON.stringify(payload),
     fecha:new Date().toISOString().split("T")[0],
   });
   loading(false);
   if(error){showToast("Error al guardar: "+error.message,false);return;}
   showToast("✅ Prescripción guardada en el expediente");
-  STATE.ejTab="historial";
-  await logBitacora("GUARDAR_PRESCRIPCION_EJERCICIO",`Paciente ${pid} Mes ${cfg.mesNum}`);
-  pgEjercicio();
+  try{await logBitacora("GUARDAR_PRESCRIPCION_EJERCICIO",`Paciente ${pid} · ${p.label}`);}catch(e){}
+  STATE.ejTab="historial";pgEjercicio();
 };
 
-// ── Ver plan guardado ────────────────────────────────────────────────────────
+// Abre un plan guardado. Acepta el formato nuevo (version 2) y los del motor
+// anterior, que se muestran en modo lectura para no perder el historial.
 window.verPlanEjercicio=async function(id){
   loading(true,"Cargando prescripción...");
-  const {data,error}=await SB.from("anexos").select("descripcion,created_at").eq("id",id).single();
+  const{data,error}=await SB.from("anexos").select("descripcion").eq("id",id).single();
   loading(false);
   if(error||!data){showToast("No se pudo cargar",false);return;}
-  try{
-    const payload=JSON.parse(data.descripcion.replace("__EJERCICIO__:",""));
-    STATE._ejPlanActual=payload;
-    STATE._ejSemana=1;
-    STATE.ejTab="resultado";
-    pgEjercicio();
-  }catch(e){showToast("Error al leer el plan",false);}
+  let o=null;
+  try{o=JSON.parse(data.descripcion.replace("__EJERCICIO__:",""));}catch(e){showToast("Error al leer el plan",false);return;}
+  if(o&&o.version===2){
+    STATE._ejPlanActual=o;STATE.ejCfg=o.cfg||STATE.ejCfg;
+    STATE._ejBienestar=o.bienestar||STATE._ejBienestar;
+    STATE._ejSemana=1;STATE.ejTab="plan";pgEjercicio();
+  } else {
+    STATE._ejLegacy=o;STATE.ejTab="legacy";pgEjercicio();
+    ejVistaLegacy(document.getElementById("ej-body"),o);
+  }
 };
+function ejVistaLegacy(cb,o){
+  if(!cb)return;
+  const filas=[];
+  try{(o.plan?.dias||o.plan?.semanas?.[0]?.dias||[]).forEach((d,i)=>{
+    (d.ejercicios||d||[]).forEach(e=>filas.push({d:i+1,n:e.nombre||e.ejercicio||"",s:e.series||"",r:e.reps||""}));});}catch(e){}
+  cb.innerHTML=`<div style="background:#FFF8E1;border-left:3px solid #E65100;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#E65100">
+    Este plan se generó con el motor anterior. Se muestra como registro histórico; para editarlo genera uno nuevo desde la pestaña de variables.</div>
+    ${filas.length?`<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:${PL}">${["Día","Ejercicio","Series","Reps"].map(h=>`<th style="text-align:left;padding:6px 9px;color:${P};font-size:11px;text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
+      <tbody>${filas.map(f=>`<tr style="border-bottom:1px solid #F0F0F0"><td style="padding:5px 9px">${f.d}</td><td style="padding:5px 9px">${f.n}</td><td style="padding:5px 9px">${f.s}</td><td style="padding:5px 9px">${f.r}</td></tr>`).join("")}</tbody></table>`
+    :`<pre style="font-size:11px;color:${MU};white-space:pre-wrap;background:#FAFAFA;padding:12px;border-radius:8px;max-height:420px;overflow:auto">${JSON.stringify(o,null,1).slice(0,4000)}</pre>`}
+    <button onclick="STATE.ejTab='historial';pgEjercicio()" style="margin-top:14px;background:${P};color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer">← Volver al historial</button>`;
+}
 
-// ── PDF de prescripción de ejercicio (con imágenes) ──────────────────────────
+// ── PDF: mismo motor HTML→canvas del resto del sistema ────────────────────────
 window.pdfPrescripcionEjercicio=async function(){
-  const {jsPDF}=window.jspdf;
+  const p=STATE._ejPlanActual;if(!p){showToast("No hay plan que imprimir",false);return;}
+  const{jsPDF}=window.jspdf||{};
   if(!jsPDF){showToast("jsPDF no disponible",false);return;}
   if(typeof html2canvas==="undefined"){
     await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
-  loading(true,"Generando PDF con imágenes...");
+  const pac=STATE.pat||{};const n=STATE._ejSemana||1;const s=p.semanas[n-1];
+  const med=STATE.medProfile||STATE.userProfile||{};
+  const nomMed=[med.nombre,med.apellido_paterno,med.apellido_materno].filter(Boolean).join(" ")||"—";
+  const v=ejVolumenReal(s);
+  const notas=[...new Set(s.dias.flat().flatMap(e=>e.notasContra||[]))];
+  loading(true,"Generando PDF...");
   try{
-    const {plan,cfg,cardio}=STATE._ejPlanActual;
-    const p=STATE.pat||{};
-    const med=STATE.medProfile||STATE.userProfile||{};
-    const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
-    const medNom=[med.titulo||"Dr.",med.nombre,med.apellidos].filter(Boolean).join(" ").trim();
-    const objLabel={hipertrofia:"Hipertrofia / Masa muscular",perdida_grasa:"Pérdida de grasa corporal",recomposicion:"Recomposición corporal",fuerza:"Fuerza máxima",salud_general:"Salud general",terapeutico:"Terapéutico"};
-    let logoB64=null,firmaB64=null;
-    try{const r=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");const bl=await r.blob();logoB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}
-    if(med.firma_digital){try{const r=await fetch(med.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}}
-
-    // Pre-cargar imágenes de ejercicios como base64 para el PDF
-    const SB_IMG="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/ejercicios";
-    const imgCache={};
-    const fetchImgB64=async(url)=>{
-      if(!url||imgCache[url]===null) return null;
-      if(imgCache[url]) return imgCache[url];
-      try{
-        const r=await fetch(url,{mode:"cors"});
-        if(!r.ok){imgCache[url]=null;return null;}
-        const bl=await r.blob();
-        const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
-        imgCache[url]=b64;return b64;
-      }catch(e){imgCache[url]=null;return null;}
-    };
-
-    // Pre-fetch todas las imágenes únicas del plan
-    const todosEj=[];
-    plan.semanas.forEach(s=>s.dias.forEach(d=>d.ejercicios.forEach(e=>todosEj.push(e))));
-    const uniqEj=[...new Map(todosEj.map(e=>[e.ejercicio,e])).values()];
-    loading(true,`Cargando imágenes (${uniqEj.length} ejercicios)...`);
-    await Promise.all(uniqEj.map(async ej=>{
-      const url=getImgUrlPDF(ej.ejercicio,ej.grupo,SB_IMG);
-      if(url) await fetchImgB64(url);
-    }));
-
-    const AZ="#0B6FB3",DK="#064C8B",PALE="#F4FAFD",BRD="#D7E3EA",TXT="#1F2933",SEC="#5F6B73";
-    const CW_PX=720,HCSC=3,PX_PER_MM=CW_PX*HCSC/189.9;
-    const renderHTML=async(html)=>{
-      const wrap=document.createElement("div");
-      wrap.style.cssText=`position:fixed;left:-9999px;top:0;width:${CW_PX}px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:${TXT};line-height:1.35;box-sizing:border-box`;
-      wrap.innerHTML=html;document.body.appendChild(wrap);
-      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-      const cv=await html2canvas(wrap,{scale:HCSC,useCORS:true,backgroundColor:"#fff",logging:false,imageTimeout:15000,allowTaint:true});
-      document.body.removeChild(wrap);return cv;
-    };
-    const PW=215.9,PH=279.4,ML=14,CWMM=PW-28,FH=9.5;
-    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
-    const addFooter=(pg,total)=>{doc.setFillColor(238,244,248);doc.rect(0,PH-FH,PW,FH,"F");doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(5.9);doc.text(`Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX | Tel: 55 5682 4345 / 56 4423 7028 | qpclinic.org | NOM-004-SSA3-2012 | Pág. ${pg}/${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});};
-    const AVAIL_H=PH-FH-ML;
-    const pages=[];
-    const canvasToPDFPages=async(cv)=>{let srcY=0;while(srcY<cv.height){const sliceH=Math.min(Math.round(AVAIL_H*PX_PER_MM),cv.height-srcY);if(sliceH<=0)break;const sl=document.createElement("canvas");sl.width=cv.width;sl.height=sliceH;sl.getContext("2d").drawImage(cv,0,-srcY);pages.push(sl);srcY+=sliceH;}};
-
-    const headerHTML=`
-    <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
-      <div style="flex:1">
-        <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic Especialistas en Salud Integral</div>
-        <div style="font-size:7.5px;color:rgba(255,255,255,.85);margin-bottom:5px">Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX, C.P. 03810 | Tel. 55 5682 4345 / 56 4423 7028 | qpclinic.org</div>
-        <div style="border-top:1px solid rgba(255,255,255,.35);margin:5px 0"></div>
-        <div style="font-size:10px;font-weight:bold;color:#fff;margin-bottom:1px">${medNom}</div>
-        <div style="font-size:7.2px;color:rgba(255,255,255,.85)">Médico Cirujano · UNAM · Céd. Prof. ${med.cedula_medico||"6382840"}</div>
-        <div style="font-size:7.2px;color:rgba(255,255,255,.85)">Medicina del Deporte · Céd. Esp. ${med.cedula_esp_1||"10861477"}</div>
+    const cont=document.createElement("div");
+    cont.style.cssText="position:fixed;left:-9999px;top:0;width:720px;background:#fff;padding:26px;font-family:system-ui,-apple-system,sans-serif";
+    cont.innerHTML=`
+      <div style="border-bottom:2px solid #006BB6;padding-bottom:10px;margin-bottom:14px">
+        <div style="font-size:17px;font-weight:800;color:#006BB6">QP Clinic — Prescripción de ejercicio</div>
+        <div style="font-size:10px;color:#546E7A;margin-top:3px">Insurgentes Sur 933, Piso 12, Col. Nápoles, Benito Juárez, CDMX · Tel. 55 5682 4345</div>
       </div>
-      ${logoB64?`<div style="background:#fff;border-radius:4px;padding:5px;flex-shrink:0"><img src="${logoB64}" style="height:36px;display:block;object-fit:contain"></div>`:""}
-    </div>
-    <div style="background:${DK};padding:6px 12px;text-align:center">
-      <b style="color:#fff;font-size:11px;letter-spacing:.4px">PRESCRIPCIÓN DE EJERCICIO Y ACTIVIDAD FÍSICA</b>
-    </div>`;
-
-    const datosHTML=`
-    <div style="background:${PALE};border:1px solid ${BRD};border-radius:0 0 4px 4px;padding:8px 12px">
-      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:5px">
-        <div style="flex:2"><div style="font-size:6.5px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Paciente</div><div style="font-size:10px;font-weight:700;color:${TXT}">${nomPac}</div></div>
-        <div style="flex:1"><div style="font-size:6.5px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Expediente</div><div style="font-size:9px;color:${TXT}">${p.numero_expediente||"—"}</div></div>
-        <div style="flex:1"><div style="font-size:6.5px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Fecha</div><div style="font-size:9px;color:${TXT}">${new Date().toLocaleDateString("es-MX")}</div></div>
+      <table style="width:100%;font-size:10.5px;color:#263238;margin-bottom:12px">
+        <tr><td><b>Paciente:</b> ${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}</td><td><b>Fecha:</b> ${new Date().toLocaleDateString("es-MX")}</td></tr>
+        <tr><td><b>Programa:</b> ${p.label}</td><td><b>Semana:</b> ${n} de 4${s.descarga?" (descarga)":""}</td></tr>
+        <tr><td><b>Banda de volumen:</b> VME ${p.vol.vme} – VMR ${p.vol.vmr} series/grupo/semana</td><td><b>Objetivo:</b> ${p.objetivo} series</td></tr>
+      </table>
+      ${s.dias.map((fs,d)=>`
+        <div style="margin-bottom:10px">
+          <div style="background:#E3F4FB;color:#006BB6;font-weight:800;font-size:11px;padding:4px 9px;border-radius:4px 4px 0 0">DÍA ${d+1}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:9.5px">
+            <thead><tr style="background:#FAFCFD">${["#","Ejercicio","Series","Reps","RIR","Descanso","Peso"].map(h=>`<th style="text-align:left;padding:3px 6px;border-bottom:1px solid #CFD8DC;color:#546E7A;font-size:8px;text-transform:uppercase">${h}</th>`).join("")}</tr></thead>
+            <tbody>${fs.map(e=>`<tr><td style="padding:3px 6px;border-bottom:1px solid #ECEFF1;font-weight:700">${e.seq}</td>
+              <td style="padding:3px 6px;border-bottom:1px solid #ECEFF1">${e.ejercicio}<div style="color:#90A4AE;font-size:8px">${e.grupo} · ${e.patron}</div></td>
+              <td style="padding:3px 6px;border-bottom:1px solid #ECEFF1;text-align:center">${e.series}</td>
+              <td style="padding:3px 6px;border-bottom:1px solid #ECEFF1;text-align:center">${e.reps}</td>
+              <td style="padding:3px 6px;border-bottom:1px solid #ECEFF1;text-align:center">${e.rir}</td>
+              <td style="padding:3px 6px;border-bottom:1px solid #ECEFF1;text-align:center">${e.descanso}s</td>
+              <td style="padding:3px 6px;border-bottom:1px solid #ECEFF1;text-align:center">${e.peso||"—"}</td></tr>`).join("")}</tbody>
+          </table></div>`).join("")}
+      <div style="background:#F8FAFB;border-radius:5px;padding:8px 11px;font-size:9.5px;color:#263238;margin-top:8px">
+        <b style="color:#546E7A;font-size:8px;text-transform:uppercase">Volumen semanal por grupo</b><br>
+        ${Object.entries(v.porGrupo).sort().map(([g,x])=>`${g}: <b>${x}</b>`).join(" · ")}
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <div style="flex:1"><div style="font-size:6.5px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Objetivo</div><div style="font-size:9px;color:${TXT}">${objLabel[cfg.objetivo]||cfg.objetivo}</div></div>
-        <div style="flex:1"><div style="font-size:6.5px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Distribución semanal</div><div style="font-size:9px;color:${TXT}">${plan.split}</div></div>
-        <div style="flex:0.6"><div style="font-size:6.5px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Días/semana</div><div style="font-size:9px;color:${TXT}">${cfg.dias}</div></div>
-        <div style="flex:0.6"><div style="font-size:6.5px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Lugar</div><div style="font-size:9px;color:${TXT}">${cfg.lugar==="gym"?"Gimnasio":"Casa"}</div></div>
-        <div style="flex:0.6"><div style="font-size:6.5px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Mes</div><div style="font-size:9px;color:${TXT}">Mes ${cfg.mesNum}</div></div>
-      </div>
-      ${cfg.condiciones&&cfg.condiciones.length?`<div style="margin-top:5px;background:#FFF8E6;border:1px solid #F59E0B;border-radius:3px;padding:3px 8px;font-size:7.5px;color:#7F5900"><b>Condiciones clínicas:</b> ${cfg.condiciones.join(", ")}</div>`:""}
-    </div>`;
-
-    const calHTML=`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:4px;padding:7px 12px;margin-top:7px">
-      <b style="font-size:8.5px;color:#1B5E20;text-transform:uppercase;display:block;margin-bottom:2px">Calentamiento — 10 minutos</b>
-      <div style="font-size:8px;color:#2E7D32;line-height:1.6">Movilización articular activa suave de los grupos musculares del día + estiramientos activos-asistidos 8 segundos.</div>
-    </div>`;
-
-    // Cardio HTML para PDF
-    const cardioHtml=(()=>{
-      const protos=(cardio.protocolos||[]);
-      if(!protos.length&&cardio.detalle){
-        return`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:4px;padding:7px 12px;margin-top:7px">
-          <b style="font-size:8.5px;color:#1B5E20;text-transform:uppercase;display:block;margin-bottom:2px">Ejercicio cardiopulmonar — ${cardio.tipo||""}</b>
-          <div style="font-size:8px;color:#2E7D32;line-height:1.6">${(cardio.detalle||"").replace(/\n/g,"<br>")}</div>
-        </div>`;
-      }
-      return`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:4px;padding:7px 12px;margin-top:7px">
-        <b style="font-size:8.5px;color:#1B5E20;text-transform:uppercase;display:block;margin-bottom:3px">Ejercicio cardiopulmonar — ${cardio.tipo||""}</b>
-        <div style="font-size:7.5px;color:#2E7D32;margin-bottom:3px">Frecuencia: <b>${cardio.frecuencia||""}</b></div>
-        ${protos.map(proto=>`<div style="margin-bottom:5px;padding:4px 8px;background:#fff;border:1px solid #A5D6A7;border-radius:3px">
-          <div style="font-size:8px;font-weight:700;color:#1B5E20;margin-bottom:2px">${proto.nombre} — ${proto.dias} — ${proto.equipo}</div>
-          <div style="font-size:7.5px;color:#2E7D32;white-space:pre-line;line-height:1.6">${(proto.detalle||"").replace(/\n/g,"<br>")}</div>
-        </div>`).join("")}
-        ${cardio.notas?`<div style="font-size:7px;color:#1B5E20;font-style:italic">${cardio.notas}</div>`:""}
+      ${notas.length?`<div style="background:#FFEBEE;border-left:3px solid #C62828;padding:7px 11px;font-size:9px;color:#C62828;margin-top:8px">
+        <b>Precauciones clínicas:</b><br>${notas.map(x=>"• "+x).join("<br>")}</div>`:""}
+      <div style="margin-top:26px;text-align:center">
+        <div style="border-top:1px solid #263238;width:46%;margin:0 auto 6px"></div>
+        <div style="font-size:10px;font-weight:700">${nomMed}</div>
+        <div style="font-size:8.5px;color:#546E7A">Céd. Prof. ${med.cedula_medico||"—"}</div>
       </div>`;
-    })();
-
-    // ── Generar una página HTML por día (con imágenes) ────────────────────────
-    // Cada ejercicio se muestra como bloque con imagen a la izquierda + texto a la derecha
-    const ejBlock=async(ej,i,semNum)=>{
-      const imgUrl=getImgUrlPDF(ej.ejercicio,ej.grupo,SB_IMG);
-      const imgB64=imgUrl?await fetchImgB64(imgUrl):null;
-      const bg=i%2===0?"#fff":"#F8FBFD";
-      const isSuper=ej.num.length>1;
-      return`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:${bg};border-bottom:1px solid #EEF2F5">
-        <!-- Imagen -->
-        <div style="flex-shrink:0;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1px solid ${BRD};background:#F4F4F4;display:flex;align-items:center;justify-content:center">
-          ${imgB64?`<img src="${imgB64}" style="width:64px;height:64px;object-fit:cover;display:block">`:`<div style="font-size:24px;text-align:center;color:#B0BEC5">·</div>`}
-        </div>
-        <!-- Texto -->
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
-            <span style="font-size:10px;font-weight:700;color:${isSuper?"#7B1FA2":"#005089"};min-width:18px">${ej.num}</span>
-            <span style="font-size:9.5px;font-weight:700;color:${TXT}">${ej.ejercicio}</span>
-          </div>
-          <div style="font-size:7.5px;color:${SEC};text-transform:capitalize;margin-bottom:3px">${ej.grupo.replace(/_/g," ")}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
-            <span style="font-size:8px;color:#005089;font-weight:700">Series: ${ej.s}</span>
-            <span style="font-size:8px;color:#005089;font-weight:700">Repeticiones: ${ej.r}</span>
-            ${ej.intensidad?`<span style="font-size:8px;color:${SEC}">Intensidad: ${ej.intensidad}</span>`:""}
-            <span style="font-size:8px;color:${SEC}">RIR: ${ej.rir||ej.rer||"—"}</span>
-            <span style="font-size:8px;color:${SEC}">Descanso: ${ej.descanso}</span>
-            <span style="font-size:8px;color:${SEC}">Tempo: ${ej.tempo}</span>
-            <span style="font-size:8px;color:#B0BEC5">Peso: ___ kg</span>
-          </div>
-        </div>
-      </div>`;
-    };
-
-    // Generar páginas: plan MENSUAL único, una sección por día de entrenamiento
-    const sesiones=plan.sesiones||plan.semanas?.[0]?.dias||[];
-    const prog=plan.progresion||{};
-    const progHTML=`<div style="background:#EDE7F6;border:1px solid #B39DDB;border-radius:4px;padding:7px 12px;margin-top:7px">
-      <b style="font-size:8.5px;color:#4527A0;text-transform:uppercase;display:block;margin-bottom:2px">Progresión durante el mes (ACSM)</b>
-      <div style="font-size:7.5px;color:#311B92;line-height:1.7">${prog.regla||"Cuando pueda completar 1-2 repeticiones adicionales a las prescritas en la última serie durante dos sesiones consecutivas, incrementar la carga 2-10%."}${prog.semanal?`<br><b>Ritmo sugerido:</b> ${prog.semanal}`:""}</div>
-    </div>`;
-
-    let cabHTML=headerHTML+datosHTML+calHTML+progHTML;
-    let primeraPagina=true;
-    for(const dia of sesiones){
-      let diaHTML=cabHTML;
-      diaHTML+=`<div style="margin-top:8px;border:1px solid ${BRD};border-radius:6px;overflow:hidden">
-        <div style="background:#EAF6FB;padding:5px 12px;border-bottom:1px solid ${BRD}">
-          <b style="font-size:9.5px;color:#005089">Día ${dia.dia}</b>
-          <span style="font-size:8px;color:${SEC};margin-left:8px">${dia.ejercicios.length} ejercicios · misma estructura todo el mes</span>
-        </div>`;
-      const bloques=await Promise.all(dia.ejercicios.map((ej,i)=>ejBlock(ej,i,1)));
-      diaHTML+=bloques.join("")+"</div>";
-      diaHTML+=cardioHtml;
-      diaHTML+=`<div style="background:#FFF3E0;border:1px solid #FFB74D;border-radius:4px;padding:6px 12px;margin-top:6px">
-        <b style="font-size:8px;color:#E65100;text-transform:uppercase;display:block;margin-bottom:2px">Enfriamiento — 10 minutos</b>
-        <div style="font-size:7.5px;color:#BF360C;line-height:1.6">Estiramientos activos-asistidos inhibitorios (12 segundos), músculos ejercitados del día. Respiración diafragmática 5 minutos.</div>
-      </div>`;
-      const cv=await renderHTML(diaHTML);
-      await canvasToPDFPages(cv);
-      // Después de la primera página, cabecera reducida
-      if(primeraPagina){
-        cabHTML=`<div style="background:#005089;padding:5px 12px;border-radius:4px;margin-bottom:6px"><b style="color:#fff;font-size:9px">PRESCRIPCIÓN DE EJERCICIO — ${nomPac} — continuación</b></div>`;
-        primeraPagina=false;
-      }
-    }
-
-    // Página de precauciones y firma
-    const firmaFecha=new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
-    const precHTML=headerHTML+`<div style="padding:14px">
-      <div style="background:#FFF3E0;border:1px solid #FFB74D;border-radius:6px;padding:12px 14px;margin-bottom:14px">
-        <b style="font-size:9.5px;color:#E65100;text-transform:uppercase;display:block;margin-bottom:7px">Precauciones generales</b>
-        <div style="font-size:9px;color:#BF360C;line-height:1.9">
-          • Realizar los ejercicios en el orden indicado.<br>
-          • Detener la actividad física en caso de: mareo, náusea, vómito, fatiga excesiva, dolor de cabeza, dolor en el pecho, falta de aire o dolor muscular articular.<br>
-          • Tomar 250 mL de agua cada 15 minutos a temperatura ambiente durante el entrenamiento.<br>
-          • Dormir 8 horas diariamente.<br>
-          ${cfg.condiciones&&cfg.condiciones.length?`• Condiciones clínicas consideradas: ${cfg.condiciones.join(", ")}.<br>`:""}
-          • Ante cualquier duda o síntoma nuevo, comunicarse con el médico tratante antes de continuar.
-        </div>
-      </div>
-      <div style="text-align:center;margin-top:20px">
-        ${firmaB64?`<img src="${firmaB64}" style="height:34px;object-fit:contain;margin-bottom:8px"><br>`:`<div style="height:38px"></div>`}
-        <div style="border-top:1.3px solid #1F2933;width:45%;margin:0 auto 8px"></div>
-        <div style="font-size:10px;font-weight:700;color:${TXT}">${medNom}</div>
-        <div style="font-size:8px;color:${SEC};margin-top:2px">Céd. Prof. ${med.cedula_medico||"6382840"} | Céd. Esp. ${med.cedula_esp_1||"10861477"}</div>
-        <div style="font-size:7.5px;color:${SEC};margin-top:2px">Certificado Consejo Nacional de Medicina del Deporte</div>
-        ${firmaB64?`<div style="font-size:7px;color:${SEC};font-style:italic;margin-top:5px">Prescripción firmada digitalmente el ${firmaFecha} por ${medNom}</div>`:""}
-      </div>
-    </div>`;
-    const cvF=await renderHTML(precHTML);await canvasToPDFPages(cvF);
-
-    const total=pages.length;
-    for(let i=0;i<pages.length;i++){
-      if(i>0)doc.addPage();
-      const cv=pages[i];const hmm=cv.height/PX_PER_MM;
-      doc.addImage(cv.toDataURL("image/png"),"PNG",ML,ML,CWMM,hmm,undefined,"FAST");
-      addFooter(i+1,total);
-    }
+    document.body.appendChild(cont);
+    const canvas=await html2canvas(cont,{scale:3,backgroundColor:"#fff"});
+    document.body.removeChild(cont);
+    const doc=new jsPDF({orientation:"p",unit:"mm",format:"a4"});
+    const w=210,h=canvas.height*w/canvas.width;
+    let resto=h,pos=0;
+    doc.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,0,w,h);
+    resto-=297;
+    while(resto>0){pos-=297;doc.addPage();doc.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,pos,w,h);resto-=297;}
     loading(false);
-    const nomFile=nomPac.replace(/\s+/g,"_");
-    doc.save(`Prescripcion_Ejercicio_${nomFile}_Mes${cfg.mesNum}_${new Date().toISOString().split("T")[0].replace(/-/g,"")}.pdf`);
+    doc.save(`Ejercicio_${(pac.nombre||"paciente").replace(/\s+/g,"_")}_Sem${n}_${new Date().toISOString().split("T")[0].replace(/-/g,"")}.pdf`);
     showToast("PDF descargado correctamente");
   }catch(err){loading(false);console.error(err);showToast("Error PDF: "+err.message,false);}
 };
