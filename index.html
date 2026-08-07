@@ -18854,24 +18854,36 @@ async function resumenDatos(){
 function resumenHTML(d){
   const p=STATE.pat||{};
   const med=STATE.medProfile||STATE.userProfile||{};
-  const nomMed=[med.titulo||"Dr.",med.nombre,med.apellido_paterno,med.apellido_materno].filter(Boolean).join(" ");
+  // La tabla usuarios guarda el apellido en un solo campo "apellidos".
+  const nomMed=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+  const espMed=[med.especialidad_1,med.especialidad_2].filter(Boolean).join(" · ")||"—";
+  const cedMed=[med.cedula_medico?"Céd. Prof. "+med.cedula_medico:"",med.cedula_esp_1?"Céd. Esp. "+med.cedula_esp_1:""].filter(Boolean).join("  ·  ")||"—";
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim().toUpperCase();
   const fnac=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
-  const S=(t)=>`<div style="font-size:11px;font-weight:700;color:#263238;letter-spacing:.5px;margin:16px 0 6px;padding-bottom:2px">${t}</div>`;
+  // El comentario BLOQUE marca dónde se puede cortar la página sin partir texto.
+  const S=(t)=>`<!--BLOQUE--><div style="font-size:11.5px;font-weight:700;color:#fff;background:#37474F;letter-spacing:.6px;margin:0 0 8px;padding:5px 10px;border-radius:3px">${t}</div>`;
   const T=(t)=>`<div style="font-size:10px;color:#263238;line-height:1.55;white-space:pre-wrap">${(t||"").replace(/</g,"&lt;")}</div>`;
   const VACIO=`<div style="font-size:10px;color:#90A4AE;font-style:italic">NO HAY INFORMACION REGISTRADA</div>`;
   const campo=(l,v)=>`<div style="flex:1 1 22%;min-width:22%;margin-bottom:7px"><div style="font-size:7.5px;color:#78909C;text-transform:uppercase;font-weight:700">${l}</div><div style="font-size:10px;color:#263238">${v||"—"}</div></div>`;
   const caja=(t,html)=>`<div style="font-size:8.5px;font-weight:700;color:#546E7A;text-transform:uppercase;text-align:center;background:#F5F7F8;padding:3px;margin:9px 0 6px">${t}</div><div style="display:flex;flex-wrap:wrap;gap:0 10px">${html}</div>`;
+  const logo=STATE._resLogo||"";
   const enc=`
-    <div style="border-bottom:1.5px solid #263238;padding-bottom:6px;margin-bottom:10px">
-      <div style="text-align:center;font-size:12px;font-weight:700;color:#263238;letter-spacing:1px;margin-bottom:6px">EXPEDIENTE CLINICO</div>
-      <table style="width:100%;font-size:9px;color:#263238">
-        <tr><td><b>Paciente:</b> ${nomPac}</td><td style="text-align:right"><b>Médico responsable:</b> ${nomMed}</td></tr>
-        <tr><td><b>Fecha de nacimiento:</b> ${fnac}</td><td style="text-align:right"><b>Especialidad:</b> ${(med.especialidad||"—").toUpperCase()}</td></tr>
-        <tr><td><b>No Expediente:</b> ${p.numero_expediente||"—"}</td><td style="text-align:right"><b>Céd. Prof.</b> ${med.cedula_medico||"—"}</td></tr>
+    <div style="border-bottom:1.5px solid #263238;padding-bottom:8px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
+        ${logo?`<img src="${logo}" style="height:42px;width:auto;object-fit:contain;flex-shrink:0">`:""}
+        <div style="flex:1;text-align:center">
+          <div style="font-size:13px;font-weight:700;color:#263238;letter-spacing:1.2px">EXPEDIENTE CLINICO</div>
+          <div style="font-size:8px;color:#607D8B;margin-top:2px">${brand().nombre}</div>
+        </div>
+        ${logo?`<div style="width:42px;flex-shrink:0"></div>`:""}
+      </div>
+      <table style="width:100%;font-size:9px;color:#263238;line-height:1.5">
+        <tr><td style="width:52%"><b>Paciente:</b> ${nomPac}</td><td><b>Médico responsable:</b> ${nomMed}</td></tr>
+        <tr><td><b>Fecha de nacimiento:</b> ${fnac}</td><td><b>Especialidad:</b> ${espMed}</td></tr>
+        <tr><td><b>No. Expediente:</b> ${p.numero_expediente||"—"}</td><td>${cedMed}</td></tr>
       </table>
     </div>`;
-  let h=enc;
+  let h="";
   const sec=STATE._resSec||{};
 
   if(sec.ficha){
@@ -18965,7 +18977,7 @@ function resumenHTML(d){
     cs.forEach(c=>{
       const f=(c.fecha||"").split("T");
       const sub=(t,v)=>v?`<div style="font-size:9px;font-weight:700;color:#546E7A;margin-top:5px">${t}</div>${T(v)}`:"";
-      h+=`<div style="border-top:1px solid #CFD8DC;margin-top:12px;padding-top:7px">
+      h+=`<!--BLOQUE--><div style="border-top:1px solid #CFD8DC;margin-top:10px;padding-top:7px">
         <div style="font-size:10px;font-weight:700;color:#006BB6">${(c.tipo_nota||"CONSULTA").toUpperCase()}</div>
         <div style="font-size:9px;color:#546E7A;margin-top:2px">FECHA: ${(f[0]||"").split("-").reverse().join("/")} &nbsp; HORA: ${(f[1]||"").slice(0,5)} &nbsp; REGISTRADA POR: ${c.medico_nombre||"—"}</div>
         ${sub("MOTIVO DE CONSULTA / SUBJETIVO",c.subjetivo)}
@@ -18981,16 +18993,26 @@ function resumenHTML(d){
   h+=`<div style="margin-top:22px;border-top:1px solid #CFD8DC;padding-top:6px;font-size:7.5px;color:#78909C;text-align:center">
     ${brand().nombre} · ${sedeDir()} · Tel: ${sedeTels()}<br>
     Documento generado el ${new Date().toLocaleString("es-MX")} por ${nomMed}. Contiene información confidencial protegida por la Ley Federal de Protección de Datos Personales.</div>`;
-  return h;
+  const bloques=h.split("<!--BLOQUE-->").map(x=>x.trim()).filter(Boolean);
+  return{enc,bloques,html:enc+h};
 }
 
 window.resumenSalida=async function(modo){
   const p=STATE.pat||{};
   loading(true,"Reuniendo información del expediente...");
+  // Logo de la unidad activa, en base64 para que html2canvas pueda dibujarlo.
+  if(!STATE._resLogo){
+    try{
+      const r=await fetch(brand().logo);
+      const bl=await r.blob();
+      STATE._resLogo=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
+    }catch(e){STATE._resLogo="";}
+  }
   let d;
   try{ d=await resumenDatos(); }
   catch(e){ loading(false); showToast("Error al reunir datos: "+e.message,false); return; }
-  const html=resumenHTML(d);
+  const R=resumenHTML(d);
+  const html=R.html;
   document.getElementById("modal-resumen")?.remove();
 
   if(modo==="print"){
@@ -19012,23 +19034,64 @@ window.resumenSalida=async function(modo){
     await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
   try{
-    const cont=document.createElement("div");
-    cont.style.cssText="position:fixed;left:-9999px;top:0;width:720px;background:#fff;padding:26px;font-family:system-ui,-apple-system,sans-serif";
-    cont.innerHTML=html;
-    document.body.appendChild(cont);
-    const canvas=await html2canvas(cont,{scale:2.5,backgroundColor:"#fff"});
-    document.body.removeChild(cont);
+    // Medidas en milímetros. Carta 216 × 279 con márgenes generosos.
+    const W=216,H=279,MX=16,MY=15,ANCHO=W-MX*2;
+    const PX=760;                       // ancho de render en píxeles
     const doc=new jsPDF({orientation:"p",unit:"mm",format:"letter"});
-    const W=216,H=279;
-    const alto=canvas.height*W/canvas.width;
-    let pos=0,resto=alto;
-    doc.addImage(canvas.toDataURL("image/jpeg",0.9),"JPEG",0,0,W,alto);
-    resto-=H;
-    while(resto>0){pos-=H;doc.addPage();doc.addImage(canvas.toDataURL("image/jpeg",0.9),"JPEG",0,pos,W,alto);resto-=H;}
+
+    // Convierte un fragmento HTML en imagen y devuelve su alto en mm.
+    const pintar=async(frag,anchoMm)=>{
+      const c=document.createElement("div");
+      c.style.cssText=`position:fixed;left:-99999px;top:0;width:${PX}px;background:#fff;font-family:system-ui,-apple-system,sans-serif`;
+      c.innerHTML=frag;
+      document.body.appendChild(c);
+      const cv=await html2canvas(c,{scale:2,backgroundColor:"#fff",windowWidth:PX});
+      document.body.removeChild(c);
+      return{img:cv.toDataURL("image/jpeg",0.92),alto:cv.height*anchoMm/cv.width};
+    };
+
+    const encabezado=await pintar(R.enc,ANCHO);
+    let pagina=1;
+    const nuevaPagina=()=>{doc.addPage();pagina++;doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);return MY+encabezado.alto+3;};
+    doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);
+    let y=MY+encabezado.alto+3;
+    const LIMITE=H-MY-8;               // deja lugar para el número de página
+
+    for(const b of R.bloques){
+      const {img,alto}=await pintar(b,ANCHO);
+      if(alto>LIMITE-MY-encabezado.alto-3){
+        // Bloque más alto que una página: se reparte, pero empezando en página limpia.
+        if(y>MY+encabezado.alto+4)y=nuevaPagina();
+        let resto=alto,desp=0;
+        while(resto>0){
+          const disp=LIMITE-y;
+          doc.addImage(img,"JPEG",MX,y-desp,ANCHO,alto);
+          // Tapa lo que se salga del área útil
+          doc.setFillColor(255,255,255);
+          doc.rect(0,LIMITE,W,H-LIMITE,"F");
+          resto-=disp;desp+=disp;
+          if(resto>0)y=nuevaPagina();
+        }
+        y=LIMITE;
+        continue;
+      }
+      if(y+alto>LIMITE)y=nuevaPagina();
+      doc.addImage(img,"JPEG",MX,y,ANCHO,alto);
+      y+=alto+2;
+    }
+
+    // Numeración de páginas
+    const total=doc.internal.getNumberOfPages();
+    for(let i=1;i<=total;i++){
+      doc.setPage(i);
+      doc.setFontSize(7.5);doc.setTextColor(120,144,156);
+      doc.text(`Página ${i} de ${total}`,W/2,H-8,{align:"center"});
+    }
+
     loading(false);
     const nom=`${p.nombre||"paciente"}_${p.apellido_paterno||""}`.replace(/\s+/g,"_");
     doc.save(`Expediente_${nom}_${new Date().toISOString().split("T")[0].replace(/-/g,"")}.pdf`);
-    showToast("PDF generado correctamente");
+    showToast(`PDF generado · ${total} página${total!==1?"s":""}`);
     try{await logBitacora("RESUMEN_MEDICO","PDF · Paciente "+p.id);}catch(e){}
   }catch(err){loading(false);console.error(err);showToast("Error al generar PDF: "+err.message,false);}
 };
