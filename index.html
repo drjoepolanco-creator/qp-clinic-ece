@@ -2164,8 +2164,6 @@ function renderSeccionEspecial(tipo,d){
         </div>
       </div>
       <div style="padding:14px">
-        ${ALERTA("Los campos de <b>Exploración física</b>, <b>EVA</b> y <b>Pronóstico</b> se ocultan en esta nota por no aplicar a la consulta nutricional. Usa <b>Subjetivo</b> para el interrogatorio, <b>Análisis</b> para el diagnóstico nutricional integrado y <b>Tratamiento</b> (botón 💊 Suplementación) para la prescripción de productos Famel.","ok")}
-
         ${H("A — Antropometría y composición corporal",NV)}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px">
           ${fld("Peso actual (kg)",NUM("dc_nu_peso",d.nu_peso,"Ej: 78.4"))}
