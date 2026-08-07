@@ -594,15 +594,18 @@ window.togglePickerSede=function(){STATE.sedePicker=!STATE.sedePicker;draw();}
 function logoSwitcherHTML(){
   const puede=puedeCambiarSede();
   if(!STATE.userProfile) return '<img src="'+BRANDING.clinic.logo+'" alt="QP Clinic" style="height:32px;border-radius:4px;background:#fff;padding:2px">';
-  const _ord=["clinic","surgery","amfa"];
-  const otra=_ord[(_ord.indexOf(sedeActiva())+1)%_ord.length];
+  const _ord=["clinic","surgery"];
+  const otra=_ord[(_ord.indexOf(sedeActiva())+1)%_ord.length]||"clinic";
   return '<img src="'+brand().logo+'" alt="'+brand().nombre+'" title="'+(puede?("Cambiar a "+BRANDING[otra].nombre):brand().nombre)+'" '+(puede?'onclick="toggleSede()" ':'')+'style="height:32px;border-radius:4px;background:#fff;padding:2px;'+(puede?"cursor:pointer":"")+'">';
 }
 function sedeHome(s){return s==="surgery"?"quirofano":"agenda";}  // clinic y amfa entran por Agenda
 window.toggleSede=function(){
   if(!puedeCambiarSede())return;
-  const orden=["clinic","surgery","amfa"];
-  const nxt=orden[(orden.indexOf(sedeActiva())+1)%orden.length];
+  // amfa NO entra en el ciclo: es una unidad cerrada con padrón propio.
+  // Entrar a su interfaz mostrando pacientes de QP sería incoherente y podría
+  // imprimir documentos de QP con el membrete de amfa.
+  const orden=["clinic","surgery"];
+  const nxt=orden[(orden.indexOf(sedeActiva())+1)%orden.length]||"clinic";
   STATE.sedeActiva=nxt;STATE.sedePicker=false;
   try{localStorage.setItem("qp_sede_activa",nxt);}catch(e){}
   try{sessionStorage.setItem("qp_sede_confirmada","1");}catch(e){}
@@ -8140,7 +8143,7 @@ function pgSelSede(){
     <h1 style="font-size:22px;font-weight:800;color:${TX};margin-bottom:6px">Seleccione la unidad</h1>
     <p style="font-size:14px;color:${MU};margin-bottom:28px">Elija a qué clínica desea ingresar</p>
     <div style="display:flex;gap:22px;flex-wrap:wrap;justify-content:center;width:100%;max-width:1120px">
-      ${card("clinic")}${card("surgery")}${card("amfa")}
+      ${card("clinic")}${card("surgery")}${usuarioAmfa()?card("amfa"):""}
     </div>
   </div>`;
 }
