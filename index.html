@@ -2143,6 +2143,14 @@ const CAMPOS_OCULTOS_NOTA={"Orden de Internamiento":["subj","eva","expl","anal",
 // La Nota nutricional solo oculta algunos campos, por eso NO debe tratarse como nota sin SOAP
 // (conserva el botón de IA y el encabezado normal de signos vitales).
 function esNotaSinSOAP(tipo){return (CAMPOS_OCULTOS_NOTA[tipo]||[]).includes("subj");}
+// Tipos de nota que puede redactar la unidad activa. amfa solo hace nota
+// nutricional y responde interconsultas.
+const TIPOS_NOTA_TODOS=["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Orden de Internamiento","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"];
+function tiposNotaDisponibles(){return esAmfa()?["Nota nutricional","Nota de interconsulta"]:TIPOS_NOTA_TODOS;}
+// Devuelve un tipo de nota válido para la sede: si el guardado no está en la
+// lista (p. ej. "Nota de evolución" por omisión en amfa), cae al primero.
+function tipoNotaValido(t){const L=tiposNotaDisponibles();return L.includes(t)?t:L[0];}
+window.tipoNotaValido=tipoNotaValido;
 window.esNotaSinSOAP=esNotaSinSOAP;
 function renderSeccionEspecial(tipo,d){
   d=d||{};
@@ -9377,6 +9385,10 @@ window.agregarSuplementoATratamiento=function(idx){
 
 async function pgConsulta(){
   const p=STATE.pat;const c=STATE.consultaActual||{};
+  // El tipo por omisión es "Nota de evolución", que no existe en amfa: se ajusta
+  // aquí para que el formulario, el guardado y el PDF coincidan con el selector.
+  c.tipo_nota=tipoNotaValido(c.tipo_nota);
+  if(STATE.consultaActual)STATE.consultaActual.tipo_nota=c.tipo_nota;
   // ── Signos vitales del triage de enfermería ──
   // Se cargan ANTES de dibujar la pantalla para que aparezcan ya escritos
   // en los campos. Cubre tanto notas nuevas como notas existentes sin signos.
@@ -9433,7 +9445,7 @@ async function pgConsulta(){
     <div style="background:#fff;border-bottom:1px solid ${BR};padding:7px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <!-- Tipo de nota -->
       <select id="cs_tipo_nota" onchange="actualizarTipoNota(this.value)" title="Tipo de nota" style="padding:7px 13px;border:none;border-radius:8px;font-size:14px;font-weight:800;color:#fff;background:${PD};cursor:pointer;outline:none;box-shadow:0 1px 3px #00000026">
-        ${(esAmfa()?["Nota nutricional","Nota de interconsulta"]:["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Orden de Internamiento","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"]).map(t=>`<option value="${t}" ${(c.tipo_nota||"Nota de evolución")===t?"selected":""}>${t}</option>`).join("")}
+        ${tiposNotaDisponibles().map(t=>`<option value="${t}" ${c.tipo_nota===t?"selected":""}>${t}</option>`).join("")}
       </select>
       <div style="width:1px;height:24px;background:${BR}"></div>
       <button id="btn-ia-nota" onclick="abrirModalIA()" title="Generar nota con IA" style="background:#fff;color:#6A1B9A;border:1.5px solid #E1BEE7;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;align-items:center;gap:6px;display:${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""])?'none':'inline-flex'}"><i class="ti ti-sparkles"></i> Nota con IA</button>
@@ -9451,7 +9463,7 @@ async function pgConsulta(){
     <div style="flex:1;overflow-y:auto;padding:12px;background:#F0F4F8">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1600px;margin:0 auto">
         <div id="seccion-especial" style="grid-column:span 2">
-          ${renderSeccionEspecial(c.tipo_nota||"Nota de evolución",c.datos_clinicos||{})}
+          ${renderSeccionEspecial(c.tipo_nota,c.datos_clinicos||{})}
         </div>
         <div id="cardsoap-subj" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('subj')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center">
