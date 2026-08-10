@@ -583,6 +583,11 @@ function sedeActiva(){
 function esAmfa(){return sedeActiva()==="amfa";}
 // True cuando el USUARIO pertenece a amfa (no puede salir de ahí).
 function usuarioAmfa(){return sedeUsuario()==="amfa";}
+// Cuentas de dirección (usuarios.oculto = true): trabajan con normalidad y quedan
+// registradas en la bitácora, pero no aparecen en los listados operativos —ni en
+// gestión de usuarios, ni en la agenda, ni en el buscador de interconsultas—.
+// Cada quien siempre se ve a sí mismo, para poder editar su propio perfil.
+function usuarioVisible(x){return !x?.oculto||x?.id===STATE.userProfile?.id;}
 function brand(){return BRANDING[sedeActiva()]||BRANDING.clinic;}
 // Datos de contacto de la unidad activa, para encabezados y pies de documentos.
 function sedeDir(){return brand().direccion||BRANDING.clinic.direccion;}
@@ -982,7 +987,7 @@ async function pgMedicos(){
   loading(false);
   // Cada unidad administra solo a su propia gente.
   const _mi=sedeUsuario();
-  const u=(usuarios||[]).filter(x=>_mi==="amfa" ? x.sede==="amfa" : x.sede!=="amfa");
+  const u=(usuarios||[]).filter(x=>_mi==="amfa" ? x.sede==="amfa" : x.sede!=="amfa").filter(usuarioVisible);
   const ROL_LABELS={"admin":"Administrador","medico":"Médico","fisioterapeuta":"Fisioterapeuta","enfermeria":"Enfermería","recepcion":"Recepcionista","nutricion":"Lic. en Nutrición","psicologo":"Psicólogo(a)","pasante":"Pasante","analista":"Analista"};
   const ROL_COLORS={"admin":"#6A1B9A","medico":"#006BB6","fisioterapeuta":"#2E7D32","enfermeria":"#E65100","recepcion":"#546E7A","nutricion":"#00796B","psicologo":"#5D4037","pasante":"#455A64","analista":"#37474F"};
   RR().innerHTML=nav()+`
@@ -1865,12 +1870,13 @@ async function pgAgenda(){
   const isAdmin=u.rol==="admin";
   let medicos=[];
   if(isAdmin){
-    const {data}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,calendar_url,calendar_color,rol,sede").eq("activo",true);
+    const {data}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,calendar_url,calendar_color,rol,sede,oculto").eq("activo",true);
     // Aislamiento de agenda: un administrador de amfa no ve los calendarios de
     // QP Clinic ni QP Surgery, y viceversa. Misma regla que el padrón de pacientes.
     const _mia=sedeUsuario();
     medicos=(data||[]).filter(m=>m.calendar_url?.trim())
-      .filter(m=>_mia==="amfa" ? m.sede==="amfa" : m.sede!=="amfa");
+      .filter(m=>_mia==="amfa" ? m.sede==="amfa" : m.sede!=="amfa")
+      .filter(usuarioVisible);
     window._medicosCal=medicos;
   }
   RR().innerHTML=nav()+`
@@ -6089,8 +6095,8 @@ window.abrirConsulta=async function(cid){
 // ── INTERCONSULTAS ────────────────────────────────────────
 async function renderInterconsultas(b){
   // Cargar médicos del sistema
-  const {data:medicos}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2,telefono,rol").eq("activo",true).order("apellidos");
-  STATE._medicosIC=(medicos||[]).filter(m=>m.rol!=="analista"); // excluye analistas (no son médicos)
+  const {data:medicos}=await SB.from("usuarios").select("id,titulo,nombre,apellidos,especialidad_1,especialidad_2,telefono,rol,oculto").eq("activo",true).order("apellidos");
+  STATE._medicosIC=(medicos||[]).filter(m=>m.rol!=="analista").filter(usuarioVisible); // excluye analistas y cuentas de dirección
   const med=STATE.userProfile||{};
   const medNom=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
   b.innerHTML=`<div style="max-width:1000px;margin:0 auto;padding:14px" class="fade">
