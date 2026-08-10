@@ -369,7 +369,11 @@ function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none
 // crearlas ni modificarlas (NOM-004: la nota médica es responsabilidad del
 // médico que la suscribe).
 function rolActual(){return STATE.userProfile?.rol||"";}
-function puedeEditarNotaMedica(){return ["medico","admin"].includes(rolActual());}
+function puedeEditarNotaMedica(){
+  // Nutrición, psicología y fisioterapia redactan notas de su propia disciplina;
+  // el tipo de nota disponible ya se limita por sede y por rol más adelante.
+  return ["medico","admin","nutricion","psicologo","fisioterapeuta","pasante"].includes(rolActual());
+}
 function esEnfermeria(){return rolActual()==="enfermeria";}
 function esAnalista(){return rolActual()==="analista";}
 function puedeEscribir(){return !esAnalista();}
@@ -4581,10 +4585,8 @@ window.guardarNuevoPac=async function(){
   // El identificador se genera aquí, en el navegador, para NO tener que pedir el
   // renglón de vuelta. Pedirlo obligaba a la política de lectura a evaluar un
   // paciente que todavía no estaba asociado a su unidad, y la inserción fallaba.
-  payload.id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID()
-    :"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==="x"?r:(r&0x3|0x8)).toString(16);});
-  const {error}=await SB.from("pacientes").insert(payload);
-  const data={...payload};
+  payload.sede_origen=sedeActiva();   // la unidad queda escrita desde el inicio
+  const {data,error}=await SB.from("pacientes").insert(payload).select().single();
   loading(false);
   if(error){
     console.error("Error Supabase:",error);
