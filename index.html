@@ -641,7 +641,7 @@ function nav(){
       </div>
     </div>
     `:""}${(sedeActiva()!=="surgery"&&!esAmfa())?`<button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>`:""}
-    ${(STATE.userProfile?.rol==="admin"||puedeVerInventario())?`
+    ${(rolActual()==="admin"||esAnalista()||(puedeVerInventario()&&!esAmfa()))?`
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora","inventario"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora","inventario"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
       <div id="cfg-menu" style="display:none;position:fixed;top:46px;background:#fff;border-radius:10px;box-shadow:0 8px 24px #00000030;min-width:230px;z-index:9995;overflow:hidden">
@@ -654,7 +654,7 @@ function nav(){
         ${esAmfa()?"":`<button onclick="go('reportes');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📊 Reportes de Dirección</button>`}
         ${esAmfa()?"":`<button onclick="go('cortecaja');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">💰 Corte de caja</button>`}
         `:""}
-        ${puedeVerInventario()?`<button onclick="go('inventario');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📦 Inventario de insumos</button>`:""}
+        ${(puedeVerInventario()&&!esAmfa())?`<button onclick="go('inventario');toggleCfgMenu()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">📦 Inventario de insumos</button>`:""}
         ${rolActual()==="admin"?`
         <div style="border-top:1px solid #F0F0F0;margin:4px 0"></div>
         <button onclick="toggleCfgMenu();reiniciarSesionEmergencia()" style="width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#E65100;display:flex;align-items:center;gap:8px" title="Usar si un usuario reporta errores 'InvalidJWT' repetidos">🔄 Limpiar sesión corrupta (InvalidJWT)</button>
@@ -12634,6 +12634,8 @@ function ivStockBajo(it){return ivNum(it.stock_min)>0 && ivNum(it.stock)<=ivNum(
 
 async function pgInventario(){
   if(!puedeVerInventario()){go(sedeHome(sedeActiva()));return;}
+  // El inventario de insumos es de QP; amfa no compra ni consume de ese almacén.
+  if(esAmfa()){showToast("Este módulo no está disponible en amfa",false);go("agenda");return;}
   const puedeAmbas=puedeCambiarSede();
   const sedeSel=invSedeSel();
   const selBtn=(val,lbl)=>`<button onclick="STATE.invSede='${val}';pgInventario()" style="padding:7px 14px;border-radius:8px;border:1.5px solid ${sedeSel===val?P:BR};background:${sedeSel===val?PL:"#fff"};color:${sedeSel===val?PD:MU};cursor:pointer;font-weight:700;font-size:13px">${lbl}</button>`;
