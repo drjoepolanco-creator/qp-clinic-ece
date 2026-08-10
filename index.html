@@ -4578,7 +4578,13 @@ window.guardarNuevoPac=async function(){
   }
 
   loading(true,"Registrando paciente...");
-  const {data,error}=await SB.from("pacientes").insert(payload).select().single();
+  // El identificador se genera aquí, en el navegador, para NO tener que pedir el
+  // renglón de vuelta. Pedirlo obligaba a la política de lectura a evaluar un
+  // paciente que todavía no estaba asociado a su unidad, y la inserción fallaba.
+  payload.id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID()
+    :"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==="x"?r:(r&0x3|0x8)).toString(16);});
+  const {error}=await SB.from("pacientes").insert(payload);
+  const data={...payload};
   loading(false);
   if(error){
     console.error("Error Supabase:",error);
