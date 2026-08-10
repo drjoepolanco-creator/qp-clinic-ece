@@ -11,13 +11,19 @@
    reales. La más importante es CHK-3: detecta variables usadas fuera de la función donde se
    declaran, que fue lo que tumbó los expedientes en producción.
 
-3. **Supabase YA TIENE RLS configurado** en las 34 tablas, con políticas `auth_all_<tabla>`
-   (FOR ALL TO authenticated). **NO crear políticas nuevas ni activar/desactivar RLS.**
-   Agregar una política `USING (true)` a una tabla que ya tiene otras las AFLOJA, porque en
-   PostgreSQL las políticas se suman con OR.
+3. **Supabase YA TIENE RLS configurado** en las 34 tablas. **NO activar/desactivar RLS ni
+   inventar políticas sin ver antes las que existen.** Agregar una política `USING (true)` a una
+   tabla que ya tiene otras las AFLOJA, porque en PostgreSQL las políticas se suman con OR.
    Antes de proponer cualquier cambio de seguridad, pedir primero:
    `SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname='public';`
-   y `SELECT tablename, policyname, cmd, roles FROM pg_policies WHERE schemaname='public';`
+   y `SELECT tablename, policyname, cmd, qual FROM pg_policies WHERE schemaname='public';`
+   **El editor SQL de Supabase solo muestra el resultado de la ÚLTIMA consulta pegada.**
+   Entregar siempre una consulta a la vez, o los diagnósticos se pierden.
+
+6. **Al cambiar la unidad de un usuario o paciente, revisar las restricciones CHECK.**
+   `usuarios_sede_chk` y `pacientes_sede_origen_chk` enumeran los valores permitidos y se
+   escribieron antes de que AMFA existiera. Ambas ya incluyen `'amfa'`; una unidad futura
+   necesitará el mismo ajuste.
 
 4. **Al aplicar parches en el índice de 20 mil líneas, verificar el punto de inserción.**
    Los patrones de texto se repiten. Un bloque destinado a `pgExp` cayó en `pgMedicos` porque
@@ -26,6 +32,45 @@
 5. **Excepciones que NO deben cerrarse sin cambiar código:**
    `usuarios` (el login la consulta sin sesión para traducir usuario→correo) y
    `pre_registros` (los pacientes llenan su pre-registro desde un enlace con token).
+
+## AMFA Nutrición Especializada — tercera unidad (10 agosto 2026, EN PRODUCCIÓN)
+
+Regla única del aislamiento: **AMFA ve solo lo suyo; todas las demás unidades ven QP
+(clinic + surgery) como una sola casa.** Vive en `puede_ver_paciente(pid)`.
+
+- **Tabla puente `paciente_sedes`** (paciente_id, sede, origen) dice qué unidades alcanzan a cada
+  paciente. La mantienen tres disparadores: alta de paciente, consulta guardada e interconsulta
+  (esta última es el puente deliberado entre unidades). Ver `AMFA_1_preparar.sql`.
+- **`sede_del_usuario()`** lee `usuarios.sede` con `COALESCE(..., 'clinic')`. Ese respaldo silencioso
+  costó horas de diagnóstico: cuando la función fallaba, los pacientes de AMFA se guardaban como de
+  QP sin ningún error visible. Por eso **la aplicación escribe `payload.sede_origen = sedeActiva()`
+  al dar de alta** (`pgNuevoPaciente`): el navegador sí sabe en qué unidad está. No quitar esa línea.
+- **Políticas en `pacientes`:** `pacientes_sel/ins/upd/del`. No debe existir `auth_all_pacientes`
+  junto a ellas.
+- **Reparar huérfanos** (pacientes sin fila en la tabla puente; se ven por `sede_origen` pero no
+  cuentan en los padrones):
+  ```sql
+  INSERT INTO public.paciente_sedes (paciente_id, sede, origen)
+  SELECT p.id, COALESCE(p.sede_origen,'clinic'), 'reparacion' FROM public.pacientes p
+   WHERE NOT EXISTS (SELECT 1 FROM public.paciente_sedes ps WHERE ps.paciente_id = p.id)
+  ON CONFLICT DO NOTHING;
+  ```
+- **Padrón real por unidad** (contra el que se comparan los totales de la interfaz):
+  ```sql
+  SELECT ps.sede, count(DISTINCT ps.paciente_id) FROM public.paciente_sedes ps
+    JOIN public.pacientes p ON p.id = ps.paciente_id
+   WHERE p.activo IS DISTINCT FROM false GROUP BY ps.sede;
+  ```
+  Al 10-ago-2026: clinic 313 · surgery 313 · amfa 1.
+- **Salida de emergencia:** `AMFA_3_revertir.sql` devuelve todo a `auth_all_*` en segundos.
+- **En el front:** `esAmfa()`, `usuarioAmfa()`, `sedeDir()`, `sedeTels()`, `sedePie()`.
+  `puedeCambiarSede()` es false para amfa; `toggleSede()` solo cicla clinic↔surgery; el nav se
+  filtra a Agenda/Pacientes/Nuevo/Herramientas; `GRUPOS_VIS` filtra la barra del expediente
+  (**dentro de `pgExp`**, no de `pgMedicos`); `tiposNotaDisponibles()` deja solo Nota nutricional
+  y Nota de interconsulta; `pgBitacora`, `pgReportes`, `pgCorteCaja` y `pgTramites` tienen guarda.
+- **El número de expediente es un contador único compartido** entre las tres unidades, así que las
+  series salen intercaladas. Es cosmético y el Dr. Polanco lo aceptó. Si algún día quiere serie
+  propia para AMFA (`AMFA-001`), es un contador aparte y no toca los expedientes existentes.
 
 ## Pendientes
 - Certificación NOM-024-SSA3-2012: consultar el texto vigente y los lineamientos de la DGIS
@@ -47,11 +92,12 @@
 - Sitio: `qpclinic.org` (Vercel + Supabase)
 
 ## Arquitectura del sistema
-- **Tipo:** SPA single-file (`index.html`, 14,468 líneas) + `/api/ia-medica.js`
+- **Tipo:** SPA single-file (`index.html`, ~20,600 líneas) + `/api/ia-medica.js`
 - **Supabase project:** `ebukjdxeekhzeurmhgkj`
-- **Archivo de trabajo activo:** `/mnt/user-data/outputs/index.html` ← SIEMPRE usar este
-- **REGLA CRÍTICA:** Nunca revertir a archivos subidos por el usuario. Siempre usar el outputs como base.
+- **Archivo de trabajo activo:** `C:\Users\Alan\Documents\qp-clinic-ece\index.html` ← SIEMPRE este
+- **REGLA CRÍTICA:** Nunca revertir a versiones anteriores ni a archivos subidos al chat.
 - **Deploy:** GitHub → Vercel automático
+- **Unidades:** `clinic` (QP Clinic) · `surgery` (QP Surgery) · `amfa` (AMFA Nutrición Especializada)
 
 ## Patrones técnicos establecidos (NUNCA romper)
 1. **PDF:** Motor HTML→canvas (html2canvas scale:3, ~288dpi), jsPDF addImage. NUNCA jsPDF posicional para texto clínico.
@@ -165,9 +211,8 @@ Columnas que NO existen: `objetivo_calorico_actual`, `objetivo_calorico_historia
 Sistema de firma digital (`firmar.html`), guardado en Storage `expedientes/{pid}/consentimientos/`
 
 ## Instrucción de trabajo
-- **Archivo base siempre:** `/mnt/user-data/outputs/index.html`
-- Verificar sintaxis con `node -e "..."` después de cada cambio
-- `cp /home/claude/index.html /mnt/user-data/outputs/index.html` al finalizar
+- **Archivo base siempre:** `C:\Users\Alan\Documents\qp-clinic-ece\index.html`
+- Correr `python verificar.py index.html` después de cada cambio (hook de pre-commit)
 - Llamar `present_files` al terminar para entrega
-- El Dr. Polanco sube manualmente el archivo a GitHub para deploy en Vercel
+- El Dr. Polanco publica con `git add -A` → `git commit` → `git push` desde PowerShell
 
