@@ -5901,7 +5901,6 @@ function renderConsultas(b){
       <div style="padding:14px">
         <div style="display:flex;gap:6px;margin-bottom:12px">
           ${puedeEditarNotaMedica()?btn("➕ Nueva consulta","go('consulta')","p",1):""}
-          ${btn("📄 Resumen Clínico PDF","showToast('Función disponible próximamente')","s",1)}
         </div>
         <div id="consultas-lista"><div style="text-align:center;padding:24px;color:${MU}"><span class="spin" style="font-size:20px;display:block;margin-bottom:6px">⚙️</span>Cargando consultas...</div></div>
       </div>
@@ -18896,7 +18895,9 @@ function resumenHTML(d){
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim().toUpperCase();
   const fnac=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
   // El comentario BLOQUE marca dónde se puede cortar la página sin partir texto.
-  const S=(t)=>`<!--BLOQUE--><div style="font-size:11.5px;font-weight:700;color:#fff;background:#37474F;letter-spacing:.6px;margin:0 0 8px;padding:5px 10px;border-radius:3px">${t}</div>`;
+  // TITULO además avisa que ese bloque es un encabezado de sección, para que la
+  // paginación no lo deje solo al pie de una página.
+  const S=(t)=>`<!--BLOQUE--><!--TITULO--><div style="font-size:11.5px;font-weight:700;color:#fff;background:#37474F;letter-spacing:.6px;margin:0 0 8px;padding:5px 10px;border-radius:3px">${t}</div>`;
   const T=(t)=>`<div style="font-size:10px;color:#263238;line-height:1.55;white-space:pre-wrap">${(t||"").replace(/</g,"&lt;")}</div>`;
   const VACIO=`<div style="font-size:10px;color:#90A4AE;font-style:italic">NO HAY INFORMACION REGISTRADA</div>`;
   const campo=(l,v)=>`<div style="flex:1 1 22%;min-width:22%;margin-bottom:7px"><div style="font-size:7.5px;color:#78909C;text-transform:uppercase;font-weight:700">${l}</div><div style="font-size:10px;color:#263238">${v||"—"}</div></div>`;
@@ -19092,22 +19093,36 @@ window.resumenSalida=async function(modo){
     let y=MY+encabezado.alto+3;
     const LIMITE=H-MY-8;               // deja lugar para el número de página
 
-    for(const b of R.bloques){
+    // Un encabezado de sección nunca se queda solo al pie de una página: se une
+    // al primer bloque que le sigue y viajan juntos.
+    const BLOQUES=[];
+    for(let i=0;i<R.bloques.length;i++){
+      const b=R.bloques[i];
+      if(b.startsWith("<!--TITULO-->")&&i+1<R.bloques.length){BLOQUES.push(b+R.bloques[i+1]);i++;}
+      else BLOQUES.push(b);
+    }
+
+    const Y0=MY+encabezado.alto+3;       // primera línea útil, bajo el encabezado
+    for(const b of BLOQUES){
       const {img,alto}=await pintar(b,ANCHO);
-      if(alto>LIMITE-MY-encabezado.alto-3){
-        // Bloque más alto que una página: se reparte, pero empezando en página limpia.
-        if(y>MY+encabezado.alto+4)y=nuevaPagina();
-        let resto=alto,desp=0;
-        while(resto>0){
-          const disp=LIMITE-y;
-          doc.addImage(img,"JPEG",MX,y-desp,ANCHO,alto);
-          // Tapa lo que se salga del área útil
+      if(alto>LIMITE-Y0){
+        // Bloque más alto que una página (una consulta larga, por ejemplo): se
+        // reparte en rebanadas. Cada rebanada se dibuja completa y luego se tapa
+        // de blanco lo que sobresale por arriba y por abajo del área útil; el
+        // encabezado se repinta al final para que quede encima de la imagen.
+        if(y>Y0+1){doc.addPage();pagina++;}
+        let desp=0;
+        for(;;){
+          const disp=LIMITE-Y0;
+          doc.addImage(img,"JPEG",MX,Y0-desp,ANCHO,alto);
           doc.setFillColor(255,255,255);
+          doc.rect(0,0,W,Y0,"F");
           doc.rect(0,LIMITE,W,H-LIMITE,"F");
-          resto-=disp;desp+=disp;
-          if(resto>0)y=nuevaPagina();
+          doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);
+          if(alto-desp-disp<=0.5){y=Y0+(alto-desp)+2;break;}
+          desp+=disp;
+          doc.addPage();pagina++;
         }
-        y=LIMITE;
         continue;
       }
       if(y+alto>LIMITE)y=nuevaPagina();
