@@ -8124,8 +8124,14 @@ window.guardarNotaEnfermeria=async function(){
 //  salas, checklist_oms. (QP Surgery Clinic)
 // ══════════════════════════════════════════════════════════════════
 const QX_EDIT=()=>["medico","admin","enfermeria"].includes(rolActual());
-const QX_EST_LABEL={lista_espera:"Lista de espera",programado:"Programado",en_curso:"En curso",recuperacion:"Recuperación",finalizado:"Finalizado",cancelado:"Cancelado"};
-const QX_EST_COLOR={lista_espera:"#546E7A",programado:"#006BB6",en_curso:"#E65100",recuperacion:"#6A1B9A",finalizado:"#2E7D32",cancelado:"#C62828"};
+const QX_EST_LABEL={lista_espera:"Lista de espera",programado:"Programado",en_curso:"En curso",recuperacion:"Recuperación",finalizado:"Finalizado",cancelado:"Cancelada",reprogramado:"Reprogramada"};
+const QX_EST_COLOR={lista_espera:"#546E7A",programado:"#006BB6",en_curso:"#E65100",recuperacion:"#6A1B9A",finalizado:"#2E7D32",cancelado:"#C62828",reprogramado:"#EF6C00"};
+// Una cirugía nunca se borra: se cancela o se reprograma, con motivo, y el
+// registro permanece para poder contabilizarlo.
+const QX_EST_BG={cancelado:"#FFEBEE",reprogramado:"#FFF3E0"};
+const qxEsc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const QX_MOTIVOS_CANCELA=["Solicitud del paciente","Condición clínica del paciente","Estudios preoperatorios incompletos","Falta de insumos o instrumental","Falta de disponibilidad del cirujano","Falta de disponibilidad del anestesiólogo","Sala no disponible","Problema administrativo o de cobertura","Urgencia que desplazó el caso","Otro motivo"];
+const QX_MOTIVOS_REPROG=["Solicitud del paciente","Condición clínica del paciente","Estudios preoperatorios incompletos","Falta de insumos o instrumental","Falta de disponibilidad del cirujano","Falta de disponibilidad del anestesiólogo","Sala no disponible","Urgencia que desplazó el caso","Otro motivo"];
 const OMS_MOMENTOS=[
   ["entrada","Entrada","Antes de la inducción anestésica","#006BB6"],
   ["pausa","Pausa quirúrgica","Antes de la incisión cutánea","#E65100"],
@@ -8217,8 +8223,14 @@ async function pgQuirofano(){
     if(fFecha&&e.fecha_programada!==fFecha)return false;
     return true;
   });
-  const estOpts=[["activos","Activos"],["todos","Todos"],["lista_espera","Lista de espera"],["programado","Programado"],["en_curso","En curso"],["recuperacion","Recuperación"],["finalizado","Finalizado"],["cancelado","Cancelado"]];
-  const estCambio=[["lista_espera","Lista de espera"],["programado","Programado"],["en_curso","En curso"],["recuperacion","Recuperación"],["finalizado","Finalizado"],["cancelado","Cancelado"]];
+  const estOpts=[["activos","Activos"],["todos","Todos"],["lista_espera","Lista de espera"],["programado","Programado"],["en_curso","En curso"],["recuperacion","Recuperación"],["finalizado","Finalizado"],["cancelado","Canceladas"],["reprogramado","Reprogramadas"]];
+  // Cancelar y reprogramar no están en este menú: exigen motivo y van por su propio botón.
+  const estCambio=[["lista_espera","Lista de espera"],["programado","Programado"],["en_curso","En curso"],["recuperacion","Recuperación"],["finalizado","Finalizado"]];
+  // Contadores sobre el total del periodo, no sobre lo filtrado.
+  const cuenta=(v)=>episodios.filter(e=>e.estado===v).length;
+  const RES=[["Programadas",cuenta("programado"),"#006BB6"],["Finalizadas",cuenta("finalizado"),"#2E7D32"],["Canceladas",cuenta("cancelado"),"#C62828"],["Reprogramadas",cuenta("reprogramado"),"#EF6C00"]];
+  const totalCierre=cuenta("finalizado")+cuenta("cancelado");
+  const tasaCancel=totalCierre?Math.round(cuenta("cancelado")/totalCierre*100):0;
   const PRI_COLOR={urgente:"#C62828",alta:"#E65100",normal:"#546E7A",electiva:"#00796B"};
   const PRI_LABEL={urgente:"Urgente",alta:"Alta",normal:"Normal",electiva:"Electiva"};
   const selStyle=`padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;width:100%`;
@@ -8231,8 +8243,12 @@ async function pgQuirofano(){
       </div>
       ${puede?btn('<i class="ti ti-plus"></i> Nuevo episodio',"toggleFormEpisodio()","p",1):""}
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
       ${salas.map(s=>`<span style="background:#fff;border:1.5px solid ${BR};border-radius:8px;padding:6px 12px;font-size:13px;color:${TX};display:flex;align-items:center;gap:6px"><i class="ti ${s.tipo==="endoscopia"?"ti-camera":"ti-scalpel"}"></i> ${s.nombre}</span>`).join("")}
+      <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        ${RES.map(([l,n,c])=>`<span style="background:${c}12;border:1.5px solid ${c}40;border-radius:8px;padding:6px 12px;font-size:13px;color:${c};font-weight:700">${n} ${l}</span>`).join("")}
+        ${totalCierre?`<span title="Canceladas sobre el total de cirugías concluidas o canceladas" style="background:#fff;border:1.5px solid ${BR};border-radius:8px;padding:6px 12px;font-size:13px;color:${MU}">Tasa de cancelación ${tasaCancel}%</span>`:""}
+      </span>
     </div>
     <div id="form-episodio" style="display:none;background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px;margin-bottom:16px">
       <p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:12px">Nuevo episodio quirúrgico</p>
@@ -8282,11 +8298,14 @@ async function pgQuirofano(){
           const c=chkMap[e.id]||{};
           const done=["entrada","pausa","salida"].filter(m=>c[m+"_at"]).length;
           const pcol=PRI_COLOR[e.prioridad]||MU;
-          return `<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+          const inact=e.estado==="cancelado"||e.estado==="reprogramado";
+          const fondo=QX_EST_BG[e.estado]||(i%2?"#FAFAFA":"#fff");
+          const tach=inact?"text-decoration:line-through;opacity:.75;":"";
+          return `<tr style="border-top:1px solid ${BR};background:${fondo}">
             <td style="padding:8px 10px;font-size:13px;color:${TX};white-space:nowrap">${e.fecha_programada?e.fecha_programada.split("-").reverse().join("/"):"<span style='color:"+MU+"'>Sin fecha</span>"}${e.hora_inicio?"<br><span style='font-size:12px;color:"+MU+"'>"+e.hora_inicio.substring(0,5)+"</span>":""}</td>
             <td style="padding:8px 10px;font-size:13px;color:${TX};white-space:nowrap">${sala?sala.nombre:"—"}${e.tipo==="endoscopia"?"<br><span style='font-size:11px;color:"+MU+"'>Endoscopia</span>":""}</td>
             <td style="padding:8px 10px;font-size:13px"><span style="font-weight:700;color:${TX}">${pacNom}</span>${p?.numero_expediente?`<br><span style="font-size:11px;color:${AC};font-weight:700">Exp. ${p.numero_expediente}</span>`:""}</td>
-            <td style="padding:8px 10px;font-size:13px;color:${TX};max-width:220px">${e.procedimiento||"—"}</td>
+            <td style="padding:8px 10px;font-size:13px;color:${TX};max-width:220px"><span style="${tach}">${e.procedimiento||"—"}</span>${inact&&e.motivo_cambio?`<br><span style="font-size:11px;color:${QX_EST_COLOR[e.estado]};font-weight:700">${QX_EST_LABEL[e.estado]}: ${qxEsc(e.motivo_cambio)}</span>`:""}</td>
             <td style="padding:8px 10px;font-size:13px;color:${TX}">${e.cirujano_nombre||"—"}</td>
             <td style="padding:8px 10px;font-size:13px;color:${TX}">${e.anestesiologo_nombre||"—"}</td>
             <td style="padding:8px 10px;white-space:nowrap"><span style="background:${pcol}15;color:${pcol};border:1px solid ${pcol}40;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">${PRI_LABEL[e.prioridad]||e.prioridad||"—"}</span></td>
@@ -8294,7 +8313,11 @@ async function pgQuirofano(){
             <td style="padding:8px 10px;font-size:12px;color:${done===3?SU:MU};white-space:nowrap"><i class="ti ti-checklist"></i> ${done}/3</td>
             <td style="padding:8px 10px;white-space:nowrap">
               <button onclick="abrirChecklistOMS('${e.id}')" title="Checklist de cirugía segura" style="background:${P};color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px"><i class="ti ti-clipboard-check"></i></button>
-              <button onclick="abrirAnestesia('${e.id}')" title="Registro anestésico" style="background:#fff;color:${P};border:1.5px solid ${BR};border-radius:6px;padding:5px 8px;cursor:pointer"><i class="ti ti-activity"></i></button>
+              <button onclick="abrirAnestesia('${e.id}')" title="Registro anestésico" style="background:#fff;color:${P};border:1.5px solid ${BR};border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px"><i class="ti ti-activity"></i></button>
+              ${(puede&&!inact&&e.estado!=="finalizado")?`
+              <button onclick="abrirReprogramarQx('${e.id}')" title="Reprogramar cirugía" style="background:#fff;color:#EF6C00;border:1.5px solid #EF6C0055;border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px"><i class="ti ti-calendar-repeat"></i></button>
+              <button onclick="abrirCancelarQx('${e.id}')" title="Cancelar cirugía" style="background:#fff;color:#C62828;border:1.5px solid #C6282855;border-radius:6px;padding:5px 8px;cursor:pointer"><i class="ti ti-calendar-x"></i></button>`:""}
+              ${inact?`<button onclick="reactivarQx('${e.id}')" title="Revertir a programada" style="background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:6px;padding:5px 8px;cursor:pointer"><i class="ti ti-arrow-back-up"></i></button>`:""}
             </td>
           </tr>`;
         }).join("")}</tbody>
@@ -8309,6 +8332,164 @@ window.cambiarEstadoEpisodio=async function(id,estado){
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
   showToast("Estado actualizado");
+  pgQuirofano();
+}
+
+// ── Cancelación y reprogramación ──────────────────────────────────────────
+// Ninguna de las dos borra el episodio. La cirugía cancelada permanece en la
+// lista, en rojo y con su motivo, para poder medir cuántas se caen y por qué.
+// La reprogramada conserva el registro original y crea uno nuevo enlazado a él,
+// de modo que la fecha primera no se pierde.
+function _qxModal(id,titulo,color,icono,cuerpo,accion,etiqueta){
+  document.getElementById("modal-qx-estado")?.remove();
+  const d=document.createElement("div");
+  d.id="modal-qx-estado";
+  d.style.cssText="position:fixed;inset:0;background:#00000055;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px";
+  d.onclick=(ev)=>{if(ev.target===d)d.remove();};
+  d.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;box-shadow:0 12px 40px #00000040;overflow:hidden">
+    <div style="background:${color};padding:13px 18px;display:flex;align-items:center;gap:9px">
+      <i class="ti ${icono}" style="color:#fff;font-size:19px"></i>
+      <b style="color:#fff;font-size:15px">${titulo}</b>
+    </div>
+    <div style="padding:18px">${cuerpo}
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+        <button onclick="document.getElementById('modal-qx-estado').remove()" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:700">Volver</button>
+        <button onclick="${accion}" style="background:${color};color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:700">${etiqueta}</button>
+      </div>
+    </div></div>`;
+  document.body.appendChild(d);
+}
+
+function _qxFichaEpisodio(ep,pac){
+  const nom=pac?`${pac.nombre||""} ${pac.apellido_paterno||""} ${pac.apellido_materno||""}`.trim():"—";
+  return `<div style="background:#F5F7F9;border-radius:8px;padding:11px 13px;margin-bottom:14px">
+    <div style="font-size:14px;font-weight:700;color:${TX}">${qxEsc(ep.procedimiento||"—")}</div>
+    <div style="font-size:12px;color:${MU};margin-top:3px">${qxEsc(nom)}${pac?.numero_expediente?` · Exp. ${pac.numero_expediente}`:""}</div>
+    <div style="font-size:12px;color:${MU}">${ep.fecha_programada?ep.fecha_programada.split("-").reverse().join("/"):"Sin fecha"}${ep.hora_inicio?" · "+ep.hora_inicio.substring(0,5):""}${ep.cirujano_nombre?" · "+qxEsc(ep.cirujano_nombre):""}</div>
+  </div>`;
+}
+
+function _qxSelectMotivo(lista){
+  return `<label style="font-size:12px;font-weight:700;color:${MU};display:block;margin-bottom:4px">Motivo</label>
+    <select id="qx-motivo" onchange="document.getElementById('qx-motivo-otro').style.display=this.value==='Otro motivo'?'block':'none'" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff;margin-bottom:8px">
+      ${lista.map(m=>`<option value="${m}">${m}</option>`).join("")}
+    </select>
+    <input id="qx-motivo-otro" placeholder="Especifique el motivo" style="display:none;width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;margin-bottom:8px">
+    <label style="font-size:12px;font-weight:700;color:${MU};display:block;margin-bottom:4px">Observaciones (opcional)</label>
+    <textarea id="qx-motivo-obs" rows="2" placeholder="Detalle que convenga dejar asentado" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:7px;outline:none;resize:vertical;font-family:inherit"></textarea>`;
+}
+
+function _qxMotivoLeido(){
+  const sel=gv("qx-motivo")||"";
+  const otro=(gv("qx-motivo-otro")||"").trim();
+  const obs=(gv("qx-motivo-obs")||"").trim();
+  if(sel==="Otro motivo"&&!otro)return null;
+  let m=sel==="Otro motivo"?otro:sel;
+  if(obs)m+=" — "+obs;
+  return m;
+}
+
+async function _qxTraerEpisodio(id){
+  let ep=STATE._qxEpMap?.[id];
+  if(!ep){const {data}=await SB.from("episodios_quirurgicos").select("*").eq("id",id).maybeSingle();ep=data;}
+  if(!ep)return null;
+  let pac=null;
+  if(ep.paciente_id){
+    const {data}=await SB.from("pacientes").select("nombre,apellido_paterno,apellido_materno,numero_expediente").eq("id",ep.paciente_id).maybeSingle();
+    pac=data;
+  }
+  return {ep,pac};
+}
+
+window.abrirCancelarQx=async function(id){
+  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
+  const r=await _qxTraerEpisodio(id);
+  if(!r){showToast("No se encontró el episodio",false);return;}
+  _qxModal(id,"Cancelar cirugía","#C62828","ti-calendar-x",
+    _qxFichaEpisodio(r.ep,r.pac)+
+    `<p style="font-size:13px;color:${TX};line-height:1.6;margin-bottom:12px">La cirugía no se elimina: queda registrada como cancelada, con su motivo, para poder contabilizarla.</p>`+
+    _qxSelectMotivo(QX_MOTIVOS_CANCELA),
+    `confirmarCancelarQx('${id}')`,"Cancelar la cirugía");
+}
+
+window.confirmarCancelarQx=async function(id){
+  const motivo=_qxMotivoLeido();
+  if(!motivo){showToast("Especifique el motivo",false);return;}
+  loading(true,"Registrando la cancelación...");
+  const {error}=await SB.from("episodios_quirurgicos").update({
+    estado:"cancelado",motivo_cambio:motivo,
+    fecha_cambio_estado:new Date().toISOString(),cambio_por:STATE.user?.id||null
+  }).eq("id",id);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  document.getElementById("modal-qx-estado")?.remove();
+  showToast("Cirugía cancelada — el registro se conserva");
+  try{await logBitacora("EPISODIO QUIRÚRGICO","Cancelación: "+motivo);}catch(e){}
+  pgQuirofano();
+}
+
+window.abrirReprogramarQx=async function(id){
+  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
+  const r=await _qxTraerEpisodio(id);
+  if(!r){showToast("No se encontró el episodio",false);return;}
+  const salas=STATE._qxSalas||[];
+  _qxModal(id,"Reprogramar cirugía","#EF6C00","ti-calendar-repeat",
+    _qxFichaEpisodio(r.ep,r.pac)+
+    `<p style="font-size:13px;color:${TX};line-height:1.6;margin-bottom:12px">El episodio actual queda marcado como reprogramado y se crea uno nuevo con la fecha que indique. Así se conserva la fecha original.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:10px">
+      <div><label style="font-size:12px;font-weight:700;color:${MU};display:block;margin-bottom:4px">Nueva fecha</label>
+        <input id="qx-nueva-fecha" type="date" value="${r.ep.fecha_programada||""}" style="width:100%;padding:9px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none"></div>
+      <div><label style="font-size:12px;font-weight:700;color:${MU};display:block;margin-bottom:4px">Nueva hora</label>
+        <input id="qx-nueva-hora" type="time" value="${(r.ep.hora_inicio||"").substring(0,5)}" style="width:100%;padding:9px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none"></div>
+      <div><label style="font-size:12px;font-weight:700;color:${MU};display:block;margin-bottom:4px">Sala</label>
+        <select id="qx-nueva-sala" style="width:100%;padding:9px 10px;border:1.5px solid ${BR};border-radius:7px;outline:none;background:#fff">
+          <option value="">— Sin asignar —</option>
+          ${salas.map(s=>`<option value="${s.id}" ${r.ep.sala_id===s.id?"selected":""}>${qxEsc(s.nombre)}</option>`).join("")}
+        </select></div>
+    </div>`+
+    _qxSelectMotivo(QX_MOTIVOS_REPROG),
+    `confirmarReprogramarQx('${id}')`,"Reprogramar");
+}
+
+window.confirmarReprogramarQx=async function(id){
+  const motivo=_qxMotivoLeido();
+  if(!motivo){showToast("Especifique el motivo",false);return;}
+  const nf=gv("qx-nueva-fecha")||"";
+  if(!nf){showToast("Indique la nueva fecha",false);return;}
+  const r=await _qxTraerEpisodio(id);
+  if(!r){showToast("No se encontró el episodio",false);return;}
+  const e=r.ep;
+  loading(true,"Reprogramando...");
+  const nuevo={
+    paciente_id:e.paciente_id,sede:e.sede||"surgery",tipo:e.tipo||"cirugia",
+    procedimiento:e.procedimiento,diagnostico_preop:e.diagnostico_preop||null,
+    cirujano_nombre:e.cirujano_nombre||null,anestesiologo_nombre:e.anestesiologo_nombre||null,
+    sala_id:gv("qx-nueva-sala")||null,fecha_programada:nf,
+    hora_inicio:gv("qx-nueva-hora")||null,prioridad:e.prioridad||"normal",
+    estado:"programado",created_by:STATE.user?.id||null,episodio_origen:e.id
+  };
+  const {error:e1}=await SB.from("episodios_quirurgicos").insert(nuevo);
+  if(e1){loading(false);showToast("Error al crear la nueva fecha: "+e1.message,false);return;}
+  const {error:e2}=await SB.from("episodios_quirurgicos").update({
+    estado:"reprogramado",motivo_cambio:motivo,
+    fecha_cambio_estado:new Date().toISOString(),cambio_por:STATE.user?.id||null
+  }).eq("id",id);
+  loading(false);
+  if(e2){showToast("Se creó la nueva fecha, pero no se marcó la anterior: "+e2.message,false);}
+  else{showToast("Cirugía reprogramada para el "+nf.split("-").reverse().join("/"));}
+  document.getElementById("modal-qx-estado")?.remove();
+  try{await logBitacora("EPISODIO QUIRÚRGICO","Reprogramación: "+motivo);}catch(err){}
+  pgQuirofano();
+}
+
+window.reactivarQx=async function(id){
+  if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
+  if(!confirm("¿Devolver esta cirugía a estado Programado? El motivo registrado se conserva."))return;
+  loading(true,"Reactivando...");
+  const {error}=await SB.from("episodios_quirurgicos").update({estado:"programado"}).eq("id",id);
+  loading(false);
+  if(error){showToast("Error: "+error.message,false);return;}
+  showToast("Cirugía devuelta a Programado");
   pgQuirofano();
 }
 window.setQxFiltro=function(campo,valor){
