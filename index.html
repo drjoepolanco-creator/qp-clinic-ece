@@ -940,19 +940,35 @@ window.doLogin=async function(){
   lb.innerHTML='<span class="spin">⚙️</span> Verificando...';lb.disabled=true;
   // Si no tiene @ lo tratamos como username → buscar email en usuarios
   let email=usuario;
+  let perfilActivo=null;
   if(!usuario.includes("@")){
     // Buscar en tabla usuarios por username
-    const {data:uData}=await SB.from("usuarios").select("email,username").eq("username",usuario).maybeSingle();
+    const {data:uData}=await SB.from("usuarios").select("email,username,activo").eq("username",usuario).maybeSingle();
     if(uData?.email){
-      email=uData.email;
+      email=uData.email;perfilActivo=uData.activo;
     } else {
       // Intentar con formato username@qpclinic.mx como fallback
       email=usuario+"@qpclinic.mx";
     }
   }
+  if(perfilActivo===false){
+    showLoginError("Esta cuenta está desactivada. Solicita al administrador que la reactive.");
+    return;
+  }
   const {data,error}=await SB.auth.signInWithPassword({email,password:pass});
   if(error){
-    showLoginError("Usuario o contraseña incorrectos");
+    // Decir la causa real. Mostrar siempre «contraseña incorrecta» hacía que el
+    // personal reintentara hasta agotar el límite de Supabase y quedar bloqueado.
+    const m=(error.message||"").toLowerCase();
+    if(m.includes("not confirmed")||m.includes("email not confirmed")){
+      showLoginError(`Tu cuenta existe pero el correo <b>${email}</b> aún no ha sido confirmado. Busca el mensaje de confirmación en tu bandeja y en la carpeta de correo no deseado. <a href="#" onclick="reenviarConfirmacion('${email}');return false;" style="color:#fff;text-decoration:underline">Reenviar confirmación</a>`);
+    } else if(m.includes("rate limit")||m.includes("too many")||m.includes("for security purposes")||m.includes("seconds")){
+      showLoginError("Demasiados intentos seguidos. <b>Espera unos minutos antes de volver a intentar</b> — seguir probando alarga el bloqueo.");
+    } else if(m.includes("invalid login")){
+      showLoginError("Usuario o contraseña incorrectos.");
+    } else {
+      showLoginError("No se pudo iniciar sesión: "+(error.message||"error desconocido"));
+    }
     return;
   }
   STATE.user=data.user;
@@ -967,6 +983,11 @@ function showLoginError(msg){
   if(e){e.style.display="block";e.innerHTML=`<i class="ti ti-alert-circle" aria-hidden="true"></i> ${msg}`;}
   const lb=document.getElementById("login-btn");
   if(lb){lb.innerHTML='<i class="ti ti-login" aria-hidden="true"></i> Entrar al sistema';lb.disabled=false;}
+}
+window.reenviarConfirmacion=async function(email){
+  const {error}=await SB.auth.resend({type:"signup",email});
+  if(error)showLoginError("No se pudo reenviar: "+error.message);
+  else showLoginError(`Se envió un nuevo correo de confirmación a <b>${email}</b>. Revisa también la carpeta de correo no deseado.`);
 }
 window.toggleVerPass=function(){
   const inp=document.getElementById("lp");const btn=document.getElementById("btn-ver-pass");
@@ -1117,8 +1138,8 @@ window.abrirModalUsuario=async function(uid=""){
     <div style="background:${PL};border-radius:8px;padding:10px 12px;margin-bottom:12px"><b style="font-size:13px;color:${P};text-transform:uppercase">Datos de acceso y rol</b></div>
     <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:12px;margin-bottom:14px">
       ${fld("Título",`<select id="mu_titulo" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${["Dr.","Dra.","Lic.","Lic.ª","L.T.F.","L.F.T.","L.N.","P.N.","Psic.","Neuropsic.","Fis.","Enf.","Enf.ª","M.C.","Mtro.","Mtra.","M. en C.","Dr. en C.",""].map(t=>`<option ${(u.titulo||"Dr.")===t?"selected":""}>${t}</option>`).join("")}</select>`)}
-      ${fld("Nombre(s) *",inp("mu_nom",u.nombre||"","Nombre(s)"),1)}
-      ${fld("Apellidos *",inp("mu_ap",u.apellidos||"","Apellido Paterno Materno"),1)}
+      ${fld("Nombre(s) *",`<input id="mu_nom" value="${(u.nombre||"").replace(/"/g,"&quot;")}" placeholder="Nombre(s)" oninput="sugerirUsuario()" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`,1)}
+      ${fld("Apellidos *",`<input id="mu_ap" value="${(u.apellidos||"").replace(/"/g,"&quot;")}" placeholder="Apellido Paterno Materno" oninput="sugerirUsuario()" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`,1)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       ${fld("Unidad *",`<select id="mu_sede" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${
@@ -1127,7 +1148,8 @@ window.abrirModalUsuario=async function(uid=""){
         .map(([v,l])=>`<option value="${v}" ${(u.sede||sedeActiva())===v?"selected":""}>${l}</option>`).join("")}</select>
         <div style="font-size:11px;color:${MU};margin-top:4px">Define qué pacientes y qué agenda alcanza. amfa queda aislada de QP.</div>`,1)}
       ${fld("Rol *",`<select id="mu_rol" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff">${ROLES.map(([v,l])=>`<option value="${v}" ${(u.rol||"medico")===v?"selected":""}>${l}</option>`).join("")}</select>`,1)}
-      ${fld("Nombre de usuario *",inp("mu_user",u.username||"","Ej: dr.garcia"),1)}
+      ${fld("Nombre de usuario *",`<input id="mu_user" value="${(u.username||"").replace(/"/g,"&quot;")}" placeholder="Se genera solo al escribir el nombre" oninput="this.dataset.tocado='1'" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">
+        <div style="font-size:11px;color:${MU};margin-top:4px">Sin acentos ni mayúsculas. Puede editarlo si prefiere otro.</div>`,1)}
       ${fld("Teléfono",inp("mu_tel",u.telefono||"","55XXXXXXXX","tel"))}
     </div>
     <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:16px">
@@ -1226,24 +1248,137 @@ window.abrirModalUsuario=async function(uid=""){
       <p style="font-size:12px;color:${MU};margin-top:4px">Fondo transparente (PNG) recomendado. La firma aparece centrada en la receta.</p>
     </div>
     <!-- Contraseña -->
-    <div style="background:${uid?"#FFF8E1":"#E8F5E9"};border-radius:8px;padding:14px;margin-bottom:16px;border:1px solid ${uid?"#FFE082":"#A5D6A7"}">
-      <p style="font-size:14px;font-weight:700;color:${uid?"#E65100":"#2E7D32"};margin-bottom:8px">${uid?"🔑 Cambiar contraseña (opcional)":"🔑 Contraseña inicial"}</p>
-      <p style="font-size:12px;color:#546E7A;margin-bottom:10px">${uid?"Deja en blanco para conservar la contraseña actual.":"Contraseña por defecto: <b>QpClinic2026!</b> — el usuario puede cambiarla desde su perfil."}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        ${fld(uid?"Nueva contraseña":"Contraseña *",`<input id="mu_pass" type="password" placeholder="${uid?"Dejar en blanco para no cambiar":"QpClinic2026!"}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-        ${fld("Confirmar contraseña",`<input id="mu_pass2" type="password" placeholder="${uid?"Dejar en blanco para no cambiar":"QpClinic2026!"}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+    ${(uid&&uid!==STATE.user?.id)?`
+    <div style="background:#FFF8E1;border-radius:8px;padding:14px;margin-bottom:16px;border:1px solid #FFE082">
+      <p style="font-size:14px;font-weight:700;color:#E65100;margin-bottom:8px">🔑 Fijar contraseña de esta persona</p>
+      <p style="font-size:13px;color:#37474F;line-height:1.6;margin-bottom:10px">
+        Escriba la contraseña y entréguesela directamente. Queda activa de inmediato, sin correos de por medio.
+        El cambio se asienta en la bitácora de acceso.
+      </p>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:${MU};display:block;margin-bottom:4px">Nueva contraseña</label>
+          <input id="mu_pass_admin" type="text" value="${PASS_DEFECTO}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">
+        </div>
+        <button type="button" onclick="fijarContrasenaUsuario('${uid}')" style="background:#E65100;color:#fff;border:none;border-radius:8px;padding:11px 16px;font-size:13px;cursor:pointer;font-weight:700;white-space:nowrap"><i class="ti ti-key"></i> Fijar contraseña</button>
       </div>
-    </div>
+      <p style="font-size:11px;color:#8D6E63;margin-top:8px;line-height:1.5">Mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo. La persona podrá cambiarla después desde 👤 Mi perfil.</p>
+      <div style="border-top:1px solid #FFE082;margin:12px 0 10px"></div>
+      <button type="button" onclick="enviarResetUsuario('${uid}')" style="background:#fff;color:#8D6E63;border:1.5px solid #D7CCC8;border-radius:8px;padding:8px 13px;font-size:12px;cursor:pointer"><i class="ti ti-mail-forward"></i> O enviarle un enlace por correo</button>
+    </div>`:`
+    <div style="background:${uid?"#FFF8E1":"#E8F5E9"};border-radius:8px;padding:14px;margin-bottom:16px;border:1px solid ${uid?"#FFE082":"#A5D6A7"}">
+      <p style="font-size:14px;font-weight:700;color:${uid?"#E65100":"#2E7D32"};margin-bottom:8px">${uid?"🔑 Cambiar mi contraseña (opcional)":"🔑 Contraseña inicial"}</p>
+      <p style="font-size:12px;color:#546E7A;margin-bottom:10px">${uid?"Deja en blanco para conservar la contraseña actual.":"Viene precargada la contraseña por defecto <b>"+PASS_DEFECTO+"</b>. Puede cambiarla aquí; el usuario podrá cambiarla después desde su perfil."}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${fld(uid?"Nueva contraseña":"Contraseña *",`<input id="mu_pass" type="text" value="${uid?"":PASS_DEFECTO}" placeholder="${uid?"Dejar en blanco para no cambiar":PASS_DEFECTO}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+        ${fld("Confirmar contraseña",`<input id="mu_pass2" type="text" value="${uid?"":PASS_DEFECTO}" placeholder="${uid?"Dejar en blanco para no cambiar":PASS_DEFECTO}" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
+      </div>
+    </div>`}
     <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid ${BR};padding-top:14px">
       ${btn("Cancelar","cerrarModalUsuario()","s",1)}
       ${btn(uid?"💾 Guardar cambios":"✅ Crear usuario","guardarUsuario('"+uid+"')","ok",1)}
     </div>`;
   m.style.display="flex";
 }
+// Fija la contraseña de otra persona a través de la función del servidor. La
+// llave con permisos de administración vive allá, nunca en el navegador.
+window.fijarContrasenaUsuario=async function(uid){
+  const pass=gv("mu_pass_admin").trim();
+  if(!pass){showToast("Escriba la contraseña",false);return;}
+  const err=validarContrasena(pass);
+  if(err){showToast("Contraseña insegura: "+err,false);return;}
+  loading(true,"Aplicando la contraseña...");
+  let r;
+  try{
+    r=await SB.functions.invoke("fijar-contrasena",{body:{usuario_id:uid,contrasena:pass}});
+  }catch(e){
+    loading(false);showToast("No se pudo contactar al servidor: "+e.message,false);return;
+  }
+  loading(false);
+  // El error del servidor viaja en el cuerpo; hay que leerlo para no mostrar
+  // un mensaje genérico como los que ya nos costaron horas de diagnóstico.
+  if(r.error){
+    let detalle="";
+    try{detalle=(await r.error.context?.json())?.error||"";}catch(e){}
+    showToast(detalle||("No se pudo cambiar la contraseña: "+r.error.message),false);
+    return;
+  }
+  if(r.data?.error){showToast(r.data.error,false);return;}
+  showToast("✓ "+(r.data?.mensaje||"Contraseña actualizada"));
+  const u=r.data?.usuario;
+  alert(`Contraseña actualizada.\n\nEntregue estos datos:\n\nUsuario: ${u||"(ver arriba)"}\nContraseña: ${pass}\nEntrar en: ${window.location.origin}`);
+}
+
+window.enviarResetUsuario=async function(uid){
+  const {data:u}=await SB.from("usuarios").select("email,nombre,apellidos").eq("id",uid).maybeSingle();
+  if(!u?.email){showToast("Este usuario no tiene correo registrado",false);return;}
+  loading(true,"Enviando enlace...");
+  const {error}=await SB.auth.resetPasswordForEmail(u.email,{redirectTo:window.location.origin+"/#recuperar"});
+  loading(false);
+  if(error){showToast("No se pudo enviar: "+error.message,false);return;}
+  showToast(`Enlace enviado a ${u.email}. Si no llega en unos minutos, cámbiala desde el panel de Supabase.`);
+}
 window.cerrarModalUsuario=function(){
   const m=document.getElementById("modal-usuario");if(m)m.style.display="none";
   STATE._editingUserId=null;
 }
+// Contraseña con la que nacen todas las cuentas nuevas. Cumple la política del
+// manual: ocho caracteres, mayúscula, minúscula, número y símbolo.
+const PASS_DEFECTO="QpClinic2026!";
+
+// Ficha de entrega al terminar el alta. El administrador copia estos datos y se
+// los pasa al profesionista; si el correo requiere confirmación, se avisa aquí
+// en vez de descubrirlo cuando la persona ya no puede entrar.
+function _avisoUsuarioCreado({usuario,pass,email,requiereConfirmar,nombre}){
+  document.getElementById("modal-alta-ok")?.remove();
+  const d=document.createElement("div");
+  d.id="modal-alta-ok";
+  d.style.cssText="position:fixed;inset:0;background:#00000055;z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px";
+  d.onclick=(ev)=>{if(ev.target===d)d.remove();};
+  const texto=`Usuario: ${usuario}\nContraseña: ${pass}\nEntrar en: ${window.location.origin}`;
+  d.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:540px;width:100%;box-shadow:0 12px 40px #00000040;overflow:hidden">
+    <div style="background:#2E7D32;padding:13px 18px;display:flex;align-items:center;gap:9px">
+      <i class="ti ti-user-check" style="color:#fff;font-size:19px"></i>
+      <b style="color:#fff;font-size:15px">Cuenta creada</b>
+    </div>
+    <div style="padding:18px">
+      <p style="font-size:14px;color:#263238;margin-bottom:12px">Entrega estos datos a <b>${qxEsc(nombre)}</b>:</p>
+      <div style="background:#F5F7F9;border-radius:8px;padding:13px;margin-bottom:12px;font-family:ui-monospace,monospace;font-size:13px;color:#263238;line-height:1.8">
+        Usuario: <b>${qxEsc(usuario)}</b><br>
+        Contraseña: <b>${qxEsc(pass)}</b><br>
+        Entrar en: ${window.location.origin}
+      </div>
+      <button onclick="navigator.clipboard.writeText(${JSON.stringify(texto)}).then(()=>showToast('Datos copiados'))" style="background:#006BB6;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer;font-weight:700;margin-bottom:12px"><i class="ti ti-copy"></i> Copiar datos de acceso</button>
+      ${requiereConfirmar?`<div style="background:#FFF3E0;border:1.5px solid #EF6C0055;border-radius:8px;padding:12px;font-size:13px;color:#263238;line-height:1.6">
+        <b style="color:#EF6C00">Falta un paso.</b> El sistema envió un correo de confirmación a <b>${qxEsc(email)}</b>.
+        Mientras no abra ese correo y confirme, <b>no podrá entrar</b> aunque escriba bien su usuario y contraseña.
+        Pídale que revise también la carpeta de correo no deseado.
+      </div>`:`<div style="background:#E8F5E9;border:1.5px solid #2E7D3255;border-radius:8px;padding:12px;font-size:13px;color:#263238;line-height:1.6">
+        <b style="color:#2E7D32">Puede entrar de inmediato</b> con esos datos. Podrá cambiar su contraseña desde Mi perfil.
+      </div>`}
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button onclick="document.getElementById('modal-alta-ok').remove()" style="background:#2E7D32;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;cursor:pointer;font-weight:700">Entendido</button>
+      </div>
+    </div></div>`;
+  document.body.appendChild(d);
+}
+
+function sinAcentos(s){return String(s||"").normalize("NFD").replace(/\p{Diacritic}/gu,"").replace(/ñ/g,"n").replace(/Ñ/g,"N");}
+
+// Propone el nombre de usuario a partir del título y el primer apellido, con la
+// misma forma que ya usa la clínica (dr.garcia, dra.aldana). Deja de proponer en
+// cuanto el administrador escribe el campo a mano.
+window.sugerirUsuario=function(){
+  const campo=document.getElementById("mu_user");
+  if(!campo||campo.dataset.tocado==="1"||STATE._editingUserId)return;
+  const tit=sinAcentos(gv("mu_titulo")).toLowerCase().replace(/[^a-z]/g,"");
+  const aps=sinAcentos(gv("mu_ap")).toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const nom=sinAcentos(gv("mu_nom")).toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if(!aps.length&&!nom.length){campo.value="";return;}
+  const partes=[tit,aps[0]||nom[0]].filter(Boolean);
+  campo.value=partes.join(".").replace(/[^a-z0-9.]/g,"").replace(/\.{2,}/g,".").replace(/^\.|\.$/g,"");
+};
+
 window.guardarUsuario=async function(uid=""){
   const nom=gv("mu_nom").trim();const ap=gv("mu_ap").trim();
   const usuario=gv("mu_user").trim().toLowerCase().replace(/\s+/g,".");
@@ -1262,6 +1397,20 @@ window.guardarUsuario=async function(uid=""){
     if(!email||!email.includes("@")||!email.includes(".")){
       loading(false);
       showToast("Ingresa un correo electrónico real y válido del profesionista",false);
+      return;
+    }
+    // Comprobar duplicados ANTES de tocar Auth. Supabase responde a un correo ya
+    // registrado con un identificador falso, y eso terminaba creando perfiles rotos.
+    const {data:dupU}=await SB.from("usuarios").select("username,nombre,apellidos").eq("username",usuario).maybeSingle();
+    if(dupU){
+      loading(false);
+      showToast(`El nombre de usuario «${usuario}» ya lo tiene ${dupU.nombre||""} ${dupU.apellidos||""}. Elige otro.`,false);
+      return;
+    }
+    const {data:dupE}=await SB.from("usuarios").select("username,nombre,apellidos,activo").eq("email",email).maybeSingle();
+    if(dupE){
+      loading(false);
+      showToast(`Ese correo ya pertenece a ${dupE.nombre||""} ${dupE.apellidos||""} (usuario «${dupE.username}»${dupE.activo===false?", desactivado":""}). No se creó nada: edita esa cuenta en vez de duplicarla.`,false);
       return;
     }
   }
@@ -1341,6 +1490,13 @@ window.guardarUsuario=async function(uid=""){
     if(authErr&&!authErr.message?.includes("already registered")){
       loading(false);showToast("Error al crear cuenta: "+authErr.message,false);return;
     }
+    // Un arreglo de identidades vacío es la señal de Supabase de que ese correo
+    // ya existía en Auth, aunque no aparezca en la tabla de usuarios.
+    if(authData?.user&&Array.isArray(authData.user.identities)&&authData.user.identities.length===0){
+      loading(false);
+      showToast("Ese correo ya tiene una cuenta en el sistema de acceso, aunque no aparezca en esta lista. Usa otro correo o pide que se libere el anterior.",false);
+      return;
+    }
     const authId=authData?.user?.id;
     if(authId){
       profilePayload.id=authId;
@@ -1351,29 +1507,24 @@ window.guardarUsuario=async function(uid=""){
       if(ex?.id){await SB.from("usuarios").update(profilePayload).eq("id",ex.id);}
       else{loading(false);showToast("No se pudo crear el usuario. Verifica que el username no exista.",false);return;}
     }
-    showToast("✓ Usuario creado correctamente");
+    // Si el proyecto exige confirmar el correo, la persona NO podrá entrar hasta
+    // hacerlo. Decirlo aquí evita el ciclo de reintentos y bloqueos.
+    const requiereConfirmar=!!authData?.user&&!authData.user.email_confirmed_at&&!authData.session;
+    loading(false);
+    _avisoUsuarioCreado({usuario,pass,email,requiereConfirmar,nombre:`${gv("mu_titulo")||""} ${nom} ${ap}`.trim()});
+    cerrarModalUsuario();
+    pgMedicos();
+    return;
   } else {
     const {error:dbErr}=await SB.from("usuarios").update(profilePayload).eq("id",uid);
     try{await SB.from("usuarios").update({...jsonPayload,rfc:document.getElementById("mu_rfc")?.value?.trim()||null}).eq("id",uid);}catch(e){console.warn("Cols JSON/RFC:",e);}
     if(dbErr){loading(false);showToast("Error: "+dbErr.message,false);return;}
-    if(pass){
-      if(STATE.user?.id===uid){
-        const {error:passErr}=await SB.auth.updateUser({password:pass});
-        if(passErr)showToast("Perfil guardado. Error de contraseña: "+passErr.message,false);
-        else showToast("✓ Usuario y contraseña actualizados");
-      } else {
-        // Por seguridad, ningún administrador puede fijar la contraseña de otra
-        // persona desde el navegador. Se envía un enlace de restablecimiento
-        // al correo del profesionista para que él defina su propia contraseña.
-        const {data:u}=await SB.from("usuarios").select("email").eq("id",uid).maybeSingle();
-        if(u?.email){
-          const {error:reErr}=await SB.auth.resetPasswordForEmail(u.email,{redirectTo:window.location.origin+"/#recuperar"});
-          if(reErr)showToast("Perfil guardado. No se pudo enviar el restablecimiento: "+reErr.message,false);
-          else showToast("Perfil guardado. Se envió un enlace de restablecimiento a "+u.email);
-        } else {
-          showToast("Perfil guardado. Este usuario no tiene correo registrado para restablecer su contraseña.",false);
-        }
-      }
+    // Solo se puede cambiar la contraseña de la sesión abierta. Para el resto, el
+    // formulario ya no ofrece el campo: ofrecía cambiarla y no cambiaba nada.
+    if(pass&&STATE.user?.id===uid){
+      const {error:passErr}=await SB.auth.updateUser({password:pass});
+      if(passErr)showToast("Perfil guardado. Error de contraseña: "+passErr.message,false);
+      else showToast("✓ Usuario y contraseña actualizados");
     } else {
       showToast("✓ Usuario actualizado correctamente");
     }
