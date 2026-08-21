@@ -340,6 +340,13 @@ function go(pg,ex={}){if(pg==="herramientas"&&!("toolActive"in ex))STATE.toolAct
 function goSeguros(){if(!STATE.pat?.id){showToast("Selecciona un paciente primero",false);return;}STATE.page="seguros";draw();}
 function requirePaciente(fn){if(!STATE.pat?.id){showToast("Selecciona un paciente primero",false);return false;}fn();return true;}
 // ── BITÁCORA DE ACCESO (NOM-024) ─────────────────────────
+// Calidad de los PDF generados desde HTML. La nitidez la da la escala (3 = unos
+// 315 puntos por pulgada); el formato solo decide el peso. En PNG un expediente
+// de tres páginas llegó a 55 MB, porque guarda sin comprimir cada matiz del
+// suavizado de las letras. En JPEG a esta calidad el texto se ve igual y el
+// archivo baja a una fracción.
+const PDF_CALIDAD=0.9;
+
 async function logBitacora(accion,detalle="",paciente_id=null){
   try{
     const u=STATE.userProfile||{};
@@ -6807,7 +6814,7 @@ window.imprimirInterconsulta=async function(id){
       if(i>0)doc.addPage();
       const cv=pages[i];
       const hmm=cv.height/PX_PER_MM;
-      doc.addImage(cv.toDataURL("image/png"),"PNG",ML,ML,CWMM,hmm,undefined,"FAST");
+      doc.addImage(cv.toDataURL("image/jpeg",PDF_CALIDAD),"JPEG",ML,ML,CWMM,hmm,undefined,"FAST");
       addFooter(i+1,total);
     }
 
@@ -11283,7 +11290,7 @@ window.descargarNotaPDF=async function(){
       if(i>0)doc.addPage();
       const cv=pages[i];
       const hmm=cv.height/PX_PER_MM;
-      doc.addImage(cv.toDataURL("image/png"),"PNG",ML,ML,CWMM,hmm,undefined,"FAST");
+      doc.addImage(cv.toDataURL("image/jpeg",PDF_CALIDAD),"JPEG",ML,ML,CWMM,hmm,undefined,"FAST");
       addFooter(i+1,total);
     }
 
@@ -14529,7 +14536,7 @@ window.generarPDFFisio=async function(){
     for(let i=0;i<pages.length;i++){
       if(i>0)doc.addPage();
       const cv=pages[i];const hmm=cv.height/PX_PER_MM;
-      doc.addImage(cv.toDataURL("image/png"),"PNG",ML,ML,CWMM,hmm,undefined,"FAST");
+      doc.addImage(cv.toDataURL("image/jpeg",PDF_CALIDAD),"JPEG",ML,ML,CWMM,hmm,undefined,"FAST");
       addFooter(i+1,total);
     }
     loading(false);
@@ -17288,7 +17295,7 @@ window.generarPDFNutricion=async function(soloDescargar){
       if(i>0)doc.addPage();
       const cv=pages[i];
       const hmm=cv.height/PX_PER_MM;
-      doc.addImage(cv.toDataURL("image/png"),"PNG",ML,ML,CWMM,hmm,undefined,"FAST");
+      doc.addImage(cv.toDataURL("image/jpeg",PDF_CALIDAD),"JPEG",ML,ML,CWMM,hmm,undefined,"FAST");
       addFooter(i+1,total);
     }
 
@@ -19580,13 +19587,13 @@ window.resumenSalida=async function(modo){
       document.body.appendChild(c);
       const cv=await html2canvas(c,{scale:ESCALA,backgroundColor:"#fff",windowWidth:PX,logging:false});
       document.body.removeChild(c);
-      return{img:cv.toDataURL("image/png"),alto:cv.height*anchoMm/cv.width};
+      return{img:cv.toDataURL("image/jpeg",PDF_CALIDAD),alto:cv.height*anchoMm/cv.width};
     };
 
     const encabezado=await pintar(R.enc,ANCHO);
     let pagina=1;
-    const nuevaPagina=()=>{doc.addPage();pagina++;doc.addImage(encabezado.img,"PNG",MX,MY,ANCHO,encabezado.alto);return MY+encabezado.alto+3;};
-    doc.addImage(encabezado.img,"PNG",MX,MY,ANCHO,encabezado.alto);
+    const nuevaPagina=()=>{doc.addPage();pagina++;doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);return MY+encabezado.alto+3;};
+    doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);
     let y=MY+encabezado.alto+3;
     const LIMITE=H-MY-8;               // deja lugar para el número de página
 
@@ -19611,11 +19618,11 @@ window.resumenSalida=async function(modo){
         let desp=0;
         for(;;){
           const disp=LIMITE-Y0;
-          doc.addImage(img,"PNG",MX,Y0-desp,ANCHO,alto);
+          doc.addImage(img,"JPEG",MX,Y0-desp,ANCHO,alto);
           doc.setFillColor(255,255,255);
           doc.rect(0,0,W,Y0,"F");
           doc.rect(0,LIMITE,W,H-LIMITE,"F");
-          doc.addImage(encabezado.img,"PNG",MX,MY,ANCHO,encabezado.alto);
+          doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);
           if(alto-desp-disp<=0.5){y=Y0+(alto-desp)+2;break;}
           desp+=disp;
           doc.addPage();pagina++;
@@ -19623,7 +19630,7 @@ window.resumenSalida=async function(modo){
         continue;
       }
       if(y+alto>LIMITE)y=nuevaPagina();
-      doc.addImage(img,"PNG",MX,y,ANCHO,alto);
+      doc.addImage(img,"JPEG",MX,y,ANCHO,alto);
       y+=alto+2;
     }
 
