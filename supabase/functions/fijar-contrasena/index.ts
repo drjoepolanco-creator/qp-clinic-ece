@@ -122,8 +122,12 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── 5. Fijar la contraseña ────────────────────────────────────────────────
+  // Se marca el correo como confirmado en el mismo movimiento. Las cuentas
+  // creadas antes de apagar la confirmación quedaron pendientes, y eso impedía
+  // entrar aunque la contraseña fuera correcta.
   const { error: errCambio } = await admin.auth.admin.updateUserById(destinoId, {
     password: contrasena,
+    email_confirm: true,
   });
   if (errCambio) {
     return responder({ error: "No se pudo cambiar la contraseña: " + errCambio.message }, 400);
