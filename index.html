@@ -10478,6 +10478,85 @@ function renderRecipeModal(tipo="receta"){
     </div>
   </div>`;
 }
+// ── Piezas gráficas del papel membretado ──────────────────────────────────
+// jsPDF no sabe dibujar degradados, así que la línea se compone de muchos
+// segmentos cortos con el color interpolado entre los dos extremos.
+const RX_TINTA=[23,54,93];        // azul marino del nombre
+const RX_CIAN=[86,214,204];       // extremo claro del degradado
+const RX_AZUL=[41,121,206];       // extremo azul del degradado
+
+function pdfLineaDegradada(doc,x1,x2,y,c1,c2,grosor){
+  const g=grosor||1.1;
+  const pasos=Math.max(30,Math.round((x2-x1)*1.5));
+  const paso=(x2-x1)/pasos;
+  for(let i=0;i<pasos;i++){
+    const t=pasos>1?i/(pasos-1):0;
+    doc.setFillColor(
+      Math.round(c1[0]+(c2[0]-c1[0])*t),
+      Math.round(c1[1]+(c2[1]-c1[1])*t),
+      Math.round(c1[2]+(c2[2]-c1[2])*t));
+    doc.rect(x1+i*paso,y-g/2,paso+0.2,g,"F");
+  }
+}
+
+// Cruz de la marca: dos rectángulos redondeados cruzados.
+function pdfCruz(doc,cx,cy,tam,color){
+  const b=tam*0.36,r=b*0.3;
+  doc.setFillColor(color[0],color[1],color[2]);
+  doc.roundedRect(cx-tam/2,cy-b/2,tam,b,r,r,"F");
+  doc.roundedRect(cx-b/2,cy-tam/2,b,tam,r,r,"F");
+}
+
+function pdfIconoTelefono(doc,x,y,r,color){
+  doc.setFillColor(color[0],color[1],color[2]);
+  doc.circle(x,y,r,"F");
+  doc.setFillColor(255,255,255);
+  doc.roundedRect(x-r*0.45,y-r*0.45,r*0.32,r*0.46,r*0.13,r*0.13,"F");
+  doc.roundedRect(x+r*0.13,y-r*0.02,r*0.32,r*0.46,r*0.13,r*0.13,"F");
+  doc.rect(x-r*0.16,y-r*0.05,r*0.32,r*0.11,"F");
+}
+
+// Las instituciones se escriben completas en el perfil, pero en el membrete no
+// caben: «Universidad Nacional Autónoma de México» se cortaba a la derecha.
+const RX_INSTITUCIONES=[
+  [/universidad\s+nacional\s+aut[oó]noma\s+de\s+m[eé]xico/i,"UNAM"],
+  [/instituto\s+polit[eé]cnico\s+nacional/i,"IPN"],
+  [/universidad\s+aut[oó]noma\s+metropolitana/i,"UAM"],
+  [/instituto\s+mexicano\s+del\s+seguro\s+social/i,"IMSS"],
+  [/instituto\s+de\s+seguridad\s+y\s+servicios\s+sociales\s+de\s+los\s+trabajadores\s+del\s+estado/i,"ISSSTE"],
+  [/benem[eé]rita\s+universidad\s+aut[oó]noma\s+de\s+puebla/i,"BUAP"],
+  [/universidad\s+aut[oó]noma\s+de\s+nuevo\s+le[oó]n/i,"UANL"],
+  [/universidad\s+aut[oó]noma\s+del\s+estado\s+de\s+m[eé]xico/i,"UAEM"],
+  [/universidad\s+de\s+guadalajara/i,"UdeG"],
+  [/instituto\s+tecnol[oó]gico\s+y\s+de\s+estudios\s+superiores\s+de\s+monterrey/i,"Tec de Monterrey"],
+  [/tecnol[oó]gico\s+de\s+monterrey/i,"Tec de Monterrey"],
+  [/universidad\s+an[aá]huac/i,"Anáhuac"],
+  [/universidad\s+la\s+salle/i,"La Salle"],
+  [/universidad\s+panamericana/i,"UP"],
+  [/universidad\s+westhill/i,"Westhill"],
+  [/centro\s+m[eé]dico\s+nacional\s+siglo\s+xxi/i,"CMN Siglo XXI"],
+  [/hospital\s+general\s+de\s+m[eé]xico/i,"HGM"],
+  [/secretar[ií]a\s+de\s+salud/i,"SSA"],
+];
+function abreviarInstitucion(s){
+  let t=String(s||"").split(" — ")[0].split(" · ")[0].trim();
+  if(!t)return "";
+  for(const [re,corto] of RX_INSTITUCIONES) if(re.test(t)) return corto;
+  if(t.length<=26)return t;
+  // Sin equivalencia conocida: siglas con las palabras significativas.
+  const menores=["de","del","la","el","los","las","y","en","para"];
+  const sig=t.split(/\s+/).filter(w=>w.length>2&&!menores.includes(w.toLowerCase()));
+  return sig.length>=3?sig.map(w=>w[0].toUpperCase()).join(""):t.slice(0,26);
+}
+
+function pdfIconoUbicacion(doc,x,y,r,color){
+  doc.setFillColor(color[0],color[1],color[2]);
+  doc.circle(x,y-r*0.2,r*0.8,"F");
+  doc.triangle(x-r*0.6,y+r*0.2,x+r*0.6,y+r*0.2,x,y+r*1.15,"F");
+  doc.setFillColor(255,255,255);
+  doc.circle(x,y-r*0.22,r*0.31,"F");
+}
+
 window.generarPDFReceta=async function(tipo="receta"){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
@@ -10519,29 +10598,67 @@ window.generarPDFReceta=async function(tipo="receta"){
     credLines.push({txt:`Céd. Subesp. ${med.cedula_subesp}`,bold:false,sz:8});
   if(med.alta_especialidad)
     credLines.push({txt:`Alta Especialidad en ${med.alta_especialidad}${med.institucion_alta?"   "+shortInst(med.institucion_alta):""}`.toUpperCase(),bold:false,sz:8});
-  const headerH=Math.max(18, credLines.length*4.5+4);
-  const lineY=headerH+4;
   const B=brand();
-  // ── LOGO izquierda ──
-  await addImg(
-    B.logo,
-    M, 7, headerH-2, 35
-  );
-  // ── DATOS MÉDICO derecha ──
-  let ry=12;
-  for(const cl of credLines){
-    doc.setFontSize(cl.sz);
-    doc.setFont("helvetica",cl.bold?"bold":"normal");
-    doc.setTextColor(cl.bold?38:70,cl.bold?50:70,cl.bold?56:70);
-    // Truncar si es muy largo
-    let txt=cl.txt;
-    while(doc.getTextWidth(txt)>90&&txt.length>5)txt=txt.slice(0,-2);
-    doc.text(txt,W-M,ry,{align:"right"});
-    ry+=cl.sz===9?4.8:4;
+  // ── MEMBRETE ────────────────────────────────────────────────────────────
+  // Logo a la izquierda, nombre y especialidad centrados, cruces decorativas a
+  // la derecha y una línea con degradado cerrando el bloque.
+  await addImg(B.logo, M, 8, 19, 36);
+
+  // Cruces de la marca, arriba a la derecha.
+  pdfCruz(doc, W-M-6,  11, 9,  [46,140,214]);
+  pdfCruz(doc, W-M-19, 8,  5,  [64,164,232]);
+  pdfCruz(doc, W-M-25, 15, 4,  [120,196,240]);
+  pdfCruz(doc, W-M-14, 19, 3.4,[46,140,214]);
+
+  // Nombre del profesional.
+  doc.setFont("helvetica","bold");doc.setFontSize(15);
+  doc.setTextColor(RX_TINTA[0],RX_TINTA[1],RX_TINTA[2]);
+  let nomTit=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
+  while(doc.getTextWidth(nomTit)>112&&nomTit.length>6)nomTit=nomTit.slice(0,-2);
+  let yH=16;
+  doc.text(nomTit,W/2,yH,{align:"center"});
+
+  // Toda la formación, con las instituciones abreviadas para que no se corten.
+  const escribeCentro=(txt,tam,gris,salto)=>{
+    if(!txt)return;
+    doc.setFont("helvetica","normal");doc.setFontSize(tam);
+    if(gris)doc.setTextColor(96,112,128);
+    else doc.setTextColor(RX_TINTA[0],RX_TINTA[1],RX_TINTA[2]);
+    let t=txt;
+    while(doc.getTextWidth(t)>150&&t.length>6)t=t.slice(0,-2);
+    yH+=salto;
+    doc.text(t,W/2,yH,{align:"center"});
+  };
+  const unir=(a,b)=>[a,abreviarInstitucion(b)].filter(Boolean).join("  ·  ");
+
+  const espPrin=unir(med.especialidad_1,med.institucion_esp_1);
+  if(espPrin)escribeCentro(espPrin,12.5,false,7);
+  const lic=unir(med.licenciatura,med.institucion_grado);
+  if(lic)escribeCentro(lic,9,true,espPrin?5.5:7);
+
+  // Cédulas, en una fila.
+  const ceds=[];
+  if(med.cedula_medico)ceds.push("Céd. Prof. "+med.cedula_medico);
+  if(med.cedula_esp_1)ceds.push("Céd. Esp. "+med.cedula_esp_1);
+  if(med.cedula_subesp)ceds.push("Céd. Subesp. "+med.cedula_subesp);
+  if(ceds.length){
+    doc.setFontSize(10);doc.setFont("helvetica","normal");
+    doc.setTextColor(RX_TINTA[0],RX_TINTA[1],RX_TINTA[2]);
+    yH+=6;
+    const anchoTotal=ceds.reduce((s,t)=>s+doc.getTextWidth(t),0)+13*(ceds.length-1);
+    let xC=W/2-anchoTotal/2;
+    ceds.forEach(t=>{doc.text(t,xC,yH);xC+=doc.getTextWidth(t)+13;});
   }
-  // ── LÍNEA SEPARADORA ──
-  doc.setDrawColor(38,50,56);doc.setLineWidth(0.6);
-  doc.line(M,lineY,W-M,lineY);
+
+  // Subespecialidad y alta especialidad, en letra menuda.
+  const subesp=unir(med.subespecialidad&&("Subespecialidad en "+med.subespecialidad),med.institucion_esp_2);
+  if(subesp)escribeCentro(subesp,8,true,5);
+  const alta=unir(med.alta_especialidad&&("Alta Especialidad en "+med.alta_especialidad),med.institucion_alta);
+  if(alta)escribeCentro(alta,8,true,4.2);
+
+  // ── LÍNEA CON DEGRADADO ─────────────────────────────────────────────────
+  const lineY=Math.max(30,yH+4.5);
+  pdfLineaDegradada(doc,M,W-M,lineY,RX_CIAN,RX_AZUL,1.2);
   // ── DATOS PACIENTE ──
   const py=lineY+6;
   doc.setFontSize(8.5);doc.setTextColor(38,50,56);
@@ -10590,7 +10707,10 @@ window.generarPDFReceta=async function(tipo="receta"){
     }
   }
   // ── FIRMA CENTRADA ──
-  const firmaLineY=148;
+  // La receta es de media carta: si el tratamiento es corto, la firma y el pie
+  // suben para no dejar un hueco enorme. Si el texto es largo, bajan hasta el
+  // límite de la media hoja.
+  const firmaLineY=Math.min(148,Math.max(112,contentY+24));
   const firmaLineX1=W/2-38;
   const firmaLineX2=W/2+38;
   if(med.firma_digital){
@@ -10612,14 +10732,45 @@ window.generarPDFReceta=async function(tipo="receta"){
   doc.line(firmaLineX1,firmaLineY,firmaLineX2,firmaLineY);
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(38,50,56);
   doc.text("FIRMA DEL MÉDICO",W/2,firmaLineY+5,{align:"center"});
-  // ── FOOTER ──
-  doc.setDrawColor(38,50,56);doc.setLineWidth(0.4);
-  doc.line(M,158,W-M,158);
-  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
-  doc.text(medNom,W/2,163,{align:"center"});
-  doc.text(B.direccion||med.direccion_clinica||"",W/2,167,{align:"center"});
-  doc.text(sedeActiva()==="surgery"?(B.tel?("Tel: "+B.tel):""):"Teléfono: 55 5682 4345 / 56 4423 7028  Celular: 55 8767 3104",W/2,171,{align:"center"});
-  doc.text(med.correo_profesional||med.email||"dr.polanco@qpclinic.mx",W/2,175,{align:"center"});
+  // ── PIE ─────────────────────────────────────────────────────────────────
+  // Teléfono y domicilio de la unidad activa, con sus iconos. Los datos salen
+  // de la sede: una receta de amfa no puede llevar el domicilio de QP.
+  const pieY=firmaLineY+10;
+  pdfLineaDegradada(doc,M,W-M,pieY,RX_CIAN,RX_AZUL,1.0);
+
+  const telPie=(B.tel2?`${B.tel} / ${B.tel2}`:(B.tel||"")).trim();
+  const dirPie=(B.direccion||med.direccion_clinica||"").trim();
+  doc.setFont("helvetica","normal");
+  doc.setTextColor(RX_TINTA[0],RX_TINTA[1],RX_TINTA[2]);
+
+  // Se reduce la letra hasta que teléfono y domicilio quepan en un solo renglón.
+  let fs=9;
+  const rIco=2.1, sep=2.2, hueco=7;
+  const mide=()=>{
+    doc.setFontSize(fs);
+    return rIco*2+sep+doc.getTextWidth(telPie)+hueco+rIco*2+sep+doc.getTextWidth(dirPie);
+  };
+  while(fs>6 && mide()>W-M*2) fs-=0.5;
+
+  const yPie=pieY+7, total=mide();
+  let xPie=(W-total)/2;
+  if(telPie){
+    pdfIconoTelefono(doc,xPie+rIco,yPie-1,rIco,RX_TINTA);
+    xPie+=rIco*2+sep;
+    doc.setTextColor(RX_TINTA[0],RX_TINTA[1],RX_TINTA[2]);
+    doc.text(telPie,xPie,yPie);
+    xPie+=doc.getTextWidth(telPie)+hueco;
+  }
+  if(dirPie){
+    pdfIconoUbicacion(doc,xPie+rIco,yPie-1.3,rIco,RX_TINTA);
+    xPie+=rIco*2+sep;
+    doc.text(dirPie,xPie,yPie);
+  }
+  const correoPie=(med.correo_profesional||med.email||"").trim();
+  if(correoPie){
+    doc.setFontSize(7.5);doc.setTextColor(120,135,150);
+    doc.text(correoPie,W/2,yPie+5,{align:"center"});
+  }
   const nombre=tipo==="receta"?"Receta":tipo==="lab"?"Solicitud_Lab":"Solicitud_Gabinete";
   doc.save(`${nombre}_${nomPac.replace(/ /g,"_")}_${hoy.replace(/\//g,"-")}.pdf`);
   showToast("✓ PDF generado");
@@ -19414,6 +19565,11 @@ window.resumenSalida=async function(modo){
     // Medidas en milímetros. Carta 216 × 279 con márgenes generosos.
     const W=216,H=279,MX=16,MY=15,ANCHO=W-MX*2;
     const PX=760;                       // ancho de render en píxeles
+    // Escala 3 sobre 760 px da unos 315 puntos por pulgada sobre el ancho útil,
+    // la misma nitidez que ya tienen las notas médicas. Con escala 2 y JPEG el
+    // texto pequeño salía lavado. PNG no comprime con pérdida: las letras
+    // conservan el borde limpio.
+    const ESCALA=3;
     const doc=new jsPDF({orientation:"p",unit:"mm",format:"letter"});
 
     // Convierte un fragmento HTML en imagen y devuelve su alto en mm.
@@ -19422,15 +19578,15 @@ window.resumenSalida=async function(modo){
       c.style.cssText=`position:fixed;left:-99999px;top:0;width:${PX}px;background:#fff;font-family:system-ui,-apple-system,sans-serif`;
       c.innerHTML=frag;
       document.body.appendChild(c);
-      const cv=await html2canvas(c,{scale:2,backgroundColor:"#fff",windowWidth:PX});
+      const cv=await html2canvas(c,{scale:ESCALA,backgroundColor:"#fff",windowWidth:PX,logging:false});
       document.body.removeChild(c);
-      return{img:cv.toDataURL("image/jpeg",0.92),alto:cv.height*anchoMm/cv.width};
+      return{img:cv.toDataURL("image/png"),alto:cv.height*anchoMm/cv.width};
     };
 
     const encabezado=await pintar(R.enc,ANCHO);
     let pagina=1;
-    const nuevaPagina=()=>{doc.addPage();pagina++;doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);return MY+encabezado.alto+3;};
-    doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);
+    const nuevaPagina=()=>{doc.addPage();pagina++;doc.addImage(encabezado.img,"PNG",MX,MY,ANCHO,encabezado.alto);return MY+encabezado.alto+3;};
+    doc.addImage(encabezado.img,"PNG",MX,MY,ANCHO,encabezado.alto);
     let y=MY+encabezado.alto+3;
     const LIMITE=H-MY-8;               // deja lugar para el número de página
 
@@ -19455,11 +19611,11 @@ window.resumenSalida=async function(modo){
         let desp=0;
         for(;;){
           const disp=LIMITE-Y0;
-          doc.addImage(img,"JPEG",MX,Y0-desp,ANCHO,alto);
+          doc.addImage(img,"PNG",MX,Y0-desp,ANCHO,alto);
           doc.setFillColor(255,255,255);
           doc.rect(0,0,W,Y0,"F");
           doc.rect(0,LIMITE,W,H-LIMITE,"F");
-          doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);
+          doc.addImage(encabezado.img,"PNG",MX,MY,ANCHO,encabezado.alto);
           if(alto-desp-disp<=0.5){y=Y0+(alto-desp)+2;break;}
           desp+=disp;
           doc.addPage();pagina++;
@@ -19467,7 +19623,7 @@ window.resumenSalida=async function(modo){
         continue;
       }
       if(y+alto>LIMITE)y=nuevaPagina();
-      doc.addImage(img,"JPEG",MX,y,ANCHO,alto);
+      doc.addImage(img,"PNG",MX,y,ANCHO,alto);
       y+=alto+2;
     }
 
