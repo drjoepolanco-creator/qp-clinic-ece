@@ -10699,39 +10699,53 @@ window.generarPDFReceta=async function(tipo="receta"){
   doc.line(M,contentY+1,M+doc.getTextWidth(titulos[tipo]),contentY+1);
   contentY+=7;
   // ── CONTENIDO ──
-  const maxContentY=135; // media carta
+  // Hoja tamaño carta. El límite deja abajo el espacio que ocupa el bloque de
+  // firma y pie, para que nunca se separen del texto ni caigan solos a otra hoja.
+  const HPAG=279;                        // alto de la carta
+  const ALTO_FIRMA_MAX=18;               // alto máximo de la imagen de firma
+  const ALTO_BLOQUE=ALTO_FIRMA_MAX+34;   // firma + raya + leyenda + degradado + datos
+  const maxContentY=HPAG-14-ALTO_BLOQUE;
   doc.setFontSize(8.5);doc.setTextColor(38,50,56);
   for(const rawLine of contenido.split("\n")){
-    if(contentY>maxContentY){doc.addPage();contentY=20;}
+    if(contentY>maxContentY){doc.addPage();contentY=24;}
     if(!rawLine.trim()){contentY+=2;continue;}
     const isNum=rawLine.match(/^\d+[.\-]/);
     doc.setFont("helvetica",isNum?"bold":"normal");
     const wrapped=doc.splitTextToSize(rawLine,W-M*2);
     for(const wl of wrapped){
-      if(contentY>maxContentY){doc.addPage();contentY=20;}
+      if(contentY>maxContentY){doc.addPage();contentY=24;}
       doc.text(wl,M,contentY);
       contentY+=4.5;
     }
   }
-  // ── FIRMA CENTRADA ──
-  // La receta es de media carta: si el tratamiento es corto, la firma y el pie
-  // suben para no dejar un hueco enorme. Si el texto es largo, bajan hasta el
-  // límite de la media hoja.
-  const firmaLineY=Math.min(148,Math.max(112,contentY+24));
-  const firmaLineX1=W/2-38;
-  const firmaLineX2=W/2+38;
+  // ── FIRMA Y PIE ─────────────────────────────────────────────────────────
+  // Van siempre justo debajo del texto. Antes la raya se colocaba en una altura
+  // fija y la firma se dibujaba ENCIMA de ella: como la imagen sube unos 20 mm,
+  // terminaba montada sobre la última línea del tratamiento.
+  // Primero se mide la firma, y con esa medida se decide dónde empieza el bloque.
+  let firmaB64=null,firmaW=0,firmaH=0;
   if(med.firma_digital){
-    // Calcular proporciones sin dibujar
     try{
       const res=await fetch(med.firma_digital);const blob=await res.blob();
       const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
       const img=await new Promise((rs,rj)=>{const i=new Image();i.onload=()=>rs(i);i.onerror=rj;i.src=b64;});
-      const maxH=18,maxW=55;
-      const ratio=img.width/img.height;
-      let h=maxH,w=h*ratio;
-      if(w>maxW){w=maxW;h=w/ratio;}
+      const maxW=55,ratio=img.width/img.height;
+      firmaH=ALTO_FIRMA_MAX;firmaW=firmaH*ratio;
+      if(firmaW>maxW){firmaW=maxW;firmaH=firmaW/ratio;}
+      firmaB64=b64;
+    }catch(e){firmaB64=null;firmaH=0;}
+  }
+  // Separación cómoda entre el final del texto y el inicio de la firma.
+  let firmaLineY=contentY+10+firmaH;
+  if(firmaLineY+26>HPAG-12){doc.addPage();firmaLineY=30+firmaH;}
+  const firmaLineX1=W/2-38;
+  const firmaLineX2=W/2+38;
+  if(firmaB64){
+    try{
+      const w=firmaW,h=firmaH;
       const fx=W/2-w/2;
       const fy=firmaLineY-h-2;
+      const b64=firmaB64;
       doc.addImage(b64,med.firma_digital.toLowerCase().includes("png")?"PNG":"JPEG",fx,fy,w,h);
     }catch(e){}
   }

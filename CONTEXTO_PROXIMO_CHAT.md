@@ -1,10 +1,20 @@
 # QP Clinic ECE — Contexto completo para continuación
 
-## ⚠️ LEER PRIMERO — reglas de operación (7 agosto 2026)
+## ⚠️ LEER PRIMERO — reglas de operación (actualizado 21 agosto 2026)
 
 1. **Fuente de verdad: `C:\Users\Alan\Documents\qp-clinic-ece`** (repo git conectado a GitHub → Vercel).
    La carpeta de Google Drive quedó OBSOLETA. No editar ahí: ya causó una divergencia de versiones.
-   Publicar con: `git add -A` → `git commit -m "..."` → `git push`. Vercel despliega solo.
+   El Dr. Polanco publica con **doble clic en `publicar.bat`**, que corre el verificador, pide una
+   descripción del cambio y hace `add`/`commit`/`push`. No tiene terminal abierta ni la necesita.
+
+0. **La interfaz nunca debe afirmar algo que no ocurrió.** Es el error que más caro ha salido en
+   este proyecto, tres veces distintas:
+   · el login mostraba «usuario o contraseña incorrectos» ante *cualquier* fallo —incluido el
+     bloqueo por exceso de intentos—, y el personal reintentaba hasta quedar fuera;
+   · el campo «Nueva contraseña» de otro usuario no cambiaba nada y avisaba «Perfil guardado»;
+   · un botón decía «Resumen Clínico PDF» y respondía «función disponible próximamente».
+   Ante un error, mostrar la causa real y qué hacer. Ante una función que no existe, no poner
+   el botón.
 
 2. **Correr `python verificar.py index.html` antes de entregar.** Está enganchado como hook de
    pre-commit (`git config core.hooksPath .githooks`). Nueve comprobaciones nacidas de errores
@@ -32,6 +42,77 @@
 5. **Excepciones que NO deben cerrarse sin cambiar código:**
    `usuarios` (el login la consulta sin sesión para traducir usuario→correo) y
    `pre_registros` (los pacientes llenan su pre-registro desde un enlace con token).
+
+## Acceso de usuarios y contraseñas (21 agosto 2026 — RESUELTO)
+
+Durante semanas el personal quedaba fuera del sistema y se daban de alta personas duplicadas con
+otro correo. Eran **tres causas encadenadas**, ninguna evidente:
+
+1. **El login mentía.** Cualquier error se mostraba como «usuario o contraseña incorrectos», así
+   que ante un correo sin confirmar la gente reintentaba hasta agotar el límite de Supabase — y el
+   bloqueo también decía «contraseña incorrecta». Ahora nombra la causa: correo sin confirmar
+   (con enlace para reenviar), demasiados intentos (**pidiendo que esperen**, no que reintenten) o
+   cuenta desactivada.
+2. **El campo «Nueva contraseña» de otro usuario no cambiaba nada**: enviaba un correo de
+   restablecimiento que nunca llegaba. Sustituido por la función del servidor.
+3. **Las cuentas creadas antes de apagar *Confirm email* seguían sin confirmar.** Se corrigieron
+   en bloque con `UPDATE auth.users SET email_confirmed_at = now() WHERE email_confirmed_at IS NULL`.
+
+**Estado actual del acceso:**
+
+- *Confirm email* está **apagado** en Authentication → Sign In / Providers. Las cuentas nuevas
+  entran de inmediato con la contraseña que fija el administrador.
+- **Edge Function `fijar-contrasena`** (código y guía en `supabase/functions/fijar-contrasena/`):
+  un administrador escribe la contraseña de otra persona de su unidad y queda activa al instante.
+  Verifica rol admin, respeta el aislamiento de unidades, no toca cuentas ocultas, marca el correo
+  como confirmado y asienta el cambio en `bitacora_accesos` como `CAMBIO DE CONTRASEÑA`.
+- El alta de usuarios **propone el nombre de usuario** (`dr.garcia`, sin acentos), **precarga la
+  contraseña por defecto** `QpClinic2026!`, **comprueba duplicados de correo y de usuario antes de
+  tocar Auth** y termina con una ficha de entrega copiable.
+- **Cuentas de dirección**: `usuarios.oculto = true` las saca de gestión de usuarios, de los
+  filtros de agenda y del buscador de interconsultas. Siguen registradas en bitácora.
+
+⚠️ **PENDIENTE Y BLOQUEANTE PARA EL PERSONAL:** el proyecto usa el correo compartido de Supabase,
+que **solo entrega a direcciones miembros de la organización**. «Olvidé mi contraseña» está roto
+para todos salvo el Dr. Polanco. Se arregla configurando SMTP propio (Resend con `qpclinic.org`) en
+Authentication → Emails → SMTP Settings.
+
+## Quirófano — cancelar y reprogramar (21 agosto 2026)
+
+Una cirugía **nunca se borra**. Estados `cancelado` y `reprogramado`, ambos con motivo obligatorio
+de un catálogo cerrado (`QX_MOTIVOS_CANCELA` / `QX_MOTIVOS_REPROG`) para poder agrupar y medir por
+qué se caen. Reprogramar **conserva el episodio original** y crea uno nuevo enlazado por
+`episodio_origen`, de modo que la fecha primera no se pierde. Encabezado con contadores y tasa de
+cancelación. Columnas agregadas: `motivo_cambio`, `fecha_cambio_estado`, `cambio_por`,
+`episodio_origen`, y `episodios_quirurgicos_estado_chk` ampliada.
+
+## PDF generados desde HTML — nitidez contra peso
+
+Todos los PDF del sistema son **fotografías de la pantalla**, no texto: por eso pesan y no se
+pueden buscar por dentro.
+
+- **La nitidez la da la escala**, no el formato. Escala 3 sobre el ancho de render ≈ 315 dpi.
+  El expediente se había quedado en escala 2 (≈210 dpi) y por eso salía lavado.
+- **El peso lo decide el formato.** Guardar en PNG llevó un expediente de tres páginas a **55 MB**,
+  porque conserva sin comprimir cada matiz del suavizado de las letras. Con JPEG a `PDF_CALIDAD`
+  (constante única, hoy 0.9) se ve igual y pesa una fracción.
+- Logos, firmas y gráficas pequeñas sí van en PNG.
+- Si algún día el peso vuelve a estorbar, la salida real es generar el PDF como **texto**: pesaría
+  unos 200 KB, sería nítido a cualquier zoom y buscable, que es lo que la NOM-024 agradece.
+
+## Receta y papel membretado (21 agosto 2026)
+
+Diseño de **media carta**: firma y pie suben cuando el tratamiento es corto
+(`firmaLineY = min(148, max(112, contentY+24))`) y bajan solos si el texto es largo.
+Membrete con nombre centrado en azul marino, especialidad e institución, licenciatura e
+institución, cédulas en fila, subespecialidad y alta especialidad. Línea con degradado dibujada
+por segmentos (jsPDF no sabe hacer degradados), cruces de la marca y iconos de teléfono y
+ubicación dibujados como vectores.
+**`abreviarInstitucion()`** convierte «Universidad Nacional Autónoma de México» en UNAM y demás:
+antes se cortaban a la derecha. Si aparece una institución desconocida de más de 26 caracteres,
+arma las siglas sola. Nadie tiene que cambiar su perfil.
+El pie toma teléfono y domicilio **de la sede activa**; antes estaban escritos a mano y una receta
+de AMFA salía con los datos de QP.
 
 ## AMFA Nutrición Especializada — tercera unidad (10 agosto 2026, EN PRODUCCIÓN)
 
@@ -73,12 +154,37 @@ Regla única del aislamiento: **AMFA ve solo lo suyo; todas las demás unidades 
   propia para AMFA (`AMFA-001`), es un contador aparte y no toca los expedientes existentes.
 
 ## Pendientes
-- Certificación NOM-024-SSA3-2012: consultar el texto vigente y los lineamientos de la DGIS
-  antes de planear. Falta trazabilidad de *consultas* (quién vio qué expediente), no solo de
-  escrituras; política de retención y respaldos verificables; documentación de evidencia.
-- Mover a funciones RPC las consultas anónimas a `usuarios` y `pre_registros`.
-- amfa necesita su propio aviso de privacidad y consentimientos con su razón social
-  (los 11 textos legales del sistema siguen nombrando a QP Clinic, S.C. — es correcto por ahora).
+
+**Por orden de urgencia:**
+
+1. **SMTP propio** (Resend con `qpclinic.org`) en Authentication → Emails. Sin esto «Olvidé mi
+   contraseña» seguirá roto para todo el personal. Es el único pendiente que afecta la operación
+   diaria.
+2. **Razón social de amfa** y sus propios aviso de privacidad y consentimientos. Hoy los pacientes
+   de amfa firman documentos a nombre de QP Clinic, S.C., que no es quien les presta el servicio.
+   Es la brecha B-07 del manual y hay exposición legal desde el primer paciente.
+3. **Revisar el consumo de Supabase.** El panel mostró *EXCEEDING USAGE LIMITS*; el proyecto se
+   subió a plan Pro el 21 de agosto pero conviene confirmar que quedó dentro de los límites.
+4. **Verificar que la bitácora sea inmutable en la base** (brecha B-09). El sistema no ofrece
+   forma de editarla, pero no está comprobado que la tabla esté restringida a INSERT, y el
+   artículo 8 de la NOM-024 lo exige.
+5. **Constancias de capacitación** del personal (brecha B-04) y **registro de verificación mensual
+   de respaldos** (B-05). Ambas son papeleo, no desarrollo.
+6. **El checklist de cirugía segura de la OMS aparece en 0/3 en los doce episodios**, incluidos los
+   finalizados. Averiguar si no se usa o si no se guarda.
+7. Certificación NOM-024: falta trazabilidad de *consultas* (quién vio qué expediente), no solo de
+   escrituras (B-02), e interoperabilidad HL7 CDA (B-03). Consultar el texto vigente de la DGIS
+   antes de planear.
+8. Mover a funciones RPC las consultas anónimas a `usuarios` y `pre_registros`.
+
+## Documentación del sistema (agosto 2026)
+
+- **`QP-OP-PNO-013 Manual de procedimientos del SIEC.docx`** — 16 procedimientos operativos con
+  tabla de actividades, sobre la plantilla oficial PNO. Anexo A con 9 brechas, responsable y fecha.
+- **`Manual SIEC QP Clinic v2.0.docx`** — descripción del sistema, control de acceso, seguridad,
+  bitácora y respaldo. Su apartado 14.1 lista cinco afirmaciones de la versión 1.0 que no
+  correspondían al sistema real.
+- Ambos se remiten entre sí y **no deben contradecirse**: si cambia una brecha, actualizar los dos.
 
 
 ## Identidad del usuario
@@ -214,5 +320,10 @@ Sistema de firma digital (`firmar.html`), guardado en Storage `expedientes/{pid}
 - **Archivo base siempre:** `C:\Users\Alan\Documents\qp-clinic-ece\index.html`
 - Correr `python verificar.py index.html` después de cada cambio (hook de pre-commit)
 - Llamar `present_files` al terminar para entrega
-- El Dr. Polanco publica con `git add -A` → `git commit` → `git push` desde PowerShell
+- El Dr. Polanco publica con **doble clic en `publicar.bat`**. No usa terminal: el .bat le pide la
+  descripción del cambio y hace todo lo demás. Sugerirle el texto del commit **sin acentos ni ñ**,
+  que la consola de Windows rompe.
+- **Cuando haya que tocar Supabase**, entregar una consulta a la vez y decirle la ruta exacta del
+  panel. Yo no manejo credenciales ni doy de alta cuentas: la llave de servicio, las contraseñas y
+  el alta de proveedores los hace él.
 
