@@ -3329,7 +3329,7 @@ function renderSeccionEspecial(tipo,d){
     const fnac=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
     const edad=(typeof calcEdad==="function"&&p.fecha_nacimiento)?calcEdad(p.fecha_nacimiento):"—";
     const sexo=p.sexo_biologico||"—";
-    const alergias=(STATE.alergs||[]).filter(a=>a&&a!=="ALERGIAS NEGADAS");
+    const alergias=alergiasPaciente();
     const alergHTML=alergias.length
       ?`<div style="background:${DA};color:#fff;border-radius:8px;padding:11px 15px;margin-bottom:14px;display:flex;align-items:center;gap:11px"><i class="ti ti-alert-triangle-filled" style="font-size:24px"></i><div><div style="font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;opacity:.92">Alergias</div><div style="font-size:17px;font-weight:800;line-height:1.25">${alergias.join(" · ")}</div></div></div>`
       :`<div style="background:#E8F5E9;color:#1B5E20;border:1.5px solid #A5D6A7;border-radius:8px;padding:9px 15px;margin-bottom:14px;font-size:13px;font-weight:700"><i class="ti ti-circle-check"></i> Alergias negadas</div>`;
@@ -5018,6 +5018,46 @@ window.guardarNuevoPac=async function(){
   showToast("✓ Paciente registrado — Exp. "+data.numero_expediente);
   go("expediente");
 }
+// ── ALERGIAS: UNA SOLA LISTA PARA TODAS LAS PANTALLAS ─────
+// La barra roja miraba únicamente STATE.alergs (las del catálogo). Una alergia
+// capturada en «Otras alergias — texto libre» se guardaba bien pero no aparecía
+// en ninguna pantalla, y había que volver a Alergias y marcarla en la lista
+// para verla. Aquí se juntan las dos fuentes, y todo el sistema lee de aquí.
+function alergiasPaciente(){
+  const out=[];
+  (STATE.alergs||[]).forEach(function(a){
+    const t=String(a||"").trim();
+    if(!t||t.toUpperCase()==="ALERGIAS NEGADAS")return;
+    if(!out.some(function(x){return x.toUpperCase()===t.toUpperCase();}))out.push(t);
+  });
+  String(STATE.alOtrosText||"").split(/[\n;,]+/).forEach(function(a){
+    let t=String(a||"").trim();
+    if(!t)return;
+    if(t.length>44)t=t.substring(0,44)+"…";
+    if(out.some(function(x){return x.toUpperCase()===t.toUpperCase();}))return;
+    out.push(t);
+  });
+  return out;
+}
+// Barra de alergias del encabezado. Misma pieza en expediente y en consulta.
+function badgeAlergiasHTML(){
+  const a=alergiasPaciente();
+  const base="padding:2px 8px;border-radius:20px;font-size:12px;white-space:nowrap";
+  if(!a.length)return `<span id="badge-alergias" style="${base};background:rgba(255,255,255,.15);color:rgba(255,255,255,.8)">Sin alergias</span>`;
+  const resto=a.length>2?" +"+(a.length-2)+" más":"";
+  const titulo=a.join(" · ").replace(/"/g,"&quot;");
+  return `<span id="badge-alergias" title="${titulo}" style="${base};background:#C62828;color:#fff;font-weight:700">⚠️ ${a.slice(0,2).join(", ")}${resto}</span>`;
+}
+// Actualiza la barra sin redibujar la pantalla: al marcar una alergia solo se
+// vuelve a dibujar #ab, y el encabezado se quedaba con la lista anterior.
+window.refrescarBadgeAlergias=function(){
+  const el=document.getElementById("badge-alergias");
+  if(!el)return;
+  const tmp=document.createElement("div");
+  tmp.innerHTML=badgeAlergiasHTML();
+  const nuevo=tmp.firstElementChild;
+  if(nuevo)el.replaceWith(nuevo);
+};
 // ── EXPEDIENTE ────────────────────────────────────────────
 function pgExp(){
   const p=STATE.pat;
@@ -5025,7 +5065,6 @@ function pgExp(){
   const edad=p.fecha_nacimiento?calcEdad(p.fecha_nacimiento):"—";
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim();
   const iniciales=(p.nombre?.[0]||"")+(p.apellido_paterno?.[0]||"");
-  const alergias=STATE.alergs?.filter(a=>a&&a!=="ALERGIAS NEGADAS")||[];
   const GRUPOS=[
     {label:"Identificación",items:[
       {k:"ficha",icon:"ti-id-badge",label:"Ficha de datos"},
@@ -5072,7 +5111,7 @@ function pgExp(){
           <b style="color:#fff;font-size:16px;display:block">${nomPac}</b>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
             <span style="color:rgba(255,255,255,.75);font-size:13px">Exp. #${p.numero_expediente||"—"} · ${edad} · ${p.sexo_biologico||"—"}</span>
-            ${alergias.length>0?`<span style="background:#C62828;color:#fff;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700">⚠️ ${alergias.slice(0,2).join(", ")}${alergias.length>2?" +"+( alergias.length-2)+" más":""}</span>`:`<span style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);padding:2px 8px;border-radius:20px;font-size:12px">Sin alergias</span>`}
+            ${badgeAlergiasHTML()}
           </div>
         </div>
       </div>
@@ -5587,6 +5626,7 @@ function renderAnt(b){
 window.setAT=async function(t){
   // Auto-guardar la pestaña actual antes de cambiar (NOM-004 — no perder datos)
   saveABTextareas();
+  refrescarBadgeAlergias();
   const pid=STATE.pat?.id;
   if(pid){
     const tab=STATE.antTab||"fam";
@@ -5621,6 +5661,7 @@ window.guardarAnt=async function(){
   if(res&&res.omitido){showToast("Sin paciente activo",false);return;}
   if(res&&res.error){showToast("No se pudieron guardar los antecedentes: "+res.error.message,false);return;}
   agLimpiarBorrador("ant");
+  refrescarBadgeAlergias();
   showToast("✓ Antecedentes guardados en el expediente");
 }
 // Escritura de antecedentes, sin nada de interfaz: la usan el botón Guardar y
@@ -5653,6 +5694,7 @@ async function persistirAntecedentes(){
   } else if(STATE.antTab==="ot"){
     res=await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:STATE.antNoPatText||"",otros:STATE.otrosText||""},{onConflict:"paciente_id"});
   }
+  refrescarBadgeAlergias();
   return res||{};
 }
 window.toggleNeo=function(k){
@@ -5725,7 +5767,7 @@ window.actualizarAdic=function(key,val){STATE.patData[key]=val;
     if(el&&!isNaN(it)){el.textContent="IT: "+Math.round(it*10)/10;}
   }
 }
-window.toggleAlerg=function(a){saveABTextareas();STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];guardarAlergiasAuto();}
+window.toggleAlerg=function(a){saveABTextareas();STATE.alergs=STATE.alergs.includes(a)?STATE.alergs.filter(x=>x!==a):[...STATE.alergs,a];guardarAlergiasAuto();refrescarBadgeAlergias();}
 
 // ── Guardado automático de alergias (debounce para ráfagas de clics) ─────────
 let _alSaveTimer=null;
@@ -5803,6 +5845,7 @@ window.agregarOtraAlergia=function(){
   inp.value="";
   renderAB();
   guardarAlergiasAuto();
+  refrescarBadgeAlergias();
   // Devolver el foco al campo para capturar varias alergias seguidas
   setTimeout(()=>{const e=document.getElementById("al-otra");if(e)e.focus();},50);
 }
@@ -6006,7 +6049,7 @@ function renderAB(){
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <p style="flex:1;font-size:13px;color:#2E7D32;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:7px;padding:7px 12px;margin:0">Cada clic se guarda automáticamente en el expediente</p>
-          <button onclick="if(confirm('¿Eliminar todas las alergias registradas del paciente?')){STATE.alergs=[];renderAB();guardarAlergiasAuto();}" style="padding:7px 10px;background:#fff;color:${DA};border:1.5px solid ${DA};border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap">Limpiar todo</button>
+          <button onclick="if(confirm('¿Eliminar todas las alergias registradas del paciente?')){STATE.alergs=[];renderAB();guardarAlergiasAuto();refrescarBadgeAlergias();}" style="padding:7px 10px;background:#fff;color:${DA};border:1.5px solid ${DA};border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap">Limpiar todo</button>
         </div>
       </div>
     </div>`;
@@ -8724,7 +8767,9 @@ async function pgQuirofano(){
           return `<tr style="border-top:1px solid ${BR};background:${fondo}">
             <td style="padding:8px 10px;font-size:13px;color:${TX};white-space:nowrap">${e.fecha_programada?e.fecha_programada.split("-").reverse().join("/"):"<span style='color:"+MU+"'>Sin fecha</span>"}${e.hora_inicio?"<br><span style='font-size:12px;color:"+MU+"'>"+e.hora_inicio.substring(0,5)+"</span>":""}</td>
             <td style="padding:8px 10px;font-size:13px;color:${TX};white-space:nowrap">${sala?sala.nombre:"—"}${e.tipo==="endoscopia"?"<br><span style='font-size:11px;color:"+MU+"'>Endoscopia</span>":""}</td>
-            <td style="padding:8px 10px;font-size:13px"><span style="font-weight:700;color:${TX}">${pacNom}</span>${p?.numero_expediente?`<br><span style="font-size:11px;color:${AC};font-weight:700">Exp. ${p.numero_expediente}</span>`:""}</td>
+            <td style="padding:8px 10px;font-size:13px">${p?.id
+              ?`<span onclick="abrirExpediente('${p.id}')" title="Abrir el expediente — para volver, botón Quirófano" style="font-weight:700;color:${P};cursor:pointer;text-decoration:underline;text-underline-offset:2px">${pacNom}</span>`
+              :`<span style="font-weight:700;color:${MU}">${pacNom}</span>`}${p?.numero_expediente?`<br><span style="font-size:11px;color:${AC};font-weight:700">Exp. ${p.numero_expediente}</span>`:""}</td>
             <td style="padding:8px 10px;font-size:13px;color:${TX};max-width:220px"><span style="${tach}">${e.procedimiento||"—"}</span>${inact&&e.motivo_cambio?`<br><span style="font-size:11px;color:${QX_EST_COLOR[e.estado]};font-weight:700">${QX_EST_LABEL[e.estado]}: ${qxEsc(e.motivo_cambio)}</span>`:""}</td>
             <td style="padding:8px 10px;font-size:13px;color:${TX}">${e.cirujano_nombre||"—"}</td>
             <td style="padding:8px 10px;font-size:13px;color:${TX}">${e.anestesiologo_nombre||"—"}</td>
@@ -10072,7 +10117,8 @@ async function pgConsulta(){
   <div style="display:flex;flex-direction:column;height:calc(100vh - 46px);overflow:hidden">
     <div style="background:${PD};padding:6px 14px;display:flex;align-items:center;justify-content:space-between">
       <div>
-        <b style="color:#fff;font-size:14px">📋 Consulta — ${p.nombre} ${p.apellido_paterno}</b>
+        <b style="color:#fff;font-size:14px">📋 Consulta — ${`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim()}</b>
+        <span style="margin-left:10px">${badgeAlergiasHTML()}</span>
         <span style="color:rgba(255,255,255,.75);font-size:13px;margin-left:10px">
           ${c.fecha||new Date().toISOString().split("T")[0]}
           · Inicio: <b>${c.hora_inicio||c.hora||new Date().toTimeString().substring(0,5)}</b>
@@ -10121,7 +10167,7 @@ async function pgConsulta(){
         </div>
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">⚠️ Alergias</b></div>
-          <div style="padding:12px">${ta("cs_alerg",c.alergias_nota||(STATE.alergs.length?STATE.alergs.join(", "):"Sin alergias conocidas"),"",5)}</div>
+          <div style="padding:12px">${ta("cs_alerg",c.alergias_nota||(alergiasPaciente().length?alergiasPaciente().join(", "):"Sin alergias conocidas"),"",5)}</div>
         </div>
         <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR}"><b style="font-size:14px;color:${TX}">💓 Signos vitales y datos antropométricos${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""])?" iniciales":""}</b></div>
@@ -10497,7 +10543,7 @@ window.generarNotaIA=async function(){
   if(btn){btn.disabled=true;btn.textContent="⚙️ Generando nota con IA...";}
   const p=STATE.pat||{};
   const pacData=`Nombre: ${p.nombre||""} ${p.apellido_paterno||""}\nEdad: ${calcEdad(p.fecha_nacimiento)}\nSexo: ${p.sexo_biologico||"No especificado"}`;
-  const antData=`Alergias: ${STATE.alergs.join(", ")||"Sin alergias conocidas"}\nPatológicos: ${Object.keys(STATE.patData||{}).filter(k=>STATE.patData[k]).join(", ")||"No especificados"}`;
+  const antData=`Alergias: ${alergiasPaciente().join(", ")||"Sin alergias conocidas"}\nPatológicos: ${Object.keys(STATE.patData||{}).filter(k=>STATE.patData[k]).join(", ")||"No especificados"}`;
   try{
     const res=await fetch("/api/ia-medica",{
       method:"POST",

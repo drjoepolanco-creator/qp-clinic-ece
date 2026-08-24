@@ -116,6 +116,33 @@ perdida y en realidad estaba guardada y firmada **como nota de evolución** — 
 título «Nota postquirurgica y de seguimiento» dentro del campo Subjetivo y nunca movió el selector.
 No fue un fallo de la base; fue de la interfaz, que dejó firmar sin decir nada.
 
+## Alergias: una sola lista para todas las pantallas (24 agosto 2026)
+
+Había **dos almacenes separados** y solo uno se mostraba. `STATE.alergs` es la lista del catálogo
+(las que se marcan con clic) y `STATE.alOtrosText` es el texto libre de la sub-pestaña «✏️ Otros».
+La barra roja del encabezado leía únicamente `STATE.alergs`, así que una alergia capturada en el
+texto libre **se guardaba correctamente pero no aparecía en ninguna pantalla** — parecía que el
+guardado había fallado, y la única forma de verla era volver a Alergias y marcarla en la lista.
+
+- **`alergiasPaciente()`** junta las dos fuentes, quita duplicados sin distinguir mayúsculas,
+  descarta «ALERGIAS NEGADAS» y parte el texto libre por saltos de línea, comas y punto y coma.
+  Es la única fuente para el encabezado, la nota de consulta, el resumen médico y el contexto de
+  la IA. **No volver a leer `STATE.alergs` directo para mostrar alergias.**
+- **`badgeAlergiasHTML()`** dibuja la barra (misma pieza en expediente y en consulta) y
+  **`refrescarBadgeAlergias()`** la actualiza en caliente: al marcar una alergia solo se redibuja
+  `#ab`, y el encabezado se quedaba con la lista anterior hasta cambiar de sección.
+
+## Pantalla de Consulta — encabezado (24 agosto 2026)
+
+Muestra el **nombre completo** (antes solo nombre y apellido paterno) y la **barra roja de
+alergias**, igual que el expediente. El campo «Alergias» de la nota se precarga con la lista
+unificada.
+
+## Quirófano — el nombre del paciente abre su expediente (24 agosto 2026)
+
+En la tabla de episodios el nombre es un enlace a `abrirExpediente(id)`. Se regresa con el botón
+Quirófano del menú. Si el episodio no tiene paciente ligado, el texto no es clicable.
+
 ## Quirófano — cancelar y reprogramar (21 agosto 2026)
 
 Una cirugía **nunca se borra**. Estados `cancelado` y `reprogramado`, ambos con motivo obligatorio
