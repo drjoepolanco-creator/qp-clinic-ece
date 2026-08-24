@@ -77,6 +77,45 @@ que **solo entrega a direcciones miembros de la organización**. «Olvidé mi co
 para todos salvo el Dr. Polanco. Se arregla configurando SMTP propio (Resend con `qpclinic.org`) en
 Authentication → Emails → SMTP Settings.
 
+## Autoguardado general (24 agosto 2026)
+
+El autoguardado anterior vigilaba siete campos fijos (`cs_subj` … `cs_plan`). En las notas
+quirúrgicas esos siete están ocultos por `CAMPOS_OCULTOS_NOTA` y el texto vive en los `dc_*`, así
+que la pregunta «¿hay algo escrito?» daba siempre falso y **el temporizador nunca guardaba, justo
+en la nota más larga de todas**. El respaldo local miraba la misma lista, de modo que tampoco
+había red de seguridad. Ahora hay un motor único, `AG_SECCIONES`, que **no conoce ninguna lista de
+campos**: recorre los `input/textarea/select` visibles dentro de la sección activa.
+
+**Dos modos, y el aviso en pantalla dice cuál ocurrió:**
+
+- **`expediente`** — nota de consulta, antecedentes, interrogatorio. Escriben en Supabase con
+  upsert o update idempotente, así que repetir el guardado no ensucia nada. Usan
+  `guardarConsultaSilencioso()`, `persistirAntecedentes()` y `persistirInterrogatorio()`; estas dos
+  últimas se extrajeron de los botones Guardar para que el motor y el botón compartan la escritura.
+- **`borrador`** — signos vitales, fisioterapia y ficha de identificación. Su guardado real hace
+  **INSERT de un registro nuevo** o exige validación. Autoguardar eso en la base llenaría el
+  expediente de registros a medias, que es peor que no tener ninguno; ahí solo se conserva un
+  borrador en el equipo (`qp_borrador_<seccion>_<pid>`) y al volver aparece una barra que ofrece
+  recuperarlo. ⚠️ **No pasar estas secciones a modo `expediente` sin convertir antes su guardado
+  en upsert.**
+
+**Cuándo dispara:** cada 30 s · al salir de una sección (`setET()` es ahora `async` y guarda antes
+de dibujar la siguiente) · al cerrar la nota (`cerrarConsulta()` espera el guardado antes de
+vaciar `STATE.consultaActual`) · al ocultarse la pestaña · al cerrar el navegador.
+
+**El error ya no se esconde.** `guardarConsultaSilencioso()` tenía un `catch{}` vacío que se
+tragaba los fallos y dejaba la nota como si estuviera guardada. Ahora devuelve `{error}` y el
+motor deja un aviso rojo que **no se desvanece solo** — regla 0. Lo que sigue igual: el
+autoguardado no escribe en `bitacora_accesos`, así que una nota que aparece en `consultas` sin su
+evento `GUARDADO DE NOTA` fue un autoguardado, no un guardado manual.
+
+**`confirmarTipoDeNota()`** avisa al firmar cuando el texto habla de un procedimiento quirúrgico
+pero el tipo seleccionado no es una nota quirúrgica. Es la corrección de la causa real del
+incidente del 23 de agosto: una nota posquirúrgica de la paciente del expediente 357 se dio por
+perdida y en realidad estaba guardada y firmada **como nota de evolución** — el médico escribió el
+título «Nota postquirurgica y de seguimiento» dentro del campo Subjetivo y nunca movió el selector.
+No fue un fallo de la base; fue de la interfaz, que dejó firmar sin decir nada.
+
 ## Quirófano — cancelar y reprogramar (21 agosto 2026)
 
 Una cirugía **nunca se borra**. Estados `cancelado` y `reprogramado`, ambos con motivo obligatorio

@@ -510,32 +510,252 @@ document.addEventListener("keydown",e=>{
 // ── DEBOUNCE ──────────────────────────────────────────────
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
 
-// ── AUTOGUARDADO (nota de consulta) ───────────────────────
-let _autoguardadoInterval=null;
-function iniciarAutoguardado(){
-  detenerAutoguardado();
-  _autoguardadoInterval=setInterval(async()=>{
-    if(STATE.page!=="consulta"||!STATE.pat||STATE.consultaActual?.bloqueada)return;
-    const campos=["cs_subj","cs_expl","cs_anal","cs_trat","cs_lab","cs_gab","cs_plan"];
-    const tieneContenido=campos.some(id=>{const e=document.getElementById(id);return e&&e.value.trim().length>0;});
-    if(!tieneContenido)return;
-    const ind=document.getElementById("autosave-indicator");
-    if(ind){ind.textContent="Guardando...";ind.style.color="rgba(255,255,255,.6)";}
-    _respaldarNotaLocal(); // respaldo local instantáneo (sobrevive a cortes de red/sesión)
-    await guardarConsultaSilencioso();
-    if(ind){
-      ind.textContent="✓ Guardado automáticamente";ind.style.color="rgba(255,255,255,.75)";
-      setTimeout(()=>{if(ind)ind.textContent="";},3000);
+// ── AUTOGUARDADO GENERAL ──────────────────────────────────────────────────
+// Nace de una nota quirúrgica que se dio por perdida el 23 de agosto de 2026.
+// El motor anterior solo miraba siete campos SOAP (cs_subj … cs_plan). En las
+// notas quirúrgicas esos siete campos están ocultos —el texto vive en los
+// campos dc_*— así que la pregunta «¿hay algo escrito?» daba siempre falso y
+// el temporizador NUNCA guardaba, justo en la nota más larga de todas.
+// Por eso este motor no conoce ninguna lista de campos: recorre los que están
+// visibles en la sección activa, sean los que sean.
+//
+// Hay dos niveles, y se llaman distinto a propósito:
+//   · "expediente" → la sección se guarda en Supabase con upsert o update
+//     idempotente (nota de consulta, antecedentes, interrogatorio). Repetir el
+//     guardado no ensucia nada.
+//   · "borrador"   → la sección crea un REGISTRO NUEVO cada vez que se guarda
+//     (signos vitales, prescripción de fisioterapia) o exige validación antes
+//     de escribir (ficha de identificación). Autoguardar eso en la base
+//     llenaría el expediente de registros a medias, que es peor que no tener
+//     ninguno. Ahí se conserva solo un borrador en este equipo y se ofrece al
+//     volver a la sección. El aviso en pantalla dice cuál de los dos ocurrió:
+//     nunca se anuncia «guardado en el expediente» si no se escribió en la base.
+const AG_INTERVALO=30000;
+const AG_SECCIONES={
+  consulta:{
+    etiqueta:"Nota de consulta", modo:"expediente",
+    raiz:function(){return document.getElementById("R");},
+    campo:function(e){return /^(cs_|dc_)/.test(e.id);},
+    activa:function(){return STATE.page==="consulta"&&!!STATE.pat&&!STATE.consultaActual?.bloqueada;},
+    guardar:function(){return guardarConsultaSilencioso();},
+  },
+  ant:{
+    etiqueta:"Antecedentes", modo:"expediente",
+    raiz:function(){return document.getElementById("eb");},
+    activa:function(){return STATE.page==="expediente"&&STATE.expTab==="ant"&&!!STATE.pat;},
+    guardar:function(){return persistirAntecedentes();},
+  },
+  inter:{
+    etiqueta:"Interrogatorio", modo:"expediente",
+    raiz:function(){return document.getElementById("eb");},
+    activa:function(){return STATE.page==="expediente"&&STATE.expTab==="inter"&&!!STATE.pat;},
+    guardar:function(){return persistirInterrogatorio();},
+  },
+  sv:{
+    etiqueta:"Signos vitales", modo:"borrador",
+    raiz:function(){return document.getElementById("eb");},
+    activa:function(){return STATE.page==="expediente"&&STATE.expTab==="sv"&&!!STATE.pat;},
+  },
+  fisio:{
+    etiqueta:"Fisioterapia", modo:"borrador",
+    raiz:function(){return document.getElementById("eb");},
+    activa:function(){return STATE.page==="expediente"&&STATE.expTab==="fisio"&&!!STATE.pat;},
+  },
+  ficha:{
+    etiqueta:"Ficha de identificación", modo:"borrador",
+    raiz:function(){return document.getElementById("eb");},
+    activa:function(){return STATE.page==="expediente"&&STATE.expTab==="ficha"&&!!STATE.pat;},
+  },
+};
+let _agTimer=null;
+let _agHuella={};
+function agSeccionActiva(){
+  for(const k in AG_SECCIONES){
+    try{ if(AG_SECCIONES[k].activa())return k; }catch(e){}
+  }
+  return null;
+}
+function agEsVisible(e){
+  return !!(e.offsetParent!==null||(e.getClientRects&&e.getClientRects().length));
+}
+function agCampos(k){
+  const cfg=AG_SECCIONES[k]; if(!cfg)return [];
+  const raiz=cfg.raiz&&cfg.raiz(); if(!raiz)return [];
+  const out=[];
+  raiz.querySelectorAll("input,textarea,select").forEach(function(e){
+    if(!e.id)return;
+    if(e.disabled||e.readOnly)return;
+    if(e.type==="file"||e.type==="password"||e.type==="button"||e.type==="submit")return;
+    if(!agEsVisible(e))return;
+    if(cfg.campo&&!cfg.campo(e))return;
+    out.push(e);
+  });
+  return out;
+}
+function agInstantanea(k){
+  const o={};
+  agCampos(k).forEach(function(e){
+    const v=(e.type==="checkbox"||e.type==="radio")?(e.checked?"1":""):String(e.value==null?"":e.value);
+    if(v.trim())o[e.id]=v;
+  });
+  return o;
+}
+function agHayContenido(k){
+  const s=agInstantanea(k);
+  return Object.keys(s).length>0;
+}
+function agHuella(k){
+  try{ return JSON.stringify(agInstantanea(k)); }catch(e){ return ""; }
+}
+// ── Aviso en pantalla ──
+// Un fallo NO se desvanece solo. La regla 0 del proyecto es que la interfaz
+// nunca afirme algo que no ocurrió, y un aviso de error que se borra a los
+// tres segundos equivale a decirle al médico que todo quedó bien.
+function agAvisar(texto,tipo){
+  let el=document.getElementById("ag-ind");
+  if(!el){
+    if(!document.body)return;
+    el=document.createElement("div");
+    el.id="ag-ind";
+    el.style.cssText="position:fixed;right:16px;bottom:16px;z-index:9998;padding:8px 14px;border-radius:20px;font-size:12px;font-weight:600;box-shadow:0 2px 12px #00000026;display:none;max-width:300px;line-height:1.35";
+    document.body.appendChild(el);
+  }
+  const estilos={trabajando:["#ECEFF1","#455A64"],expediente:["#E8F5E9","#2E7D32"],borrador:["#FFF8E1","#E65100"],falla:["#FFEBEE","#B71C1C"]};
+  const par=estilos[tipo]||estilos.trabajando;
+  el.style.background=par[0];el.style.color=par[1];el.style.border="1px solid "+par[1]+"44";
+  el.textContent=texto;
+  el.style.display="block";
+  clearTimeout(el._t);
+  if(tipo!=="falla")el._t=setTimeout(function(){const x=document.getElementById("ag-ind");if(x)x.style.display="none";},4000);
+  const ind=document.getElementById("autosave-indicator");
+  if(ind){ind.textContent=texto;ind.style.color=tipo==="falla"?"#FFCDD2":"rgba(255,255,255,.75)";}
+}
+// ── Borrador local ──
+function agClaveBorrador(k){return "qp_borrador_"+k+"_"+(STATE.pat?.id||"x");}
+function agGuardarBorrador(k){
+  try{
+    const campos=agInstantanea(k);
+    if(!Object.keys(campos).length){agLimpiarBorrador(k);return false;}
+    localStorage.setItem(agClaveBorrador(k),JSON.stringify({seccion:k,pid:STATE.pat?.id||null,fecha:new Date().toISOString(),campos:campos}));
+    return true;
+  }catch(e){return false;}
+}
+function agLeerBorrador(k){
+  try{
+    const raw=localStorage.getItem(agClaveBorrador(k));
+    if(!raw)return null;
+    const b=JSON.parse(raw);
+    return (b&&b.campos&&Object.keys(b.campos).length)?b:null;
+  }catch(e){return null;}
+}
+window.agLimpiarBorrador=function(k){
+  try{localStorage.removeItem(agClaveBorrador(k));}catch(e){}
+  const banner=document.getElementById("ag-banner");if(banner)banner.remove();
+};
+window.agRecuperarBorrador=function(k){
+  const b=agLeerBorrador(k);
+  if(!b){showToast("El borrador ya no está disponible",false);return;}
+  let n=0;
+  Object.keys(b.campos).forEach(function(id){
+    const e=document.getElementById(id);if(!e)return;
+    if(e.type==="checkbox"||e.type==="radio")e.checked=(b.campos[id]==="1");
+    else e.value=b.campos[id];
+    n++;
+  });
+  agLimpiarBorrador(k);
+  if(n)showToast("✓ "+n+" campos recuperados — revísalos y guarda la sección");
+  else showToast("El borrador no corresponde a este formulario",false);
+};
+// Barra discreta que ofrece recuperar un borrador. No es un modal a propósito:
+// aparece dentro de la sección y no interrumpe a quien ya sabe qué va a hacer.
+function agBanner(k,contenedor){
+  if(!AG_SECCIONES[k]||!contenedor)return;
+  const previo=document.getElementById("ag-banner");
+  if(previo&&previo.getAttribute("data-seccion")===k&&contenedor.contains(previo))return;
+  if(previo)previo.remove();
+  const b=agLeerBorrador(k);if(!b)return;
+  // Solo estorbar si el borrador tiene MÁS de lo que ya hay en pantalla. Los
+  // signos vitales llegan con peso y talla precargados del InBody, así que
+  // "¿está vacío el formulario?" no servía como criterio.
+  if(Object.keys(agInstantanea(k)).length>=Object.keys(b.campos).length)return;
+  let cuando="";
+  try{cuando=new Date(b.fecha).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}catch(e){}
+  const d=document.createElement("div");
+  d.id="ag-banner";
+  d.setAttribute("data-seccion",k);
+  d.style.cssText="background:#FFF8E1;border:1.5px solid #FFB74D;border-radius:10px;padding:11px 14px;margin:12px 14px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap";
+  d.innerHTML='<span style="font-size:13px;color:#E65100;font-weight:600;flex:1;min-width:230px">📝 Quedó texto sin guardar de esta sección'+(cuando?" ("+cuando+")":"")+', conservado en este equipo.</span>'+
+    '<button onclick="agRecuperarBorrador(\''+k+'\')" style="background:#E65100;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">Recuperar</button>'+
+    '<button onclick="agLimpiarBorrador(\''+k+'\')" style="background:#fff;color:#E65100;border:1.5px solid #FFB74D;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">Descartar</button>';
+  contenedor.insertBefore(d,contenedor.firstChild);
+}
+// Varias secciones (signos vitales, fisioterapia) se dibujan de forma asíncrona
+// y reemplazan el contenedor después de que renderEB termina, así que la barra
+// se intenta poner tres veces y se resuelve sola cuál es el contenedor.
+window.agBannerSeccion=function(k){
+  const cfg=AG_SECCIONES[k]; if(!cfg)return;
+  [150,600,1500].forEach(function(ms){
+    setTimeout(function(){
+      try{ if(cfg.activa())agBanner(k,cfg.raiz()); }catch(e){}
+    },ms);
+  });
+};
+// ── Guardado ──
+async function agGuardar(k,motivo,forzar){
+  const cfg=AG_SECCIONES[k]; if(!cfg)return;
+  if(!agHayContenido(k))return;
+  const huella=agHuella(k);
+  if(!forzar&&huella===_agHuella[k])return;
+  const nota=motivo?" ("+motivo+")":"";
+  if(cfg.modo==="borrador"){
+    if(agGuardarBorrador(k)){
+      _agHuella[k]=huella;
+      agAvisar("📝 "+cfg.etiqueta+": borrador guardado en este equipo"+nota+", todavía no en el expediente","borrador");
     }
-  },30000);
+    return;
+  }
+  agAvisar("Guardando…","trabajando");
+  agGuardarBorrador(k);
+  let res;
+  try{ res=await cfg.guardar(); }
+  catch(e){ res={error:{message:(e&&e.message)?e.message:"Error de red"}}; }
+  if(res&&res.omitido)return;
+  if(res&&res.error){
+    agAvisar("⚠️ "+cfg.etiqueta+": no se pudo guardar ("+res.error.message+"). El texto quedó en este equipo; no cierres la sesión ni el navegador.","falla");
+    return;
+  }
+  _agHuella[k]=huella;
+  agLimpiarBorrador(k);
+  agAvisar("✓ "+cfg.etiqueta+": guardado en el expediente"+nota,"expediente");
 }
-function detenerAutoguardado(){
-  if(_autoguardadoInterval){clearInterval(_autoguardadoInterval);_autoguardadoInterval=null;}
+window.agGuardarAhora=async function(motivo,forzar){
+  const k=agSeccionActiva();
+  if(k)await agGuardar(k,motivo||"",forzar!==false);
+};
+function agIniciar(){
+  if(_agTimer)return;
+  _agTimer=setInterval(function(){
+    const k=agSeccionActiva();
+    if(k)agGuardar(k,"",false);
+  },AG_INTERVALO);
+  document.addEventListener("visibilitychange",function(){
+    if(document.visibilityState==="hidden"){const k=agSeccionActiva();if(k)agGuardarBorrador(k);}
+  });
+  window.addEventListener("beforeunload",function(){
+    const k=agSeccionActiva();if(k&&agHayContenido(k))agGuardarBorrador(k);
+  });
 }
+// Compatibilidad: pgConsulta sigue llamando a iniciarAutoguardado() al dibujar
+// la nota. El motor es global y vive mientras dure la sesión —cubre también los
+// formularios del expediente—, así que abrirla solo se asegura de que esté en
+// marcha. cerrarConsulta ya no lo apaga: espera el guardado y sigue.
+function iniciarAutoguardado(){agIniciar();}
+function detenerAutoguardado(){agIniciar();}
+agIniciar();
 async function guardarConsultaSilencioso(){
-  const pid=STATE.pat?.id;if(!pid)return;
-  if(!puedeEditarNotaMedica())return;
-  if(STATE.consultaActual?.bloqueada)return;
+  const pid=STATE.pat?.id;if(!pid)return{omitido:true};
+  if(!puedeEditarNotaMedica())return{omitido:true};
+  if(STATE.consultaActual?.bloqueada)return{omitido:true};
   const med=STATE.userProfile||{};
   const medNombre=`${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}`.trim();
   const ahora=new Date();
@@ -566,12 +786,16 @@ async function guardarConsultaSilencioso(){
       payload.hora_inicio=ahora.toTimeString().substring(0,5);
       res=await SB.from("consultas").insert(payload).select().single();
     }
-    if(res?.data&&!res?.error){
-      STATE.consultaActual=res.data;
-      // La nota quedó guardada en Supabase: el respaldo local ya no es necesario
-      try{localStorage.removeItem("qp_nota_backup_"+pid);}catch(e){}
-    }
-  }catch(e){/* silencioso — el respaldo local queda como red de seguridad */}
+  }catch(e){
+    // Antes este catch se tragaba el error en silencio y la nota parecia
+    // guardada. Ahora devuelve la falla para que el motor la muestre.
+    return {error:{message:(e&&e.message)?e.message:"Error de red"}};
+  }
+  if(res&&res.data&&!res.error){
+    STATE.consultaActual=res.data;
+    try{localStorage.removeItem("qp_nota_backup_"+pid);}catch(e){}
+  }
+  return res||{};
 }
 // ── BRANDING DINÁMICO POR SEDE (QP Clinic / QP Surgery Clinic) ──
 const BRANDING={
@@ -4885,7 +5109,11 @@ function pgExp(){
   </div>`;
   renderEB();
 }
-window.setET=function(t){
+window.setET=async function(t){
+  // Guardar al salir de una sección, antes de dibujar la siguiente. Cambiar de
+  // pestaña era hasta ahora la forma más fácil de perder lo escrito: el
+  // temporizador podía estar a 29 segundos de su próximo intento.
+  if(STATE.expTab&&STATE.expTab!==t){try{await agGuardarAhora("al salir de la sección");}catch(e){}}
   STATE.expTab=t;
   // Resetear sub-pestaña al cambiar sección
   if(t==="ant")STATE.antTab="fam";
@@ -4911,6 +5139,7 @@ function renderEB(){
   else if(STATE.expTab==="enfermeria")renderEnfermeria(b);
   else if(STATE.expTab==="inbody")renderInBody(b);
   else b.innerHTML=`<div style="padding:40px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🔧</div><p style="color:${MU}">Módulo disponible en próxima versión</p></div>`;
+  try{agBannerSeccion(STATE.expTab);}catch(e){}
 }
 // ── FICHA DE DATOS ────────────────────────────────────────
 function renderFicha(b){
@@ -5333,6 +5562,7 @@ window.guardarFicha=async function(){
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
   STATE.pat=data;
+  agLimpiarBorrador("ficha");
   showToast("✓ Datos del paciente actualizados");
 }
 // ── ANTECEDENTES ──────────────────────────────────────────
@@ -5385,34 +5615,45 @@ window.setAT=async function(t){
   const b=document.getElementById("eb");if(b)renderAnt(b);
 }
 window.guardarAnt=async function(){
-  const pid=STATE.pat?.id;if(!pid)return;
   loading(true,"Guardando antecedentes...");
+  const res=await persistirAntecedentes();
+  loading(false);
+  if(res&&res.omitido){showToast("Sin paciente activo",false);return;}
+  if(res&&res.error){showToast("No se pudieron guardar los antecedentes: "+res.error.message,false);return;}
+  agLimpiarBorrador("ant");
+  showToast("✓ Antecedentes guardados en el expediente");
+}
+// Escritura de antecedentes, sin nada de interfaz: la usan el botón Guardar y
+// el autoguardado. Todas las tablas son upsert por paciente_id, así que
+// repetirla no crea registros de más.
+async function persistirAntecedentes(){
+  const pid=STATE.pat?.id;if(!pid)return{omitido:true};
   const nota=document.getElementById("pat-otras");if(nota)STATE.patOtrasNotes=nota.value;
   const texto=document.getElementById("nopa");if(texto)STATE.antNoPatText=texto.value;
   const med=document.getElementById("meda");if(med)STATE.medText=med.value;
   const otros=document.getElementById("ant_otros");if(otros)STATE.otrosText=otros.value;
   const alOtros=document.getElementById("al_otros_txt");if(alOtros)STATE.alOtrosText=alOtros.value;
   const medOtros=document.getElementById("med_otros_txt");if(medOtros)STATE.medOtrosText=medOtros.value;
+  let res={omitido:true};
   if(STATE.antTab==="pat"){
-    await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
+    res=await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="oc"){
-    const otros=document.getElementById("oc-otros");
-    if(otros)STATE.patData["oc_otros"]=otros.value;
-    await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
+    const oc=document.getElementById("oc-otros");
+    if(oc)STATE.patData["oc_otros"]=oc.value;
+    res=await SB.from("antecedentes_patologicos").upsert({paciente_id:pid,seleccionados:STATE.patData,notas_otras:STATE.patOtrasNotes},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="fam"){
     STATE.famNotas=gv("fam_notas")||"";
-    await SB.from("antecedentes_familiares").upsert({paciente_id:pid,datos:STATE.famData,notas:STATE.famNotas},{onConflict:"paciente_id"});
+    res=await SB.from("antecedentes_familiares").upsert({paciente_id:pid,datos:STATE.famData,notas:STATE.famNotas},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="al"){
-    await SB.from("alergias").upsert({paciente_id:pid,lista:STATE.alergs,otros:STATE.alOtrosText||""},{onConflict:"paciente_id"});
+    res=await SB.from("alergias").upsert({paciente_id:pid,lista:STATE.alergs,otros:STATE.alOtrosText||""},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="nop"){
-    await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:STATE.antNoPatText||""},{onConflict:"paciente_id"});
+    res=await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:STATE.antNoPatText||""},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="med"){
-    await SB.from("medicamentos_usados").upsert({paciente_id:pid,texto:STATE.medText||"",otros:STATE.medOtrosText||""},{onConflict:"paciente_id"});
+    res=await SB.from("medicamentos_usados").upsert({paciente_id:pid,texto:STATE.medText||"",otros:STATE.medOtrosText||""},{onConflict:"paciente_id"});
   } else if(STATE.antTab==="ot"){
-    await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:STATE.antNoPatText||"",otros:STATE.otrosText||""},{onConflict:"paciente_id"});
+    res=await SB.from("antecedentes_no_patologicos").upsert({paciente_id:pid,texto:STATE.antNoPatText||"",otros:STATE.otrosText||""},{onConflict:"paciente_id"});
   }
-  loading(false);
-  showToast("✓ Antecedentes guardados en el expediente");
+  return res||{};
 }
 window.toggleNeo=function(k){
   if(!STATE.neoData)STATE.neoData={};
@@ -6020,6 +6261,16 @@ window.addSintoma=function(key,txt){
 window.setSintoma=function(key,txt){
   const ta=document.getElementById("inter_"+key);if(ta){ta.value=txt;ta.focus();}
 }
+// Escritura del interrogatorio por aparatos y sistemas, sin interfaz: la usan
+// el botón Guardar y el autoguardado. Es un upsert por paciente_id.
+async function persistirInterrogatorio(){
+  const pid=STATE.pat?.id;if(!pid)return{omitido:true};
+  const campos=["digestivo","cardiovascular","respiratorio","urinario","genital","hematologico","endocrino","osteomuscular","nervioso"];
+  const payload={paciente_id:pid};
+  campos.forEach(c=>{const e=document.getElementById("inter_"+c);if(e)payload[c]=e.value;});
+  const res=await SB.from("interrogatorio_aparatos").upsert(payload,{onConflict:"paciente_id"});
+  return res||{};
+}
 window.guardarInterrogatorio=async function(){
   const pid=STATE.pat?.id;if(!pid)return;
   loading(true,"Guardando interrogatorio...");
@@ -6027,8 +6278,10 @@ window.guardarInterrogatorio=async function(){
   const etiquetas={digestivo:"Ap. Digestivo",cardiovascular:"Ap. Cardiovascular",respiratorio:"Ap. Respiratorio",urinario:"Ap. Urinario",genital:"Ap. Genital",hematologico:"Ap. Hematológico",endocrino:"Sist. Endocrino",osteomuscular:"Sist. Osteomuscular",nervioso:"Sist. Nervioso"};
   const payload={paciente_id:pid};
   campos.forEach(c=>{const e=document.getElementById("inter_"+c);if(e)payload[c]=e.value;});
-  await SB.from("interrogatorio_aparatos").upsert(payload,{onConflict:"paciente_id"});
+  const resInter=await SB.from("interrogatorio_aparatos").upsert(payload,{onConflict:"paciente_id"});
   loading(false);
+  if(resInter&&resInter.error){showToast("No se pudo guardar el interrogatorio: "+resInter.error.message,false);return;}
+  agLimpiarBorrador("inter");
   showToast("✓ Interrogatorio guardado");
   // Mostrar resumen
   const hoy=new Date().toLocaleString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
@@ -10064,26 +10317,20 @@ async function pgConsulta(){
   // Iniciar autoguardado (30s) si la nota no está cerrada
   if(!STATE.consultaActual?.bloqueada) iniciarAutoguardado();
 
-  // ── Recuperar respaldo local de emergencia si existe ──
-  // Si una sesión anterior se cerró con una nota sin guardar, ofrecer recuperarla
+  // ── Recuperar lo que quedó sin guardar, si lo hay ──
+  // Antes esto abría un modal que había que contestar antes de poder escribir.
+  // Ahora es una barra dentro de la nota, y el borrador lo arma el motor
+  // general: cubre también los campos dc_* de las notas quirúrgicas.
   (function(){
     try{
       const pid=STATE.pat?.id;if(!pid)return;
-      const raw=localStorage.getItem("qp_nota_backup_"+pid);
-      if(!raw)return;
-      const backup=JSON.parse(raw);
-      if(!backup?.campos||!Object.keys(backup.campos).length)return;
-      // ¿Los campos actuales están vacíos? Solo ofrecer si no hay nota nueva escrita
-      const yaHayTexto=_camposNotaIds().some(id=>{const e=document.getElementById(id);return e&&String(e.value||"").trim().length>15;});
-      if(yaHayTexto){localStorage.removeItem("qp_nota_backup_"+pid);return;}
-      const fechaBk=new Date(backup.fecha).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
-      qpConfirm(`Se encontró una nota de este paciente que quedó sin guardar (${fechaBk}). ¿Deseas recuperar su contenido?`,{title:"Nota sin guardar recuperada",okLabel:"Recuperar nota"}).then(ok=>{
-        if(ok){
-          Object.entries(backup.campos).forEach(([id,val])=>{const e=document.getElementById(id);if(e)e.value=val;});
-          showToast("Nota recuperada — revísala y guárdala");
-        }
-        localStorage.removeItem("qp_nota_backup_"+pid);
-      });
+      // Migrar un respaldo del formato anterior, si quedó alguno en el equipo.
+      const viejo=localStorage.getItem("qp_nota_backup_"+pid);
+      if(viejo&&!localStorage.getItem("qp_borrador_consulta_"+pid)){
+        localStorage.setItem("qp_borrador_consulta_"+pid,viejo);
+      }
+      if(viejo)localStorage.removeItem("qp_nota_backup_"+pid);
+      agBannerSeccion("consulta");
     }catch(e){}
   })();
 
@@ -10384,6 +10631,7 @@ window.guardarConsulta=async function(){
   loading(false);
   if(res.error){showToast("Error: "+res.error.message,false);return;}
   STATE.consultaActual=res.data;
+  agLimpiarBorrador("consulta");
   logBitacora("GUARDADO DE NOTA",`Tipo: ${payload.tipo_nota||"Nota de evolución"}`);
 
   // Si esta nota responde una interconsulta pendiente, marcarla como Respondida
@@ -10401,9 +10649,30 @@ window.guardarConsulta=async function(){
     showToast("✓ Consulta guardada");
   }
 }
+// El 23 de agosto de 2026 una nota posquirúrgica se dio por perdida: estaba
+// escrita y firmada, pero como nota de evolución. El médico tituló el texto
+// «Nota postquirurgica y de seguimiento» dentro del campo Subjetivo y nunca
+// movió el selector de tipo. No fue un fallo de la base: fue de la interfaz,
+// que dejó firmar sin decir nada. Esto avisa antes de cerrar la nota, cuando
+// todavía se puede corregir.
+async function confirmarTipoDeNota(){
+  const tipo=gv("cs_tipo_nota")||"Nota de evolución";
+  if(esNotaSinSOAP(tipo))return true;
+  let txt=[gv("cs_subj"),gv("cs_anal"),gv("cs_plan"),gv("cs_expl")].join(" ").toLowerCase();
+  try{txt=txt.normalize("NFD").replace(/[\u0300-\u036f]/g,"");}catch(e){}
+  const pistas=["postquirurg","posquirurg","post quirurg","postoperator","posoperator","post operator","pos operator","transoperator","postanest","posanest","preanest","nota quirurgica","acto quirurgico","procedimiento quirurgico"];
+  if(!pistas.some(function(x){return txt.indexOf(x)>=0;}))return true;
+  return await qpConfirm(
+    "El texto de esta nota habla de un procedimiento quirúrgico, pero el tipo seleccionado en la barra de arriba es «"+tipo+"». "+
+    "Si debía ser una nota posoperatoria, preoperatoria, de egreso o de anestesia, cancela y cámbialo en el selector antes de firmar: "+
+    "una vez firmada, la nota queda en solo lectura y habría que capturarla de nuevo.",
+    {title:"Revisa el tipo de nota",okLabel:"Firmar como «"+tipo+"»",danger:false}
+  );
+}
 window.firmarNota=async function(){
   const cid=STATE.consultaActual?.id;if(!cid)return;
   if(!puedeEditarNotaMedica()){showToast("Solo el médico tratante puede firmar y cerrar la nota",false);return;}
+  if(!await confirmarTipoDeNota())return;
   const med=STATE.userProfile||{};
   const medNombre=`${med.titulo||""} ${med.nombre||""} ${med.apellidos||""}`.trim();
   if(!await qpConfirm(`¿Firmar y cerrar esta nota como ${medNombre}? Una vez firmada, la nota quedará en modo solo lectura y no podrá editarse. Esta acción es conforme a NOM-004-SSA3-2012.`,{title:"Firmar y cerrar nota",okLabel:"✍️ Firmar nota",okColor:SU,danger:false}))return;
@@ -10422,7 +10691,12 @@ window.firmarNota=async function(){
   showToast("✓ Nota firmada y cerrada");
   cerrarConsulta();
 }
-window.cerrarConsulta=function(){detenerAutoguardado();STATE.consultaActual=null;go("expediente");}
+window.cerrarConsulta=async function(){
+  // Se espera el guardado ANTES de soltar STATE.consultaActual: si no, la
+  // escritura salía disparada contra un estado ya vaciado.
+  try{await agGuardarAhora("al cerrar la nota");}catch(e){}
+  STATE.consultaActual=null;go("expediente");
+}
 window.showRecipe=function(tipo="receta"){
   const m=document.getElementById("recipe-modal");
   if(m){m.dataset.tipo=tipo;m.style.display="flex";renderRecipeModal(tipo);}
@@ -13902,6 +14176,7 @@ window.guardarSV=async function(pid){
   const {error}=await SB.from("signos_vitales").insert(payload);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
+  agLimpiarBorrador("sv");
   showToast("✓ Signos vitales guardados");
   // Dejarlos listos para la nota médica (la nota casi nunca está en el DOM
   // en este momento, así que se guardan en STATE y pgConsulta los recoge)
@@ -14240,6 +14515,7 @@ window.guardarFisio=async function(pid,editId=""){
   if(res.error){showToast("Error: "+res.error.message,false);return;}
   STATE.fisioTab="p"+res.data.id;
   STATE.fisioSesiones=res.data.sesiones_completadas||[];
+  agLimpiarBorrador("fisio");
   showToast("✓ Prescripción guardada");
   setET("fisio");
 }
@@ -18426,17 +18702,15 @@ function resetTimerInactividad(){
 }
 
 // ¿Hay contenido escrito en la nota de consulta actual?
-function _camposNotaIds(){return ["cs_subj","cs_expl","cs_anal","cs_trat","cs_lab","cs_gab","cs_plan","cs_alerg"];}
+function _camposNotaIds(){return agCampos("consulta").map(function(e){return e.id;});}
 function _hayContenidoEnNota(){
-  return _camposNotaIds().some(id=>{const e=document.getElementById(id);return e&&String(e.value||"").trim().length>15;});
+  return agHayContenido("consulta");
 }
-// Respaldo local de emergencia de la nota (recuperable al reabrir)
+// Respaldo local de emergencia de la nota (recuperable al reabrir).
+// Delega en el motor general: antes copiaba una lista fija de siete campos SOAP
+// y por eso no respaldaba nada en las notas quirúrgicas, que escriben en dc_*.
 function _respaldarNotaLocal(){
-  try{
-    const backup={pid:STATE.pat?.id,fecha:new Date().toISOString(),campos:{}};
-    _camposNotaIds().forEach(id=>{const e=document.getElementById(id);if(e&&e.value)backup.campos[id]=e.value;});
-    if(Object.keys(backup.campos).length)localStorage.setItem("qp_nota_backup_"+(STATE.pat?.id||"x"),JSON.stringify(backup));
-  }catch(e){}
+  agGuardarBorrador("consulta");
 }
 
 // ── 2. VALIDACIÓN DE CONTRASEÑA ROBUSTA (NOM-024) ────────────
