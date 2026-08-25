@@ -6764,7 +6764,7 @@ window.verInterconsulta=async function(id){
   const ic=r1.data;
   let medSol=null;
   if(ic?.medico_solicitante_id){
-    const r2=await sbSafe(()=>SB.from("usuarios").select("titulo,nombre,apellidos,especialidad_1,cedula_medico,cedula_esp_1,firma_digital").eq("id",ic.medico_solicitante_id).maybeSingle());
+    const r2=await sbSafe(()=>SB.from("usuarios").select("titulo,nombre,apellidos,licenciatura,institucion_grado,especialidad_1,cedula_medico,cedula_esp_1,institucion_esp_1,subespecialidad,cedula_subesp,institucion_esp_2,alta_especialidad,institucion_alta,especialidades_json,subespecialidades_json,altas_json,firma_digital").eq("id",ic.medico_solicitante_id).maybeSingle());
     medSol=r2.data;
   }
   loading(false);
@@ -6904,7 +6904,7 @@ window.imprimirInterconsulta=async function(id){
       SB.from("interconsultas").select("medico_solicitante_id").eq("id",id).single()
         .then(async r=>{
           if(!r.data?.medico_solicitante_id)return{data:null};
-          return SB.from("usuarios").select("titulo,nombre,apellidos,especialidad_1,especialidad_2,cedula_medico,cedula_esp_1,cedula_subesp,firma_digital,institucion_esp_1").eq("id",r.data.medico_solicitante_id).maybeSingle();
+          return SB.from("usuarios").select("titulo,nombre,apellidos,licenciatura,institucion_grado,especialidad_1,cedula_medico,cedula_esp_1,institucion_esp_1,subespecialidad,cedula_subesp,institucion_esp_2,alta_especialidad,institucion_alta,especialidades_json,subespecialidades_json,altas_json,firma_digital").eq("id",r.data.medico_solicitante_id).maybeSingle();
         })
     ]);
     ic=ic2;medSolData=ms;
@@ -6925,9 +6925,8 @@ window.imprimirInterconsulta=async function(id){
     const edad=p.fecha_nacimiento?calcEdad(p.fecha_nacimiento):"—";
 
     // Credenciales del médico solicitante
-    const credLines=[];
-    if(medSol?.cedula_medico)credLines.push("Céd. Prof. "+medSol.cedula_medico);
-    if(medSol?.especialidad_1)credLines.push(medSol.especialidad_1+(medSol.cedula_esp_1?" · Céd. Esp. "+medSol.cedula_esp_1:""));
+    // Sin instituciones: esta línea va en el encabezado de color y es angosta.
+    const credLines=credencialesTexto(medSol,{institucion:false});
 
     // Diagnósticos: separar líneas tipo "M54.5 Lumbago..." si vienen en el campo diagnostico
     const dxLineas=(ic.diagnostico||"").split("\n").map(l=>l.trim()).filter(Boolean);
@@ -10954,24 +10953,8 @@ window.generarPDFReceta=async function(tipo="receta"){
       return{w,h};
     }catch(e){return{w:0,h:0};}
   }
-  // ── CALCULAR LÍNEAS del médico ──
-  const shortInst=s=>s?s.split(" — ")[0].split(" · ")[0].trim():"";
-  const credLines=[];
-  credLines.push({txt:medNom,bold:true,sz:9});
-  if(med.licenciatura||med.institucion_grado)
-    credLines.push({txt:[med.licenciatura,shortInst(med.institucion_grado)].filter(Boolean).join("   ").toUpperCase(),bold:false,sz:8});
-  if(med.cedula_medico)
-    credLines.push({txt:`Céd. Prof. ${med.cedula_medico}`,bold:false,sz:8});
-  if(med.especialidad_1||med.institucion_esp_1)
-    credLines.push({txt:`Especialidad en ${[med.especialidad_1,shortInst(med.institucion_esp_1)].filter(Boolean).join("   ")}`.toUpperCase(),bold:false,sz:8});
-  if(med.cedula_esp_1)
-    credLines.push({txt:`Céd. Esp. ${med.cedula_esp_1}`,bold:false,sz:8});
-  if(med.subespecialidad||med.institucion_esp_2)
-    credLines.push({txt:`Subespecialidad en ${[med.subespecialidad,shortInst(med.institucion_esp_2)].filter(Boolean).join("   ")}`.toUpperCase(),bold:false,sz:8});
-  if(med.cedula_subesp)
-    credLines.push({txt:`Céd. Subesp. ${med.cedula_subesp}`,bold:false,sz:8});
-  if(med.alta_especialidad)
-    credLines.push({txt:`Alta Especialidad en ${med.alta_especialidad}${med.institucion_alta?"   "+shortInst(med.institucion_alta):""}`.toUpperCase(),bold:false,sz:8});
+  // Las credenciales del membrete las arma credencialesMedico() más abajo; aquí
+  // había una segunda lista que no se usaba y repetía la lógica a medias.
   const B=brand();
   // ── MEMBRETE ────────────────────────────────────────────────────────────
   // Logo a la izquierda, nombre y especialidad centrados, cruces decorativas a
@@ -10992,43 +10975,39 @@ window.generarPDFReceta=async function(tipo="receta"){
   let yH=16;
   doc.text(nomTit,W/2,yH,{align:"center"});
 
-  // Toda la formación, con las instituciones abreviadas para que no se corten.
+  // Toda la formación del médico, UNA LÍNEA POR CREDENCIAL, cada una con su
+  // institución y su cédula al lado. Antes solo se imprimía la primera
+  // especialidad y las cédulas iban en una fila aparte, así que un médico con
+  // especialidad y subespecialidad salía con los datos incompletos y sin poder
+  // saber qué cédula correspondía a qué. La alta especialidad se nombra aunque
+  // no lleve cédula.
   const escribeCentro=(txt,tam,gris,salto)=>{
     if(!txt)return;
-    doc.setFont("helvetica","normal");doc.setFontSize(tam);
+    doc.setFont("helvetica","normal");
     if(gris)doc.setTextColor(96,112,128);
     else doc.setTextColor(RX_TINTA[0],RX_TINTA[1],RX_TINTA[2]);
-    let t=txt;
+    // Encoger antes que cortar: una cédula partida a la mitad en un documento
+    // legal es peor que una línea un punto más chica.
+    let t=txt,sz=tam;
+    doc.setFontSize(sz);
+    while(doc.getTextWidth(t)>150&&sz>5.5){sz-=0.3;doc.setFontSize(sz);}
     while(doc.getTextWidth(t)>150&&t.length>6)t=t.slice(0,-2);
     yH+=salto;
     doc.text(t,W/2,yH,{align:"center"});
   };
-  const unir=(a,b)=>[a,abreviarInstitucion(b)].filter(Boolean).join("  ·  ");
-
-  const espPrin=unir(med.especialidad_1,med.institucion_esp_1);
-  if(espPrin)escribeCentro(espPrin,12.5,false,7);
-  const lic=unir(med.licenciatura,med.institucion_grado);
-  if(lic)escribeCentro(lic,9,true,espPrin?5.5:7);
-
-  // Cédulas, en una fila.
-  const ceds=[];
-  if(med.cedula_medico)ceds.push("Céd. Prof. "+med.cedula_medico);
-  if(med.cedula_esp_1)ceds.push("Céd. Esp. "+med.cedula_esp_1);
-  if(med.cedula_subesp)ceds.push("Céd. Subesp. "+med.cedula_subesp);
-  if(ceds.length){
-    doc.setFontSize(10);doc.setFont("helvetica","normal");
-    doc.setTextColor(RX_TINTA[0],RX_TINTA[1],RX_TINTA[2]);
-    yH+=6;
-    const anchoTotal=ceds.reduce((s,t)=>s+doc.getTextWidth(t),0)+13*(ceds.length-1);
-    let xC=W/2-anchoTotal/2;
-    ceds.forEach(t=>{doc.text(t,xC,yH);xC+=doc.getTextWidth(t)+13;});
-  }
-
-  // Subespecialidad y alta especialidad, en letra menuda.
-  const subesp=unir(med.subespecialidad&&("Subespecialidad en "+med.subespecialidad),med.institucion_esp_2);
-  if(subesp)escribeCentro(subesp,8,true,5);
-  const alta=unir(med.alta_especialidad&&("Alta Especialidad en "+med.alta_especialidad),med.institucion_alta);
-  if(alta)escribeCentro(alta,8,true,4.2);
+  const credsRx=credencialesMedico(med);
+  const lineaCred=(c)=>{
+    const partes=[[c.etiqueta,c.nombre].filter(Boolean).join(" ")];
+    if(c.institucion)partes.push(c.institucion);
+    if(c.cedula)partes.push(c.cedulaEtq+" "+c.cedula);
+    return partes.filter(Boolean).join("  ·  ");
+  };
+  const tamCred=credsRx.length<=3?9.5:credsRx.length<=5?8.6:7.8;
+  const saltoCred=credsRx.length<=3?5.6:credsRx.length<=5?5:4.4;
+  credsRx.forEach((c,i)=>{
+    const esEsp=c.tipo==="especialidad";
+    escribeCentro(lineaCred(c),esEsp?tamCred+1.2:tamCred,!esEsp,i===0?7:saltoCred);
+  });
 
   // ── LÍNEA CON DEGRADADO ─────────────────────────────────────────────────
   const lineY=Math.max(30,yH+4.5);
@@ -11191,16 +11170,10 @@ window.imprimirHojaReferencia=async function(){
   const estudiosRef=S(d.estudios_ref||gv2("dc_estudios_ref")||"");
   const medsTraslado=S(d.meds_traslado||gv2("dc_meds_traslado")||"");
   // Construir credenciales completas del médico
-  const shortI=s=>s?s.split(" — ")[0].split(" · ")[0].trim():"";
-  const credLines=[];
-  if(med.licenciatura||med.institucion_grado)
-    credLines.push(S([med.licenciatura,shortI(med.institucion_grado)].filter(Boolean).join(" — ")));
-  if(med.cedula_medico)credLines.push("Ced. Prof. "+S(med.cedula_medico));
-  if(med.especialidad_1)credLines.push("Esp. "+S(med.especialidad_1)+(med.institucion_esp_1?" — "+S(shortI(med.institucion_esp_1)):""));
-  if(med.cedula_esp_1)credLines.push("Ced. Esp. "+S(med.cedula_esp_1));
-  if(med.especialidad_2)credLines.push("Subesp. "+S(med.especialidad_2)+(med.institucion_esp_2?" — "+S(shortI(med.institucion_esp_2)):""));
-  if(med.cedula_subesp)credLines.push("Ced. Subesp. "+S(med.cedula_subesp));
-  if(med.alta_especialidad)credLines.push("Alta Esp. "+S(med.alta_especialidad));
+  // Esta hoja etiquetaba la columna `especialidad_2` como «Subesp.», que es otra
+  // cosa: la subespecialidad vive en su propia columna. Ahora sale de la misma
+  // fuente que la receta.
+  const credLines=credencialesTexto(med,{sep:" - "}).map(S);
   let logoB64=null,firmaB64=null;
   try{logoB64=await urlToBase64firma("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");}catch(e){}
   if(med.firma_digital){try{firmaB64=await urlToBase64firma(med.firma_digital);}catch(e){}}
@@ -11217,8 +11190,17 @@ window.imprimirHojaReferencia=async function(){
   doc.text(sedeDir(),M,14);
   doc.text("Tel. 55 5682 4345 / 56 4423 7028  |  qpclinic.org  |  RFC: QCL230518J66",M,18);
   doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(S(medNom),M,25);
-  doc.setFontSize(7.5);doc.setFont("helvetica","normal");
-  credLines.slice(0,4).forEach((cl,i)=>doc.text(cl,M,29+i*3.5));
+  // Caben todas dentro de la banda del encabezado: se ajusta el paso y el
+  // tamaño en vez de recortar la lista en silencio.
+  doc.setFont("helvetica","normal");
+  if(credLines.length){
+    const anchoCred=W-50-M-4;
+    const pasoCred=Math.min(3.5,10.5/credLines.length);
+    let szCred=pasoCred>=3?7.5:6.2;
+    doc.setFontSize(szCred);
+    while(szCred>4.5&&credLines.some(cl=>doc.getTextWidth(cl)>anchoCred)){szCred-=0.2;doc.setFontSize(szCred);}
+    credLines.forEach((cl,i)=>doc.text(cl,M,29+i*pasoCred));
+  }
   // ── BANDA TÍTULO ────────────────────────────────────────
   doc.setFillColor(0,107,182);doc.rect(0,40,W,8,"F");
   doc.setTextColor(255,255,255);doc.setFontSize(9.5);doc.setFont("helvetica","bold");
@@ -15719,31 +15701,48 @@ function usRecolectarDatos(){
 
 // ── Helper centralizado: obtiene TODAS las credenciales de un médico ─────────
 // Lee tanto los campos legacy como los arrays JSON nuevos (especialidades_json, etc.)
-function getCredLines(med){
+// ── CREDENCIALES DEL MÉDICO ───────────────────────────────────────────────
+// Una sola fuente para TODOS los documentos: receta, hoja de referencia,
+// interconsulta y ultrasonido. Antes cada uno armaba su propia lista y no
+// coincidían entre sí: la hoja de referencia llegaba a etiquetar la columna
+// `especialidad_2` como «Subesp.», y en la receta solo salía la PRIMERA
+// especialidad aunque el médico tuviera varias.
+// Regla de cédulas: licenciatura, especialidad y subespecialidad sí llevan; la
+// alta especialidad no se cedula, pero se nombra igual con su institución.
+function credencialesMedico(med){
   if(!med)return[];
-  const lines=[];
-  // Licenciatura
-  if(med.licenciatura){
-    let l=med.licenciatura;
-    if(med.cedula_medico)l+=" · Céd. Prof. "+med.cedula_medico;
-    lines.push(l);
+  const out=[];
+  const inst=function(s){
+    const t=String(s||"").trim();
+    if(!t)return"";
+    return typeof abreviarInstitucion==="function"?abreviarInstitucion(t):t.split(" — ")[0].split(" · ")[0].trim();
+  };
+  if(med.licenciatura||med.institucion_grado||med.cedula_medico){
+    out.push({tipo:"licenciatura",etiqueta:"",nombre:String(med.licenciatura||"").trim(),
+      institucion:inst(med.institucion_grado),cedula:String(med.cedula_medico||"").trim(),cedulaEtq:"Céd. Prof."});
   }
-  // Especialidades (legacy esp1 + array nuevo)
-  const esps=[];
-  if(med.especialidad_1)esps.push({nombre:med.especialidad_1,cedula:med.cedula_esp_1||"",inst:med.institucion_esp_1||""});
-  try{const ex=JSON.parse(med.especialidades_json||"[]");if(Array.isArray(ex))ex.forEach(e=>e.nombre&&esps.push(e));}catch(e){}
-  esps.forEach(e=>{let l="Especialidad en "+e.nombre;if(e.cedula)l+=" · Céd. Esp. "+e.cedula;lines.push(l);});
-  // Subespecialidades
-  const subesps=[];
-  if(med.subespecialidad)subesps.push({nombre:med.subespecialidad,cedula:med.cedula_subesp||""});
-  try{const ex=JSON.parse(med.subespecialidades_json||"[]");if(Array.isArray(ex))ex.forEach(e=>e.nombre&&subesps.push(e));}catch(e){}
-  subesps.forEach(e=>{let l="Subespecialidad en "+e.nombre;if(e.cedula)l+=" · Céd. "+e.cedula;lines.push(l);});
-  // Altas especialidades
-  const altas=[];
-  if(med.alta_especialidad)altas.push({nombre:med.alta_especialidad,inst:med.institucion_alta||""});
-  try{const ex=JSON.parse(med.altas_json||"[]");if(Array.isArray(ex))ex.forEach(e=>e.nombre&&altas.push(e));}catch(e){}
-  altas.forEach(e=>{let l="Alta Especialidad en "+e.nombre;if(e.inst)l+=" · "+e.inst;lines.push(l);});
-  return lines;
+  muListaFormacion({nombre:med.especialidad_1,cedula:med.cedula_esp_1||med.cedula_especialidad,inst:med.institucion_esp_1},med.especialidades_json)
+    .forEach(function(e){if(e.nombre)out.push({tipo:"especialidad",etiqueta:"Especialidad en",nombre:e.nombre,institucion:inst(e.inst),cedula:e.cedula,cedulaEtq:"Céd. Esp."});});
+  muListaFormacion({nombre:med.subespecialidad,cedula:med.cedula_subesp,inst:med.institucion_esp_2},med.subespecialidades_json)
+    .forEach(function(e){if(e.nombre)out.push({tipo:"subespecialidad",etiqueta:"Subespecialidad en",nombre:e.nombre,institucion:inst(e.inst),cedula:e.cedula,cedulaEtq:"Céd. Subesp."});});
+  muListaFormacion({nombre:med.alta_especialidad,inst:med.institucion_alta},med.altas_json)
+    .forEach(function(e){if(e.nombre)out.push({tipo:"alta",etiqueta:"Alta Especialidad en",nombre:e.nombre,institucion:inst(e.inst),cedula:"",cedulaEtq:""});});
+  return out;
+}
+// Cada credencial en UNA línea, con su institución y su cédula al lado:
+// «Especialidad en Pediatría · UNAM · Céd. Esp. 1234567»
+function credencialesTexto(med,opts){
+  opts=opts||{};
+  const sep=opts.sep||" · ";
+  return credencialesMedico(med).map(function(c){
+    const partes=[[c.etiqueta,c.nombre].filter(Boolean).join(" ")];
+    if(c.institucion&&opts.institucion!==false)partes.push(c.institucion);
+    if(c.cedula&&opts.cedula!==false)partes.push(c.cedulaEtq+" "+c.cedula);
+    return partes.filter(Boolean).join(sep);
+  }).filter(Boolean);
+}
+function getCredLines(med){
+  return credencialesTexto(med);
 }
 
 // ── Helper: hex color → [r,g,b] para jsPDF ──────────────────────────────────
