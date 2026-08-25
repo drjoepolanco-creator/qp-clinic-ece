@@ -225,7 +225,9 @@ Regla única del aislamiento: **AMFA ve solo lo suyo; todas las demás unidades 
 
 1. **SMTP propio** (Resend con `qpclinic.org`) en Authentication → Emails. Sin esto «Olvidé mi
    contraseña» seguirá roto para todo el personal. Es el único pendiente que afecta la operación
-   diaria.
+   diaria. **Decidido el 24-ago-2026: se hace en la siguiente sesión, junto con el envío
+   institucional de documentos** (ver más abajo). El Dr. Polanco da de alta Resend y agrega los
+   registros SPF, DKIM y DMARC al DNS de `qpclinic.org`; yo no manejo llaves ni doy de alta cuentas.
 2. **Razón social de amfa** y sus propios aviso de privacidad y consentimientos. Hoy los pacientes
    de amfa firman documentos a nombre de QP Clinic, S.C., que no es quien les presta el servicio.
    Es la brecha B-07 del manual y hay exposición legal desde el primer paciente.
@@ -242,6 +244,65 @@ Regla única del aislamiento: **AMFA ve solo lo suyo; todas las demás unidades 
    escrituras (B-02), e interoperabilidad HL7 CDA (B-03). Consultar el texto vigente de la DGIS
    antes de planear.
 8. Mover a funciones RPC las consultas anónimas a `usuarios` y `pre_registros`.
+
+## Envío institucional de recetas y documentos (decidido 24 agosto 2026, POR HACER)
+
+Hoy todo sale **del médico, no de la clínica**: siete lugares abren
+`window.open("https://web.whatsapp.com/send?...")` o `mailto:`, así que el mensaje viaja desde el
+WhatsApp y el correo personales de quien atiende. Y **ningún envío se asienta en
+`bitacora_accesos`**: no hay manera de saber qué receta se mandó, a quién ni cuándo. Es la brecha
+B-02 por el lado de las salidas.
+
+**Lo acordado: empezar por el correo, en la siguiente sesión.** Es el mismo trabajo que el
+pendiente 1, así que resuelve los dos de una vez.
+
+Diseño acordado — **el mensaje NO lleva el PDF, lleva un aviso con un enlace con token** al
+dominio propio, como ya hace `firmar.html`:
+
+- Meta prohíbe expresamente mandar información de salud a sistemas sin requisitos reforzados, y en
+  México los datos de salud son **datos personales sensibles** bajo la LFPDPPP: exigen
+  consentimiento expreso y por escrito. Con enlace, el contenido clínico nunca sale de Supabase.
+- Deja registro de quién abrió qué y cuándo, que es lo que falta para B-02.
+- Si algún día se suma WhatsApp, la plantilla se aprueba sin problema porque el texto es genérico.
+
+Piezas a construir: Edge Function `enviar-documento` (mismo patrón que `fijar-contrasena`, las
+llaves de Resend y Meta van **ahí**, nunca en `index.html`: la llave anónima es pública) · tabla
+`envios` para la trazabilidad · el canal agregado al aviso de privacidad y a los consentimientos.
+
+**Sobre WhatsApp institucional, para cuando toque:** es factible con la WhatsApp Business Platform
+(Cloud API). Tres cosas que conviene saber antes de decidir: (a) un número dado de alta en la API
+**ya no puede usarse en la app normal de WhatsApp**, así que o se migra el +52 5644237028 y la
+recepción pasa a contestar desde una bandeja web, o se contrata un número aparte — es la decisión
+operativa que suele detener el proyecto; (b) todo lo que inicia el negocio va en plantillas
+aprobadas por Meta, y el texto libre solo dentro de la ventana de 24 h tras una respuesta del
+paciente; (c) desde el 1-jul-2025 el cobro es **por mensaje**, no por conversación: los de servicio
+son gratis, los de utilidad dentro de una ventana abierta también, y fuera de ella cuestan
+fracciones de peso en México.
+
+## Agenda: por qué no se puede hacer clic en una cita (24 agosto 2026)
+
+Preguntado y **descartado**: que al hacer clic en un evento del calendario se abra la búsqueda del
+paciente. **No es posible con el diseño actual.** La agenda es un `<iframe>` de
+`calendar.google.com`, y el navegador aísla por completo el contenido de un iframe de otro dominio:
+la página no puede detectar clics dentro de él, leer el título del evento ni interceptar nada. El
+recuadro con «Más detalles» y «Copiar en mi calendario» es interfaz de Google en su propio dominio.
+No es dificultad de programación, es la política de mismo origen. **No prometerlo.**
+
+Las dos salidas reales, por si algún día se retoma:
+
+1. **Buscador de pacientes fijo sobre el calendario** — no es un clic, son tres teclas, pero no
+   toca nada de Google y es trabajo de una sesión corta.
+2. **Agenda propia** — Google da a cada calendario una *dirección secreta en formato iCal*; una
+   función en `/api/` (donde vive `ia-medica.js`) la lee y devuelve JSON, sin OAuth ni Google
+   Workspace. Cada cita pasa a ser una fila nuestra y el clic abre el expediente. Tres condiciones:
+   la dirección iCal es una credencial que da acceso a todo el calendario y **debe quedarse del
+   lado del servidor** (en `usuarios`, leída con la llave de servicio, nunca en el navegador); los
+   títulos vienen despareados («Eder Gutiérrez Vargas//sub», «Karina Meza / /Sub»), así que se
+   cortaría en la primera diagonal y, si hay cero o varias coincidencias, **se muestran los
+   resultados de búsqueda en vez de adivinar** — abrir el expediente equivocado sería la peor
+   versión del error que ya nos costó caro; y se pierde la cuadrícula semanal de Google.
+
+El Dr. Polanco decidió el 24-ago-2026 **dejarlo como está**.
 
 ## Documentación del sistema (agosto 2026)
 

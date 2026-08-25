@@ -1356,6 +1356,29 @@ window.muRenumerarRows=function(wrapId,label){
   });
 };
 
+// Une la primera entrada —que vive en columnas dedicadas, porque de ahí la leen
+// las recetas y los PDF— con las adicionales del JSON. Descarta las vacías y las
+// repetidas, así que además SANA los registros que quedaron duplicados por el
+// error de guardado anterior: el JSON guardaba la lista completa y la lectura le
+// anteponía la primera, de modo que cada guardado agregaba una copia.
+function muListaFormacion(base,jsonTexto){
+  const out=[],vistos=new Set();
+  const meter=function(e){
+    if(!e)return;
+    const nombre=String(e.nombre||"").trim();
+    const cedula=String(e.cedula||"").trim();
+    const inst=String(e.inst||"").trim();
+    if(!nombre&&!cedula&&!inst)return;
+    const llave=(nombre+"|"+cedula+"|"+inst).toLowerCase();
+    if(vistos.has(llave))return;
+    vistos.add(llave);
+    out.push({nombre:nombre,cedula:cedula,inst:inst});
+  };
+  meter(base);
+  try{const ex=JSON.parse(jsonTexto||"[]");if(Array.isArray(ex))ex.forEach(meter);}catch(e){}
+  if(!out.length)out.push({nombre:"",cedula:"",inst:""});
+  return out;
+}
 window.abrirModalUsuario=async function(uid=""){
   STATE._editingUserId=uid||null;
   const m=document.getElementById("modal-usuario");
@@ -1411,8 +1434,7 @@ window.abrirModalUsuario=async function(uid=""){
     <!-- ESPECIALIDADES dinámicas -->
     <div id="mu-esps-wrap">
       ${(()=>{
-        const esps=[{nombre:u.especialidad_1||"",cedula:u.cedula_esp_1||u.cedula_especialidad||"",inst:u.institucion_esp_1||""}];
-        try{const ex=JSON.parse(u.especialidades_json||"[]");if(Array.isArray(ex))ex.forEach(e=>esps.push(e));}catch(e){}
+        const esps=muListaFormacion({nombre:u.especialidad_1,cedula:u.cedula_esp_1||u.cedula_especialidad,inst:u.institucion_esp_1},u.especialidades_json);
         return esps.map((e,i)=>`
         <div class="mu-esp-row" style="border:1px solid ${BR};border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -1432,8 +1454,7 @@ window.abrirModalUsuario=async function(uid=""){
     <!-- SUBESPECIALIDADES dinámicas -->
     <div id="mu-subesps-wrap">
       ${(()=>{
-        const subesps=[{nombre:u.subespecialidad||"",cedula:u.cedula_subesp||"",inst:u.institucion_esp_2||""}];
-        try{const ex=JSON.parse(u.subespecialidades_json||"[]");if(Array.isArray(ex))ex.forEach(e=>subesps.push(e));}catch(e){}
+        const subesps=muListaFormacion({nombre:u.subespecialidad,cedula:u.cedula_subesp,inst:u.institucion_esp_2},u.subespecialidades_json);
         return subesps.map((e,i)=>`
         <div class="mu-subesp-row" style="border:1px solid ${BR};border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -1458,8 +1479,7 @@ window.abrirModalUsuario=async function(uid=""){
       </div>
       <div id="mu-altas-wrap">
         ${(()=>{
-          const altas=[{nombre:u.alta_especialidad||"",inst:u.institucion_alta||""}];
-          try{const ex=JSON.parse(u.altas_json||"[]");if(Array.isArray(ex))ex.forEach(e=>altas.push(e));}catch(e){}
+          const altas=muListaFormacion({nombre:u.alta_especialidad,inst:u.institucion_alta},u.altas_json);
           return altas.map((e,i)=>`
           <div class="mu-alta-row" style="border:1px solid #FFE0B2;border-radius:7px;padding:8px 10px;margin-bottom:8px;background:#fff">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -1701,6 +1721,12 @@ window.guardarUsuario=async function(uid=""){
     especialidad_1:_esps[0]?.nombre||null,
     cedula_esp_1:_esps[0]?.cedula||null,
     institucion_esp_1:_esps[0]?.inst||null,
+    // La columna especialidad_2 GANA sobre especialidad_1 al imprimir recetas,
+    // notas e interconsultas, pero hasta hoy este editor nunca la escribía: un
+    // valor viejo se quedaba impreso para siempre y no había forma de verlo ni
+    // de corregirlo desde la interfaz. Ahora sigue a la segunda especialidad, y
+    // se limpia si el médico solo tiene una.
+    especialidad_2:_esps[1]?.nombre||null,
     subespecialidad:_subesps[0]?.nombre||null,
     cedula_subesp:_subesps[0]?.cedula||null,
     institucion_esp_2:_subesps[0]?.inst||null,
@@ -1714,8 +1740,17 @@ window.guardarUsuario=async function(uid=""){
   };
   if(!uid)profilePayload.email=email; // solo se asigna al crear; al editar nunca se sobreescribe
   if(firma_url)profilePayload.firma_digital=firma_url;
-  // Columnas JSON (se agregan por separado para no fallar si aún no existen en la DB)
-  const jsonPayload={especialidades_json:JSON.stringify(_esps),subespecialidades_json:JSON.stringify(_subesps),altas_json:JSON.stringify(_altas)};
+  // Columnas JSON. Guardan SOLO de la segunda entrada en adelante: la primera ya
+  // vive en las columnas dedicadas y la lectura las une. Guardar aquí la lista
+  // completa era lo que duplicaba las especialidades en cada guardado.
+  // Se escriben por separado para no tumbar el guardado del perfil si alguna de
+  // estas columnas llegara a faltar en la base.
+  const jsonPayload={
+    especialidades_json:JSON.stringify(_esps.slice(1)),
+    subespecialidades_json:JSON.stringify(_subesps.slice(1)),
+    altas_json:JSON.stringify(_altas.slice(1)),
+    rfc:document.getElementById("mu_rfc")?.value?.trim()||null,
+  };
   if(!uid){
     // Crear usuario en Auth usando cliente temporal para NO reemplazar la sesión del admin
     const SBtemp=window.supabase.createClient(
@@ -1742,6 +1777,10 @@ window.guardarUsuario=async function(uid=""){
       profilePayload.id=authId;
       const {error:dbErr}=await SB.from("usuarios").upsert(profilePayload,{onConflict:"id"});
       if(dbErr){loading(false);showToast("Cuenta creada, error en perfil: "+dbErr.message,false);return;}
+      // Antes esto no existía en la rama de alta: un usuario nuevo con dos o más
+      // especialidades perdía de la segunda en adelante sin decir nada.
+      const {error:jsonErr}=await SB.from("usuarios").update(jsonPayload).eq("id",authId);
+      if(jsonErr){loading(false);showToast("Cuenta creada, pero NO se guardaron las especialidades adicionales ni el RFC: "+jsonErr.message,false);return;}
     } else {
       const {data:ex}=await SB.from("usuarios").select("id").eq("email",email).maybeSingle();
       if(ex?.id){await SB.from("usuarios").update(profilePayload).eq("id",ex.id);}
@@ -1757,8 +1796,16 @@ window.guardarUsuario=async function(uid=""){
     return;
   } else {
     const {error:dbErr}=await SB.from("usuarios").update(profilePayload).eq("id",uid);
-    try{await SB.from("usuarios").update({...jsonPayload,rfc:document.getElementById("mu_rfc")?.value?.trim()||null}).eq("id",uid);}catch(e){console.warn("Cols JSON/RFC:",e);}
     if(dbErr){loading(false);showToast("Error: "+dbErr.message,false);return;}
+    // Este guardado se hacía dentro de un try/catch que descartaba el error, y
+    // .update() devuelve el error en vez de lanzarlo: si fallaba, el sistema
+    // igual decía «Usuario actualizado».
+    const {error:jsonErr}=await SB.from("usuarios").update(jsonPayload).eq("id",uid);
+    if(jsonErr){
+      loading(false);
+      showToast("Los datos generales se guardaron, pero las especialidades adicionales y el RFC NO: "+jsonErr.message,false);
+      return;
+    }
     // Solo se puede cambiar la contraseña de la sesión abierta. Para el resto, el
     // formulario ya no ofrece el campo: ofrecía cambiarla y no cambiaba nada.
     if(pass&&STATE.user?.id===uid){
