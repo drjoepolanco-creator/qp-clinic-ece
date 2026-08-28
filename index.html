@@ -2386,6 +2386,7 @@ window.actualizarTipoNota=function(tipo){
   const _oc=CAMPOS_OCULTOS_NOTA[tipo]||[];
   ["subj","eva","expl","anal","trat","lab","gab","plan","prono"].forEach(k=>{const el=document.getElementById("cardsoap-"+k);if(el)el.style.display=_oc.includes(k)?"none":(k==="expl"?"flex":"");});
   const _ia=document.getElementById("btn-ia-nota");if(_ia)_ia.style.display=esNotaSinSOAP(tipo)?"none":"inline-flex";
+  const _ins=document.getElementById("btn-insumos-qx");if(_ins)_ins.style.display=qxNotaLlevaInsumos(tipo)?"inline-flex":"none";
   if(tipo==="Nota nutricional"&&typeof nutriRecalcular==="function")setTimeout(nutriRecalcular,30);
   // Re-init GCS if urgencias
   if(tipo==="Nota de urgencias")actualizarGCS();
@@ -8825,6 +8826,7 @@ async function pgQuirofano(){
             <td style="padding:8px 10px;white-space:nowrap">
               <button onclick="abrirChecklistOMS('${e.id}')" title="Checklist de cirugía segura" style="background:${P};color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px"><i class="ti ti-clipboard-check"></i></button>
               <button onclick="abrirAnestesia('${e.id}')" title="Registro anestésico" style="background:#fff;color:${P};border:1.5px solid ${BR};border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px"><i class="ti ti-activity"></i></button>
+              <button onclick="abrirCuentaInsumosQx('${e.id}')" title="Insumos utilizados" style="background:#E65100;color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px"><i class="ti ti-package"></i></button>
               ${(puede&&!inact&&e.estado!=="finalizado")?`
               <button onclick="abrirReprogramarQx('${e.id}')" title="Reprogramar cirugía" style="background:#fff;color:#EF6C00;border:1.5px solid #EF6C0055;border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px"><i class="ti ti-calendar-repeat"></i></button>
               <button onclick="abrirCancelarQx('${e.id}')" title="Cancelar cirugía" style="background:#fff;color:#C62828;border:1.5px solid #C6282855;border-radius:6px;padding:5px 8px;cursor:pointer"><i class="ti ti-calendar-x"></i></button>`:""}
@@ -8836,6 +8838,18 @@ async function pgQuirofano(){
     </div>
   </div>`;
 }
+// Atajo desde el tablero de Quirófano: enfermería vive aquí, no dentro de una
+// nota, y es quien registra el consumo de recuperación y habitación.
+window.abrirCuentaInsumosQx=async function(epId){
+  const {data:ep,error}=await SB.from("episodios_quirurgicos")
+    .select("id,paciente_id,procedimiento,fecha_programada,estado").eq("id",epId).maybeSingle();
+  if(error||!ep){showToast("No se pudo leer el episodio"+(error?": "+error.message:""),false);return;}
+  if(!ep.paciente_id){showToast("Este episodio no tiene paciente ligado, no se le puede abrir cuenta",false);return;}
+  const {data:pac}=await SB.from("pacientes").select("*").eq("id",ep.paciente_id).maybeSingle();
+  if(!pac){showToast("No se encontró el paciente del episodio",false);return;}
+  abrirCuentaInsumos(pac,ep.fecha_programada||qxHoy(),ep);
+}
+
 window.cambiarEstadoEpisodio=async function(id,estado){
   if(!QX_EDIT()){showToast("No tiene permiso",false);return;}
   loading(true,"Actualizando estado...");
@@ -10191,6 +10205,7 @@ async function pgConsulta(){
       <button onclick="showRecipe('receta')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-prescription"></i> Receta</button>
       <button onclick="showRecipe('lab')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-flask"></i> Sol. Lab</button>
       <button onclick="showRecipe('gab')" style="background:#fff;color:${TX};border:1.5px solid ${BR};border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-x-ray"></i> Sol. Gabinete</button>
+      <button id="btn-insumos-qx" onclick="abrirCuentaInsumos()" title="Registrar los insumos utilizados en el procedimiento" style="background:#E65100;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:700;align-items:center;gap:6px;display:${qxNotaLlevaInsumos(c.tipo_nota)?'inline-flex':'none'}"><i class="ti ti-package"></i> Insumos</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:12px;background:#F0F4F8">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:1600px;margin:0 auto">
@@ -13404,7 +13419,7 @@ window.cargarCorte=async function(){
     .gte("fecha",desde).lte("fecha",hasta)
     .order("fecha",{ascending:false}).order("created_at",{ascending:false});
   const pagos=data||[];
-  if(pagos.length===0){cb.innerHTML=`<div style="text-align:center;padding:28px;color:${MU}">Sin registros en ese periodo</div>`;return;}
+  if(pagos.length===0){cb.innerHTML=`<div style="text-align:center;padding:28px;color:${MU}">Sin pagos registrados en ese periodo</div><div id="corte-insumos" style="margin-top:14px"></div>`;cargarCorteInsumos(desde,hasta);return;}
   const ESTADOS=[["Pagado","#E8F5E9","#2E7D32"],["Pendiente","#FFF8E1","#E65100"],["Cancelado","#FFEBEE","#C62828"]];
   const totalPag=pagos.filter(p=>p.estado==="Pagado"||!p.estado).reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
   const totalPend=pagos.filter(p=>p.estado==="Pendiente").reduce((a,p)=>a+(parseFloat(p.monto)||0),0);
@@ -13459,7 +13474,9 @@ window.cargarCorte=async function(){
           }).join("")}</tbody>
         </table>
       </div>
-    </div>`;
+    </div>
+    <div id="corte-insumos" style="margin-top:14px"></div>`;
+  cargarCorteInsumos(desde,hasta);
 }
 window.cambiarEstadoPago=async function(id,estado){
   loading(true);
@@ -13981,6 +13998,808 @@ window.imprimirInventarioPDF=async function(){
   doc.save(fname);
   showToast("✓ PDF de inventario generado");
   try{logBitacora("INVENTARIO","PDF generado — "+sedeNom);}catch(e){}
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// CUENTA DE INSUMOS QUIRÚRGICOS — QP Surgery Clinic
+// Tablas: cuentas_insumos, cuentas_insumos_items
+//
+// Qué resuelve: durante una cirugía se consumen insumos. Una parte va incluida
+// en el paquete que el paciente contrató; lo que se use de más se cobra aparte.
+// Hasta hoy eso se anotaba en papel y nadie lo descontaba del almacén.
+//
+// Reglas del diseño (decididas con el Dr. Polanco el 28-ago-2026):
+//  · El precio de cobro sale del inventario: precio_publico si está capturado,
+//    si no costo_unitario. Si no hay ninguno de los dos NO se inventa un $0:
+//    la fila avisa "sin costo capturado" (regla 0 del proyecto).
+//  · El inventario se descuenta UNA sola vez, al cerrar la cuenta. Mientras la
+//    cuenta está abierta el equipo corrige libremente sin mover el almacén.
+//    Reabrir genera el movimiento inverso, así que el historial nunca miente.
+//  · El excedente crea un cargo Pendiente en `pagos`. Si el excedente es cero
+//    no se crea cargo y el corte de caja muestra la cuenta en cero, que es
+//    información, no ausencia de información.
+//  · Una sola cuenta por paciente y día: el cirujano la abre en el quirófano y
+//    la enfermera de recuperación y el anestesiólogo agregan a ESA misma cuenta
+//    desde su propia nota. Por eso cada renglón guarda en qué momento se usó.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Los cuatro paquetes, transcritos de las fichas oficiales. Las listas de
+// insumos son idénticas entre especialidades para un mismo nivel (angiología,
+// cirugía general, plástica y dermatología comparten el de cirugía menor), así
+// que el catálogo se organiza por NIVEL, no por especialidad.
+//   n = como aparece en la ficha · c = piezas incluidas (null = sin tope)
+//   m = fragmentos con los que se reconoce el insumo del inventario
+// El orden importa: gana la PRIMERA línea que coincide, así que las variantes
+// específicas ("guantes no estériles") van antes que las genéricas ("guantes").
+const QX_MOMENTOS=[["quirofano","🔪 Quirófano"],["recuperacion","🛌 Recuperación postanestésica"],["habitacion","🏥 Habitación"]];
+
+const PAQUETES_QX={
+  endoscopia:{nombre:"Endoscopia / Colonoscopia",precio:6769,color:"#00838F",
+    incluye:"Endoscopia · Colonoscopia",
+    items:[
+      {n:"Bata para paciente",c:1,m:["bata para paciente","bata paciente"]},
+      {n:"Agujas",c:2,m:["aguja"]},
+      {n:"Catéter Insyte / Nexiva",c:1,m:["cateter insyte","insyte","nexiva","punzocat"]},
+      {n:"Conector delgado / grueso",c:1,m:["conector"]},
+      {n:"Electrodos para monitoreo",c:5,m:["electrodo"]},
+      {n:"Equipo de venopunción",c:1,m:["venopuncion","venopunsion"]},
+      {n:"Flebotek quirúrgico (normogotero)",c:1,m:["flebotek","normogotero"]},
+      {n:"Gasas estériles",c:10,m:["gasa"]},
+      {n:"Jeringas",c:4,m:["jeringa"]},
+      {n:"Llave de 3 vías",c:1,m:["llave de 3","llave 3 via","llave tres via"]},
+      {n:"Guantes no estériles",c:4,m:["guante no esteril","guantes no esteril","guante de exploracion"]},
+      {n:"Par de guantes quirúrgicos",c:2,m:["guante"]},
+      {n:"Soluciones intravenosas (1 L)",c:2,m:["solucion","hartmann","fisiologic","cloruro de sodio","glucosad"]},
+      {n:"Tegaderm",c:1,m:["tegaderm"]},
+      {n:"Tubería para oxígeno",c:1,m:["tuberia para oxigeno","tuberia de oxigeno"]},
+      {n:"Propofol",c:1,m:["propofol","recofol","diprivan"]},
+      {n:"Vecuronio",c:1,m:["vecuronio"]},
+      {n:"Midazolam",c:1,m:["midazolam","dormicum"]},
+      {n:"Sevorane (30 ml)",c:1,m:["sevorane","sevoflurano"]},
+      {n:"Ketorolaco o Metamizol",c:1,m:["ketorolaco","metamizol","neomelubrina"]},
+      {n:"Dexametasona",c:1,m:["dexametasona"]},
+      {n:"Gorro para cirujano",c:1,m:["gorro"]},
+      {n:"Cubrebocas para cirujano",c:1,m:["cubrebocas","cubreboca"]},
+      {n:"Bata para cirujano reforzada",c:1,m:["bata"]}
+    ]},
+  menor:{nombre:"Cirugía menor",precio:10569,color:"#2E7D32",
+    incluye:"Resección de quiste, nevo o lipoma · Amputación de dedos · Colocación de catéter peritoneal · Fístula arteriovenosa",
+    items:[
+      {n:"Bulto de ropa quirúrgica",c:1,m:["bulto de ropa","ropa quirurgica"]},
+      {n:"Agujas",c:6,m:["aguja"]},
+      {n:"Catéter Insyte / Nexiva",c:2,m:["cateter insyte","insyte","nexiva","punzocat"]},
+      {n:"Cepillos quirúrgicos",c:4,m:["cepillo"]},
+      {n:"Chloraprep / Duraprep",c:1,m:["chloraprep","cloraprep","duraprep"]},
+      {n:"Conector delgado / grueso",c:1,m:["conector"]},
+      {n:"Electrodos para monitoreo",c:5,m:["electrodo"]},
+      {n:"Equipo de venopunción",c:1,m:["venopuncion","venopunsion"]},
+      {n:"Equipo Raquimix / Portex",c:1,m:["raquimix","portex","raquianest"]},
+      {n:"Flebotek quirúrgico (normogotero)",c:1,m:["flebotek","normogotero"]},
+      {n:"Gasas estériles",c:10,m:["gasa"]},
+      {n:"Paquete de compresas estériles",c:1,m:["compresa"]},
+      {n:"Jeringas",c:6,m:["jeringa"]},
+      {n:"Hojas de bisturí",c:2,m:["bisturi","hoja de bistur"]},
+      {n:"Llave de 3 vías",c:1,m:["llave de 3","llave 3 via","llave tres via"]},
+      {n:"Par de guantes quirúrgicos",c:4,m:["guante"]},
+      {n:"Soluciones intravenosas (1 L)",c:2,m:["solucion","hartmann","fisiologic","cloruro de sodio","glucosad"]},
+      {n:"Suturas a elegir",c:3,m:["sutura","vicryl","nylon","prolene","seda","catgut","monocryl","poliglactina"]},
+      {n:"Tegaderm",c:2,m:["tegaderm"]},
+      {n:"Tubería para oxígeno",c:1,m:["tuberia para oxigeno","tuberia de oxigeno"]},
+      {n:"Vendas elásticas a elegir",c:2,m:["venda"]},
+      {n:"Bupivacaína hiperbárica o ropivacaína 0.75%",c:1,m:["bupivacaina","ropivacaina","ropiconest"]},
+      {n:"Lidocaína 2% / Pisacaína / Xylocaína",c:1,m:["lidocaina","pisacaina","xylocaina"]},
+      {n:"Propofol",c:1,m:["propofol","recofol","diprivan"]},
+      {n:"Ceftriaxona o Cefalotina",c:2,m:["ceftriaxona","cefalotina"]},
+      {n:"Ketorolaco o Metamizol",c:4,m:["ketorolaco","metamizol","neomelubrina"]},
+      {n:"Dexametasona",c:1,m:["dexametasona"]},
+      {n:"Metoclopramida iny",c:1,m:["metoclopramida","plasil"]},
+      {n:"Omeprazol iny",c:1,m:["omeprazol"]},
+      {n:"Atropina",c:1,m:["atropina"]},
+      {n:"Epinefrina",c:1,m:["epinefrina","adrenalina"]},
+      {n:"Gorros para todo el equipo",c:null,m:["gorro"]},
+      {n:"Botas para todo el equipo",c:null,m:["bota"]},
+      {n:"Cubrebocas para todo el equipo",c:null,m:["cubrebocas","cubreboca"]}
+    ]},
+  estandar:{nombre:"Cirugía estándar",precio:17498,color:"#1565C0",
+    incluye:"Safenectomía · Amputación de extremidades · Colecistectomía · Apendicectomía · Plastia de hernia",
+    items:[
+      {n:"Bulto de ropa quirúrgica",c:1,m:["bulto de ropa","ropa quirurgica"]},
+      {n:"Par de medias antitrombóticas",c:1,m:["media antitromb","medias antitromb"]},
+      {n:"Agujas",c:8,m:["aguja"]},
+      {n:"Catéter Insyte / Nexiva",c:2,m:["cateter insyte","insyte","nexiva","punzocat"]},
+      {n:"Cepillos quirúrgicos",c:4,m:["cepillo"]},
+      {n:"Chloraprep / Duraprep",c:1,m:["chloraprep","cloraprep","duraprep"]},
+      {n:"Conector delgado / grueso",c:1,m:["conector"]},
+      {n:"Electrodos para monitoreo",c:5,m:["electrodo"]},
+      {n:"Equipo de venopunción",c:1,m:["venopuncion","venopunsion"]},
+      {n:"Equipo Raquimix / Portex",c:1,m:["raquimix","portex","raquianest"]},
+      {n:"Flebotek quirúrgico",c:1,m:["flebotek","normogotero"]},
+      {n:"Gasas estériles",c:20,m:["gasa"]},
+      {n:"Paquete de compresas estériles",c:2,m:["compresa"]},
+      {n:"Jeringas",c:10,m:["jeringa"]},
+      {n:"Hojas de bisturí",c:4,m:["bisturi","hoja de bistur"]},
+      {n:"Línea de infusión",c:1,m:["linea de infusion","linea infusion","extension de infusion"]},
+      {n:"Llave de 3 vías",c:1,m:["llave de 3","llave 3 via","llave tres via"]},
+      {n:"Par de guantes quirúrgicos",c:4,m:["guante"]},
+      {n:"Soluciones intravenosas (1 L)",c:4,m:["solucion","hartmann","fisiologic","cloruro de sodio","glucosad"]},
+      {n:"Suturas a elegir",c:4,m:["sutura","vicryl","nylon","prolene","seda","catgut","monocryl","poliglactina"]},
+      {n:"Tegaderm",c:4,m:["tegaderm"]},
+      {n:"Tubería para oxígeno",c:1,m:["tuberia para oxigeno","tuberia de oxigeno"]},
+      {n:"Vendas elásticas a elegir",c:4,m:["venda"]},
+      {n:"Bupivacaína hiperbárica / Ropiconest",c:1,m:["bupivacaina","ropivacaina","ropiconest"]},
+      {n:"Lidocaína / Pisacaína / Xylocaína",c:1,m:["lidocaina","pisacaina","xylocaina"]},
+      {n:"Propofol / Recofol / Diprivan",c:1,m:["propofol","recofol","diprivan"]},
+      {n:"Vecuronio",c:1,m:["vecuronio"]},
+      {n:"Fentanilo",c:1,m:["fentanilo","fenodid","fentanest"]},
+      {n:"Sevorane (30 ml)",c:1,m:["sevorane","sevoflurano"]},
+      {n:"Tubo orotraqueal",c:1,m:["orotraqueal","tubo endotraqueal"]},
+      {n:"Cánula de Guedel",c:1,m:["guedel","canula orofaring"]},
+      {n:"Ceftriaxona o Cefalotina",c:3,m:["ceftriaxona","cefalotina"]},
+      {n:"Ketorolaco o Metamizol",c:4,m:["ketorolaco","metamizol","neomelubrina"]},
+      {n:"Paracetamol IV",c:1,m:["paracetamol"]},
+      {n:"Dexametasona",c:1,m:["dexametasona"]},
+      {n:"Ondansetrón",c:1,m:["ondansetron","zofran"]},
+      {n:"Metoclopramida iny",c:1,m:["metoclopramida","plasil"]},
+      {n:"Omeprazol iny",c:1,m:["omeprazol"]},
+      {n:"Atropina",c:1,m:["atropina"]},
+      {n:"Epinefrina",c:1,m:["epinefrina","adrenalina"]},
+      {n:"Gorros para todo el equipo",c:null,m:["gorro"]},
+      {n:"Botas para todo el equipo",c:null,m:["bota"]},
+      {n:"Cubrebocas para todo el equipo",c:null,m:["cubrebocas","cubreboca"]}
+    ]},
+  mayor:{nombre:"Cirugía mayor",precio:27998,color:"#6A1B9A",
+    incluye:"Laparoscopia · Cirugía bariátrica",
+    items:[
+      {n:"Bulto de ropa quirúrgica",c:1,m:["bulto de ropa","ropa quirurgica"]},
+      {n:"Par de medias antitrombóticas",c:1,m:["media antitromb","medias antitromb"]},
+      {n:"Agujas",c:10,m:["aguja"]},
+      {n:"Catéter Insyte / Nexiva",c:2,m:["cateter insyte","insyte","nexiva","punzocat"]},
+      {n:"Cepillos quirúrgicos",c:4,m:["cepillo"]},
+      {n:"Chloraprep / Duraprep",c:1,m:["chloraprep","cloraprep","duraprep"]},
+      {n:"Conector delgado / grueso",c:1,m:["conector"]},
+      {n:"Electrodos para monitoreo",c:5,m:["electrodo"]},
+      {n:"Equipo de venopunción",c:1,m:["venopuncion","venopunsion"]},
+      {n:"Equipo Raquimix / Portex",c:1,m:["raquimix","portex","raquianest"]},
+      {n:"Flebotek quirúrgico",c:1,m:["flebotek","normogotero"]},
+      {n:"Gasas estériles",c:30,m:["gasa"]},
+      {n:"Paquete de compresas estériles",c:3,m:["compresa"]},
+      {n:"Jeringas",c:10,m:["jeringa"]},
+      {n:"Hojas de bisturí",c:4,m:["bisturi","hoja de bistur"]},
+      {n:"Línea de infusión",c:1,m:["linea de infusion","linea infusion","extension de infusion"]},
+      {n:"Llave de 3 vías",c:1,m:["llave de 3","llave 3 via","llave tres via"]},
+      {n:"Par de guantes quirúrgicos",c:5,m:["guante"]},
+      {n:"Soluciones intravenosas (1 L)",c:4,m:["solucion","hartmann","fisiologic","cloruro de sodio","glucosad"]},
+      {n:"Suturas a elegir",c:6,m:["sutura","vicryl","nylon","prolene","seda","catgut","monocryl","poliglactina"]},
+      {n:"Tegaderm",c:4,m:["tegaderm"]},
+      {n:"Cánula nasal",c:1,m:["canula nasal","puntas nasales"]},
+      {n:"Vendas elásticas a elegir",c:4,m:["venda"]},
+      {n:"Bupivacaína hiperbárica / Ropiconest",c:1,m:["bupivacaina","ropivacaina","ropiconest"]},
+      {n:"Lidocaína / Pisacaína / Xylocaína",c:1,m:["lidocaina","pisacaina","xylocaina"]},
+      {n:"Propofol / Recofol / Diprivan",c:1,m:["propofol","recofol","diprivan"]},
+      {n:"Vecuronio",c:1,m:["vecuronio"]},
+      {n:"Fentanilo",c:1,m:["fentanilo","fenodid","fentanest"]},
+      {n:"Sevorane (30 ml)",c:1,m:["sevorane","sevoflurano"]},
+      {n:"Tubo orotraqueal",c:1,m:["orotraqueal","tubo endotraqueal"]},
+      {n:"Cánula de Guedel",c:1,m:["guedel","canula orofaring"]},
+      {n:"Ceftriaxona o Cefalotina",c:5,m:["ceftriaxona","cefalotina"]},
+      {n:"Ketorolaco o Metamizol",c:6,m:["ketorolaco","metamizol","neomelubrina"]},
+      {n:"Paracetamol IV",c:1,m:["paracetamol"]},
+      {n:"Dexametasona",c:3,m:["dexametasona"]},
+      {n:"Tramadol IV",c:3,m:["tramadol"]},
+      {n:"Ondansetrón iny",c:1,m:["ondansetron","zofran"]},
+      {n:"Metoclopramida iny",c:4,m:["metoclopramida","plasil"]},
+      {n:"Omeprazol iny",c:2,m:["omeprazol"]},
+      {n:"Atropina",c:1,m:["atropina"]},
+      {n:"Epinefrina",c:1,m:["epinefrina","adrenalina"]},
+      {n:"Norepinefrina",c:1,m:["norepinefrina","levophed"]},
+      {n:"Gorros para todo el equipo",c:null,m:["gorro"]},
+      {n:"Botas para todo el equipo",c:null,m:["bota"]},
+      {n:"Cubrebocas para todo el equipo",c:null,m:["cubrebocas","cubreboca"]}
+    ]}
+};
+
+// ── Permisos ───────────────────────────────────────────────────────────────
+// El cirujano abre la cuenta, pero quien registra el consumo de recuperación y
+// habitación es enfermería o el anestesiólogo, así que ambos capturan.
+function qxPuedeCapturar(){return ["admin","medico","enfermeria","pasante"].includes(rolActual());}
+function qxPuedeCerrar(){return ["admin","medico","enfermeria"].includes(rolActual());}
+// Notas donde tiene sentido el botón: el acto quirúrgico y todo lo que ocurre
+// después de él. En la preoperatoria todavía no se ha consumido nada.
+const QX_NOTAS_CON_INSUMOS=["Nota posoperatoria","Nota de anestesia transoperatoria","Nota postanestésica","Nota de egreso"];
+function qxNotaLlevaInsumos(tipo){return !esAmfa()&&QX_NOTAS_CON_INSUMOS.includes(tipo||"");}
+
+// ── Utilidades ─────────────────────────────────────────────────────────────
+function qxNorm(s){return String(s==null?"":s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();}
+function qxHoy(){return new Date().toISOString().split("T")[0];}
+function qxMomentoLbl(k){const m=QX_MOMENTOS.find(x=>x[0]===k);return m?m[1]:"🔪 Quirófano";}
+function qxMomentoRank(k){const i=QX_MOMENTOS.findIndex(x=>x[0]===k);return i<0?0:i;}
+
+// El precio de cobro sale del inventario. Si el insumo no tiene ni precio al
+// público ni costo capturado NO se asume que es gratis: se devuelve fuente
+// "ninguno" y la interfaz lo dice en la fila. (Regla 0 del proyecto.)
+function qxPrecioInsumo(inv){
+  const pp=ivNum(inv&&inv.precio_publico);
+  const cu=ivNum(inv&&inv.costo_unitario);
+  if(pp>0)return{precio:pp,fuente:"publico"};
+  if(cu>0)return{precio:cu,fuente:"costo"};
+  return{precio:0,fuente:"ninguno"};
+}
+
+// Devuelve el índice de la línea del paquete que cubre a este insumo, o -1.
+// Gana la primera coincidencia, por eso el orden del catálogo importa.
+function qxLineaPaquete(nombreInsumo,paqKey){
+  const paq=PAQUETES_QX[paqKey];if(!paq)return -1;
+  const n=qxNorm(nombreInsumo);
+  for(let i=0;i<paq.items.length;i++){
+    const pats=paq.items[i].m||[];
+    for(let j=0;j<pats.length;j++){if(n.includes(pats[j]))return i;}
+  }
+  return -1;
+}
+
+// Reparte la cobertura del paquete entre los renglones capturados.
+// Varios insumos del almacén pueden caer en la misma línea del paquete
+// (Ketorolaco y Metamizol comparten "4 Ketorolacos o 4 Metamizol"), así que la
+// cobertura se consume de una bolsa común por línea y en orden cronológico:
+// primero lo del quirófano, luego recuperación, luego habitación.
+function qxCalcular(items,paqKey){
+  const paq=PAQUETES_QX[paqKey]||null;
+  const usado={};
+  const orden=items.slice().sort((a,b)=>{
+    const d=qxMomentoRank(a.momento)-qxMomentoRank(b.momento);
+    if(d!==0)return d;
+    return String(a.created_at||"").localeCompare(String(b.created_at||""));
+  });
+  const filas=orden.map(it=>{
+    const cant=ivNum(it.cantidad);
+    const idx=paq?qxLineaPaquete(it.nombre,paqKey):-1;
+    let cubierto=0,linea=null,sinTope=false;
+    if(idx>=0){
+      linea=paq.items[idx];
+      if(linea.c==null){cubierto=cant;sinTope=true;}
+      else{
+        const disp=Math.max(0,linea.c-(usado[idx]||0));
+        cubierto=Math.min(cant,disp);
+        usado[idx]=(usado[idx]||0)+cubierto;
+      }
+    }
+    const excedente=Math.max(0,cant-cubierto);
+    // Un insumo sin costo capturado NO suma al total: si sumara, el recuadro
+    // del excedente diría una cifra que la tabla muestra como "—".
+    const importe=(it.fuente==="ninguno")?0:excedente*ivNum(it.precio);
+    return Object.assign({},it,{cubierto,excedente,importe,lineaPaq:linea?linea.n:null,sinTope});
+  });
+  const totalExtra=filas.reduce((a,f)=>a+f.importe,0);
+  const sinCosto=filas.filter(f=>f.excedente>0&&f.fuente==="ninguno");
+  return{filas,totalExtra,sinCosto,usado};
+}
+
+// ── Apertura de la cuenta ──────────────────────────────────────────────────
+// Una sola cuenta por paciente y día. El cirujano la crea desde su nota; la
+// enfermera de recuperación abre el mismo botón desde la suya y cae en la
+// MISMA cuenta. Ese es el mecanismo que hace que los consumos se sumen.
+window.abrirCuentaInsumos=async function(pac,fechaOpt,epOpt){
+  const p=pac||STATE.pat;
+  if(!p){showToast("Abre primero el expediente del paciente",false);return;}
+  if(esAmfa()){showToast("La cuenta de insumos es de las unidades quirúrgicas de QP",false);return;}
+  loading(true,"Abriendo cuenta de insumos...");
+  const hoy=fechaOpt||qxHoy();
+  const sede=sedeActiva()||"surgery";
+  let cuenta=null;
+  const {data:previas,error:eBusca}=await SB.from("cuentas_insumos")
+    .select("*").eq("paciente_id",p.id).eq("fecha",hoy)
+    .order("created_at",{ascending:false});
+  if(eBusca){loading(false);showToast("No se pudo consultar la cuenta: "+eBusca.message,false);return;}
+  // Si el día tiene una cuenta abierta, esa manda: la enfermera de
+  // recuperación debe caer en la misma que abrió el cirujano, no en la
+  // última cerrada. El índice único de la base impide que haya dos abiertas.
+  if(previas&&previas.length)cuenta=previas.find(x=>x.estado==="abierta")||previas[0];
+  if(!cuenta){
+    // Si hay un episodio quirúrgico de hoy, la cuenta se ancla a él y hereda
+    // el procedimiento; así el corte de caja puede agrupar por cirugía.
+    let ep=epOpt||null;
+    if(!ep){
+      const {data:eps}=await SB.from("episodios_quirurgicos")
+        .select("id,procedimiento,fecha_programada,estado")
+        .eq("paciente_id",p.id).eq("fecha_programada",hoy);
+      if(eps&&eps.length)ep=eps.find(x=>x.estado!=="cancelado")||eps[0];
+    }
+    const u=STATE.userProfile||{};
+    const nueva={
+      paciente_id:p.id,
+      episodio_id:ep?ep.id:null,
+      consulta_id:STATE.consultaActual?.id||null,
+      sede,fecha:hoy,estado:"abierta",
+      paquete:null,
+      procedimiento:ep?ep.procedimiento:null,
+      total_extra:0,
+      abierta_por:`${u.nombre||""} ${u.apellidos||""}`.trim()||ivUsuario()
+    };
+    const {data:ins,error:eIns}=await SB.from("cuentas_insumos").insert(nueva).select().single();
+    if(eIns){loading(false);showToast("No se pudo crear la cuenta: "+eIns.message,false);return;}
+    cuenta=ins;
+    logBitacora("CUENTA DE INSUMOS","Cuenta abierta"+(cuenta.procedimiento?" — "+cuenta.procedimiento:""),p.id);
+  }
+  const [{data:items},{data:inv}]=await Promise.all([
+    SB.from("cuentas_insumos_items").select("*").eq("cuenta_id",cuenta.id).order("created_at"),
+    SB.from("inventario_insumos").select("*").eq("sede",cuenta.sede||sede).eq("activo",true).order("categoria").order("nombre")
+  ]);
+  STATE.qxCuenta=cuenta;
+  STATE.qxPac=p;
+  STATE.qxItems=items||[];
+  STATE.qxInv=inv||[];
+  STATE.qxMomento=STATE.qxMomento||"quirofano";
+  loading(false);
+  if(!STATE.qxInv.length)showToast("El inventario de "+(BRANDING[cuenta.sede]?.nombre||cuenta.sede)+" está vacío: no hay insumos que elegir",false);
+  renderCuentaInsumos();
+}
+
+// ── Ventana de la cuenta ───────────────────────────────────────────────────
+window.renderCuentaInsumos=function(){
+  const c=STATE.qxCuenta;if(!c)return;
+  const p=STATE.qxPac||STATE.pat||{};
+  const cerrada=c.estado==="cerrada";
+  const nom=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim();
+  const NAR="#E65100",NARL="#FFF3E0",NARB="#FFCC80";
+  invModal(`
+    <div style="background:${NAR};color:#fff;padding:13px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div>
+        <div style="font-weight:800;font-size:16px">🧾 Insumos utilizados</div>
+        <div style="font-size:12px;opacity:.9">${ivEsc(nom)} · ${c.fecha}${c.procedimiento?" · "+ivEsc(c.procedimiento):""}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="background:${cerrada?"#1B5E20":"#fff"};color:${cerrada?"#fff":NAR};padding:3px 11px;border-radius:20px;font-size:12px;font-weight:800">${cerrada?"CUENTA CERRADA":"CUENTA ABIERTA"}</span>
+        <button onclick="cerrarInvModal()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;line-height:1">×</button>
+      </div>
+    </div>
+    <div id="qxi-body" style="padding:16px 18px"></div>`,1000);
+  renderCuentaBody();
+}
+
+window.renderCuentaBody=function(){
+  const body=document.getElementById("qxi-body");if(!body)return;
+  const c=STATE.qxCuenta;
+  const cerrada=c.estado==="cerrada";
+  const editable=!cerrada&&qxPuedeCapturar();
+  const NAR="#E65100",NARL="#FFF3E0",NARB="#FFCC80";
+  const paq=PAQUETES_QX[c.paquete]||null;
+  const R=qxCalcular(qxItemsVista(),c.paquete);
+
+  // Cabecera: paquete contratado y procedimiento
+  const optsPaq=Object.keys(PAQUETES_QX).map(k=>`<option value="${k}" ${c.paquete===k?"selected":""}>${PAQUETES_QX[k].nombre} — ${ivMoney(PAQUETES_QX[k].precio)}</option>`).join("");
+  const cabecera=`
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+      <div style="flex:1;min-width:230px">
+        <label style="display:block;font-size:12px;font-weight:700;color:${TX};margin-bottom:4px">Paquete contratado</label>
+        <select id="qxi-paq" ${editable?"":"disabled"} onchange="qxCambiarPaquete(this.value)" style="width:100%;padding:9px 12px;border:1.5px solid ${paq?NARB:DA};border-radius:8px;outline:none;background:#fff;font-weight:700;color:${TX}">
+          <option value="">— Elige el paquete —</option>${optsPaq}
+        </select>
+      </div>
+      <div style="flex:1;min-width:230px">
+        <label style="display:block;font-size:12px;font-weight:700;color:${TX};margin-bottom:4px">Procedimiento</label>
+        <input id="qxi-proc" ${editable?"":"disabled"} onchange="qxGuardarProcedimiento(this.value)" value="${ivEsc(c.procedimiento)}" placeholder="Colecistectomía laparoscópica…" style="width:100%;padding:9px 12px;border:1.5px solid ${BR};border-radius:8px;outline:none;box-sizing:border-box">
+      </div>
+    </div>
+    ${paq?`<div style="background:${NARL};border-left:4px solid ${paq.color};border-radius:8px;padding:9px 13px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;color:${paq.color}">${paq.nombre} · ${ivMoney(paq.precio)} IVA incluido</div>
+      <div style="font-size:12px;color:${MU};margin-top:2px">Contempla: ${paq.incluye}</div>
+    </div>`:`<div style="background:#FFEBEE;border-left:4px solid ${DA};border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:13px;color:#B71C1C;font-weight:600">
+      Sin paquete elegido, todo lo que registres cuenta como excedente. Elige el paquete contratado para que se descuente lo incluido.</div>`}`;
+
+  // Selector del momento en que se está capturando
+  const momentos=QX_MOMENTOS.map(([k,l])=>`<button ${editable?"":"disabled"} onclick="qxSetMomento('${k}')" style="padding:7px 13px;border-radius:8px;border:1.5px solid ${STATE.qxMomento===k?NAR:BR};background:${STATE.qxMomento===k?NARL:"#fff"};color:${STATE.qxMomento===k?NAR:MU};cursor:${editable?"pointer":"default"};font-weight:700;font-size:12px">${l}</button>`).join("");
+
+  const buscador=editable?`
+    <div style="border:1.5px solid ${BR};border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:9px">
+        <span style="font-size:12px;font-weight:700;color:${TX}">Registrando en:</span>${momentos}
+      </div>
+      <input id="qxi-busca" oninput="renderQxBusqueda()" placeholder="🔍 Escribe el insumo: gasas, ketorolaco, sutura…" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;box-sizing:border-box;font-size:14px">
+      <div id="qxi-res" style="margin-top:8px"></div>
+    </div>`:"";
+
+  // Renglones capturados, agrupados por momento
+  let tabla;
+  if(!R.filas.length){
+    tabla=`<div style="text-align:center;padding:26px;color:${MU};font-size:13px">Todavía no se ha registrado ningún insumo.</div>`;
+  }else{
+    let ultimo="";
+    const filasHTML=R.filas.map((f,i)=>{
+      let sep="";
+      if(f.momento!==ultimo){ultimo=f.momento;
+        sep=`<tr><td colspan="7" style="background:${PL};padding:6px 12px;font-size:12px;font-weight:800;color:${PD}">${qxMomentoLbl(f.momento)}</td></tr>`;}
+      const precioTxt=f.fuente==="ninguno"
+        ?`<span style="color:${DA};font-weight:700" title="Este insumo no tiene precio al público ni costo capturado en el inventario">sin costo capturado</span>`
+        :`${ivMoney(f.precio)}${f.fuente==="costo"?`<span title="Se está usando el costo unitario porque el insumo no tiene precio al público" style="color:#E65100;font-weight:800"> ·c</span>`:""}`;
+      const cubTxt=f.sinTope?`<span style="color:#2E7D32;font-weight:700">incluido</span>`:(f.cubierto>0?`<span style="color:#2E7D32;font-weight:700">${f.cubierto}</span>`:`<span style="color:${MU}">0</span>`);
+      return sep+`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+        <td style="padding:7px 12px">
+          <div style="font-weight:600;color:${TX}">${ivEsc(f.nombre)}</div>
+          <div style="font-size:11px;color:${MU}">${ivEsc(f.medida||"")}${f.lineaPaq?` · paquete: ${ivEsc(f.lineaPaq)}`:` · <span style="color:${NAR};font-weight:700">fuera del paquete</span>`}</div>
+        </td>
+        <td style="padding:7px 8px;text-align:center">${editable
+          ?`<input type="number" min="0" step="1" value="${ivNum(f.cantidad)}" onchange="qxSetCantidad('${f.id}',this.value)" style="width:62px;padding:5px 7px;border:1.5px solid ${BR};border-radius:6px;text-align:center;outline:none">`
+          :`<b>${ivNum(f.cantidad)}</b>`}</td>
+        <td style="padding:7px 8px;text-align:center;font-size:13px">${cubTxt}</td>
+        <td style="padding:7px 8px;text-align:center;font-size:13px;font-weight:800;color:${f.excedente>0?NAR:MU}">${f.excedente}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:12px;white-space:nowrap">${precioTxt}</td>
+        <td style="padding:7px 12px;text-align:right;font-weight:800;color:${f.importe>0?NAR:MU}">${f.excedente>0&&f.fuente==="ninguno"?"—":ivMoney(f.importe)}</td>
+        <td style="padding:7px 10px;text-align:center">${editable?`<button onclick="qxQuitarItem('${f.id}')" title="Quitar" style="background:#fff;color:${DA};border:1.5px solid #E9C6C6;border-radius:6px;padding:2px 7px;cursor:pointer">✕</button>`:""}</td>
+      </tr>`;
+    }).join("");
+    tabla=`<div style="border:1px solid ${BR};border-radius:10px;overflow:hidden;margin-bottom:12px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:${PD}">${["Insumo","Usados","Cubiertos","Excedente","Precio unit.","Importe",""].map((h,i)=>`<th style="padding:8px 12px;text-align:${i>=1&&i<=3?"center":i===4||i===5?"right":"left"};color:#fff;font-weight:700;font-size:12px">${h}</th>`).join("")}</tr></thead>
+        <tbody>${filasHTML}</tbody>
+      </table></div>`;
+  }
+
+  // Cobertura del paquete: cuánto se ha consumido de cada renglón incluido
+  let cobertura="";
+  if(paq){
+    const lineas=paq.items.map((li,idx)=>{
+      const us=R.usado[idx]||0;
+      const tope=li.c==null?"sin tope":li.c;
+      const lleno=li.c!=null&&us>=li.c;
+      const col=us===0?MU:(lleno?"#E65100":"#2E7D32");
+      return`<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:12px;border-bottom:1px dotted ${BR}">
+        <span style="color:${TX}">${ivEsc(li.n)}</span>
+        <span style="color:${col};font-weight:700;white-space:nowrap">${us} / ${tope}</span></div>`;
+    }).join("");
+    cobertura=`<details style="margin-bottom:12px">
+      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:${PD};padding:6px 0">📋 Cobertura del paquete ${ivEsc(paq.nombre)} — qué queda disponible</summary>
+      <div style="columns:2;column-gap:22px;padding:8px 4px 2px">${lineas}</div>
+    </details>`;
+  }
+
+  // Totales. Cuando no hubo excedente el aviso lo dice con todas sus letras:
+  // "cuenta en cero" es información, no ausencia de información.
+  const piezasCubiertas=R.filas.reduce((a,f)=>a+f.cubierto,0);
+  const avisoSinCosto=R.sinCosto.length?`
+    <div style="background:#FFEBEE;border-left:4px solid ${DA};border-radius:8px;padding:9px 13px;margin-bottom:10px;font-size:12px;color:#B71C1C">
+      <b>${R.sinCosto.length} insumo${R.sinCosto.length>1?"s":""} con excedente no tiene${R.sinCosto.length>1?"n":""} precio ni costo capturado en el inventario</b>
+      (${R.sinCosto.map(f=>ivEsc(f.nombre)).join(", ")}). No se están cobrando: captúrales el costo en Configuración → Inventario de insumos y vuelve a abrir esta cuenta.
+    </div>`:"";
+  const totales=`
+    ${avisoSinCosto}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="background:${PL};border-radius:10px;padding:11px 14px">
+        <div style="font-size:12px;color:${MU};font-weight:600">Renglones registrados</div>
+        <div style="font-size:20px;font-weight:800;color:${TX}">${R.filas.length}</div></div>
+      <div style="background:#E8F5E9;border-radius:10px;padding:11px 14px">
+        <div style="font-size:12px;color:${MU};font-weight:600">Piezas cubiertas por el paquete</div>
+        <div style="font-size:20px;font-weight:800;color:#1B5E20">${piezasCubiertas}</div></div>
+      <div style="background:${R.totalExtra>0?"#FFF3E0":"#E8F5E9"};border-radius:10px;padding:11px 14px;border-left:4px solid ${R.totalExtra>0?"#E65100":"#2E7D32"}">
+        <div style="font-size:12px;color:${MU};font-weight:600">${R.totalExtra>0?"Excedente por cobrar":"Excedente"}</div>
+        <div style="font-size:20px;font-weight:800;color:${R.totalExtra>0?"#E65100":"#1B5E20"}">${R.totalExtra>0?ivMoney(R.totalExtra):"Cuenta en cero"}</div>
+        <div style="font-size:11px;color:${MU}">${R.totalExtra>0?"se cargará a la cuenta del paciente":"todo quedó dentro del paquete"}</div></div>
+    </div>`;
+
+  // Acciones
+  let acciones;
+  if(cerrada){
+    acciones=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:12px;color:${MU}">Cerrada por <b>${ivEsc(c.cerrada_por||"—")}</b>${c.cerrada_en?" el "+new Date(c.cerrada_en).toLocaleString("es-MX"):""}. El inventario ya se descontó${c.pago_id?" y el cargo está en caja":""}.</div>
+      <div style="display:flex;gap:8px">
+        ${qxPuedeCerrar()?`<button onclick="qxReabrirCuenta()" style="background:#fff;color:#E65100;border:1.5px solid #FFB74D;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:13px">↩ Reabrir y devolver al inventario</button>`:""}
+        ${btn("Cerrar ventana","cerrarInvModal()","s",0)}
+      </div></div>`;
+  }else if(!qxPuedeCapturar()){
+    acciones=`<div style="font-size:12px;color:${MU}">Su rol puede consultar esta cuenta pero no capturar insumos.</div>`;
+  }else{
+    acciones=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:12px;color:${MU}">Lo que registres se guarda al instante; el almacén se descuenta hasta que cierres la cuenta.</div>
+      <div style="display:flex;gap:8px">
+        ${btn("Cerrar ventana","cerrarInvModal()","s",0)}
+        ${qxPuedeCerrar()?`<button onclick="qxCerrarCuenta()" style="background:#E65100;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-weight:800;font-size:13px">🔒 Cerrar cuenta y descontar del inventario</button>`:""}
+      </div></div>`;
+  }
+
+  body.innerHTML=cabecera+buscador+tabla+cobertura+totales+acciones;
+  if(editable)renderQxBusqueda();
+}
+
+// ── Buscador contra el inventario ──────────────────────────────────────────
+window.renderQxBusqueda=function(){
+  const cont=document.getElementById("qxi-res");if(!cont)return;
+  const q=qxNorm(document.getElementById("qxi-busca")?.value||"");
+  if(!q){cont.innerHTML=`<div style="font-size:12px;color:${MU};padding:4px 2px">Escribe al menos dos letras para buscar en el inventario de ${ivEsc(BRANDING[STATE.qxCuenta?.sede]?.nombre||"la sede")}.</div>`;return;}
+  const res=(STATE.qxInv||[]).filter(x=>qxNorm(`${x.nombre||""} ${x.categoria||""} ${x.presentacion||""}`).includes(q)).slice(0,12);
+  if(!res.length){cont.innerHTML=`<div style="font-size:12px;color:${DA};padding:4px 2px">Sin coincidencias en el inventario. Si el insumo existe pero no está dado de alta, agrégalo en Configuración → Inventario de insumos.</div>`;return;}
+  cont.innerHTML=`<div style="border:1px solid ${BR};border-radius:8px;overflow:hidden;max-height:230px;overflow-y:auto">${res.map((x,i)=>{
+    const pr=qxPrecioInsumo(x);
+    const bajo=ivStockBajo(x);
+    return`<div onclick="qxAgregarInsumo('${x.id}')" style="padding:7px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center;background:${i%2?"#FAFAFA":"#fff"};border-top:${i?"1px solid "+BR:"none"}" onmouseover="this.style.background='#FFF3E0'" onmouseout="this.style.background='${i%2?"#FAFAFA":"#fff"}'">
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:600;color:${TX}">${ivEsc(x.nombre)}</div>
+        <div style="font-size:11px;color:${MU}">${ivEsc(x.categoria||"")}${x.presentacion?" · "+ivEsc(x.presentacion):""}</div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <div style="font-size:12px;font-weight:700;color:${pr.fuente==="ninguno"?DA:TX}">${pr.fuente==="ninguno"?"sin costo":ivMoney(pr.precio)}</div>
+        <div style="font-size:11px;color:${bajo?"#E65100":MU};font-weight:${bajo?700:400}">Existencia ${ivNum(x.stock)}${bajo?" ⚠":""}</div>
+      </div></div>`;}).join("")}</div>`;
+}
+
+// ── Precio vigente de cada renglón ─────────────────────────────────────────
+// Mientras la cuenta está abierta el precio se vuelve a leer del inventario en
+// cada dibujo, para que capturar un costo faltante se refleje sin recapturar
+// nada. Al cerrar se congela en el renglón y ya no cambia nunca.
+function qxItemsVista(){
+  const c=STATE.qxCuenta||{};
+  const abierta=c.estado!=="cerrada";
+  return (STATE.qxItems||[]).map(it=>{
+    const inv=(STATE.qxInv||[]).find(x=>String(x.id)===String(it.insumo_id));
+    let precio=ivNum(it.precio_unitario);
+    let fuente=it.precio_fuente||"ninguno";
+    if(abierta&&inv){const pr=qxPrecioInsumo(inv);precio=pr.precio;fuente=pr.fuente;}
+    if(!(precio>0))fuente="ninguno";
+    return Object.assign({},it,{precio,fuente,medida:it.medida||(inv?inv.presentacion:"")});
+  });
+}
+
+// ── Captura ────────────────────────────────────────────────────────────────
+window.qxSetMomento=function(k){STATE.qxMomento=k;renderCuentaBody();}
+
+window.qxCambiarPaquete=async function(k){
+  const c=STATE.qxCuenta;if(!c)return;
+  const {error}=await SB.from("cuentas_insumos").update({paquete:k||null,updated_at:new Date().toISOString()}).eq("id",c.id);
+  if(error){showToast("No se pudo guardar el paquete: "+error.message,false);return;}
+  c.paquete=k||null;renderCuentaBody();
+}
+
+window.qxGuardarProcedimiento=async function(txt){
+  const c=STATE.qxCuenta;if(!c)return;
+  const v=(txt||"").trim()||null;
+  const {error}=await SB.from("cuentas_insumos").update({procedimiento:v,updated_at:new Date().toISOString()}).eq("id",c.id);
+  if(error){showToast("No se pudo guardar el procedimiento: "+error.message,false);return;}
+  c.procedimiento=v;
+}
+
+window.qxAgregarInsumo=async function(insumoId){
+  const c=STATE.qxCuenta;if(!c||c.estado==="cerrada")return;
+  const inv=(STATE.qxInv||[]).find(x=>String(x.id)===String(insumoId));
+  if(!inv){showToast("Insumo no encontrado en el inventario cargado",false);return;}
+  const mom=STATE.qxMomento||"quirofano";
+  const ya=(STATE.qxItems||[]).find(x=>String(x.insumo_id)===String(insumoId)&&x.momento===mom);
+  const pr=qxPrecioInsumo(inv);
+  if(ya){
+    const nueva=ivNum(ya.cantidad)+1;
+    const {error}=await SB.from("cuentas_insumos_items").update({cantidad:nueva}).eq("id",ya.id);
+    if(error){showToast("No se pudo actualizar: "+error.message,false);return;}
+    ya.cantidad=nueva;
+  }else{
+    const reg={cuenta_id:c.id,insumo_id:inv.id,nombre:inv.nombre,medida:inv.presentacion||null,
+      cantidad:1,precio_unitario:pr.precio,precio_fuente:pr.fuente,momento:mom,
+      registrado_por:ivUsuario()};
+    const {data,error}=await SB.from("cuentas_insumos_items").insert(reg).select().single();
+    if(error){showToast("No se pudo agregar: "+error.message,false);return;}
+    STATE.qxItems.push(data);
+  }
+  const b=document.getElementById("qxi-busca");const txt=b?b.value:"";
+  renderCuentaBody();
+  const b2=document.getElementById("qxi-busca");if(b2){b2.value=txt;b2.focus();renderQxBusqueda();}
+}
+
+window.qxSetCantidad=async function(itemId,val){
+  const c=STATE.qxCuenta;if(!c||c.estado==="cerrada")return;
+  const it=(STATE.qxItems||[]).find(x=>String(x.id)===String(itemId));if(!it)return;
+  const n=Math.max(0,ivNum(val));
+  if(n===0){qxQuitarItem(itemId);return;}
+  const {error}=await SB.from("cuentas_insumos_items").update({cantidad:n}).eq("id",itemId);
+  if(error){showToast("No se pudo actualizar la cantidad: "+error.message,false);return;}
+  it.cantidad=n;renderCuentaBody();
+}
+
+window.qxQuitarItem=async function(itemId){
+  const c=STATE.qxCuenta;if(!c||c.estado==="cerrada")return;
+  const {error}=await SB.from("cuentas_insumos_items").delete().eq("id",itemId);
+  if(error){showToast("No se pudo quitar: "+error.message,false);return;}
+  STATE.qxItems=(STATE.qxItems||[]).filter(x=>String(x.id)!==String(itemId));
+  renderCuentaBody();
+}
+
+// ── Cierre: aquí y solo aquí se mueve el almacén ───────────────────────────
+window.qxCerrarCuenta=async function(){
+  const c=STATE.qxCuenta;if(!c||c.estado==="cerrada")return;
+  if(!qxPuedeCerrar()){showToast("Su rol no puede cerrar la cuenta",false);return;}
+  const R=qxCalcular(qxItemsVista(),c.paquete);
+  if(!R.filas.length){showToast("La cuenta no tiene insumos registrados",false);return;}
+  if(!c.paquete){
+    const sigue=await qpConfirm("Esta cuenta no tiene paquete elegido, así que TODO lo registrado se cobrará como excedente. ¿Cerrarla de todos modos?",{title:"Cuenta sin paquete",okLabel:"Cerrar así",danger:true});
+    if(!sigue)return;
+  }
+  const resumen=R.totalExtra>0
+    ?`Se descontarán ${R.filas.length} renglones del inventario y se generará un cargo PENDIENTE de ${ivMoney(R.totalExtra)} en caja.`
+    :`Se descontarán ${R.filas.length} renglones del inventario. No hubo excedente, así que la cuenta queda en cero y no se genera cargo.`;
+  const ok=await qpConfirm(resumen+" Después de cerrar, la cuenta solo puede modificarse reabriéndola, lo que devuelve los insumos al almacén.",{title:"Cerrar cuenta de insumos",okLabel:"Cerrar y descontar",okColor:"#E65100"});
+  if(!ok)return;
+
+  loading(true,"Descontando del inventario...");
+  const ids=[...new Set(R.filas.map(f=>f.insumo_id).filter(Boolean))];
+  const {data:frescos,error:eInv}=await SB.from("inventario_insumos").select("id,stock,sede,nombre").in("id",ids);
+  if(eInv){loading(false);showToast("No se pudo leer el inventario: "+eInv.message,false);return;}
+  const porId={};(frescos||[]).forEach(x=>{porId[String(x.id)]=x;});
+  const ref=`Cirugía${c.procedimiento?" — "+c.procedimiento:""} · cuenta ${String(c.id).slice(0,8)}`;
+  const negativos=[];const fallos=[];
+  for(const f of R.filas){
+    if(!f.insumo_id)continue;
+    const inv=porId[String(f.insumo_id)];if(!inv)continue;
+    const prev=ivNum(inv.stock);const nuevo=prev-ivNum(f.cantidad);
+    if(nuevo<0)negativos.push(f.nombre);
+    const {error:e1}=await SB.from("inventario_insumos").update({stock:nuevo,updated_at:new Date().toISOString()}).eq("id",f.insumo_id);
+    if(e1){fallos.push(f.nombre+": "+e1.message);continue;}
+    inv.stock=nuevo;
+    await SB.from("inventario_movimientos").insert({insumo_id:f.insumo_id,sede:inv.sede||c.sede,tipo:"salida",
+      cantidad:ivNum(f.cantidad),stock_previo:prev,stock_resultante:nuevo,motivo:ref,usuario:ivUsuario()});
+    await SB.from("cuentas_insumos_items").update({precio_unitario:f.precio,precio_fuente:f.fuente}).eq("id",f.id);
+  }
+  if(fallos.length){loading(false);showToast("El inventario no se descontó por completo — "+fallos[0]+". La cuenta sigue abierta.",false);return;}
+
+  let pagoId=null;
+  if(R.totalExtra>0){
+    const u=STATE.userProfile||{};
+    const {data:pg,error:ePg}=await SB.from("pagos").insert({
+      paciente_id:c.paciente_id,
+      concepto:"Insumos extra"+(c.procedimiento?" — "+c.procedimiento:""),
+      monto:Math.round(R.totalExtra*100)/100,
+      forma_pago:"Por definir",fecha:c.fecha,estado:"Pendiente",
+      notas:`Excedente sobre el paquete ${PAQUETES_QX[c.paquete]?.nombre||"(sin paquete)"} · ${R.filas.filter(f=>f.excedente>0).length} insumos fuera de cobertura`,
+      medico_id:STATE.user?.id||null,
+      medico_nombre:`${u.nombre||""} ${u.apellidos||""}`.trim()||null,
+      registrado_por:ivUsuario()
+    }).select().single();
+    if(ePg){loading(false);showToast("El inventario se descontó, pero el cargo NO se creó: "+ePg.message+". Créelo a mano en Corte de caja.",false);}
+    else pagoId=pg.id;
+  }
+  const {error:eC}=await SB.from("cuentas_insumos").update({
+    estado:"cerrada",total_extra:Math.round(R.totalExtra*100)/100,pago_id:pagoId,
+    cerrada_por:ivUsuario(),cerrada_en:new Date().toISOString(),updated_at:new Date().toISOString()
+  }).eq("id",c.id);
+  loading(false);
+  if(eC){showToast("El inventario se descontó pero la cuenta no quedó marcada como cerrada: "+eC.message,false);return;}
+  Object.assign(c,{estado:"cerrada",total_extra:Math.round(R.totalExtra*100)/100,pago_id:pagoId,cerrada_por:ivUsuario(),cerrada_en:new Date().toISOString()});
+  logBitacora("CUENTA DE INSUMOS",`Cerrada — ${R.filas.length} renglones · excedente ${ivMoney(R.totalExtra)}`,c.paciente_id);
+  if(negativos.length)showToast("Cuenta cerrada, pero el almacén quedó en negativo en: "+negativos.join(", ")+". Revisa el conteo.",false);
+  else showToast(R.totalExtra>0?"✓ Cuenta cerrada · cargo de "+ivMoney(R.totalExtra)+" pendiente en caja":"✓ Cuenta cerrada · sin excedente, cuenta en cero");
+  renderCuentaBody();
+}
+
+// ── Reapertura: devuelve al almacén lo que el cierre había descontado ──────
+window.qxReabrirCuenta=async function(){
+  const c=STATE.qxCuenta;if(!c||c.estado!=="cerrada")return;
+  if(!qxPuedeCerrar()){showToast("Su rol no puede reabrir la cuenta",false);return;}
+  let avisoPago="";
+  if(c.pago_id){
+    const {data:pg}=await SB.from("pagos").select("id,estado,monto").eq("id",c.pago_id).maybeSingle();
+    if(pg&&pg.estado!=="Pendiente")avisoPago=` El cargo de ${ivMoney(pg.monto)} ya está marcado como ${pg.estado} en caja, así que NO se eliminará: tendrá que ajustarlo a mano.`;
+    else if(pg)avisoPago=" El cargo pendiente en caja se eliminará.";
+  }
+  const ok=await qpConfirm("Se devolverán al inventario todos los insumos de esta cuenta y quedará abierta para corregirla."+avisoPago,{title:"Reabrir cuenta",okLabel:"Reabrir",okColor:"#E65100"});
+  if(!ok)return;
+  loading(true,"Devolviendo al inventario...");
+  const items=STATE.qxItems||[];
+  const ids=[...new Set(items.map(i=>i.insumo_id).filter(Boolean))];
+  const {data:frescos}=await SB.from("inventario_insumos").select("id,stock,sede").in("id",ids);
+  const porId={};(frescos||[]).forEach(x=>{porId[String(x.id)]=x;});
+  const ref=`Reapertura de cuenta ${String(c.id).slice(0,8)}`;
+  for(const it of items){
+    if(!it.insumo_id)continue;
+    const inv=porId[String(it.insumo_id)];if(!inv)continue;
+    const prev=ivNum(inv.stock);const nuevo=prev+ivNum(it.cantidad);
+    await SB.from("inventario_insumos").update({stock:nuevo,updated_at:new Date().toISOString()}).eq("id",it.insumo_id);
+    inv.stock=nuevo;
+    await SB.from("inventario_movimientos").insert({insumo_id:it.insumo_id,sede:inv.sede||c.sede,tipo:"entrada",
+      cantidad:ivNum(it.cantidad),stock_previo:prev,stock_resultante:nuevo,motivo:ref,usuario:ivUsuario()});
+  }
+  let quitarPago=false;
+  if(c.pago_id){
+    const {data:pg}=await SB.from("pagos").select("id,estado").eq("id",c.pago_id).maybeSingle();
+    if(pg&&pg.estado==="Pendiente"){await SB.from("pagos").delete().eq("id",c.pago_id);quitarPago=true;}
+  }
+  const {error}=await SB.from("cuentas_insumos").update({estado:"abierta",total_extra:0,
+    pago_id:quitarPago?null:c.pago_id,cerrada_por:null,cerrada_en:null,updated_at:new Date().toISOString()}).eq("id",c.id);
+  loading(false);
+  if(error){showToast("Los insumos se devolvieron pero la cuenta no quedó marcada como abierta: "+error.message,false);return;}
+  Object.assign(c,{estado:"abierta",total_extra:0,pago_id:quitarPago?null:c.pago_id,cerrada_por:null,cerrada_en:null});
+  // El inventario en memoria cambió: se recarga para que los precios y las
+  // existencias que se muestran sean los de verdad.
+  const {data:inv2}=await SB.from("inventario_insumos").select("*").eq("sede",c.sede).eq("activo",true).order("categoria").order("nombre");
+  STATE.qxInv=inv2||STATE.qxInv;
+  logBitacora("CUENTA DE INSUMOS","Reabierta — insumos devueltos al almacén",c.paciente_id);
+  showToast("✓ Cuenta reabierta e insumos devueltos al inventario");
+  renderCuentaBody();
+}
+
+// ── Bloque del corte de caja ───────────────────────────────────────────────
+// Una fila por procedimiento, desplegable al detalle de insumos. Las cuentas
+// sin excedente TAMBIÉN se listan, en cero: que un procedimiento no haya
+// gastado de más es un dato del corte, no una ausencia.
+window.cargarCorteInsumos=async function(desde,hasta){
+  const cont=document.getElementById("corte-insumos");if(!cont)return;
+  cont.innerHTML=`<div style="text-align:center;padding:16px;color:${MU};font-size:13px">⚙️ Cargando cuentas de insumos…</div>`;
+  const {data:cuentas,error}=await SB.from("cuentas_insumos").select("*")
+    .gte("fecha",desde).lte("fecha",hasta).order("fecha",{ascending:false}).order("created_at",{ascending:false});
+  if(error){cont.innerHTML=`<div style="background:#FFEBEE;border-left:4px solid ${DA};border-radius:8px;padding:10px 14px;font-size:13px;color:#B71C1C">No se pudieron cargar las cuentas de insumos: ${ivEsc(error.message)}</div>`;return;}
+  if(!cuentas||!cuentas.length){cont.innerHTML="";return;}
+  const ids=cuentas.map(c=>c.id);
+  const pids=[...new Set(cuentas.map(c=>c.paciente_id).filter(Boolean))];
+  const [{data:items},{data:pacs}]=await Promise.all([
+    SB.from("cuentas_insumos_items").select("*").in("cuenta_id",ids).order("created_at"),
+    pids.length?SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente").in("id",pids):Promise.resolve({data:[]})
+  ]);
+  const porPac={};(pacs||[]).forEach(p=>{porPac[String(p.id)]=p;});
+  const porCuenta={};(items||[]).forEach(it=>{(porCuenta[String(it.cuenta_id)]=porCuenta[String(it.cuenta_id)]||[]).push(it);});
+  STATE.ccInsumos={cuentas,porCuenta,porPac};
+  renderCorteInsumos();
+}
+
+window.renderCorteInsumos=function(){
+  const cont=document.getElementById("corte-insumos");if(!cont||!STATE.ccInsumos)return;
+  const {cuentas,porCuenta,porPac}=STATE.ccInsumos;
+  const abiertos=STATE.ccInsumosAbiertos||{};
+  const NAR="#E65100";
+  let totalPeriodo=0,totalCerradas=0,totalAbiertas=0;
+  const filas=cuentas.map((c,i)=>{
+    const its=(porCuenta[String(c.id)]||[]).map(it=>Object.assign({},it,{precio:ivNum(it.precio_unitario),fuente:it.precio_fuente||"ninguno"}));
+    const R=qxCalcular(its,c.paquete);
+    const extra=c.estado==="cerrada"?ivNum(c.total_extra):R.totalExtra;
+    totalPeriodo+=extra;
+    if(c.estado==="cerrada")totalCerradas++;else totalAbiertas++;
+    const p=porPac[String(c.paciente_id)]||{};
+    const nom=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim()||"—";
+    const paq=PAQUETES_QX[c.paquete];
+    const abierto=!!abiertos[c.id];
+    const detalle=abierto?`<tr><td colspan="8" style="padding:0 12px 12px;background:#FAFAFA">
+      ${R.filas.length?`<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid ${BR};border-radius:8px;overflow:hidden">
+        <thead><tr style="background:${PL}">${["Momento","Insumo","Usados","Cubiertos","Excedente","Precio unit.","Importe"].map((h,k)=>`<th style="padding:6px 10px;text-align:${k>=2&&k<=4?"center":k>=5?"right":"left"};font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+        <tbody>${R.filas.map(f=>`<tr style="border-top:1px solid ${BR}">
+          <td style="padding:5px 10px;white-space:nowrap;color:${MU}">${qxMomentoLbl(f.momento)}</td>
+          <td style="padding:5px 10px">${ivEsc(f.nombre)}${f.lineaPaq?"":`<span style="color:${NAR};font-weight:700"> · fuera del paquete</span>`}</td>
+          <td style="padding:5px 10px;text-align:center">${ivNum(f.cantidad)}</td>
+          <td style="padding:5px 10px;text-align:center;color:#2E7D32">${f.sinTope?"incluido":f.cubierto}</td>
+          <td style="padding:5px 10px;text-align:center;font-weight:700;color:${f.excedente>0?NAR:MU}">${f.excedente}</td>
+          <td style="padding:5px 10px;text-align:right">${f.fuente==="ninguno"?`<span style="color:${DA}">sin costo</span>`:ivMoney(f.precio)}</td>
+          <td style="padding:5px 10px;text-align:right;font-weight:700;color:${f.importe>0?NAR:MU}">${f.excedente>0&&f.fuente==="ninguno"?"—":ivMoney(f.importe)}</td>
+        </tr>`).join("")}</tbody></table>`
+        :`<div style="padding:10px;color:${MU};font-size:12px">Esta cuenta no tiene insumos registrados.</div>`}
+      </td></tr>`:"";
+    return`<tr style="border-top:1px solid ${BR};background:${i%2?"#FAFAFA":"#fff"}">
+      <td style="padding:9px 12px;white-space:nowrap">${c.fecha||"—"}</td>
+      <td style="padding:9px 12px"><div style="font-weight:600">${ivEsc(nom)}</div><small style="color:${MU}">${p.numero_expediente?"Exp. "+ivEsc(p.numero_expediente):""}</small></td>
+      <td style="padding:9px 12px">${ivEsc(c.procedimiento||"—")}</td>
+      <td style="padding:9px 12px">${paq?`<span style="background:${PL};color:${paq.color};padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700">${paq.nombre}</span>`:`<span style="color:${DA};font-size:12px;font-weight:700">sin paquete</span>`}</td>
+      <td style="padding:9px 12px;text-align:center">${R.filas.length}</td>
+      <td style="padding:9px 12px;text-align:right;font-weight:800;color:${extra>0?NAR:"#1B5E20"}">${extra>0?ivMoney(extra):"$0.00"}</td>
+      <td style="padding:9px 12px"><span style="background:${c.estado==="cerrada"?"#E8F5E9":"#FFF8E1"};color:${c.estado==="cerrada"?"#2E7D32":"#E65100"};padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700">${c.estado==="cerrada"?"Cerrada":"Abierta"}</span></td>
+      <td style="padding:9px 12px;text-align:center"><button onclick="qxToggleDetalleCorte('${c.id}')" style="background:#fff;color:${P};border:1.5px solid ${BR};border-radius:6px;padding:3px 9px;cursor:pointer;font-size:12px">${abierto?"▲ Ocultar":"▼ Detalle"}</button></td>
+    </tr>`+detalle;
+  }).join("");
+  cont.innerHTML=`
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden;margin-bottom:14px">
+      <div style="padding:10px 14px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <p style="font-size:14px;font-weight:700;color:${TX}">🧾 Insumos por procedimiento</p>
+          <p style="font-size:12px;color:${MU}">${cuentas.length} cuenta${cuentas.length>1?"s":""} · ${totalCerradas} cerrada${totalCerradas===1?"":"s"}${totalAbiertas?` · ${totalAbiertas} todavía abierta${totalAbiertas>1?"s":""}, su excedente aún puede cambiar`:""}</p>
+        </div>
+        <div style="text-align:right">
+          <p style="font-size:12px;color:${MU};font-weight:600">Excedente del periodo</p>
+          <p style="font-size:20px;font-weight:800;color:${totalPeriodo>0?NAR:"#1B5E20"}">${totalPeriodo>0?ivMoney(totalPeriodo):"Cuenta en cero"}</p>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:${PL}">${["Fecha","Paciente","Procedimiento","Paquete","Renglones","Excedente","Estado",""].map((h,k)=>`<th style="padding:9px 12px;text-align:${k===4?"center":k===5?"right":"left"};font-weight:700;color:${TX}">${h}</th>`).join("")}</tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+window.qxToggleDetalleCorte=function(id){
+  STATE.ccInsumosAbiertos=STATE.ccInsumosAbiertos||{};
+  STATE.ccInsumosAbiertos[id]=!STATE.ccInsumosAbiertos[id];
+  renderCorteInsumos();
 }
 
 async function pgPagos(){

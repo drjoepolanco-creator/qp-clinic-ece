@@ -116,6 +116,47 @@ perdida y en realidad estaba guardada y firmada **como nota de evolución** — 
 título «Nota postquirurgica y de seguimiento» dentro del campo Subjetivo y nunca movió el selector.
 No fue un fallo de la base; fue de la interfaz, que dejó firmar sin decir nada.
 
+## Cuenta de insumos quirúrgicos (28 agosto 2026)
+
+Botón naranja **🧾 Insumos** en la barra de las notas quirúrgicas (posoperatoria, transoperatoria,
+postanestésica y de egreso) y en cada renglón del tablero de Quirófano. Tablas `cuentas_insumos` y
+`cuentas_insumos_items` (`CUENTAS_INSUMOS_1_crear.sql`).
+
+**Una sola cuenta por paciente y día**, garantizada por un índice único parcial
+(`(paciente_id, fecha) where estado='abierta'`). Es la pieza clave: el cirujano la abre desde su
+nota y la enfermera de recuperación y el anestesiólogo caen en la MISMA cuenta desde la suya. Cada
+renglón guarda su `momento` — quirófano · recuperación · habitación — para que se vea dónde se
+consumió.
+
+**`PAQUETES_QX`** transcribe las cuatro fichas oficiales: endoscopia/colonoscopia $6,769 · menor
+$10,569 · estándar $17,498 · mayor $27,998. Las listas son idénticas entre especialidades para un
+mismo nivel, así que el catálogo se organiza **por nivel, no por especialidad** (angiología,
+cirugía general, plástica y dermatología comparten el de cirugía menor). Cada línea lleva `m`, los
+fragmentos con que se reconoce el insumo del almacén; **gana la primera coincidencia, por eso el
+orden importa** — "guantes no estériles" va antes que "guantes".
+
+**`qxCalcular()`** reparte la cobertura desde una bolsa común por línea del paquete y en orden
+cronológico. Ketorolaco y Metamizol comparten el renglón «4 Ketorolacos o 4 Metamizol», así que lo
+que consuma el quirófano deja menos disponible para recuperación. Lo que excede se cobra.
+
+**Precio:** `precio_publico` si está capturado, si no `costo_unitario`. Si no hay ninguno de los
+dos **no se inventa un $0**: la fila dice «sin costo capturado», el importe no suma al total y un
+aviso rojo nombra los insumos afectados (regla 0). ⚠️ El costo del inventario es **por
+presentación**, no por pieza: «Atropina 0.5 mg · Caja 10 P» vale $1,920 la caja. Hoy se cobra a ese
+precio por unidad usada. **Pendiente de decidir con el Dr. Polanco:** agregar «piezas por
+presentación» al inventario, o capturar los insumos en la unidad en que se consumen.
+
+**El almacén se mueve UNA sola vez, al cerrar la cuenta.** Mientras está abierta el equipo corrige
+sin tocar el inventario. Al cerrar: un `inventario_movimientos` tipo salida por renglón, se congela
+el precio en cada item, y si hubo excedente nace un cargo **Pendiente** en `pagos` con concepto
+«Insumos extra — <procedimiento>». Si el excedente es cero **no se crea cargo** y el corte muestra
+la cuenta en cero, que es información, no ausencia de información. Reabrir genera el movimiento
+inverso y borra el cargo solo si sigue Pendiente; si ya se cobró, lo dice y no lo toca.
+
+**Corte de caja:** bloque «🧾 Insumos por procedimiento» con una fila por cirugía, desplegable al
+detalle. Se dibuja **haya o no pagos** en el periodo — antes `cargarCorte()` salía temprano cuando
+`pagos` venía vacío y el bloque nunca se habría visto.
+
 ## Alergias: una sola lista para todas las pantallas (24 agosto 2026)
 
 Había **dos almacenes separados** y solo uno se mostraba. `STATE.alergs` es la lista del catálogo
