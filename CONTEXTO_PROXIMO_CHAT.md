@@ -260,6 +260,71 @@ Regla única del aislamiento: **AMFA ve solo lo suyo; todas las demás unidades 
   series salen intercaladas. Es cosmético y el Dr. Polanco lo aceptó. Si algún día quiere serie
   propia para AMFA (`AMFA-001`), es un contador aparte y no toca los expedientes existentes.
 
+## Prescripción de ejercicio — motor mensual (8 septiembre 2026)
+
+El módulo pasó de **cuatro semanas editables a un solo mes** (`version:3` en `anexos`). Los planes
+guardados con los motores anteriores se siguen abriendo en **sólo lectura** desde el historial; no
+se convierten ni se sobrescriben. Se conservan intactos `EJ_BIBLIO`, las cinco secuencias
+originales, `EJ_PASOS`, `EJ_BIENESTAR`, `EJ_AJUSTES` y `EJ_CONTRA`: son las fórmulas del Excel y no
+se retipean.
+
+**Once secuencias** (las cinco de antes más 2 días, empuje/jalón/pierna, por grupo, A/B y PPL ×2) y
+**cinco métodos de organización** transcritos de las prescripciones del Dr. Polanco: series rectas,
+superseries antagonistas (mayo), bi-series de tensión mecánica, series gigantes (julio) y el
+microciclo A/B (septiembre), que alterna bi-series 4×6-8 tempo 3-1-1 con gigantes 3×12-15 tempo
+2-1-2 y última serie descendente.
+
+**La regla que hay que entender antes de tocar el generador:** en series rectas el volumen se
+reparte con ondulación diaria y lo que varía son las SERIES por fila. En los métodos por bloques
+las series las fija el método, así que para llegar al objetivo lo que se ajusta es el NÚMERO DE
+EJERCICIOS. La excepción es a la baja: **una descarga recorta series, no ejercicios**, porque
+conserva la selección que el paciente ya aprendió —es lo que dice su propia indicación de descarga.
+`ejTopeSesion()` corre antes y después del ajuste y manda sobre el método.
+
+**Cinco lugares de entrenamiento** (`EJ_SEDES`): pesas · funcional · casa con mancuernas y ligas ·
+peso corporal · rehabilitación/adulto mayor, cada uno con su equipo, tope de complejidad, tope de
+series por grupo y sesión y RIR mínimo. Cobertura medida sobre los 457 medios: 457 · 330 · 203 ·
+130 · 269. Los patrones sin cobertura (jalón vertical en casa, por ejemplo) se resuelven ampliando
+el equipo y **marcando la fila**, en pantalla y con asterisco en el PDF.
+⚠️ `ejEquipo()` gana con la PRIMERA coincidencia y va del equipo más restrictivo al más disponible,
+porque «con barra y ligas» exige barra. «Jalón» **no es un implemento**: tenerlo en la regla de
+polea convertía «Jalón a la cara con liga» en ejercicio de gimnasio.
+
+**Progresión en un clic.** El cuestionario de bienestar ya no sólo da un mensaje: `ejProgresarMes()`
+traduce el puntaje a volumen, RIR, incremento de carga y rotación de medios, arrastra las cargas y
+el Ajuste capturados, y avanza la variable «novedad del programa». Sin plan del mes en curso o sin
+las seis preguntas contestadas **no genera nada y dice por qué** (regla 0).
+
+**Bloques de texto editables** —calentamiento, progresión, abdomen, cardio, enfriamiento y
+precauciones— precargados según método y lugar, con la redacción de sus documentos de Word. Lo que
+quede escrito ahí es lo que se imprime.
+
+### El PDF ya no se corta
+
+Se generaba **un lienzo único y se rebanaba cada 297 mm a ciegas**, y por eso partía las filas por
+la mitad. Ahora usa el mismo paginado por bloques de `pdfResumenMedico`: cada sesión se mide antes
+de colocarla y, si no cabe, empieza en la página siguiente; un bloque más alto que una página se
+reparte tapando con blanco lo que sobresale. Membrete de QP en cada página, numeración y pie con el
+paciente. **Una sola tabla por día**: una tabla por bloque repetía el encabezado de columnas en cada
+ejercicio y desalineaba las columnas.
+
+### Defectos corregidos de paso
+
+- **El médico salía sin apellidos.** Se armaba el nombre con `apellido_paterno`/`apellido_materno`,
+  que **no existen** en `usuarios` —guarda todo en `apellidos`—, así que las prescripciones se
+  firmaban «José Alan». Ahora lleva título, ambas cédulas e instituciones abreviadas.
+- **El sexo se adivinaba en silencio.** Si el expediente no lo registraba se asumía Mujer, que vale
+  +1.5 de VME y +3 de VMR: la banda salía distinta y nadie se enteraba. Ahora se pide.
+- **La contraindicación de hipertensión buscaba «prensa»**, que en esta biblioteca casi siempre
+  significa *press* —prensa para pecho, prensa militar—, y descartaba casi todo el empuje de tren
+  superior. Quedó en `isométrico|plancha|valsalva|militar`.
+- Se retiró `getImgUrlPDF`, 120 líneas declaradas y nunca llamadas. **Si algún día se quiere la
+  prescripción ilustrada, ese mapa está en el historial de git.**
+
+Probado antes de entregar: 250 combinaciones de secuencia × método × lugar sin excepciones, sin
+ejercicios vacíos y sin ninguna sesión por encima del tope; las cuatro vistas dibujadas en
+navegador sin errores; y cuatro PDF generados y revisados página por página.
+
 ## Pendientes
 
 **Por orden de urgencia:**
