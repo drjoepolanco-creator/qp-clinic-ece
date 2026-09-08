@@ -21965,6 +21965,7 @@ function ejGenerarPlan(cfg){
     cfg:{...cfg,sede:ejNormSede(cfg.sede||cfg.lugar),mes:cfg.mes||1,rotacion:cfg.rotacion||0,deltaVolumen:cfg.deltaVolumen||0},
     generado:new Date().toISOString()};
   plan.aviso=ejFueraDeBanda(plan);
+  plan.textos.volumen=ejTextoVolumen(plan);
   return plan;
 }
 
@@ -21982,6 +21983,21 @@ function ejSeriesBloque(bl){
   if(!v.length)return"";
   const mn=Math.min(...v),mx=Math.max(...v);
   return(mn===mx?mn:mn+"–"+mx)+" series";
+}
+
+// El paciente recibe este PDF: «VME» y «VMR» no le dicen nada. Se traduce a
+// lenguaje llano conservando los números, que sí le sirven para entenderse
+// con quien lo supervise en el gimnasio.
+function ejTextoVolumen(plan){
+  const min=Math.round(plan.vol.vme),max=Math.round(plan.vol.vmr);
+  return"Sobre el volumen de su programa: cada músculo necesita cierta cantidad de series a la "+
+    "semana para cambiar, y esa cantidad no es igual para todos. En su caso el rango va de "+min+
+    " a "+max+" series por músculo a la semana, sumando todos los días que lo entrena.\n"+
+    "Por debajo de "+min+" el músculo se mantiene, pero no mejora. Por arriba de "+max+" el cuerpo "+
+    "ya no alcanza a recuperarse entre una sesión y otra, y el avance se frena en lugar de "+
+    "acelerarse: más no es mejor.\n"+
+    "Este programa está calculado en "+plan.objetivoSeries+" series por músculo, dentro de ese rango. "+
+    "Por eso importa respetar las series indicadas y no agregar ejercicios por cuenta propia.";
 }
 
 // Grupos que quedaron fuera de la banda después de armar el mes.
@@ -22434,6 +22450,7 @@ function ejVistaTextos(cb){
     <textarea rows="${filas}" oninput="ejTexto('${k}',this.value)" style="width:100%;padding:10px 12px;border:1.5px solid ${BR};border-radius:8px;font-size:13px;line-height:1.6;font-family:inherit;resize:vertical">${(t[k]||"").replace(/</g,"&lt;")}</textarea></div>`;
   cb.innerHTML=`
     <p style="font-size:12.5px;color:${MU};margin-bottom:14px;line-height:1.6">Estos son los textos que acompañan a la tabla en el PDF. Se precargan según el método y el lugar de entrenamiento; lo que quede escrito aquí es lo que se imprime.</p>
+    ${campo("volumen","Explicación del volumen (en lenguaje llano, para el paciente)",6)}
     ${campo("calentamiento","Calentamiento",3)}
     ${campo("progresion","Progresión de la carga",4)}
     ${campo("abdomen","Abdomen",2)}
@@ -22615,10 +22632,11 @@ window.pdfPrescripcionEjercicio=async function(){
         <tr><td style="padding:2px 0"><b>Paciente:</b> ${nomPac}</td><td style="padding:2px 0"><b>Fecha:</b> ${hoy}</td></tr>
         <tr><td style="padding:2px 0"><b>Programa:</b> ${plan.label}</td><td style="padding:2px 0"><b>Mes:</b> ${plan.mes||1}</td></tr>
         <tr><td style="padding:2px 0"><b>Método:</b> ${plan.metodoLabel}</td><td style="padding:2px 0"><b>Lugar:</b> ${plan.sedeLabel}</td></tr>
-        <tr><td style="padding:2px 0" colspan="2"><b>Banda de volumen:</b> VME ${plan.vol.vme} – VMR ${plan.vol.vmr} series por grupo y semana · objetivo ${plan.objetivoSeries}</td></tr>
+        <tr><td style="padding:2px 0" colspan="2"><b>Volumen semanal:</b> ${Math.round(plan.vol.vme)} a ${Math.round(plan.vol.vmr)} series por músculo · este programa: ${plan.objetivoSeries}</td></tr>
       </table>
       <div style="font-size:12.5px;font-weight:bold;color:${txt};text-align:center;margin:10px 0 4px">Prescripción de ejercicio</div>
       ${parrafo(t.metodo)}
+      ${(t.volumen===undefined?ejTextoVolumen(plan):t.volumen).trim()?`<div style="background:${pale};border-radius:4px;padding:7px 10px;margin-top:6px">${parrafo(t.volumen===undefined?ejTextoVolumen(plan):t.volumen)}</div>`:""}
       ${titulo("Calentamiento")}${parrafo(t.calentamiento)}`);
 
     plan.dias.forEach(dia=>{
@@ -22653,6 +22671,7 @@ window.pdfPrescripcionEjercicio=async function(){
     });
 
     bloques.push(`${titulo("Volumen semanal por grupo")}
+      <div style="font-size:9px;color:${sec};margin-bottom:4px">Series que le tocan a cada músculo en la semana completa, sumando todos los días.</div>
       <div style="font-size:9.5px;color:${txt};line-height:1.6">${Object.entries(vol.porGrupo).sort().map(([g,n])=>`${g}: <b>${n}</b>`).join(" · ")}</div>
       ${titulo("Progresión de la carga")}${parrafo(t.progresion)}
       ${t.abdomen?titulo("Abdomen")+parrafo(t.abdomen):""}`);

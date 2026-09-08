@@ -295,9 +295,14 @@ traduce el puntaje a volumen, RIR, incremento de carga y rotación de medios, ar
 el Ajuste capturados, y avanza la variable «novedad del programa». Sin plan del mes en curso o sin
 las seis preguntas contestadas **no genera nada y dice por qué** (regla 0).
 
-**Bloques de texto editables** —calentamiento, progresión, abdomen, cardio, enfriamiento y
-precauciones— precargados según método y lugar, con la redacción de sus documentos de Word. Lo que
-quede escrito ahí es lo que se imprime.
+**Bloques de texto editables** —explicación del volumen, calentamiento, progresión, abdomen,
+cardio, enfriamiento y precauciones— precargados según método y lugar, con la redacción de sus
+documentos de Word. Lo que quede escrito ahí es lo que se imprime.
+
+⚠️ **El PDF lo lee el paciente, no un colega.** «VME» y «VMR» no aparecen en él: `ejTextoVolumen()`
+los traduce a lenguaje llano conservando los números («de 14 a 26 series por músculo a la semana;
+por debajo se mantiene, por arriba no alcanza a recuperarse»). En pantalla sí se usan las siglas,
+que es donde le sirven al clínico. Si se agrega cualquier otro dato del modelo al PDF, va traducido.
 
 ### El PDF ya no se corta
 
