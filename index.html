@@ -20696,7 +20696,10 @@ function resumenHTML(d){
   }
   if(sec.inbody){
     h+=S("INBODY / COMPOSICION CORPORAL");
-    h+=(d.inbody||[]).length?T(d.inbody.slice(0,12).map(b=>`${(b.fecha||"").split("T")[0].split("-").reverse().join("/")} — Peso ${b.peso||"—"} kg · IMC ${b.imc||"—"} · Grasa ${b.pgc||"—"}% · Músculo ${b.masa_musculo||"—"} kg · TMB ${b.tmb||"—"} kcal`).join("\n")):VACIO;
+    // La talla vive en la columna "altura" y el nivel de grasa visceral en
+    // "grasa_visceral"; faltaban las dos y el Dr. Polanco las pidió en el
+    // resumen porque son las que se comparan entre estudios.
+    h+=(d.inbody||[]).length?T(d.inbody.slice(0,12).map(b=>`${(b.fecha||"").split("T")[0].split("-").reverse().join("/")} — Talla ${b.altura||"—"} cm · Peso ${b.peso||"—"} kg · IMC ${b.imc||"—"} · Grasa ${b.pgc||"—"}% · Grasa visceral ${b.grasa_visceral||"—"} · Músculo ${b.masa_musculo||"—"} kg · TMB ${b.tmb||"—"} kcal`).join("\n")):VACIO;
   }
   if(sec.lab){
     h+=S("RESULTADOS DE LABORATORIO");
@@ -20791,25 +20794,73 @@ window.resumenSalida=async function(modo){
     const RES_CALIDAD=0.94;
     const doc=new jsPDF({orientation:"p",unit:"mm",format:"letter"});
 
-    // Convierte un fragmento HTML en imagen y devuelve su alto en mm.
-    const pintar=async(frag,anchoMm)=>{
+    // Convierte un fragmento HTML en un lienzo y, de paso, en la lista de sitios
+    // donde SI se puede cortar: el borde inferior de cada linea de texto y de
+    // cada elemento. Antes se rebanaba a la altura que tocara y una linea podia
+    // quedar partida a la mitad —el "4. Paracetamol tabletas 500 mg" que salio
+    // cortado entre dos paginas.
+    const medir=async(frag)=>{
       const c=document.createElement("div");
       c.style.cssText=`position:fixed;left:-99999px;top:0;width:${PX}px;background:#fff;font-family:system-ui,-apple-system,sans-serif`;
       c.innerHTML=frag;
       document.body.appendChild(c);
+      const base=c.getBoundingClientRect().top;
+      const puntos=new Set();
+      // Cada linea visual de cada nodo de texto: getClientRects() sobre un rango
+      // devuelve un rectangulo por linea, aunque el parrafo tenga varias. Se
+      // apunta el BORDE SUPERIOR de cada linea, no el inferior: ese rectangulo
+      // no incluye las colas de la g, la p o la y, y cortar por su base dejaba
+      // esas colas asomando arriba de la hoja siguiente. Cortando un pixel por
+      // encima de la linea, el corte cae siempre en el interlineado.
+      const wk=document.createTreeWalker(c,NodeFilter.SHOW_TEXT,null,false);
+      let nodo;
+      while((nodo=wk.nextNode())){
+        if(!nodo.nodeValue||!nodo.nodeValue.trim())continue;
+        const rg=document.createRange();
+        rg.selectNodeContents(nodo);
+        const rects=rg.getClientRects();
+        for(let i=0;i<rects.length;i++){
+          const t=Math.floor(rects[i].top-base)-1;
+          if(t>0)puntos.add(t);
+        }
+      }
+      // El borde inferior de un elemento si abarca todo su contenido, colas
+      // incluidas: sirve para cerrar el ultimo renglon de cada caja.
+      c.querySelectorAll("*").forEach(function(e){
+        const r=e.getBoundingClientRect();
+        if(r.height>0)puntos.add(Math.ceil(r.bottom-base));
+      });
       const cv=await html2canvas(c,{scale:ESCALA,backgroundColor:"#fff",windowWidth:PX,logging:false});
       document.body.removeChild(c);
-      return{img:cv.toDataURL("image/jpeg",RES_CALIDAD),alto:cv.height*anchoMm/cv.width};
+      const cortes=Array.from(puntos).map(function(v){return Math.round(v*ESCALA);})
+        .filter(function(v){return v>0&&v<cv.height;}).sort(function(x,z){return x-z;});
+      cortes.push(cv.height);
+      return{cv:cv,cortes:cortes};
     };
 
-    const encabezado=await pintar(R.enc,ANCHO);
-    let pagina=1;
-    const nuevaPagina=()=>{doc.addPage();pagina++;doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);return MY+encabezado.alto+3;};
-    doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);
-    let y=MY+encabezado.alto+3;
-    const LIMITE=H-MY-8;               // deja lugar para el número de página
+    // Recorta una franja horizontal del lienzo y la devuelve como JPEG. Sustituye
+    // al truco anterior de dibujar la imagen entera y taparla con rectangulos
+    // blancos, que dejaba asomar el pie de pagina al fondo de la hoja.
+    const franja=(cv,y0,y1)=>{
+      const c2=document.createElement("canvas");
+      c2.width=cv.width;
+      c2.height=Math.max(1,Math.round(y1-y0));
+      const g=c2.getContext("2d");
+      g.fillStyle="#fff";g.fillRect(0,0,c2.width,c2.height);
+      g.drawImage(cv,0,-Math.round(y0));
+      return c2.toDataURL("image/jpeg",RES_CALIDAD);
+    };
 
-    // Un encabezado de sección nunca se queda solo al pie de una página: se une
+    const encM=await medir(R.enc);
+    const encImg=franja(encM.cv,0,encM.cv.height);
+    const encAlto=encM.cv.height*ANCHO/encM.cv.width;
+    const LIMITE=H-MY-8;                 // deja lugar para el numero de pagina
+    const Y0=MY+encAlto+3;               // primera linea util, bajo el encabezado
+    doc.addImage(encImg,"JPEG",MX,MY,ANCHO,encAlto);
+    let y=Y0;
+    const nuevaPagina=()=>{doc.addPage();doc.addImage(encImg,"JPEG",MX,MY,ANCHO,encAlto);y=Y0;};
+
+    // Un encabezado de seccion nunca se queda solo al pie de una pagina: se une
     // al primer bloque que le sigue y viajan juntos.
     const BLOQUES=[];
     for(let i=0;i<R.bloques.length;i++){
@@ -20818,32 +20869,42 @@ window.resumenSalida=async function(modo){
       else BLOQUES.push(b);
     }
 
-    const Y0=MY+encabezado.alto+3;       // primera línea útil, bajo el encabezado
+    // HUECO_MAX decide entre las dos cosas que se pidieron y que se estorban:
+    // respetar las secciones y no dejar medias hojas en blanco. Si una seccion
+    // no cabe en lo que queda de la hoja pero si cabe entera en una hoja limpia,
+    // se pasa completa SOLO cuando el blanco que deja es menor a este margen;
+    // si dejaria mas hueco que eso, se parte y sigue en la hoja siguiente.
+    const HUECO_MAX=45;
+    const MIN_TROZO=15;   // no vale la pena arrancar una seccion con menos que esto
     for(const b of BLOQUES){
-      const {img,alto}=await pintar(b,ANCHO);
-      if(alto>LIMITE-Y0){
-        // Bloque más alto que una página (una consulta larga, por ejemplo): se
-        // reparte en rebanadas. Cada rebanada se dibuja completa y luego se tapa
-        // de blanco lo que sobresale por arriba y por abajo del área útil; el
-        // encabezado se repinta al final para que quede encima de la imagen.
-        if(y>Y0+1){doc.addPage();pagina++;}
-        let desp=0;
-        for(;;){
-          const disp=LIMITE-Y0;
-          doc.addImage(img,"JPEG",MX,Y0-desp,ANCHO,alto);
-          doc.setFillColor(255,255,255);
-          doc.rect(0,0,W,Y0,"F");
-          doc.rect(0,LIMITE,W,H-LIMITE,"F");
-          doc.addImage(encabezado.img,"JPEG",MX,MY,ANCHO,encabezado.alto);
-          if(alto-desp-disp<=0.5){y=Y0+(alto-desp)+2;break;}
-          desp+=disp;
-          doc.addPage();pagina++;
+      const M=await medir(b);
+      const mmPorPx=ANCHO/M.cv.width;
+      const altoTotal=M.cv.height*mmPorPx;
+      const libre=LIMITE-y;
+      if(y>Y0+0.5&&altoTotal>libre&&altoTotal<=LIMITE-Y0&&libre<HUECO_MAX)nuevaPagina();
+      let desp=0;
+      while(desp<M.cv.height-1){
+        if(LIMITE-y<MIN_TROZO&&y>Y0+0.5)nuevaPagina();
+        const disp=(LIMITE-y)/mmPorPx;     // pixeles de lienzo que caben aun
+        let corte=0;
+        for(const cc of M.cortes){
+          if(cc>desp&&cc<=desp+disp)corte=cc;
+          else if(cc>desp+disp)break;
         }
-        continue;
+        if(!corte){
+          // Ni una linea entra en lo que queda: hoja nueva y se reintenta. Si ya
+          // estamos al principio de una hoja limpia, es una imagen mas alta que
+          // la pagina y no hay mas remedio que cortarla donde toque.
+          if(y>Y0+0.5){nuevaPagina();continue;}
+          corte=Math.min(M.cv.height,Math.round(desp+disp));
+        }
+        const alto=(corte-desp)*mmPorPx;
+        doc.addImage(franja(M.cv,desp,corte),"JPEG",MX,y,ANCHO,alto);
+        y+=alto;
+        desp=corte;
+        if(desp<M.cv.height-1)nuevaPagina();
       }
-      if(y+alto>LIMITE)y=nuevaPagina();
-      doc.addImage(img,"JPEG",MX,y,ANCHO,alto);
-      y+=alto+2;
+      y+=2;
     }
 
     // Numeración de páginas
