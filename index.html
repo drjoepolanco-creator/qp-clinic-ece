@@ -10150,11 +10150,15 @@ async function pgConsulta(){
     try{
       const {data:svRows}=await SB.from("signos_vitales").select("*")
         .eq("paciente_id",p.id).gte("fecha",svInicioDiaISO())
-        .order("fecha",{ascending:false}).limit(1);
-      if(svRows&&svRows[0]){
-        c._svHoy=svRows[0];
-        if(STATE.consultaActual)STATE.consultaActual._svHoy=svRows[0];
-        STATE._svAvisoHora=svRows[0].fecha?new Date(svRows[0].fecha).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}):"";
+        .order("fecha",{ascending:false}).limit(10);
+      // La toma más reciente QUE TENGA VALORES, no simplemente la última fila.
+      // Cuando se registran los signos dos veces y la segunda queda en blanco,
+      // esa fila vacía tapaba la toma buena y la nota salía sin signos vitales.
+      const svBueno=(svRows||[]).find(svTieneDatos);
+      if(svBueno){
+        c._svHoy=svBueno;
+        if(STATE.consultaActual)STATE.consultaActual._svHoy=svBueno;
+        STATE._svAvisoHora=svHora(svBueno.fecha);
       }
     }catch(e){console.warn("Signos vitales del día:",e.message);}
   }
@@ -14977,7 +14981,10 @@ async function renderSVTab(b,pid){
             <td style="padding:9px 11px">${s.peso??""}</td><td style="padding:9px 11px">${s.talla??""}</td>
             <td style="padding:9px 11px;font-weight:700">${s.imc??""}</td><td style="padding:9px 11px">${s.glucosa??""}</td>
             <td style="padding:9px 11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.observaciones||""}</td>
-            <td style="padding:6px 11px;white-space:nowrap"><button onclick="cargarSVDesdeHistorial(${svJson})" style="background:#7B1FA2;color:#fff;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap" title="Cargar estos valores en la nota médica">📋 Cargar</button></td>
+            <td style="padding:6px 11px;white-space:nowrap"><div style="display:flex;gap:5px">
+              ${svTieneDatos(s)?`<button onclick="cargarSVDesdeHistorial(${svJson})" style="background:#7B1FA2;color:#fff;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap" title="Cargar estos valores en la nota médica">📋 Cargar</button>`:`<span style="background:#FFF3E0;color:#E65100;border-radius:6px;padding:4px 9px;font-size:12px;font-weight:600;white-space:nowrap" title="Este registro se guardó sin ninguna medición">⚠️ Sin datos</span>`}
+              ${puedeEscribir()?`<button onclick="eliminarSV('${s.id}')" style="background:#fff;color:${DA};border:1px solid ${DA};border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap" title="Eliminar este registro del expediente">🗑 Eliminar</button>`:""}
+            </div></td>
           </tr>`;}).join("")}</tbody>
         </table>
       </div>
@@ -15047,6 +15054,12 @@ async function renderCCTab(b,pid){
 function svInicioDiaISO(){const d=new Date();d.setHours(0,0,0,0);return d.toISOString();}
 function svEsHoy(f){if(!f)return false;const d=new Date(f);if(isNaN(d))return false;const h=new Date();return d.getFullYear()===h.getFullYear()&&d.getMonth()===h.getMonth()&&d.getDate()===h.getDate();}
 function svHora(f){if(!f)return"";const d=new Date(f);return isNaN(d)?"":d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});}
+// ¿Este registro trae alguna medición? Se usa en tres sitios: para no guardar
+// una toma en blanco, para que la nota se salte las que lo estén, y para
+// señalarlas en el historial.
+const SV_MEDICIONES=["temperatura","frecuencia_cardiaca","frecuencia_respiratoria","saturacion_o2",
+  "presion_sistolica","presion_diastolica","glucosa","peso","talla","imc","perimetro_abdominal"];
+function svTieneDatos(s){return !!s&&SV_MEDICIONES.some(k=>s[k]!=null&&s[k]!=="");}
 window.guardarSV=async function(pid){
   loading(true,"Guardando signos vitales...");
   const p=parseFloat(gv("sv_peso"))||null;const t=parseFloat(gv("sv_talla"))||null;
@@ -15067,6 +15080,14 @@ window.guardarSV=async function(pid){
     perimetro_abdominal:parseFloat(gv("sv_pab"))||null,
     observaciones:gv("sv_obs"),
   };
+  // Un registro sin una sola medicion no aporta nada y ademas estorba: la nota
+  // medica busca la toma mas reciente del dia, asi que una fila vacia guardada
+  // por error tapaba la toma buena y la nota salia sin signos vitales.
+  if(!svTieneDatos(payload)){
+    loading(false);
+    showToast("No hay ninguna medición capturada: escribe al menos un valor antes de guardar",false);
+    return;
+  }
   const {error}=await SB.from("signos_vitales").insert(payload);
   loading(false);
   if(error){showToast("Error: "+error.message,false);return;}
@@ -15126,6 +15147,27 @@ window.cargarSVEnConsulta=function(){
   });
 }
 window.cargarSVDesdeHistorial=function(sv){aplicarSVaNota(sv);}
+// Eliminar una toma del historial. Existe porque la toma se registra a veces
+// dos veces y la segunda queda en blanco; esa fila sobrante hay que poder
+// quitarla. Queda asentada en la bitácora, como cualquier borrado del
+// expediente. Si la política de la base no deja borrar esa fila, Supabase no
+// devuelve error: devuelve cero filas borradas, y por eso se revisa el select.
+window.eliminarSV=async function(id){
+  if(!id){showToast("Registro sin identificador",false);return;}
+  if(!puedeEscribir()){showToast("Tu rol no puede eliminar registros del expediente",false);return;}
+  const ok=await qpConfirm(
+    "Se eliminará esta toma de signos vitales del expediente. La acción queda asentada en la bitácora y no se puede deshacer.",
+    {title:"Eliminar signos vitales",okLabel:"Eliminar",danger:true});
+  if(!ok)return;
+  loading(true,"Eliminando registro...");
+  const {data,error}=await SB.from("signos_vitales").delete().eq("id",id).select();
+  loading(false);
+  if(error){showToast("No se pudo eliminar: "+error.message,false);return;}
+  if(!data||!data.length){showToast("El registro no se eliminó: tu usuario no tiene permiso sobre esa fila",false);return;}
+  try{await logBitacora("SIGNOS_VITALES","Eliminación de toma "+id+" · Paciente "+(STATE.pat?.id||"—"));}catch(e){}
+  showToast("✓ Toma eliminada");
+  if(STATE.enfermeriaMode)renderEnfTab();else setET("sv");
+};
 // ── PÁGINA ENFERMERÍA ─────────────────────────────────────
 async function pgEnfermeria(){
   const pid=STATE.pat?.id;
