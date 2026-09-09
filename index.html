@@ -20668,9 +20668,19 @@ function resumenHTML(d){
   }
   if(sec.interrog){
     h+=S("INTERROGATORIO POR APARATOS Y SISTEMAS");
-    const r=(d.interrog||[])[0];
-    const l=r?resLista(r.datos||r.seleccionados||{}):[];
-    h+=(l.length||resTexto(r?.notas))?T([...l.map(x=>"• "+x),resTexto(r?.notas)].filter(Boolean).join("\n")):VACIO;
+    // La tabla interrogatorio_aparatos guarda UN CAMPO DE TEXTO POR APARATO
+    // (digestivo, cardiovascular, ...), no un JSONB de casillas. Antes se leia
+    // r.datos / r.seleccionados / r.notas -columnas que no existen- y la
+    // seccion salia siempre "NO HAY INFORMACION REGISTRADA" aunque el
+    // interrogatorio estuviera capturado y guardado.
+    const r=(d.interrog||[])[0]||{};
+    const RES_APARATOS=[["digestivo","Aparato digestivo"],["cardiovascular","Aparato cardiovascular"],["respiratorio","Aparato respiratorio"],["urinario","Aparato urinario"],["genital","Aparato genital"],["hematologico","Aparato hematologico"],["endocrino","Sistema endocrino"],["osteomuscular","Sistema osteomuscular"],["nervioso","Sistema nervioso"]];
+    const filasInt=RES_APARATOS.map(function(par){
+      const v=resTexto(r[par[0]]);
+      if(!v)return "";
+      return '<div style="margin-bottom:4px"><span style="font-size:9.5px;font-weight:700;color:#546E7A">'+par[1]+': </span><span style="font-size:10px;color:#263238;white-space:pre-wrap">'+v.replace(/</g,"&lt;")+'</span></div>';
+    }).filter(Boolean);
+    h+=filasInt.length?('<div style="line-height:1.55">'+filasInt.join("")+'</div>'):VACIO;
   }
   if(sec.anotac){
     h+=S("ANOTACIONES GENERALES");
@@ -20771,11 +20781,14 @@ window.resumenSalida=async function(modo){
     // Medidas en milímetros. Carta 216 × 279 con márgenes generosos.
     const W=216,H=279,MX=16,MY=15,ANCHO=W-MX*2;
     const PX=760;                       // ancho de render en píxeles
-    // Escala 3 sobre 760 px da unos 315 puntos por pulgada sobre el ancho útil,
-    // la misma nitidez que ya tienen las notas médicas. Con escala 2 y JPEG el
-    // texto pequeño salía lavado. PNG no comprime con pérdida: las letras
-    // conservan el borde limpio.
-    const ESCALA=3;
+    // Escala 4 sobre 760 px da unos 420 puntos por pulgada sobre el ancho útil.
+    // Con escala 3 y calidad 0.9 el texto de 8 px salía con halo alrededor de
+    // las letras: el resumen es el único documento con tipografía tan pequeña,
+    // por eso usa una escala y una calidad JPEG propias, más altas que el resto
+    // del sistema. A 420 ppp y calidad 0.94 un expediente de 3 páginas pesa
+    // alrededor de 2.5 MB, todavía cómodo para enviar por correo.
+    const ESCALA=4;
+    const RES_CALIDAD=0.94;
     const doc=new jsPDF({orientation:"p",unit:"mm",format:"letter"});
 
     // Convierte un fragmento HTML en imagen y devuelve su alto en mm.
@@ -20786,7 +20799,7 @@ window.resumenSalida=async function(modo){
       document.body.appendChild(c);
       const cv=await html2canvas(c,{scale:ESCALA,backgroundColor:"#fff",windowWidth:PX,logging:false});
       document.body.removeChild(c);
-      return{img:cv.toDataURL("image/jpeg",PDF_CALIDAD),alto:cv.height*anchoMm/cv.width};
+      return{img:cv.toDataURL("image/jpeg",RES_CALIDAD),alto:cv.height*anchoMm/cv.width};
     };
 
     const encabezado=await pintar(R.enc,ANCHO);
