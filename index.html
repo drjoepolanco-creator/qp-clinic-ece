@@ -21714,6 +21714,109 @@ function ejComplejidad(n){
 }
 const EJ_NIVEL_MAX={"Novato (0-12 meses)":1,"Principiante (1-3 años)":2,"Intermedio (4-8 años)":3,"Avanzado (>8 años)":3};
 
+// ── Familia de movimiento, carga y jerarquía ─────────────────────────────────
+// Los nombres de la biblioteca son sistemáticos, así que la FAMILIA se deduce
+// quitando los modificadores: «Lagartijas», «Lagartijas con ligas»,
+// «Lagartijas en la pared» y «Lagartijas apoyado en banco/silla» son un mismo
+// movimiento con cuatro matices, no cuatro opciones distintas. Sin esto, la
+// rotación mensual avanzaba un lugar en una lista alfabética y entregaba seis
+// meses seguidos de variantes de lagartija.
+const EJ_MODIFICADORES=[
+  [/\s*\(2 piernas[^)]*\)/gi,""],
+  [/\s*exc[eé]ntric[oa]s?\s*\(\d+\s*segundos?\)/gi,"tempo"],
+  [/\s*isom[eé]tric[oa]s?\s*\(\d+\s*segundos?\)/gi,"tempo"],
+  [/\s*exc[eé]ntric[oa]s?\b/gi,"tempo"],
+  [/\s*isom[eé]tric[oa]s?\b/gi,"tempo"],
+  [/\s*supramaxima?l\b/gi,"tempo"],
+  [/\s*con pausa[^,]*/gi,"tempo"],
+  [/\s*con cadenas?\b/gi,"implemento"],
+  [/\s*con lastre\b/gi,"implemento"],
+  [/\s*con ligas?\b/gi,"implemento"],
+  [/\s*con banda[s]? el[aá]stica[s]?\b/gi,"implemento"],
+  [/\s*con miniban[a-z]*\b/gi,"implemento"],
+  [/\s*con mancuerna[s]?\b/gi,"implemento"],
+  [/\s*con pesa rusa\b/gi,"implemento"],
+  [/\s*con barra( hexagonal| corta| romana| z| ez)?\b/gi,"implemento"],
+  [/\s*con disco[s]?\b/gi,"implemento"],
+  [/\s*con soga\b/gi,"implemento"],
+  [/\s*con cuerda\b/gi,"implemento"],
+  [/\s*con carga\b/gi,"implemento"],
+  [/\s*y talones elevados\b/gi,"posicion"],
+  [/\s*con talones elevados\b/gi,"posicion"],
+  [/\s*en la pared\b/gi,"regresion"],
+  [/\s*apoyad[oa] en banco\/silla\b/gi,"regresion"],
+  [/\s*de rodillas\b/gi,"regresion"],
+  [/\s*asistid[oa][a-z]*\b/gi,"regresion"],
+  [/\s*unilateral(es)?\b/gi,"unilateral"],
+  [/\s*alternad[oa]s?\b/gi,"unilateral"],
+  [/\s*a 1 mano\b/gi,"unilateral"],
+  [/\s*agarre [a-zñáéíóú]+( [a-zñáéíóú]+)?\b/gi,"agarre"],
+  [/\s*\+ rotaci[oó]n lateral\b/gi,"agarre"],
+];
+function ejFamilia(n){
+  let base=(n||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  const mods=new Set();
+  EJ_MODIFICADORES.forEach(([re,etiqueta])=>{
+    if(re.test(base)){if(etiqueta)mods.add(etiqueta);}
+    base=base.replace(re,"");
+  });
+  base=base.replace(/\s{2,}/g," ").replace(/[\s,]+$/,"").trim();
+  return{familia:base||n.toLowerCase(),mods,tempo:mods.has("tempo"),regresion:mods.has("regresion")};
+}
+// Cuánta carga externa admite el medio: es lo que separa una sentadilla con
+// barra de levantarse de una silla, que hoy pesaban igual en la lista.
+function ejCargaPotencial(n){
+  const s=(n||"").toLowerCase(),e=ejEquipo(n);
+  if(/en la pared|de rodillas|asistid|apoyad[oa] en banco\/silla/.test(s))return 0;
+  if(/levantarse y sentarse de una silla/.test(s))return /con carga/.test(s)?1:0;
+  if(e==="barra"||e==="maquina"||e==="polea")return 3;
+  if(e==="suspendido")return /lastre/.test(s)?3:2;
+  if(e==="mancuerna"||e==="rusa")return 2;
+  if(e==="liga"||e==="trx")return 1;
+  return /lastre|con carga|con disco/.test(s)?2:0;
+}
+// Desempate reproducible: el mismo paciente y el mismo mes dan siempre la
+// misma rutina, requisito para que el expediente sea auditable.
+function ejSemilla(txt){
+  let h=2166136261;
+  for(let i=0;i<txt.length;i++){h^=txt.charCodeAt(i);h=Math.imul(h,16777619);}
+  return((h>>>0)%1000)/1000;
+}
+const EJ_NIVEL_NUM={"Novato (0-12 meses)":0,"Principiante (1-3 años)":1,"Intermedio (4-8 años)":2,"Avanzado (>8 años)":3};
+
+// Antigüedad de cada familia en el historial del paciente: 1 = el plan
+// anterior, 2 = el de antes. Sin esto cada mes se generaba como si fuera el
+// primero que ve ese paciente.
+function ejHistorial(planes){
+  const hist={};
+  (planes||[]).slice(0,6).forEach((a,orden)=>{
+    let o=null;
+    try{o=JSON.parse(String(a.descripcion||"").replace("__EJERCICIO__:",""));}catch(e){return;}
+    const filas=[];
+    if(o&&o.version===3)(o.dias||[]).forEach(d=>(d.bloques||[]).forEach(b=>(b.filas||[]).forEach(f=>filas.push(f.ejercicio))));
+    else if(o&&o.version===2)(o.semanas&&o.semanas[0]?o.semanas[0].dias:[]||[]).forEach(fs=>(fs||[]).forEach(f=>filas.push(f.ejercicio)));
+    filas.filter(Boolean).forEach(n=>{
+      const k=ejFamilia(n).familia;
+      if(hist[k]==null||hist[k]>orden+1)hist[k]=orden+1;
+    });
+  });
+  return hist;
+}
+
+// Puntaje de idoneidad. Un número más alto es mejor medio para ESA fila.
+function ejPuntuar(c,ctx){
+  let p=c.carga*(ctx.posicion===0?8:2);
+  if(c.regresion)p+=ctx.permiteRegresion?2:-14;
+  p-=Math.abs(c.cx-ctx.cxDeseada)*2;
+  if(ctx.usadas.has(c.familia))p-=25;
+  const ant=ctx.historial[c.familia];
+  if(ant!=null)p-=Math.max(0,10-(ant-1)*3);
+  if(c.tempo&&ctx.posicion===0)p-=6;
+  if(c.tempo&&ctx.nivelNum<2)p-=8;
+  if(c.unilateral&&ctx.posicion===0)p-=3;
+  return p+c.jitter*1.5;
+}
+
 // ── Selección de medios ──────────────────────────────────────────────────────
 // Filtra la biblioteca por el equipo del lugar, la complejidad que admite el
 // nivel del paciente y las contraindicaciones marcadas. Si el lugar elegido no
@@ -21727,7 +21830,11 @@ function ejCandidatos(grupo,patron,cfg){
   const contras=(cfg.condiciones||[]).map(k=>EJ_CONTRA.find(c=>c.k===k)).filter(Boolean);
   const todos=nodo.ejs.map(n=>{
     const choca=contras.filter(c=>c.re.test(n));
-    return{n,equipo:ejEquipo(n),cx:ejComplejidad(n),contra:choca.map(c=>c.k),notas:choca.map(c=>c.nota)};
+    const f=ejFamilia(n);
+    return{n,equipo:ejEquipo(n),cx:ejComplejidad(n),
+      familia:f.familia,tempo:f.tempo,regresion:f.regresion,unilateral:f.mods.has("unilateral"),
+      carga:ejCargaPotencial(n),jitter:ejSemilla(n+"|"+(cfg.semilla||"")),
+      contra:choca.map(c=>c.k),notas:choca.map(c=>c.nota)};
   });
   let lista=todos.filter(e=>sede.equipo.includes(e.equipo)&&e.cx<=maxCx),fuera=false;
   if(!lista.length){lista=todos.filter(e=>e.cx<=maxCx);fuera=lista.length>0;}
@@ -21919,7 +22026,14 @@ function ejGenerarPlan(cfg){
     ejTopeSesion(crudos,sede);
   }
 
-  const usados={};
+  crudos.forEach(dia=>{
+    const cuenta={};
+    dia.filas.forEach(f=>{cuenta[f.g]=(cuenta[f.g]||0);f.pos=cuenta[f.g]++;});
+  });
+  const historial=(STATE&&STATE._ejHist)||{};
+  const usadas=new Set();
+  const nivelNum=EJ_NIVEL_NUM[cfg.nivel]!=null?EJ_NIVEL_NUM[cfg.nivel]:2;
+  const permiteRegresion=nivelNum<=0||sede.maxCx<=1||["corporal","rehab"].includes(ejNormSede(cfg.sede||cfg.lugar));
   const dias=crudos.map((dia,d)=>{
     const m=EJ_METODOS[dia.modo]||EJ_METODOS.rectas;
     const mitad=nd/2;
@@ -21927,15 +22041,18 @@ function ejGenerarPlan(cfg){
       :(nd%2===0?(d%mitad)+1:Math.floor(d/2)+1)+(dia.modo==="biseries"?"A":"B");
     const bloques=ejAgrupar(dia.filas,dia.modo).map((grupoFilas,bi)=>{
       const filas=grupoFilas.map((f,fi)=>{
-        const cand=ejCandidatos(f.g,f.p,cfg);
-        const clave=f.g+"|"+f.p;
-        usados[clave]=usados[clave]||0;
-        const pick=cand.lista.length?cand.lista[(usados[clave]+rot)%cand.lista.length]:null;
-        usados[clave]++;
+        const cand=ejCandidatos(f.g,f.p,{...cfg,semilla:(cfg.pacienteId||"")+"|"+(cfg.mes||1)+"|"+rot});
+        const ctx={posicion:f.pos||0,cxDeseada:(f.pos||0)===0?Math.min(sede.maxCx,2):Math.max(1,Math.min(sede.maxCx,2)),
+          nivelNum,permiteRegresion,usadas,historial};
+        const frescos=cand.lista.filter(x=>historial[x.familia]!==1);
+        const urna=frescos.length?frescos:cand.lista;
+        let pick=null,mejor=-Infinity;
+        urna.forEach(x=>{const v=ejPuntuar(x,ctx);if(v>mejor){mejor=v;pick=x;}});
+        if(pick)usadas.add(pick.familia);
         const rango=cand.comp?m.reps.comp:m.reps.ais;
         return{
           seq:(bi+1)+(grupoFilas.length>1?String.fromCharCode(65+fi):""),
-          grupo:f.g,patron:f.p,comp:cand.comp,
+          grupo:f.g,patron:f.p,comp:cand.comp,pos:f.pos||0,familia:pick?pick.familia:"",
           ejercicio:pick?pick.n:"",equipo:pick?pick.equipo:"",
           contra:pick?pick.contra:[],notasContra:pick?pick.notas:[],
           fueraSede:!!cand.fuera,
@@ -22272,6 +22389,8 @@ async function pgEjercicio(){
   await ejPrecargar();
   let planes=[];
   try{const{data}=await SB.from("anexos").select("id,titulo,fecha,created_at,descripcion").eq("paciente_id",p.id).like("descripcion","__EJERCICIO__:%").order("created_at",{ascending:false});planes=data||[];}catch(e){}
+  STATE._ejHist=ejHistorial(planes);
+  ejCfg().pacienteId=p.id;
   const hayPlan=!!STATE._ejPlanActual;
   const tab=(k,l)=>`<button onclick="STATE.ejTab='${k}';pgEjercicio()" style="padding:10px 15px;border:none;cursor:pointer;font-weight:${STATE.ejTab===k?700:500};font-size:14px;color:${STATE.ejTab===k?P:MU};border-bottom:3px solid ${STATE.ejTab===k?P:"transparent"};background:${STATE.ejTab===k?"#fff":"transparent"};white-space:nowrap">${l}</button>`;
   b.innerHTML=`<div style="max-width:1180px;margin:0 auto;padding:16px" class="fade">

@@ -313,6 +313,62 @@ reparte tapando con blanco lo que sobresale. Membrete de QP en cada página, num
 paciente. **Una sola tabla por día**: una tabla por bloque repetía el encabezado de columnas en cada
 ejercicio y desalineaba las columnas.
 
+### Selección de medios: por qué NO es un índice en una lista (9 septiembre 2026)
+
+La primera versión elegía con `lista[(usados+rotación) % lista.length]`. No era azar: era **orden
+alfabético**, y como la rotación avanza un lugar por mes, los meses consecutivos caían en variantes
+casi idénticas. Un paciente intermedio en gimnasio de pesas recibía seis meses seguidos de
+lagartijas —incluidas *lagartijas en la pared*— y una sentadilla a silla como ejercicio principal
+de cuádriceps en el mes 1. Pasó la verificación porque yo probé que no se repitiera y que
+respetara topes, pero **no probé la calidad de lo que elegía**. Si se toca el selector, esa es la
+prueba que hay que volver a correr.
+
+Ahora la elección es por **puntaje de idoneidad** (`ejPuntuar`), sobre tres piezas nuevas:
+
+- **`ejFamilia()`** deduce la familia de movimiento quitando modificadores del nombre —tempo,
+  implemento, apoyo, lateralidad, agarre. «Lagartijas», «Lagartijas con ligas», «Lagartijas en la
+  pared» y «Lagartijas apoyado en banco/silla» son UNA familia con cuatro matices. La biblioteca
+  está nombrada de forma tan sistemática que esto se deduce del texto; si se agregan ejercicios,
+  respetar esa forma de nombrar o la familia saldrá mal.
+- **`ejCargaPotencial()`** separa lo que admite carga progresiva (barra, máquina, polea = 3) de lo
+  que no (pared, rodillas, asistido = 0). Antes «Sentadilla trasera con barra» y «Levantarse de una
+  silla» pesaban igual.
+- **`ejHistorial()`** lee los últimos seis planes guardados del paciente y devuelve la antigüedad
+  de cada familia. **Regla dura:** una familia usada el mes anterior no se repite si hay
+  alternativa; el castigo por puntaje no bastaba, un medio muy bien puntuado se quedaba clavado
+  cuatro meses seguidos.
+
+`f.pos` es la posición dentro del grupo en esa sesión: **pos 0 es el principal** y pide la mayor
+carga posible con complejidad 2 —el compuesto con barra—, no complejidad 3, que son movimientos de
+especialidad (sissy, nórdico, búlgara, arranque). Las siguientes son accesorias. La posición se
+guarda en la fila para poder auditar por qué se eligió cada medio.
+
+**Es determinista:** la semilla es `pacienteId | mes | rotación`, así que el mismo paciente en el
+mismo mes da siempre la misma rutina. En un expediente clínico eso no es opcional.
+
+Medido sobre 5,275 ejercicios principales de las 250 combinaciones: carga potencial media 2.14 de
+3, y **cero regresiones usadas como principal** donde no correspondía.
+
+### Decidido y todavía NO construido
+
+- **Cardio con zonas reales.** El Dr. Polanco eligió **reproducir el modelo Fitmate** (el de sus
+  estudios COSMED): seis zonas por % de VO2máx —quema de grasa 24-31 %, resistencia 32-39 %, umbral
+  40-44 %, carrera 45-73 %, VO2máx 74-100 %, anaeróbico 101-105 %— con lpm, watts y km/h, para que
+  el paciente vea lo mismo en el estudio y en la receta. Dos orígenes: **medido** (captura del
+  informe: VO2máx, FCmáx alcanzada, FC y VO2 en umbral) o **calculado**, y en este último la FCmáx
+  teórica va con **Tanaka (208 − 0.7 × edad)**, no con 220 − edad. El PDF debe decir cuál se usó y
+  si es medida o estimada.
+- **Ampliar casa, peso corporal y funcional.** La medición por celda grupo × patrón: pesas 14.7
+  medios de promedio y ninguna celda pobre; funcional 10.6 con tres celdas de 1 o 2; casa 6.5 con
+  una vacía (jalón vertical) y cuatro de 1 o 2; peso corporal 4.2 con cuatro vacías y diez de 1 o 2;
+  rehabilitación 8.7 con dos vacías. **Para gimnasio no falta catálogo, faltaba criterio.**
+- **Nada de llamar a un modelo de IA en tiempo real desde el navegador.** Se evaluó y se descartó
+  como vía única: los datos del paciente saldrían de la clínica en cada uso, dos generaciones
+  idénticas podrían diferir —inaceptable en un expediente— y el módulo dejaría de funcionar si el
+  servicio falla. Si algún día se quiere, va en una Edge Function de Supabase, para proponer
+  variantes o redactar texto, y **validando siempre la respuesta contra la biblioteca y las
+  contraindicaciones antes de mostrarla**.
+
 ### Defectos corregidos de paso
 
 - **El médico salía sin apellidos.** Se armaba el nombre con `apellido_paterno`/`apellido_materno`,
