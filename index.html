@@ -20692,7 +20692,10 @@ function resumenHTML(d){
   }
   if(sec.sv){
     h+=S("SIGNOS VITALES");
-    h+=(d.sv||[]).length?T(d.sv.slice(0,20).map(s=>`${(s.fecha||"").split("T")[0].split("-").reverse().join("/")} — TA ${s.tension_sistolica||"—"}/${s.tension_diastolica||"—"} · FC ${s.frecuencia_cardiaca||"—"} · FR ${s.frecuencia_respiratoria||"—"} · Temp ${s.temperatura||"—"} · SpO₂ ${s.saturacion_o2||"—"} · Peso ${s.peso||"—"} kg`).join("\n")):VACIO;
+    // La tabla signos_vitales guarda presion_sistolica / presion_diastolica.
+    // Aqui se leia tension_sistolica / tension_diastolica —columnas que no
+    // existen— y la tension arterial salia siempre como "TA —/—".
+    h+=(d.sv||[]).length?T(d.sv.slice(0,20).map(s=>`${(s.fecha||"").split("T")[0].split("-").reverse().join("/")} — TA ${s.presion_sistolica||"—"}/${s.presion_diastolica||"—"} mmHg · FC ${s.frecuencia_cardiaca||"—"} lpm · FR ${s.frecuencia_respiratoria||"—"} rpm · Temp ${s.temperatura||"—"} °C · SpO₂ ${s.saturacion_o2||"—"}% · Glucosa ${s.glucosa||"—"} mg/dL · Peso ${s.peso||"—"} kg`).join("\n")):VACIO;
   }
   if(sec.inbody){
     h+=S("INBODY / COMPOSICION CORPORAL");
@@ -20721,12 +20724,43 @@ function resumenHTML(d){
     h+=S("CONSULTAS");
     const cs=(d.cons||[]);
     if(!cs.length)h+=VACIO;
+    // Signos vitales de la nota en un solo renglon, al modo del InBody. Se omite
+    // lo que no se tomo para que el renglon no se llene de guiones. Ojo: la
+    // columna es presion_sistolica / presion_diastolica.
+    const svLinea=(c)=>{
+      const t=[];
+      if(c.presion_sistolica||c.presion_diastolica)t.push(`TA ${c.presion_sistolica||"—"}/${c.presion_diastolica||"—"} mmHg`);
+      if(c.frecuencia_cardiaca)t.push(`FC ${c.frecuencia_cardiaca} lpm`);
+      if(c.frecuencia_respiratoria)t.push(`FR ${c.frecuencia_respiratoria} rpm`);
+      if(c.temperatura)t.push(`Temp ${c.temperatura} °C`);
+      if(c.saturacion_o2)t.push(`SpO₂ ${c.saturacion_o2}%`);
+      if(c.glucosa)t.push(`Glucosa ${c.glucosa} mg/dL`);
+      if(c.peso)t.push(`Peso ${c.peso} kg`);
+      if(c.imc)t.push(`IMC ${c.imc}`);
+      if(c.eva_dolor!==null&&c.eva_dolor!==undefined&&c.eva_dolor!=="")t.push(`EVA ${c.eva_dolor}/10`);
+      return t.join(" · ");
+    };
+    // Pronosticos: los dos que lleva toda nota (funcional y para la vida) mas
+    // los de las plantillas especializadas, que viven dentro de datos_clinicos
+    // con la clave sin el prefijo dc_.
+    const progLinea=(c)=>{
+      const dc=c.datos_clinicos||{};
+      const t=[];
+      if(c.pronostico_funcion)t.push(`Funcional: ${c.pronostico_funcion}`);
+      if(c.pronostico_vida)t.push(`Para la vida: ${c.pronostico_vida}`);
+      if(dc.pronostico_pv)t.push(`Primera vez: ${dc.pronostico_pv}`);
+      if(dc.pronostico_qx)t.push(`Quirúrgico: ${dc.pronostico_qx}`);
+      if(dc.pronostico_anest)t.push(`Anestésico: ${dc.pronostico_anest}`);
+      if(dc.pronostico_egreso)t.push(`Al egreso: ${dc.pronostico_egreso}`);
+      return t.join(" · ");
+    };
     cs.forEach(c=>{
       const f=(c.fecha||"").split("T");
       const sub=(t,v)=>v?`<div style="font-size:9px;font-weight:700;color:#546E7A;margin-top:5px">${t}</div>${T(v)}`:"";
       h+=`<!--BLOQUE--><div style="border-top:1px solid #CFD8DC;margin-top:10px;padding-top:7px">
         <div style="font-size:10px;font-weight:700;color:#006BB6">${(c.tipo_nota||"CONSULTA").toUpperCase()}</div>
         <div style="font-size:9px;color:#546E7A;margin-top:2px">FECHA: ${(f[0]||"").split("-").reverse().join("/")} &nbsp; HORA: ${(f[1]||"").slice(0,5)} &nbsp; REGISTRADA POR: ${c.medico_nombre||"—"}</div>
+        ${sub("SIGNOS VITALES",svLinea(c))}
         ${sub("MOTIVO DE CONSULTA / SUBJETIVO",c.subjetivo)}
         ${sub("EXPLORACION FISICA",c.exploracion_fisica)}
         ${sub("DIAGNOSTICO",c.analisis)}
@@ -20734,6 +20768,7 @@ function resumenHTML(d){
         ${sub("LABORATORIO",c.laboratorio)}
         ${sub("GABINETE",c.gabinete)}
         ${sub("PLAN",c.plan)}
+        ${sub("PRONOSTICO",progLinea(c))}
       </div>`;
     });
   }
