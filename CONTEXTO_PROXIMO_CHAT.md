@@ -676,3 +676,103 @@ Qué se corrigió ese día:
 `GET /rest/v1/<tabla>?select=<columna>&limit=1` responde 200 con `[]` si la columna existe (RLS
 solo filtra filas) y `column ... does not exist` si no; y `?<columna>=eq.zzTEXTOzz` revela el tipo
 por el error de casteo. Se corre desde el navegador integrado sobre qpclinic.org.
+
+## esquema.json — la red que atrapa las columnas inventadas (10 de septiembre de 2026)
+
+`verificar.py` ya no usa una lista negra de tres nombres: **CHK-5 compara cada columna que el
+código escribe contra el esquema real de la base**, leído de `esquema.json` en la raíz del repo.
+Resuelve los `...spread` (incluido `...recogerGineco()`) y los payloads guardados en variables.
+Probado contra el esquema viejo de `antecedentes_gineco`: detecta las 16 columnas inventadas.
+Sin `esquema.json` el verificador no falla, solo avisa.
+
+**Regenerar `esquema.json`** cada vez que se agregue o quite una columna. En el SQL Editor:
+
+```sql
+SELECT json_object_agg(table_name, cols)::text AS esquema
+  FROM (SELECT table_name, json_agg(column_name ORDER BY column_name) AS cols
+          FROM information_schema.columns
+         WHERE table_schema = 'public'
+         GROUP BY table_name) t;
+```
+
+Copiar la celda del resultado y guardarla tal cual como `esquema.json` en
+`C:\Users\Alan\Documents\qp-clinic-ece`.
+
+**CHK-10** cuenta las escrituras clínicas que ignoran el `error` que devuelve Supabase — la causa
+raíz de los dos desastres de septiembre: la pantalla decía «guardado» y no se había guardado nada.
+Al 10-sep-2026 son **57**. Es un aviso, no una falla, para no bloquear los commits; el número debe
+ir bajando y no subir. Las tablas de bitácora y sesión no cuentan.
+
+## Respaldo completo (10 de septiembre de 2026)
+
+Botón **🗄️ Respaldo completo** en Configuración (👥 Gestión de Médicos y Usuarios), visible solo
+para `rol === "admin"`. `respaldoCompleto()` recorre `RESPALDO_TABLAS` (40 tablas), pagina de mil
+en mil con `.range()` — importante: sin paginar, Supabase devuelve solo las primeras 1000 filas y
+el respaldo saldría corto sin avisar — y descarga un único JSON.
+
+- El archivo trae `_meta` con `completo`, `filas_por_tabla`, `tablas_ausentes` y `errores`.
+- Una tabla que no existe va a `tablas_ausentes` y no cuenta como falla; una que falla por
+  permisos o red va a `errores` y el respaldo se marca **INCOMPLETO**, tanto en el archivo como
+  en el aviso de pantalla. Nunca decir «respaldado» sobre algo que no se respaldó.
+- **No incluye Storage** (imágenes, PDFs firmados, firmas): eso vive fuera de la base. Sí sus
+  rutas (`storage_path`, `url_publica`), que es con lo que se localizan.
+- Queda registrado en la bitácora como `RESPALDO_COMPLETO`.
+- El archivo contiene datos personales de todos los pacientes: se guarda cifrado o en un lugar
+  controlado, no en una carpeta compartida.
+
+Probado con paginación de 2300 filas, una tabla inexistente y una sin permisos.
+
+**Pendiente que no depende del código:** el plan Free de Supabase **no tiene respaldos
+automáticos** (verificado el 10-sep-2026 en la documentación de Supabase); Pro da 7 días de
+respaldos diarios y Team 14, y el PITR es un complemento aparte. Este botón es un respaldo
+manual: ayuda, pero no sustituye los respaldos de la plataforma.
+
+## Lo que destapó esquema.json (10 de septiembre de 2026, tarde)
+
+Con el esquema real en la mano, CHK-5 encontró **seis funciones más que fallaban en silencio**.
+Ninguna es nueva: todas llevaban meses así porque nadie revisaba el error del upsert.
+
+| Dónde | Qué pasaba | Arreglo |
+|---|---|---|
+| `episodios_quirurgicos` | cancelar o reprogramar una cirugía no se guardaba | 4 columnas nuevas |
+| `interconsultas` | responder una interconsulta no la marcaba respondida | `nota_respuesta_id` |
+| `inventario_movimientos` | **ningún** movimiento de inventario se registraba | 2 columnas + `usuario`→`usuario_nombre` |
+| `pacientes` al unificar | el expediente secundario no quedaba desactivado | `notas_admin` |
+| `pacientes` al registrar | los datos de facturación se perdían | `facturacion`→`datos_facturacion` |
+| `pre_registros` | **la tabla no existe**: el pre-registro nunca ha funcionado | pendiente, ver abajo |
+
+`ALTER_faltantes.sql` cubre las columnas. Los dos renombres van en el código.
+
+**`antecedentes_gineco` ya tenía los nombres correctos.** Eran largos (`cantidad_sangre`,
+`duracion_menstruacion`, `edad_inicio_sexual`, `num_companeros`, `presencia_dolor`) y el código
+usaba cortos. `ALTER_gineco.sql` agregó 5 duplicadas por error; el index.html ya apunta a las
+originales. **No salieron vacías:** en cuanto el ALTER creó las columnas cortas, la versión que
+estaba en línea —que escribía nombres cortos— empezó a guardar ahí. Por eso la migración
+(`MIGRAR_gineco.sql` y su paso 2) va **después de publicar**, no antes, y el DROP solo al final.
+
+**`pre_registros`: función RETIRADA el 10-sep-2026.** La tabla nunca existió, así que el
+pre-registro por enlace jamás funcionó. Por instrucción del Dr. Polanco se quitaron del
+`index.html` los dos botones de la pestaña Datos generales («Enviar enlace de pre-registro» y
+«Copiar datos pre-registrados») y las tres funciones `enviarPreregistro()`, `copiarPreregistro()`
+y `aplicarPreregistro()`. Queda un comentario en su lugar, en `pgNuevo`. `prereg.html` sigue en
+el repo sin uso; borrarlo es decisión aparte.
+
+Si algún día se reactiva: la tabla necesita `id, token, nombre_paciente, celular, completado,
+datos jsonb, fecha_completado, created_at`, y el punto delicado NO es crearla sino el acceso sin
+sesión. Una política `USING (true)` dejaría a cualquiera listar nombres, teléfonos y antecedentes
+de todos los pre-registros. Lo correcto es no exponer la tabla al rol anónimo y mover el acceso a
+dos funciones `SECURITY DEFINER` que reciban el token (`prereg_get` / `prereg_submit`),
+cambiando también `prereg.html`.
+
+**CHK-5 y las tablas ausentes:** una tabla que no existe sale como **aviso**, no como falla, para
+no bloquear commits por una función que nunca sirvió. Una columna que no existe sí es falla.
+
+**`esquema.json` describe la base COMO ESTÁ, no como quedará.** Por eso, mientras
+`ALTER_faltantes.sql` no se corra, el verificador **falla y el hook de pre-commit bloquea
+`publicar.bat`**: el código escribe 8 columnas que no existen. Es a propósito. Se desbloquea
+corriendo ese SQL, no editando `esquema.json` a mano.
+
+**Corrección del 10-sep por la tarde:** `esquema.json` ya incluye las 8 columnas de
+`ALTER_faltantes.sql`, que ya está aplicado en la base (comprobado por sondeo PostgREST; la
+rejilla del SQL Editor mostraba 6 de 8 solo porque venía con scroll). El verificador vuelve a
+salir en «Sin fallas · Listo para publicar».

@@ -109,16 +109,153 @@ for c in faltantes[:12]:
 if not faltantes:
     ok(f"{len(llamadas)} llamadas a funciones del proyecto, todas definidas")
 
-# ── CHK-5 · Columnas de Supabase ───────────────────────────────────────────
+# ── CHK-5 · Columnas escritas a Supabase (contra el esquema real) ──────────
 titulo("CHK-5 · Columnas escritas a Supabase")
-COLUMNAS_INEXISTENTES = ["objetivo_calorico_actual", "objetivo_calorico_historial", "celular_usuario"]
-for col in COLUMNAS_INEXISTENTES:
-    hits = [n for n, l in enumerate(lineas, 1)
-            if re.search(r"\b" + col + r"\s*:", l) and re.search(r"\.(insert|update|upsert)\(", l)]
-    if hits:
-        falla(f"se escribe «{col}», que no existe en la base (líneas {hits[:5]})")
-if all("no existe en la base" not in f for f in fallas):
-    ok("sin escrituras a columnas inexistentes")
+ESQUEMA = ARCHIVO.parent / "esquema.json"
+
+def _enmascarar(txt):
+    """Deja solo el nivel 1 de un objeto: borra anidados y contenido de cadenas."""
+    out, prof, i, n = [], 0, 0, len(txt)
+    cita = None
+    while i < n:
+        c = txt[i]
+        if cita:
+            out.append(" ")
+            if c == "\\": out.append(" "); i += 2; continue
+            if c == cita: cita = None
+            i += 1; continue
+        if c in "\"'`":
+            cita = c; out.append(" "); i += 1; continue
+        if c in "{[(":
+            prof += 1; out.append(c if prof == 1 else " "); i += 1; continue
+        if c in "}])":
+            prof -= 1; out.append(c if prof == 0 else " "); i += 1; continue
+        out.append(c if prof == 0 else " ")
+        i += 1
+    return "".join(out)
+
+def _cuerpo_llaves(txt, ini):
+    """txt[ini] == '{' → devuelve el interior hasta su llave de cierre."""
+    prof, i, n = 0, ini, len(txt)
+    cita = None
+    while i < n:
+        c = txt[i]
+        if cita:
+            if c == "\\": i += 2; continue
+            if c == cita: cita = None
+            i += 1; continue
+        if c in "\"'`": cita = c; i += 1; continue
+        if c == "{": prof += 1
+        elif c == "}":
+            prof -= 1
+            if prof == 0: return txt[ini + 1:i]
+        i += 1
+    return ""
+
+def _claves_de_objeto(interior):
+    m = _enmascarar(interior)
+    # los comentarios traen dos puntos y se colarían como claves
+    m = re.sub(r"//[^\n]*", "", m)
+    # `cond ? null : x` deja «null:» pareciendo clave; fuera las palabras reservadas
+    RESERVADAS = {"null", "true", "false", "undefined", "default", "case", "return"}
+    claves = {c for c in re.findall(r"([A-Za-z_$][\w$]*)\s*:", m) if c not in RESERVADAS}
+    spreads = re.findall(r"\.\.\.\s*([A-Za-z_$][\w$]*)", m)
+    return claves, spreads
+
+def _resolver_identificador(nombre, hasta):
+    """Claves del objeto literal asignado a `nombre` (const/let) o devuelto por
+    la función `nombre`. Busca hacia atrás desde la escritura."""
+    claves = set()
+    # variable: solo la declaración MÁS CERCANA antes de la escritura. Tomarlas
+    # todas mezclaba el `payload` de consultas con el de pacientes.
+    decl = list(re.finditer(r"(?:const|let|var)\s+%s\s*=\s*\{" % re.escape(nombre), src[:hasta]))
+    if decl:
+        ini = src.index("{", decl[-1].end() - 1)
+        k, _ = _claves_de_objeto(_cuerpo_llaves(src, ini))
+        return k
+    # función: los objetos literales que declara dentro
+    fn = re.search(r"function\s+%s\s*\([^)]*\)\s*\{" % re.escape(nombre), src)
+    if fn:
+        cuerpo = _cuerpo_llaves(src, src.index("{", fn.end() - 1))
+        for m2 in re.finditer(r"(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*\{", cuerpo):
+            k, _ = _claves_de_objeto(_cuerpo_llaves(cuerpo, cuerpo.index("{", m2.end() - 1)))
+            claves |= k
+    return claves
+
+esquema = None
+if ESQUEMA.exists():
+    try:
+        esquema = json.loads(ESQUEMA.read_text(encoding="utf-8"))
+    except Exception as e:
+        aviso(f"esquema.json ilegible ({e}); no se pueden comprobar las columnas")
+
+if esquema is None:
+    aviso("falta esquema.json — no se comprueban las columnas contra la base real. "
+          "Regenerarlo con la consulta de CONTEXTO_PROXIMO_CHAT.md")
+else:
+    malas, sin_resolver = [], 0
+    for m in re.finditer(r'SB\.from\("(\w+)"\)\s*(?:\.\w+\([^()]*\))*?\s*\.(insert|upsert|update)\(', src):
+        tabla, op = m.group(1), m.group(2)
+        cols = esquema.get(tabla)
+        if cols is None:
+            # Una tabla entera ausente es una función que nunca sirvió, no un
+            # error de este cambio: avisa fuerte pero no bloquea el commit.
+            aviso(f"línea {src[:m.start()].count(chr(10))+1}: se escribe en la tabla «{tabla}», "
+                  f"que NO EXISTE en la base — esa función nunca ha funcionado")
+            continue
+        resto = src[m.end():]
+        if resto.lstrip().startswith("{"):
+            ini = m.end() + (len(resto) - len(resto.lstrip()))
+            claves, spreads = _claves_de_objeto(_cuerpo_llaves(src, ini))
+            for sp in spreads:
+                claves |= _resolver_identificador(sp, m.start())
+        else:
+            ident = re.match(r"\s*([A-Za-z_$][\w$]*)", resto)
+            if not ident:
+                sin_resolver += 1; continue
+            claves = _resolver_identificador(ident.group(1), m.start())
+            if not claves:
+                sin_resolver += 1; continue
+        linea = src[:m.start()].count("\n") + 1
+        for c in sorted(claves - set(cols)):
+            malas.append((linea, tabla, c))
+    if malas:
+        for linea, tabla, c in malas[:20]:
+            falla(f"línea {linea}: se escribe «{c}» en {tabla}, que no existe en la base")
+        if len(malas) > 20:
+            falla(f"...y {len(malas)-20} columna(s) inexistente(s) más")
+    else:
+        ok(f"todas las columnas escritas existen en la base ({len(esquema)} tablas en esquema.json)")
+    if sin_resolver:
+        aviso(f"{sin_resolver} escritura(s) con payload que no se pudo leer estáticamente")
+
+# ── CHK-10 · Escrituras que no revisan el error ────────────────────────────
+titulo("CHK-10 · Escrituras que no revisan el error de Supabase")
+# El error más caro del proyecto: la pantalla dice «guardado» y no se guardó
+# nada. Gineco-obstétricos vivió así meses. Las tablas de bitácora y sesión no
+# cuentan: ahí el fallo no pierde datos del paciente.
+NO_CLINICAS = {"bitacora", "bitacora_accesos", "sesiones", "intentos_login"}
+pat_w = re.compile(r'SB\.from\("(\w+)"\)[^\n]*?\.(insert|update|upsert|delete)\(')
+sin_revisar = []
+for n, l in enumerate(lineas, 1):
+    m = pat_w.search(l)
+    if not m or m.group(1) in NO_CLINICAS:
+        continue
+    antes, despues = l[:m.start()], l[m.end():m.end() + 220]
+    if re.search(r"(?:const|let|var)\s*\{[^}]*error", antes) or "error" in despues:
+        continue
+    # el resultado se guarda en una variable o se devuelve: se revisa fuera
+    if re.search(r"[\w$\]]\s*=\s*(?:await\s+)?$", antes) or re.search(r"\breturn\s+(?:await\s+)?$", antes):
+        continue
+    sin_revisar.append((n, m.group(1), m.group(2)))
+if sin_revisar:
+    aviso(f"{len(sin_revisar)} escritura(s) clínica(s) ignoran el error que devuelve Supabase")
+    for n, t, o in sin_revisar[:8]:
+        print(f"      línea {n}: {t}.{o}()")
+    if len(sin_revisar) > 8:
+        print(f"      ...y {len(sin_revisar)-8} más")
+else:
+    ok("toda escritura clínica revisa el error")
 
 # ── CHK-6 · Coherencia de tipos de nota por sede ───────────────────────────
 titulo("CHK-6 · Tipos de nota y sede")
