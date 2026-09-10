@@ -621,3 +621,33 @@ Sistema de firma digital (`firmar.html`), guardado en Storage `expedientes/{pid}
   panel. Yo no manejo credenciales ni doy de alta cuentas: la llave de servicio, las contraseñas y
   el alta de proveedores los hace él.
 
+
+## Antecedentes: Gineco-obstétricos y Neonatales (10 de septiembre de 2026)
+
+Son las dos únicas pestañas de Antecedentes que **no** pasan por `persistirAntecedentes()`.
+Tienen función propia: `guardarGineco()` → tabla `antecedentes_gineco`;
+`guardarNeonatales()` → columna `neonatales` (jsonb) de `antecedentes_no_patologicos`.
+
+Qué se corrigió ese día:
+
+- La barra genérica de `renderAnt()` (`💾 Guardar` + `🖨️ Imprimir`) **se oculta** en `gin` y `neo`.
+  El `Guardar` genérico caía al `{omitido:true}` de `persistirAntecedentes()` y respondía
+  «Sin paciente activo» con el expediente abierto; el `Imprimir` siempre tuvo `onclick=""`.
+  En las demás pestañas la barra sigue igual, Imprimir incluido.
+- **Los neonatales pisaban a No Patológicos.** `guardarNeonatales()` escribía
+  `JSON.stringify({tipo:"neonatales",...})` en `antecedentes_no_patologicos.texto`, la misma
+  fila (única por `paciente_id`) que la pestaña No Patológicos usa como texto plano. Ahora
+  escribe en la columna `neonatales`; ver `ALTER_neonatales.sql` (columna + rescate de los
+  expedientes ya pisados). `leerNeonatales()` sigue leyendo el JSON heredado desde `texto` por
+  si alguna fila quedó sin migrar, y `leerNoPatText()` impide que ese JSON se muestre como nota.
+- **Los neonatales nunca se releían.** `STATE.neoData` no se cargaba al abrir el expediente ni
+  se limpiaba al cambiar de paciente: el formulario del paciente anterior se veía en el
+  siguiente. Se carga en `abrirPaciente()` y se limpia en los tres puntos de reset.
+- `guardarGineco()` y `guardarNeonatales()` ahora **revisan el error** del upsert y dicen la
+  causa real; antes lo ignoraban y decían «guardado» pasara lo que pasara. Y salen con
+  «Sin paciente activo» en vez de un `return` mudo.
+- `setAT()` autoguarda `gin` y `neo` al cambiar de pestaña, como el resto, con
+  `recogerGineco()` / `recogerNeonatales()`.
+
+**Si se agrega una pestaña nueva a Antecedentes:** decidir primero si pasa por
+`persistirAntecedentes()`. Si no, ocultarle la barra genérica y darle su propio botón.
