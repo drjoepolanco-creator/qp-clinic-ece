@@ -5654,6 +5654,9 @@ window.guardarFicha=async function(){
   showToast("✓ Datos del paciente actualizados");
 }
 // ── ANTECEDENTES ──────────────────────────────────────────
+// Pestañas que NO pasan por guardarAnt(): no deben mostrar la barra genérica.
+// «gin» y «neo» tienen su propio botón; «dis» guarda sola al agregar o quitar.
+const SIN_BARRA_GUARDAR=["gin","neo","dis"];
 function renderAnt(b){
   b.innerHTML=`<div style="max-width:980px;margin:0 auto;padding:14px" class="fade">
     <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
@@ -5662,7 +5665,7 @@ function renderAnt(b){
         ${[["fam","Ant. Familiares"],["pat","Ant. Patológicos"],["nop","Ant. No Patológicos"],["oc","Ant. Oculares"],["gin","Gineco-obstétricos"],["neo","Neonatales"],["al","Alergias"],["med","Medicamentos"],["dis","Discapacidades"],["ot","Otros"]].map(([k,l])=>`<button onclick="setAT('${k}')" style="padding:8px 11px;border:none;background:transparent;cursor:pointer;font-weight:${STATE.antTab===k?700:500};font-size:14px;color:${STATE.antTab===k?P:MU};border-bottom:${STATE.antTab===k?"3px solid "+P:"3px solid transparent"};white-space:nowrap">${l}</button>`).join("")}
       </div>
       <div style="padding:16px">
-        ${(STATE.antTab==="gin"||STATE.antTab==="neo")?"":`<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center">
+        ${SIN_BARRA_GUARDAR.includes(STATE.antTab)?"":`<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center">
           ${btn("💾 Guardar","guardarAnt()","ok",1)}
           <span id="autosave-ind" style="font-size:13px;color:#2E7D32;font-weight:600;opacity:0;transition:opacity .5s;margin-left:6px">💾 Guardado</span>
         </div>`}
@@ -5806,8 +5809,8 @@ function recogerGineco(){
   const g={
     menarquia:gv("g_men"),fum:gv("g_fum"),ritmo:gv("g_ritmo"),menopausia:gv("g_meno"),
     duracion:gv("g_dur"),cantidad:gv("g_cant"),frecuencia:gv("g_frec"),dolor:gv("g_dolor"),
-    secreciones:gv("g_sec"),vida_sexual:gv("g_vsa"),edad_inicio:gv("g_eis"),
-    num_parejas:gv("g_np"),mac:gv("g_mac"),relaciones:gv("g_rel"),ets:gv("g_ets"),
+    secreciones:gv("g_sec"),vida_sexual_activa:gv("g_vsa"),edad_inicio:gv("g_eis"),
+    num_parejas:gv("g_np"),metodo_anticonceptivo:gv("g_mac"),relaciones:gv("g_rel"),ets:gv("g_ets"),
     papanicolaou:gv("g_pap"),pap_resultado:gv("g_papres"),colposcopia:gv("g_col"),mastografia:gv("g_mast"),
     gestaciones:gv("g_gestaciones"),partos:gv("g_partos"),abortos:gv("g_abortos"),cesareas:gv("g_cesareas"),
     perinatales:gv("g_peri"),lactancia:gv("g_lac"),observaciones:gv("g_obs"),
@@ -5946,16 +5949,19 @@ window.insertPlantilla=function(txt){const o=document.getElementById("pat-otras"
 window.addDiscap=async function(){
   const s=document.getElementById("discap-sel");
   if(!s||!s.value||s.value.startsWith("—")||s.value==="Seleccione una categoría"){showToast("Selecciona una categoría primero",false);return;}
-  const pid=STATE.pat?.id;if(!pid)return;
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("Sin paciente activo",false);return;}
   const {error}=await SB.from("discapacidades").insert({paciente_id:pid,categoria:s.value});
   if(error){showToast("Error: "+error.message,false);return;}
   if(!STATE.discapacidades.includes(s.value))STATE.discapacidades.push(s.value);
   renderAB();showToast("✓ Discapacidad registrada");
 }
 window.removeDiscap=async function(idx){
-  const pid=STATE.pat?.id;if(!pid)return;
+  const pid=STATE.pat?.id;
+  if(!pid){showToast("Sin paciente activo",false);return;}
   const cat=STATE.discapacidades[idx];
-  await SB.from("discapacidades").delete().eq("paciente_id",pid).eq("categoria",cat);
+  const {error}=await SB.from("discapacidades").delete().eq("paciente_id",pid).eq("categoria",cat);
+  if(error){showToast("No se pudo eliminar: "+error.message,false);return;}
   STATE.discapacidades.splice(idx,1);saveABTextareas();renderAB();showToast("✓ Eliminada");
 }
 function renderAB(){
@@ -6156,7 +6162,7 @@ function renderAB(){
     </div>
     <div class="sticky-save">${btn("💾 Guardar","guardarAnt()","ok",1)}</div>`;
   }
-  else if(STATE.antTab==="dis"){ab.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Agregar discapacidad — Clasificación CIF (OMS)</p><select id="discap-sel" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px;margin-bottom:8px">${CIF_CAT.map(c=>`<option ${c.startsWith("—")?"disabled":""}>${c}</option>`).join("")}</select>${btn("➕ Agregar al expediente","addDiscap()","p",1)}</div><div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Discapacidades registradas</p>${STATE.discapacidades.length===0?`<div style="background:#FFF3E0;border:1.5px solid #FFCC80;border-radius:8px;padding:14px;text-align:center;color:#E65100;font-size:14px">No hay discapacidades registradas</div>`:`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${STATE.discapacidades.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:${i<STATE.discapacidades.length-1?"1px solid "+BR:"none"};background:${i%2?"#FAFAFA":"#fff"}"><div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:${P};flex-shrink:0"></div><span style="font-size:14px">${d}</span></div><button onclick="removeDiscap(${i})" style="background:none;border:none;color:${DA};cursor:pointer;font-size:14px;font-weight:700">✕</button></div>`).join("")}</div>`}</div></div>`;}
+  else if(STATE.antTab==="dis"){ab.innerHTML=`<p style="font-size:13px;color:${MU};margin-bottom:12px">Esta sección se guarda sola: al agregar o quitar una discapacidad el cambio queda en el expediente.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Agregar discapacidad — Clasificación CIF (OMS)</p><select id="discap-sel" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff;font-size:14px;margin-bottom:8px">${CIF_CAT.map(c=>`<option ${c.startsWith("—")?"disabled":""}>${c}</option>`).join("")}</select>${btn("➕ Agregar al expediente","addDiscap()","p",1)}</div><div><p style="font-size:14px;font-weight:700;color:${TX};margin-bottom:10px">Discapacidades registradas</p>${STATE.discapacidades.length===0?`<div style="background:#FFF3E0;border:1.5px solid #FFCC80;border-radius:8px;padding:14px;text-align:center;color:#E65100;font-size:14px">No hay discapacidades registradas</div>`:`<div style="border:1.5px solid ${BR};border-radius:8px;overflow:hidden">${STATE.discapacidades.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:${i<STATE.discapacidades.length-1?"1px solid "+BR:"none"};background:${i%2?"#FAFAFA":"#fff"}"><div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:${P};flex-shrink:0"></div><span style="font-size:14px">${d}</span></div><button onclick="removeDiscap(${i})" style="background:none;border:none;color:${DA};cursor:pointer;font-size:14px;font-weight:700">✕</button></div>`).join("")}</div>`}</div></div>`;}
   else if(STATE.antTab==="ot"){
     ab.innerHTML=`
     <div style="margin-bottom:14px">
@@ -6187,10 +6193,10 @@ function renderAB(){
     <div style="margin-bottom:16px">${fld("Presencia de otras secreciones vaginales",ta("g_sec",g.secreciones||"","Describa características del flujo, color, olor, consistencia, cantidad...",3))}</div>
     <div style="background:${PL};padding:6px 12px;border-radius:6px;margin-bottom:10px"><b style="font-size:14px;color:${P};text-transform:uppercase">Actividad Sexual</b></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
-      ${fld("Vida sexual activa",`<select id="g_vsa" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${g.vida_sexual==="No"?"selected":""}>No</option><option ${g.vida_sexual==="Sí"?"selected":""}>Sí</option><option ${g.vida_sexual==="No especificado"?"selected":""}>No especificado</option></select>`)}
+      ${fld("Vida sexual activa",`<select id="g_vsa" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option ${g.vida_sexual_activa==="No"?"selected":""}>No</option><option ${g.vida_sexual_activa==="Sí"?"selected":""}>Sí</option><option ${g.vida_sexual_activa==="No especificado"?"selected":""}>No especificado</option></select>`)}
       ${fld("Edad de inicio",`<input id="g_eis" value="${g.edad_inicio||""}" placeholder="Años" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
       ${fld("Número de parejas",`<input id="g_np" value="${g.num_parejas||""}" placeholder="Número" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
-      ${fld("Método anticonceptivo",`<select id="g_mac" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No usa</option><option ${g.mac==="Barrera (condón)"?"selected":""}>Barrera (condón)</option><option ${g.mac==="Píldora anticonceptiva"?"selected":""}>Píldora anticonceptiva</option><option ${g.mac==="DIU"?"selected":""}>DIU</option><option ${g.mac==="DIU hormonal"?"selected":""}>DIU hormonal</option><option ${g.mac==="Parche"?"selected":""}>Parche</option><option ${g.mac==="Implante subdérmico"?"selected":""}>Implante subdérmico</option><option ${g.mac==="Inyectable"?"selected":""}>Inyectable</option><option ${g.mac==="Ligadura de trompas"?"selected":""}>Ligadura de trompas</option><option ${g.mac==="Vasectomía de pareja"?"selected":""}>Vasectomía de pareja</option><option ${g.mac==="Abstinencia"?"selected":""}>Abstinencia</option><option ${g.mac==="Ritmo"?"selected":""}>Ritmo</option><option ${g.mac==="Otro"?"selected":""}>Otro</option></select>`)}
+      ${fld("Método anticonceptivo",`<select id="g_mac" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No usa</option><option ${g.metodo_anticonceptivo==="Barrera (condón)"?"selected":""}>Barrera (condón)</option><option ${g.metodo_anticonceptivo==="Píldora anticonceptiva"?"selected":""}>Píldora anticonceptiva</option><option ${g.metodo_anticonceptivo==="DIU"?"selected":""}>DIU</option><option ${g.metodo_anticonceptivo==="DIU hormonal"?"selected":""}>DIU hormonal</option><option ${g.metodo_anticonceptivo==="Parche"?"selected":""}>Parche</option><option ${g.metodo_anticonceptivo==="Implante subdérmico"?"selected":""}>Implante subdérmico</option><option ${g.metodo_anticonceptivo==="Inyectable"?"selected":""}>Inyectable</option><option ${g.metodo_anticonceptivo==="Ligadura de trompas"?"selected":""}>Ligadura de trompas</option><option ${g.metodo_anticonceptivo==="Vasectomía de pareja"?"selected":""}>Vasectomía de pareja</option><option ${g.metodo_anticonceptivo==="Abstinencia"?"selected":""}>Abstinencia</option><option ${g.metodo_anticonceptivo==="Ritmo"?"selected":""}>Ritmo</option><option ${g.metodo_anticonceptivo==="Otro"?"selected":""}>Otro</option></select>`)}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       ${fld("Tipo de relaciones",`<select id="g_rel" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;background:#fff"><option>No especificado</option><option ${g.relaciones==="Heterosexuales"?"selected":""}>Heterosexuales</option><option ${g.relaciones==="Homosexuales"?"selected":""}>Homosexuales</option><option ${g.relaciones==="Bisexuales"?"selected":""}>Bisexuales</option></select>`)}
@@ -6292,9 +6298,6 @@ function renderAB(){
   else if(STATE.antTab==="oc"){
     const ocList=["Alergias oculares","Ambliopía","Astenopía (fatiga visual)","Astigmatismo","Atrofia óptica","Blefaritis","Catarata congénita","Catarata senil","Catarata traumática","Celulitis orbitaria","Cirugía refractiva previa","Chalación","Conjuntivitis alérgica","Conjuntivitis bacteriana","Conjuntivitis viral","Coroiditis","Degeneración macular","Desprendimiento de retina","Distrofia corneal","Edema corneal","Edema de papila","Ectropión","Enfermedad ocular","Entropión","Episcleritis","Escleritis","Estrabismo","Glaucoma","Glaucoma congénito","Glaucoma de ángulo abierto","Glaucoma de ángulo cerrado","Glaucoma secundario","Hemorragia subconjuntival","Hipermetropía","Iridociclitis","Leucoma corneal","Luxación del cristalino","Melanoma uveal","Miopía","Neuritis óptica","Nistagmo","Oclusión arterial de retina","Oclusión venosa de retina","Ojo seco","Orzuelo","Pingüécula","Presbicia","Ptosis palpebral","Pterigión","Pseudofaquia (operado de Catarata)","Queratitis","Queratocono","Retinitis pigmentosa","Retinoblastoma","Retinopatía diabética","Trauma ocular","Tumores palpebrales","Uveítis","Úlcera corneal","Xantelasma"];
     ab.innerHTML=`
-    <div style="display:flex;gap:6px;margin-bottom:12px">
-      ${btn("💾 Guardar antecedentes oculares","guardarAnt()","ok",1)}
-    </div>
     <p style="font-size:14px;font-weight:700;color:${P};margin-bottom:10px;text-transform:uppercase">Antecedentes Oculares</p>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px 12px;margin-bottom:16px">
       ${ocList.map(o=>`<label style="display:flex;align-items:center;gap:6px;padding:5px 4px;cursor:pointer;font-size:14px;border-bottom:1px solid #F5F5F5;user-select:none" onmouseover="this.style.background='${PL}'" onmouseout="this.style.background='transparent'">

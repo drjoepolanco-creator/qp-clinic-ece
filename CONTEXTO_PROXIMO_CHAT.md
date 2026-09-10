@@ -651,3 +651,28 @@ Qué se corrigió ese día:
 
 **Si se agrega una pestaña nueva a Antecedentes:** decidir primero si pasa por
 `persistirAntecedentes()`. Si no, ocultarle la barra genérica y darle su propio botón.
+
+### Segunda tanda del 10-sep-2026
+
+- **`antecedentes_gineco` solo tenía 10 columnas y el formulario escribía 26.** El upsert
+  fallaba SIEMPRE («Could not find the 'cantidad' column») y, como el error se ignoraba, la
+  pantalla decía «guardado»: **la pestaña nunca guardó nada**. Salió a la luz en cuanto se
+  empezó a revisar el error. `ALTER_gineco.sql` agrega las 16 que faltaban, todas `text`.
+  Además el código escribía `vida_sexual` y `mac`, pero las columnas reales se llaman
+  `vida_sexual_activa` y `metodo_anticonceptivo`: ya usa los nombres reales.
+  Columnas de la tabla: `id, paciente_id, menarquia, frecuencia, secreciones, gestaciones,
+  partos, abortos, cesareas, observaciones, vida_sexual_activa, metodo_anticonceptivo,
+  updated_at` + las 16 nuevas.
+- **Discapacidades (`dis`) tampoco pasa por `guardarAnt()`**: `addDiscap()` y `removeDiscap()`
+  escriben en la tabla `discapacidades` en el momento. La barra genérica respondía «Sin paciente
+  activo»; ahora la pestaña está en `SIN_BARRA_GUARDAR` y muestra una línea que explica que se
+  guarda sola. Ambas funciones ya avisan si no hay paciente y revisan el error del borrado.
+- **Oculares (`oc`)** tenía tres botones: el genérico, uno propio arriba y la barra fija abajo.
+  Se quitó el propio; queda como el resto de las pestañas de `guardarAnt()`.
+- `SIN_BARRA_GUARDAR = ["gin","neo","dis"]` es la lista única que decide si `renderAnt()` pinta
+  la barra genérica. Una pestaña nueva que no pase por `persistirAntecedentes()` va ahí.
+
+**Cómo averiguar el esquema sin llave de servicio:** el endpoint OpenAPI rechaza la anon, pero
+`GET /rest/v1/<tabla>?select=<columna>&limit=1` responde 200 con `[]` si la columna existe (RLS
+solo filtra filas) y `column ... does not exist` si no; y `?<columna>=eq.zzTEXTOzz` revela el tipo
+por el error de casteo. Se corre desde el navegador integrado sobre qpclinic.org.
