@@ -776,3 +776,47 @@ corriendo ese SQL, no editando `esquema.json` a mano.
 `ALTER_faltantes.sql`, que ya está aplicado en la base (comprobado por sondeo PostgREST; la
 rejilla del SQL Editor mostraba 6 de 8 solo porque venía con scroll). El verificador vuelve a
 salir en «Sin fallas · Listo para publicar».
+
+## Marca por sede en los documentos (14 de septiembre de 2026)
+
+`brand()` devuelve el bloque de `BRANDING` de la sede activa (`clinic` / `amfa` / `surgery`) con
+`nombre, logo, razon, direccion, tel, tel2, web, rfc`. **Todo documento debe sacar de ahí su logo
+y su pie**, nunca de una URL o una dirección escrita a mano.
+
+Ese día se corrigieron los que seguían con el logo de QP Clinic fijo aunque la sede fuera amfa:
+vista previa de la receta, interconsulta, hoja de referencia, PDF de fisioterapia, PDF de
+ultrasonido y prescripción de ejercicio. Además: el pie del PDF de fisioterapia traía la dirección
+y los teléfonos de QP escritos a mano; la hoja de referencia usaba «QP Clinic — Insurgentes Sur
+933» como institución por omisión; y los mensajes de WhatsApp y correo de la receta encabezaban
+siempre con «QP Clinic». Todo sale ya de `brand()`. CHK-7 bajó de 12 direcciones fijas a 8, y las
+8 que quedan son textos legales.
+
+**Cuidado con el formato de imagen:** el logo de amfa es PNG y el de QP Clinic JPEG. Al pasar el
+logo a `doc.addImage()` hay que decidir el formato con
+`String(brand().logo).toLowerCase().includes("png")?"PNG":"JPEG"`. Forzar "JPEG" rompía el de amfa.
+
+Los logos que siguen fijos son solo de interfaz, no de documentos: favicon, modal de confirmación,
+pantalla de acceso, aviso de paciente duplicado y modal de unificar. En el acceso todavía no se
+sabe la sede del usuario.
+
+**Resuelto el 14-sep, por instrucción del Dr. Polanco:** amfa Nutrición Especializada y
+QP Surgery Clinic son **razones sociales completamente distintas** de QP Clinic, S.C. El aviso de
+privacidad y los consentimientos son **los mismos textos** para las tres; lo que cambia es el
+logo, el pie y quién firma como responsable. **No se imprime el RFC de amfa ni el de QP Surgery**
+(sus bloques en BRANDING tienen `rfc:""`); solo sale el de la unidad que lo tenga.
+
+Para eso se agregaron junto a `CI_CATALOGO` cuatro ayudantes: `ciRazon()`, `ciRazonRFC()`,
+`ciNombre()` y `ciDir()`. Las 26 líneas de texto legal que nombraban a QP Clinic a mano ahora
+salen de ahí. El consentimiento «qpclinic» dejó de llamarse «…EN QP CLINIC»: el membrete ya dice
+de qué unidad es.
+
+`firmar.html` también quedó por unidad: tiene su propio bloque `MARCAS` (logo, razón social, pie,
+dirección, color del encabezado del PDF) y lee la unidad de `&sede=` en el enlace, que ahora
+agregan las dos funciones que arman el enlace de firma en el index. **Esa página no tiene sesión:
+sin ese parámetro no hay forma de saber la unidad**, y un enlace viejo sin `&sede=` cae en
+`clinic`, que es el comportamiento anterior.
+
+Lo que **sigue siendo de QP Clinic a propósito**, por ser canales operativos compartidos y no
+datos de la razón social: el correo `datospersonales@qpclinic.mx` para derechos ARCO y las
+direcciones web `www.qpclinic.org` / `www.qpclinic.mx` donde se publica el aviso. El domicilio
+para solicitudes ARCO sí cambia por unidad.

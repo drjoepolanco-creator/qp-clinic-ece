@@ -3704,6 +3704,14 @@ window.eliminarIntCronico=function(i){if(!_intEditable()){showToast("La orden es
 // Conformes a NOM-004-SSA3-2012, NOM-006-SSA3-2011, NOM-024-SSA3-2010
 // y Ley General de Salud Arts. 29, 100-103
 
+// amfa Nutrición Especializada y QP Surgery Clinic son razones sociales
+// distintas de QP Clinic, S.C. El texto legal es el mismo para las tres; lo que
+// cambia es quién firma como responsable, su domicilio, el logo y el pie.
+// Solo se imprime el RFC de la unidad que lo tenga registrado en BRANDING.
+function ciRazon(){const B=brand();return B.razon||B.nombre;}
+function ciRazonRFC(){const B=brand();return B.rfc?`${ciRazon()} (RFC: ${B.rfc})`:ciRazon();}
+function ciNombre(){return brand().nombre;}
+function ciDir(){return brand().direccion||"";}
 const CI_CATALOGO={
   general:{
     titulo:"CONSENTIMIENTO INFORMADO GENERAL",
@@ -3712,7 +3720,7 @@ const CI_CATALOGO={
     texto:(p,med,fecha)=>[
       `En la Ciudad de México, a ${fecha}, yo ${p}, en pleno uso de mis facultades mentales y de manera libre y voluntaria:`,
       "",
-      `DECLARO que he sido atendido por ${med} (en adelante "el Médico") en las instalaciones de QP Clinic, S.C. (RFC: QCL230518J66), ubicada en Insurgentes Sur 933, Piso 12, Col. Nápoles, Ciudad de México, y que:`,
+      `DECLARO que he sido atendido por ${med} (en adelante "el Médico") en las instalaciones de ${ciRazonRFC()}, ubicada en ${ciDir()}, y que:`,
       "",
       "1. HE SIDO INFORMADO sobre mi diagnóstico, el tratamiento propuesto, sus posibles alternativas, los riesgos y beneficios esperados, el pronóstico de mi padecimiento y las consecuencias de no recibir el tratamiento.",
       "",
@@ -3720,11 +3728,11 @@ const CI_CATALOGO={
       "",
       "3. ENTIENDO que el ejercicio de la medicina no es una ciencia exacta y que, a pesar de la aplicación de las mejores prácticas médicas, existen riesgos inherentes a cualquier tratamiento, incluyendo:\n   • Reacciones individuales no previsibles\n   • Respuesta insuficiente al tratamiento\n   • Necesidad de ajustar o cambiar el tratamiento\n   • Posibles efectos adversos de los medicamentos indicados",
       "",
-      "4. AUTORIZO al Médico y al equipo de QP Clinic a realizar los procedimientos diagnósticos y terapéuticos que sean necesarios para mi atención, de acuerdo con su criterio clínico y las guías de práctica médica vigentes.",
+      `4. AUTORIZO al Médico y al equipo de ${ciNombre()} a realizar los procedimientos diagnósticos y terapéuticos que sean necesarios para mi atención, de acuerdo con su criterio clínico y las guías de práctica médica vigentes.`,
       "",
       "5. COMPRENDO que tengo derecho a retirar este consentimiento en cualquier momento, con excepción de los casos en que ello implique un riesgo inmediato para mi vida.",
       "",
-      "6. AUTORIZO el manejo de mis datos de salud conforme al Aviso de Privacidad de QP Clinic, disponible en www.qpclinic.org.",
+      `6. AUTORIZO el manejo de mis datos de salud conforme al Aviso de Privacidad de ${ciNombre()}, disponible en www.qpclinic.org.`,
       "",
       "Este documento se firma de conformidad con los artículos 29 y 100 al 103 de la Ley General de Salud, y con la Norma Oficial Mexicana NOM-004-SSA3-2012 del Expediente Clínico.",
     ]
@@ -3737,37 +3745,37 @@ const CI_CATALOGO={
       `Yo, ${p}, en Ciudad de México a ${fecha}:`,
       "",
       "RESPONSABLE DEL TRATAMIENTO DE DATOS PERSONALES:",
-      "QP Clinic, S.C. (en adelante \"QP Clinic\"), con domicilio en Avenida de los Insurgentes Sur, 933 Int. Piso 12, Colonia Nápoles, Benito Juárez, C.P. 03810, Ciudad de México, es responsable del tratamiento de sus datos personales conforme a este Aviso de Privacidad.",
+      `${ciRazonRFC()} (en adelante \"la Clínica\"), con domicilio en ${ciDir()}, es responsable del tratamiento de sus datos personales conforme a este Aviso de Privacidad.`,
       "",
       "DATOS QUE SE RECABAN:",
-      "Los datos personales de contacto y/o de identificación que tratará QP Clinic son nombre, edad, sexo, ocupación, domicilio, correo electrónico, teléfono (móvil y/o fijo) y registro federal de contribuyentes.",
+      `Los datos personales de contacto y/o de identificación que tratará ${ciNombre()} son nombre, edad, sexo, ocupación, domicilio, correo electrónico, teléfono (móvil y/o fijo) y registro federal de contribuyentes.`,
       "",
       "DATOS SENSIBLES:",
-      "QP Clinic recabará y tratará datos sensibles relacionados con el estado de salud, antecedentes e historial clínico e información sobre el modo de vida, necesarios o convenientes para las finalidades señaladas. Los datos personales sensibles serán mantenidos y tratados con estricta seguridad y confidencialidad para fines relacionados con la prestación de servicios de salud.",
+      `${ciNombre()} recabará y tratará datos sensibles relacionados con el estado de salud, antecedentes e historial clínico e información sobre el modo de vida, necesarios o convenientes para las finalidades señaladas. Los datos personales sensibles serán mantenidos y tratados con estricta seguridad y confidencialidad para fines relacionados con la prestación de servicios de salud.`,
       "",
       "FINALIDAD DEL TRATAMIENTO DE LOS DATOS PERSONALES:",
       "a) Finalidades necesarias para el mantenimiento de la relación con el titular:\n   - Prestación de servicios médicos, terapia, rehabilitación, dieta y nutrición.\n   - Creación, estudio, análisis, actualización y mantenimiento de archivo clínico.\n   - Facturación y cobranza por servicios.\n   - Mantenimiento de registros para seguimiento a servicios.",
       "",
-      "b) Finalidades distintas:\n   - Estudios, registros, estadísticas y análisis de información de salud.\n   - Mantenimiento de registros para prestación de servicios en el futuro.\n   - Análisis estadísticos y de mercado.\n   - Promoción y mercadeo de productos y servicios de QP Clinic u otras empresas pertenecientes al mismo grupo corporativo.",
+      `b) Finalidades distintas:\n   - Estudios, registros, estadísticas y análisis de información de salud.\n   - Mantenimiento de registros para prestación de servicios en el futuro.\n   - Análisis estadísticos y de mercado.\n   - Promoción y mercadeo de productos y servicios de ${ciNombre()} u otras empresas pertenecientes al mismo grupo corporativo.`,
       "",
-      "En caso de no desear que QP Clinic trate sus datos para las finalidades del inciso b), dispone de 5 días para manifestar su negativa a: datospersonales@qpclinic.mx",
+      `En caso de no desear que ${ciNombre()} trate sus datos para las finalidades del inciso b), dispone de 5 días para manifestar su negativa a: datospersonales@qpclinic.mx`,
       "",
       "TRANSFERENCIA:",
-      "QP Clinic puede transferir dentro y fuera del país los datos personales a laboratorios, clínicas, hospitales, centros de investigación, aseguradoras, empresas del mismo grupo corporativo o autoridades competentes. Para oponerse, dispone de 5 días para notificarlo a: datospersonales@qpclinic.mx",
+      `${ciNombre()} puede transferir dentro y fuera del país los datos personales a laboratorios, clínicas, hospitales, centros de investigación, aseguradoras, empresas del mismo grupo corporativo o autoridades competentes. Para oponerse, dispone de 5 días para notificarlo a: datospersonales@qpclinic.mx`,
       "",
       "DERECHOS ARCO (ACCESO, RECTIFICACIÓN, CANCELACIÓN Y OPOSICIÓN):",
-      "Puede ejercer sus derechos ARCO enviando solicitud escrita a datospersonales@qpclinic.mx o a Insurgentes Sur 933 Int. Piso 12, Col. Nápoles, Benito Juárez, C.P. 03810, CDMX, de Lunes a Viernes 8:00–18:00 hrs y sábados 08:00–14:00 hrs, incluyendo: nombre, domicilio o correo para respuesta, documentos de identidad, descripción de los datos y cualquier elemento que permita su localización.",
+      `Puede ejercer sus derechos ARCO enviando solicitud escrita a datospersonales@qpclinic.mx o a ${ciDir()}, de Lunes a Viernes 8:00–18:00 hrs y sábados 08:00–14:00 hrs, incluyendo: nombre, domicilio o correo para respuesta, documentos de identidad, descripción de los datos y cualquier elemento que permita su localización.`,
       "",
       "REVOCACIÓN DEL CONSENTIMIENTO:",
       "En cualquier momento puede revocar su consentimiento enviando solicitud a datospersonales@qpclinic.mx o por escrito a la dirección indicada.",
       "",
       "MEDIDAS DE PROTECCIÓN:",
-      "QP Clinic ha establecido procedimientos físicos, electrónicos y administrativos para evitar el uso o revelación no autorizados de los datos personales, evaluados y revisados constantemente.",
+      `${ciNombre()} ha establecido procedimientos físicos, electrónicos y administrativos para evitar el uso o revelación no autorizados de los datos personales, evaluados y revisados constantemente.`,
       "",
       "CAMBIOS AL AVISO DE PRIVACIDAD:",
-      "Las modificaciones estarán disponibles en https://www.qpclinic.mx o por cualquier medio que QP Clinic determine.",
+      `Las modificaciones estarán disponibles en https://www.qpclinic.mx o por cualquier medio que ${ciNombre()} determine.`,
       "",
-      "Declaro bajo protesta de decir verdad que he leído en su totalidad este Aviso de Privacidad y entiendo plenamente su alcance y contenido. Por medio del presente otorgo mi consentimiento para que QP Clinic trate mis datos personales de acuerdo con este Aviso de Privacidad, incluyendo datos personales sensibles de salud y las finalidades distintas descritas en el inciso b).",
+      `Declaro bajo protesta de decir verdad que he leído en su totalidad este Aviso de Privacidad y entiendo plenamente su alcance y contenido. Por medio del presente otorgo mi consentimiento para que ${ciNombre()} trate mis datos personales de acuerdo con este Aviso de Privacidad, incluyendo datos personales sensibles de salud y las finalidades distintas descritas en el inciso b).`,
     ]
   },
   telemedicina:{
@@ -3783,11 +3791,11 @@ const CI_CATALOGO={
       "",
       "2. LIMITACIONES. Comprendo que la telemedicina:\n   • No sustituye a la exploración física cuando esta sea necesaria\n   • No es adecuada para situaciones de urgencia (llame al 911 o acuda a urgencias)\n   • Puede estar sujeta a interrupciones técnicas ajenas al control del Médico\n   • Puede requerir una consulta presencial posterior",
       "",
-      "3. PRIVACIDAD Y SEGURIDAD. Entiendo que:\n   • Las sesiones NO serán grabadas por ninguna de las partes sin consentimiento mutuo\n   • Debo asegurarme de estar en un lugar privado durante la consulta\n   • QP Clinic utiliza plataformas con cifrado para proteger la comunicación",
+      `3. PRIVACIDAD Y SEGURIDAD. Entiendo que:\n   • Las sesiones NO serán grabadas por ninguna de las partes sin consentimiento mutuo\n   • Debo asegurarme de estar en un lugar privado durante la consulta\n   • ${ciNombre()} utiliza plataformas con cifrado para proteger la comunicación`,
       "",
       "4. RESPONSABILIDAD DEL PACIENTE. Me comprometo a:\n   • Proporcionar información veraz y completa sobre mis síntomas\n   • Tener a la mano mi lista de medicamentos actuales\n   • Comunicar inmediatamente cualquier deterioro que requiera atención de urgencias\n   • Acudir a valoración presencial cuando el Médico lo indique",
       "",
-      "5. CONSENTIMIENTO. Habiendo leído y comprendido lo anterior, CONSIENTO el uso de la telemedicina para mi atención médica en QP Clinic.",
+      `5. CONSENTIMIENTO. Habiendo leído y comprendido lo anterior, CONSIENTO el uso de la telemedicina para mi atención médica en ${ciNombre()}.`,
       "",
       "Conforme a los lineamientos de la NOM-004-SSA3-2012 y las guías de telemedicina de la Secretaría de Salud.",
     ]
@@ -3799,7 +3807,7 @@ const CI_CATALOGO={
     texto:(p,med,fecha)=>[
       `En la Ciudad de México, a ${fecha}, yo ${p}:`,
       "",
-      "CONSIENTO recibir tratamiento de fisioterapia y rehabilitación en QP Clinic, a cargo del equipo de Medicina Física y Rehabilitación, bajo los siguientes términos:",
+      `CONSIENTO recibir tratamiento de fisioterapia y rehabilitación en ${ciNombre()}, a cargo del equipo de Medicina Física y Rehabilitación, bajo los siguientes términos:`,
       "",
       "MODALIDADES DE TRATAMIENTO. Entiendo que el tratamiento puede incluir una o más de las siguientes modalidades:",
       "",
@@ -3928,7 +3936,7 @@ const CI_CATALOGO={
       "RIESGOS:",
       "• Mareo, náusea o fatiga durante la prueba\n• Molestia o dolor muscular\n• Alteraciones del ritmo cardiaco (arritmias transitorias)\n• Elevación anormal de la presión arterial\n• En casos muy raros (<1 en 10,000 pruebas): angina de pecho, infarto de miocardio, arritmia grave, paro cardiaco",
       "",
-      "El personal de QP Clinic cuenta con equipo de reanimación cardiopulmonar y está capacitado en soporte vital avanzado. La prueba será SUSPENDIDA inmediatamente si aparecen signos o síntomas de alarma.",
+      `El personal de ${ciNombre()} cuenta con equipo de reanimación cardiopulmonar y está capacitado en soporte vital avanzado. La prueba será SUSPENDIDA inmediatamente si aparecen signos o síntomas de alarma.`,
       "",
       "CONTRAINDICACIONES (confirmo NO presentar actualmente):\n   • Infarto de miocardio reciente (<48-72 horas)\n   • Angina inestable\n   • Insuficiencia cardiaca descompensada\n   • Arritmias graves no controladas\n   • Estenosis aórtica severa\n   • Miocarditis aguda\n   • Presión arterial en reposo >200/110 mmHg\n   • Incapacidad física para realizar ejercicio",
       "",
@@ -3944,7 +3952,7 @@ const CI_CATALOGO={
     texto:(p,med,fecha)=>[
       `En la Ciudad de México, a ${fecha}, yo ${p}:`,
       "",
-      "CONSIENTO la prescripción y uso de terapia hormonal y/o sustancias con efecto anabólico-androgénico bajo supervisión médica de QP Clinic, habiendo recibido información completa sobre:",
+      `CONSIENTO la prescripción y uso de terapia hormonal y/o sustancias con efecto anabólico-androgénico bajo supervisión médica de ${ciNombre()}, habiendo recibido información completa sobre:`,
       "",
       "PROPÓSITO MÉDICO: El tratamiento ha sido indicado con fines terapéuticos documentados (hipogonadismo, déficit hormonal, recuperación de lesión, prescripción médica justificada), y no con fines de dopaje o mejora del rendimiento fuera del contexto médico.",
       "",
@@ -3964,7 +3972,7 @@ const CI_CATALOGO={
       "",
       "ME COMPROMETO a:\n   • Acudir a controles periódicos (laboratorios, ECG, hematología)\n   • Informar cualquier síntoma nuevo inmediatamente\n   • No administrar ni compartir las sustancias con terceros\n   • No participar en competencias deportivas sujetas a control antidopaje bajo este tratamiento sin previa consulta médica\n   • Seguir estrictamente el esquema de dosificación y suspensión indicado",
       "",
-      "AUTORIZO la prescripción de esta terapia bajo supervisión médica de QP Clinic.",
+      `AUTORIZO la prescripción de esta terapia bajo supervisión médica de ${ciNombre()}.`,
     ]
   },
   glp1:{
@@ -3974,7 +3982,7 @@ const CI_CATALOGO={
     texto:(p,med,fecha)=>[
       `En la Ciudad de México, a ${fecha}, yo ${p}:`,
       "",
-      "CONSIENTO el tratamiento con agonistas del receptor de GLP-1 (glucagón-like peptide-1) y/o agonistas duales GLP-1/GIP, bajo prescripción médica de QP Clinic.",
+      `CONSIENTO el tratamiento con agonistas del receptor de GLP-1 (glucagón-like peptide-1) y/o agonistas duales GLP-1/GIP, bajo prescripción médica de ${ciNombre()}.`,
       "",
       "MEDICAMENTO(S) INDICADO(S): Semaglutida (Ozempic®/Wegovy®) y/o Tirzepatida (Mounjaro®/Zepbound®), administrados por inyección subcutánea semanal.",
       "",
@@ -3990,7 +3998,7 @@ const CI_CATALOGO={
       "",
       "ADVERTENCIAS IMPORTANTES:\n   • Contraindicado en embarazo y lactancia — use anticoncepción efectiva durante el tratamiento\n   • Suspender al menos 2 meses antes de intentar embarazo\n   • Contraindicado con antecedentes personales o familiares de carcinoma medular de tiroides o NEM tipo 2\n   • Contraindicado en pancreatitis crónica o antecedente de pancreatitis aguda severa\n   • La pérdida de peso rápida puede causar pérdida de masa muscular — recomendamos combinar con ejercicio y proteína adecuada",
       "",
-      "MEDICAMENTOS DE LIBRE DISPONIBILIDAD (no regulados por COFEPRIS como medicamentos): Se le advierte que las versiones compuestas (\"compounded\") o no aprobadas disponibles en internet o redes sociales pueden ser falsificadas, contener dosificación incorrecta o sustancias no declaradas. QP Clinic solo prescribe medicamentos con registro COFEPRIS vigente.",
+      `MEDICAMENTOS DE LIBRE DISPONIBILIDAD (no regulados por COFEPRIS como medicamentos): Se le advierte que las versiones compuestas (\"compounded\") o no aprobadas disponibles en internet o redes sociales pueden ser falsificadas, contener dosificación incorrecta o sustancias no declaradas. ${ciNombre()} solo prescribe medicamentos con registro COFEPRIS vigente.`,
       "",
       "ME COMPROMETO a acudir a controles periódicos de laboratorio, peso y presión arterial; informar inmediatamente sobre dolor abdominal severo, vómito persistente, hipoglucemias o cualquier síntoma nuevo.",
       "",
@@ -3998,13 +4006,13 @@ const CI_CATALOGO={
     ]
   },
   qpclinic:{
-    titulo:"CONSENTIMIENTO INFORMADO — TRATAMIENTO MÉDICO-DEPORTIVO EN QP CLINIC",
+    titulo:"CONSENTIMIENTO INFORMADO — TRATAMIENTO MÉDICO-DEPORTIVO",
     categoria:"Medicina del Deporte",
     clave:"qpclinic",
     texto:(p,med,fecha)=>[
       `En la Ciudad de México, a ${fecha}, yo ${p}:`,
       "",
-      "CONSIENTO recibir atención médica especializada en Medicina del Deporte, Rehabilitación y Salud Integral en QP Clinic, S.C., bajo la supervisión del equipo médico multidisciplinario.",
+      `CONSIENTO recibir atención médica especializada en Medicina del Deporte, Rehabilitación y Salud Integral en ${ciRazon()}, bajo la supervisión del equipo médico multidisciplinario.`,
       "",
       "SERVICIOS QUE PUEDEN PRESTARSE: Consulta médica deportiva, evaluación de composición corporal (InBody), prueba de esfuerzo, prescripción de ejercicio, nutrición deportiva, fisioterapia y rehabilitación, procedimientos diagnósticos y terapéuticos.",
       "",
@@ -4013,7 +4021,7 @@ const CI_CATALOGO={
       "",
       "DECLARACIÓN DE SALUD: Declaro que la información que he proporcionado en mi expediente es verídica. Entiendo que omitir información relevante puede comprometer mi seguridad y la efectividad del tratamiento.",
       "",
-      "AUTORIZO a QP Clinic a utilizar mis resultados de manera anonimizada para fines educativos y de investigación interna, en cumplimiento con la LFPDPPP.",
+      `AUTORIZO a ${ciNombre()} a utilizar mis resultados de manera anonimizada para fines educativos y de investigación interna, en cumplimiento con la LFPDPPP.`,
     ]
   },
   seguimiento:{
@@ -4023,19 +4031,19 @@ const CI_CATALOGO={
     texto:(p,med,fecha)=>[
       `En la Ciudad de México, a ${fecha}, yo ${p}:`,
       "",
-      "ASUMO el siguiente COMPROMISO DE SEGUIMIENTO con QP Clinic para garantizar la continuidad, seguridad y efectividad de mi plan de atención médico-deportiva:",
+      `ASUMO el siguiente COMPROMISO DE SEGUIMIENTO con ${ciNombre()} para garantizar la continuidad, seguridad y efectividad de mi plan de atención médico-deportiva:`,
       "",
       "1. CITAS Y CONTROLES. Me comprometo a acudir puntualmente a mis citas programadas. En caso de no poder asistir, avisaré con al menos 24 horas de anticipación al +52 5644237028. La inasistencia reiterada sin aviso puede resultar en la cancelación de mi plan de seguimiento.",
       "",
       "2. INDICACIONES MÉDICAS. Seguiré el plan de entrenamiento, nutrición y tratamiento indicado por mi médico. No modificaré dosis de medicamentos ni suplementos sin consultar previamente.",
       "",
-      "3. COMUNICACIÓN. Reportaré inmediatamente cualquier lesión, síntoma nuevo o deterioro de mi condición a través de los canales de QP Clinic.",
+      `3. COMUNICACIÓN. Reportaré inmediatamente cualquier lesión, síntoma nuevo o deterioro de mi condición a través de los canales de ${ciNombre()}.`,
       "",
       "4. EXÁMENES DE CONTROL. Realizaré los estudios de laboratorio, gabinete y valoraciones físicas en las fechas indicadas.",
       "",
-      "5. RESPONSABILIDAD. Comprendo que el éxito del tratamiento depende en gran medida de mi adherencia y participación activa. QP Clinic no puede hacerse responsable de resultados insatisfactorios derivados de incumplimiento del plan indicado.",
+      `5. RESPONSABILIDAD. Comprendo que el éxito del tratamiento depende en gran medida de mi adherencia y participación activa. ${ciNombre()} no puede hacerse responsable de resultados insatisfactorios derivados de incumplimiento del plan indicado.`,
       "",
-      "6. ACTUALIZACIÓN DE INFORMACIÓN. Informaré sobre cualquier cambio en mi estado de salud, medicamentos, cirugías o lesiones ocurridas fuera de QP Clinic.",
+      `6. ACTUALIZACIÓN DE INFORMACIÓN. Informaré sobre cualquier cambio en mi estado de salud, medicamentos, cirugías o lesiones ocurridas fuera de ${ciNombre()}.`,
       "",
       "Firmo este compromiso de manera libre, voluntaria y consciente.",
     ]
@@ -6913,10 +6921,10 @@ window.imprimirInterconsulta=async function(id){
     if(medSol?.firma_digital){
       try{const r=await fetch(medSol.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}
     }
-    // Logo QP Clinic
+    // Logo de la unidad activa: QP Clinic, amfa o QP Surgery.
     let logoB64=null;
     try{
-      const r=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");
+      const r=await fetch(brand().logo);
       const bl=await r.blob();
       logoB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
     }catch(e){}
@@ -7748,7 +7756,8 @@ window.enviarFirmaWAGlobal=async function(){
   const celLimpio=cel.replace(/\D/g,"");
   const celFinal=celLimpio.length===10?"52"+celLimpio:celLimpio;
   const medId=STATE.user?.id||"";
-  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}&med=${medId}`;
+  // La sede viaja en el enlace: firmar.html no tiene sesión y no puede deducirla.
+  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}&med=${medId}&sede=${sedeActiva()}`;
   const saludo=esMenor&&resp?.nombre
     ? `Estimado(a) ${resp.nombre}, le enviamos los documentos médicos de *${nomPac}* (su menor hijo/representado) para leer y firmar como tutor o responsable legal:`
     : `Estimado(a) ${nomFirmante}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:`;
@@ -7849,7 +7858,8 @@ window.enviarFirmaWA=async function(){
   })));
   const celLimpio=cel.replace(/\D/g,"");
   const medId=STATE.user?.id||"";
-  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}&med=${medId}`;
+  // La sede viaja en el enlace: firmar.html no tiene sesión y no puede deducirla.
+  const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}&med=${medId}&sede=${sedeActiva()}`;
   const nomPac=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno}`:"Paciente";
   const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\n_Su información es tratada con absoluta confidencialidad._\n_QP Clinic — Especialistas en Salud Integral_`;
   // Abrir WhatsApp desde el número de la clínica
@@ -10812,7 +10822,7 @@ function renderRecipeModal(tipo="receta"){
       </div>
       <div style="border:1px solid ${BR};border-radius:8px;padding:12px;background:#FAFAFA;margin-bottom:14px;font-size:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:1.5px solid #263238">
-          <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:40px">
+          <img src="${brand().logo}" style="height:40px">
           <div style="text-align:right;line-height:1.7;font-size:13px">
             <b style="font-size:14px">${med.titulo||"Dr."} ${med.nombre||""} ${med.apellidos||""}</b><br>
             ${med.licenciatura||med.institucion_grado?`<span style="color:${MU}">${[med.licenciatura,(med.institucion_grado||"").split(" — ")[0].trim()].filter(Boolean).join(" ")}</span><br>`:""}
@@ -11163,14 +11173,15 @@ window.imprimirHojaReferencia=async function(){
   // fuente que la receta.
   const credLines=credencialesTexto(med,{sep:" - "}).map(S);
   let logoB64=null,firmaB64=null;
-  try{logoB64=await urlToBase64firma("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");}catch(e){}
+  try{logoB64=await urlToBase64firma(brand().logo);}catch(e){}
   if(med.firma_digital){try{firmaB64=await urlToBase64firma(med.firma_digital);}catch(e){}}
   try{
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
   const W=215.9,M=14,CW=W-2*M;
   // ── ENCABEZADO ──────────────────────────────────────────
   doc.setFillColor(0,80,137);doc.rect(0,0,W,40,"F");
-  if(logoB64){try{doc.addImage(logoB64,"JPEG",W-50,2,44,34);}catch(e){}}
+  // El logo de amfa es PNG y el de QP Clinic JPEG: forzar un formato rompía uno de los dos.
+  if(logoB64){try{doc.addImage(logoB64,String(brand().logo).toLowerCase().includes("png")?"PNG":"JPEG",W-50,2,44,34);}catch(e){}}
   doc.setTextColor(255,255,255);
   doc.setFontSize(11);doc.setFont("helvetica","bold");
   doc.text("QP Clinic - Especialistas en Salud Integral",M,9);
@@ -11258,7 +11269,7 @@ window.imprimirHojaReferencia=async function(){
     caja("Subespecialidad",S(med.especialidad_2||""),M,y,80,11);
     caja("Cedula de subespecialidad",S(med.cedula_subesp||""),M+81,y,CW-81,11);y+=12;
   }
-  caja("Institucion / Consultorio",S(med.institucion_esp_1||"QP Clinic — Insurgentes Sur 933 P.12, CDMX"),M,y,CW,11);y+=13;
+  caja("Institucion / Consultorio",S(med.institucion_esp_1||`${brand().nombre} — ${brand().direccion}`),M,y,CW,11);y+=13;
   y+=2;
   // ── III. UNIDAD RECEPTORA ───────────────────────────────
   if(y>240){doc.addPage();y=14;}
@@ -11695,14 +11706,14 @@ window.enviarRecetaWA=async function(tipo){
     const {data:urlData}=SB.storage.from("expedientes").getPublicUrl(fname);
     const pdfUrl=urlData.publicUrl;
     loading(false);
-    const msg=`🏥 *QP Clinic — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\n📄 Descarga tu documento aquí:\n${pdfUrl}\n\n_Insurgentes Sur 933, Nápoles, CDMX_\n_qpclinic.org_`;
+    const msg=`🏥 *${brand().nombre} — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\n📄 Descarga tu documento aquí:\n${pdfUrl}\n\n_Insurgentes Sur 933, Nápoles, CDMX_\n_qpclinic.org_`;
     window.open(`https://web.whatsapp.com/send?phone=${cel}&text=${encodeURIComponent(msg)}`,"_blank");
     showToast("✓ Abriendo WhatsApp con enlace al PDF");
   }catch(e){
     loading(false);
     // Fallback: descarga local + abrir WhatsApp
     await generarPDFReceta(tipo);
-    const msg=`🏥 *QP Clinic — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\nEl PDF se descargó en tu dispositivo. Adjúntalo en WhatsApp.`;
+    const msg=`🏥 *${brand().nombre} — ${titulos[tipo]||"Documento"}*\n\n*Paciente:* ${nomPac}\n*Médico:* ${medNom}\n*Fecha:* ${new Date().toLocaleDateString("es-MX")}\n\nEl PDF se descargó en tu dispositivo. Adjúntalo en WhatsApp.`;
     setTimeout(()=>window.open(`https://web.whatsapp.com/send?phone=${cel}&text=${encodeURIComponent(msg)}`,"_blank"),1500);
     showToast("PDF descargado — adjúntalo en WhatsApp");
   }
@@ -11714,8 +11725,11 @@ window.enviarRecetaEmail=function(tipo){
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""}`.trim();
   const contenido=document.getElementById("recipe-content")?.value||"";
   const titulos={receta:"Receta médica",lab:"Solicitud de laboratorio",gab:"Solicitud de gabinete"};
-  const subject=encodeURIComponent(`${titulos[tipo]||"Documento"} — ${nomPac} — QP Clinic`);
-  const body=encodeURIComponent(`Estimado/a ${nomPac},\n\nAdjunto encontrará su ${titulos[tipo]||"documento"} de QP Clinic.\n\n${contenido}\n\nQP Clinic — Especialistas en Salud Integral\nInsurgentes Sur 933, Nápoles, CDMX\nqpclinic.org`);
+  const subject=encodeURIComponent(`${titulos[tipo]||"Documento"} — ${nomPac} — ${brand().nombre}`);
+  const _b=brand();
+  const _tel=[_b.tel,_b.tel2].filter(Boolean).join(" / ");
+  const _pieCorreo=[_b.direccion,_tel,_b.web].filter(Boolean).join("\n");
+  const body=encodeURIComponent(`Estimado/a ${nomPac},\n\nAdjunto encontrará su ${titulos[tipo]||"documento"} de ${_b.nombre}.\n\n${contenido}\n\n${_b.nombre}\n${_pieCorreo}`);
   window.open(`mailto:${email}?subject=${subject}&body=${body}`);
   showToast("✓ Abriendo cliente de correo");
 }
@@ -15504,7 +15518,7 @@ window.generarPDFFisio=async function(){
 
     // Logo y firma
     let logoB64=null,firmaB64=null;
-    try{const r=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");const bl=await r.blob();logoB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}
+    try{const r=await fetch(brand().logo);const bl=await r.blob();logoB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}
     if(med.firma_digital){try{const r=await fetch(med.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}}
 
     // ── PALETA ─────────────────────────────────────────────────────
@@ -15528,7 +15542,10 @@ window.generarPDFFisio=async function(){
       doc.setFillColor(238,244,248);doc.rect(0,PH-FH,PW,FH,"F");
       doc.setDrawColor(215,227,234);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
       doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(5.9);
-      doc.text(`Insurgentes Sur 933, Col. Nápoles, Alcaldía Benito Juárez, CDMX, C.P. 03810  |  Tel: 55 5682 4345 / 56 4423 7028  |  qpclinic.org  |  NOM-004-SSA3-2012  |  Página ${pg} de ${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});
+      const _b=brand();
+      const _tel=[_b.tel,_b.tel2].filter(Boolean).join(" / ");
+      const _pie=[_b.direccion,(_tel?"Tel: "+_tel:""),_b.web,"NOM-004-SSA3-2012"].filter(Boolean).join("  |  ");
+      doc.text(`${_pie}  |  Página ${pg} de ${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});
     };
     const AVAIL_H=PH-FH-ML;
     const pages=[];
@@ -16607,7 +16624,7 @@ window.generarPDFUltrasonido=async function(){
     // Logo QP Clinic y Firma
     let logoQPB64=null,firmaB64=null;
     try{
-      const rLogo=await fetch('https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg');
+      const rLogo=await fetch(brand().logo);
       const blLogo=await rLogo.blob();
       logoQPB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blLogo);});
     }catch(e){}
@@ -22927,7 +22944,7 @@ window.pdfPrescripcionEjercicio=async function(){
   try{
     let logo=null;
     try{
-      const r=await fetch("https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg");
+      const r=await fetch(brand().logo);
       const bl=await r.blob();
       logo=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
     }catch(e){}

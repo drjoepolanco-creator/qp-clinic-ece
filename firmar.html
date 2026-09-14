@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>QP Clinic — Firma de Documentos</title>
+<title>Firma de Documentos</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
@@ -44,6 +44,39 @@ const PAC_ID=params.get("pac");
 const DOCS_STR=params.get("docs")||"";
 const COD=params.get("cod")||"";
 
+// ── MARCA POR UNIDAD ──────────────────────────────────────────────────────
+// amfa Nutrición Especializada y QP Surgery Clinic son razones sociales
+// distintas de QP Clinic, S.C. El texto legal es el mismo para las tres: lo que
+// cambia es el logo, el pie y quién firma como responsable. La unidad viaja en
+// el enlace (&sede=) porque esta página no tiene sesión y no puede deducirla;
+// sin ese dato todo salía con membrete de QP Clinic.
+const MARCAS={
+  clinic:{
+    nombre:"QP Clinic", razon:"QP Clinic, S.C.", lema:"Especialistas en Salud Integral",
+    logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",
+    rgb:[13,71,161],
+    direccion:"Insurgentes Sur 933, Piso 12, Col. Nápoles, C.P. 03810, CDMX",
+    tel:"+52 5644237028", web:"qpclinic.org",
+  },
+  amfa:{
+    nombre:"amfa Nutrición Especializada", razon:"amfa Nutrición Especializada", lema:"",
+    logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/AMFA%20LOGO.png",
+    rgb:[14,59,50],
+    direccion:"Anillo Periférico 3332, Consultorio 1811, Piso 18, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, CDMX",
+    tel:"+52 5594628295 / +52 5594628296", web:"",
+  },
+  surgery:{
+    nombre:"QP Surgery Clinic", razon:"QP Surgery Clinic S.C.", lema:"Cirugía Ambulatoria",
+    logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",
+    rgb:[31,143,232],
+    direccion:"Boulevard Adolfo Ruiz Cortines No. 3332, Int. 816 y 801, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, CDMX",
+    tel:"+52 5592247091", web:"",
+  },
+};
+const MARCA=MARCAS[params.get("sede")]||MARCAS.clinic;
+const MARCA_PIE=[MARCA.nombre+(MARCA.lema?" — "+MARCA.lema:""),[MARCA.web,MARCA.tel].filter(Boolean).join(" | ")].filter(Boolean).join("<br>");
+document.title=MARCA.nombre+" — Firma de Documentos";
+
 const R=()=>document.getElementById("R");
 function toast(msg,ok=true){
   let t=document.getElementById("toast");
@@ -57,7 +90,7 @@ const DOCS_NOMBRES={
   "general":"Consentimiento Informado General",
   "privacidad":"Aviso de Privacidad",
   "telemedicina":"Consentimiento de Telemedicina",
-  "qpclinic":"Consentimiento QP Clinic — Tratamiento Médico-Deportivo",
+  "qpclinic":"Consentimiento — Tratamiento Médico-Deportivo",
   "seguimiento":"Carta Compromiso — Seguimiento Médico-Deportivo",
   "eaa":"Consentimiento Uso de EAA",
   "infiltraciones":"Consentimiento para Infiltraciones",
@@ -82,7 +115,7 @@ function getDocTexto(tipo,pac,med){
   const textos={
     "general":`CONSENTIMIENTO INFORMADO GENERAL\n\nYo, ${nom}, en Ciudad de México a ${hoy}, ACEPTO:\n\n1. Que he recibido información clara, precisa y suficiente sobre mi condición de salud y el plan de tratamiento propuesto por ${medNom}, y que he tenido la oportunidad de formular todas las preguntas que consideré necesarias, habiendo recibido respuestas satisfactorias a todas ellas.\n\n2. Que he sido informado(a) de los tratamientos alternativos posibles, así como de los efectos secundarios o adversos que puede tener el tratamiento propuesto.\n\n3. Que las indicaciones del médico fueron emitidas de acuerdo con criterio médico-científico y que el cumplimiento de las mismas es voluntario. Entiendo que la efectividad del tratamiento es proporcional al apego a las indicaciones.\n\n4. Que puedo abandonar el plan de tratamiento en cualquier momento, de conformidad con el Art. 51 Bis 1 de la Ley General de Salud, y que el abandono puede implicar consecuencias adversas para mi salud.\n\n5. Que toda la información relacionada con mi atención médica será tratada con estricta confidencialidad, conforme a la NOM-004-SSA3-2012 y la LFPDPPP.\n\nOtorgo el presente consentimiento de forma libre y voluntaria.`,
 
-    "privacidad":`AVISO DE PRIVACIDAD\n\nYo, ${nom}, en Ciudad de México a ${hoy}, ACEPTO:\n\nResponsable del tratamiento de datos personales:\nQP Clinic, S.C. (en adelante "QP Clinic"), con domicilio en Avenida de los Insurgentes Sur 933, Int. Piso 12, Colonia Nápoles, Benito Juárez, C.P. 03810, Ciudad de México, es responsable del tratamiento de mis datos personales conforme a este Aviso de Privacidad.\n\nDatos que se recaban:\nLos datos personales de contacto y/o de identificación que tratará QP Clinic son nombre, edad, sexo, ocupación, domicilio, correo electrónico, teléfono (móvil y/o fijo) y Registro Federal de Contribuyentes.\n\nDatos sensibles:\nQP Clinic recabará y tratará datos sensibles relacionados con el estado de salud, antecedentes e historial clínico, e información sobre el modo de vida, necesarios o convenientes para las finalidades señaladas. Dichos datos serán mantenidos y tratados con estricta seguridad y confidencialidad para fines relacionados con la prestación de servicios de salud.\n\nFinalidad del tratamiento de los datos personales:\na) Finalidades necesarias para el mantenimiento de la relación con el titular:\n- Prestación de servicios médicos, terapia, rehabilitación, dieta y nutrición.\n- Creación, estudio, análisis, actualización y mantenimiento de archivo clínico.\n- Facturación y cobranza por servicios.\n- Mantenimiento de registros para seguimiento a servicios.\n\nb) Finalidades distintas:\n- Estudios, registros, estadísticas y análisis de información de salud.\n- Mantenimiento de registros para prestación de servicios en el futuro.\n- Análisis estadísticos y de mercado.\n- Promoción y mercadeo de productos y servicios de QP Clinic u otras empresas del mismo grupo corporativo.\n\nEn caso de no desear que QP Clinic trate mis datos para las finalidades del inciso b), cuento con un plazo de 5 días para manifestar mi negativa a: datospersonales@qpclinic.mx\n\nTransferencia:\nQP Clinic puede transferir, dentro y fuera del país, mis datos personales a laboratorios, clínicas, hospitales, centros de investigación, aseguradoras, empresas del mismo grupo corporativo o autoridades competentes. Para oponerme, dispongo de 5 días para notificarlo a: datospersonales@qpclinic.mx\n\nDerechos ARCO (Acceso, Rectificación, Cancelación y Oposición):\nPuedo ejercer mis derechos ARCO enviando solicitud escrita a datospersonales@qpclinic.mx o a Insurgentes Sur 933 Int. Piso 12, Col. Nápoles, Benito Juárez, C.P. 03810, CDMX, de lunes a viernes de 8:00 a 18:00 hrs y sábados de 08:00 a 14:00 hrs, incluyendo: nombre, domicilio o correo para respuesta, documentos de identidad, descripción de los datos y cualquier elemento que permita su localización.\n\nRevocación del consentimiento:\nEn cualquier momento puedo revocar mi consentimiento enviando solicitud a datospersonales@qpclinic.mx o por escrito a la dirección indicada.\n\nMedidas de protección:\nQP Clinic ha establecido procedimientos físicos, electrónicos y administrativos para evitar el uso o revelación no autorizados de los datos personales.\n\nCambios al aviso de privacidad:\nLas modificaciones estarán disponibles en https://www.qpclinic.mx o por cualquier medio que QP Clinic determine.\n\nDeclaro bajo protesta de decir verdad que he leído en su totalidad este Aviso de Privacidad y entiendo plenamente su alcance y contenido. Otorgo mi consentimiento para que QP Clinic trate mis datos personales de acuerdo con este Aviso de Privacidad, incluyendo datos sensibles de salud y las finalidades distintas descritas en el inciso b).`,
+    "privacidad":`AVISO DE PRIVACIDAD\n\nYo, ${nom}, en Ciudad de México a ${hoy}, ACEPTO:\n\nResponsable del tratamiento de datos personales:\n${MARCA.razon} (en adelante "la Clínica"), con domicilio en ${MARCA.direccion}, es responsable del tratamiento de mis datos personales conforme a este Aviso de Privacidad.\n\nDatos que se recaban:\nLos datos personales de contacto y/o de identificación que tratará ${MARCA.nombre} son nombre, edad, sexo, ocupación, domicilio, correo electrónico, teléfono (móvil y/o fijo) y Registro Federal de Contribuyentes.\n\nDatos sensibles:\n${MARCA.nombre} recabará y tratará datos sensibles relacionados con el estado de salud, antecedentes e historial clínico, e información sobre el modo de vida, necesarios o convenientes para las finalidades señaladas. Dichos datos serán mantenidos y tratados con estricta seguridad y confidencialidad para fines relacionados con la prestación de servicios de salud.\n\nFinalidad del tratamiento de los datos personales:\na) Finalidades necesarias para el mantenimiento de la relación con el titular:\n- Prestación de servicios médicos, terapia, rehabilitación, dieta y nutrición.\n- Creación, estudio, análisis, actualización y mantenimiento de archivo clínico.\n- Facturación y cobranza por servicios.\n- Mantenimiento de registros para seguimiento a servicios.\n\nb) Finalidades distintas:\n- Estudios, registros, estadísticas y análisis de información de salud.\n- Mantenimiento de registros para prestación de servicios en el futuro.\n- Análisis estadísticos y de mercado.\n- Promoción y mercadeo de productos y servicios de ${MARCA.nombre} u otras empresas del mismo grupo corporativo.\n\nEn caso de no desear que ${MARCA.nombre} trate mis datos para las finalidades del inciso b), cuento con un plazo de 5 días para manifestar mi negativa a: datospersonales@qpclinic.mx\n\nTransferencia:\n${MARCA.nombre} puede transferir, dentro y fuera del país, mis datos personales a laboratorios, clínicas, hospitales, centros de investigación, aseguradoras, empresas del mismo grupo corporativo o autoridades competentes. Para oponerme, dispongo de 5 días para notificarlo a: datospersonales@qpclinic.mx\n\nDerechos ARCO (Acceso, Rectificación, Cancelación y Oposición):\nPuedo ejercer mis derechos ARCO enviando solicitud escrita a datospersonales@qpclinic.mx o a Insurgentes Sur 933 Int. Piso 12, Col. Nápoles, Benito Juárez, C.P. 03810, CDMX, de lunes a viernes de 8:00 a 18:00 hrs y sábados de 08:00 a 14:00 hrs, incluyendo: nombre, domicilio o correo para respuesta, documentos de identidad, descripción de los datos y cualquier elemento que permita su localización.\n\nRevocación del consentimiento:\nEn cualquier momento puedo revocar mi consentimiento enviando solicitud a datospersonales@qpclinic.mx o por escrito a la dirección indicada.\n\nMedidas de protección:\n${MARCA.nombre} ha establecido procedimientos físicos, electrónicos y administrativos para evitar el uso o revelación no autorizados de los datos personales.\n\nCambios al aviso de privacidad:\nLas modificaciones estarán disponibles en https://www.qpclinic.mx o por cualquier medio que ${MARCA.nombre} determine.\n\nDeclaro bajo protesta de decir verdad que he leído en su totalidad este Aviso de Privacidad y entiendo plenamente su alcance y contenido. Otorgo mi consentimiento para que ${MARCA.nombre} trate mis datos personales de acuerdo con este Aviso de Privacidad, incluyendo datos sensibles de salud y las finalidades distintas descritas en el inciso b).`,
 
     "telemedicina":`CONSENTIMIENTO INFORMADO PARA SERVICIOS DE TELEMEDICINA / TELESALUD\n\nYo, ${nom}, en Ciudad de México a ${hoy}, ACEPTO:\n\nQue la Telemedicina/Telesalud implica el uso de comunicaciones electrónicas para permitir que los proveedores de atención médica compartan información médica individual del paciente con el fin de mejorar su atención, mediante equipos de telecomunicaciones que permiten comunicación bidireccional en tiempo real.\n\nBENEFICIOS ESPERADOS:\n• Mejora del acceso a la atención desde un sitio remoto.\n• Evaluación y gestión médica más eficientes.\n• Diagnóstico y tratamiento oportunos.\n\nRIESGOS POTENCIALES:\n• La transmisión de información podría verse alterada por fallas técnicas.\n• Los servicios de telemedicina pueden no ser tan completos como los presenciales.\n• En casos poco frecuentes, la información transmitida puede ser insuficiente.\n• En casos excepcionales, los protocolos de seguridad pueden fallar.\n\nDECLARO Y ACEPTO QUE:\n1. Puedo retirar mi consentimiento en cualquier momento sin afectar mi derecho a atención presencial futura.\n2. Las leyes que protegen la confidencialidad de mi información médica aplican también a la telemedicina.\n3. Existen alternativas de atención presencial disponibles.\n\nOtorgo el presente consentimiento de forma libre y voluntaria.`,
 
@@ -98,7 +131,7 @@ function getDocTexto(tipo,pac,med){
 
     "glp1":`CONSENTIMIENTO INFORMADO — TRATAMIENTO CON AGONISTAS GLP-1\n(Semaglutida / Ozempic® — Tirzepatida / Mounjaro®)\n\nYo, ${nom}, en Ciudad de México a ${hoy}, ACEPTO:\n\nQue ${medNom} me ha informado de manera clara y suficiente sobre el tratamiento con agonistas del receptor GLP-1, y que habiendo comprendido los beneficios, riesgos y alternativas, otorgo mi consentimiento libre y voluntario para iniciarlo.\n\nOBJETIVO: Control de diabetes tipo 2 y/o reducción de peso en pacientes con obesidad o sobrepeso.\n\nEFECTOS ADVERSOS FRECUENTES (≥5%): Náuseas, vómito, diarrea, dolor abdominal y estreñimiento.\n\nEFECTOS ADVERSOS MENOS FRECUENTES: Hipoglucemia, litiasis vesicular y empeoramiento de retinopatía diabética.\n\nRIESGO GRAVE — NEUROPATÍA ÓPTICA ISQUÉMICA (NAION): Estudios publicados en JAMA Ophthalmology (2024) y confirmados por la EMA (junio 2025) identificaron asociación entre el uso de agonistas GLP-1 y NAION. El riesgo es 4 a 7 veces mayor en comparación con otros tratamientos. El daño puede ser IRREVERSIBLE. La EMA lo clasificó como efecto adverso "muy raro" (≤1 de cada 10,000 pacientes). Ante cualquier cambio en la visión, debo notificarlo inmediatamente al médico.\n\nMe comprometo a reportar cualquier efecto adverso durante el seguimiento médico y a acudir de forma puntual a mis citas de control.`,
 
-    "fisioterapia":`CONSENTIMIENTO INFORMADO — FISIOTERAPIA Y REHABILITACIÓN\n\nYo, ${nom}, en Ciudad de México a ${hoy}, ACEPTO:\n\nQue he sido informado(a) de manera clara y suficiente sobre los procedimientos, posibles riesgos y contraindicaciones de la Fisioterapia y Rehabilitación, y que habiendo comprendido la información, otorgo mi consentimiento libre y voluntario para los tratamientos indicados por QP Clinic.\n\n1. DESCRIPCIÓN\nLa Fisioterapia y Rehabilitación es la especialidad encargada de evaluar, prevenir, corregir y tratar la incapacidad física, las alteraciones del movimiento, la funcionalidad, la postura y el dolor. Los tratamientos pueden incluir: electroterapia, termoterapia, crioterapia, hidroterapia, magnetoterapia, terapia manual, masoterapia, ejercicio terapéutico, acupuntura, punción seca e infiltraciones.\n\n2. POSIBLES MOLESTIAS Y RIESGOS\n- Dolor muscular tardío tras las primeras sesiones.\n- Mareos o náuseas temporales.\n- Irritación de piel por fricción o manipulaciones.\n- ELECTROTERAPIA: quemaduras eléctricas en el sitio de electrodos, sensación de ardor o picazón, espasmos musculares. CONTRAINDICADO en portadores de marcapasos o implantes electrónicos activos.\n- TERMOTERAPIA (calor): quemaduras de primer o segundo grado, eritema, edema, agravamiento de inflamación aguda.\n- CRIOTERAPIA (frío): quemaduras por frío, crioulceración, vasoconstricción excesiva. CONTRAINDICADO en enfermedad de Raynaud o hipersensibilidad al frío.\n- MAGNETOTERAPIA: cefalea, mareo. CONTRAINDICADO en portadores de marcapasos.\n- LÁSER: daño ocular sin protección adecuada, eritema local.\n- Reacciones alérgicas a electrodos, geles, bandas, tapes o adhesivos.\n- Riesgo de lesión en pacientes con osteoporosis o alteraciones anatómicas.\n\nNOTA: Deberá notificar inmediatamente cualquier alergia, molestia o reacción inusual.\n\n3. CONTRAINDICACIONES ABSOLUTAS\n- Tumores malignos activos en zona de tratamiento.\n- Cardiopatías descompensadas, endocarditis activa, hemopatías o tuberculosis activa.\n- Marcapasos o dispositivos intracardíacos (para electroterapia y magnetoterapia).\n- Trombosis o hemorragias activas.\n\n4. CONTRAINDICACIONES RELATIVAS\n- Derrame sinovial, hemartros o heridas recientes.\n- Artritis infecciosa, micosis o dermatitis piógena.\n- Epilepsia no controlada. Embarazo o sospecha de embarazo.\n- Hipertensión arterial no controlada o várices.\n- Enfermedades agudas febriles. Alteraciones graves de la sensibilidad.\n\n5. DECLARACIONES DEL PACIENTE\n1. He recibido información suficiente sobre mi valoración y tratamiento.\n2. Declaro no presentar las contraindicaciones descritas, o haberlas notificado previamente al terapeuta.\n3. Acepto libre y voluntariamente los tratamientos indicados por QP Clinic.\n4. Entiendo que puedo revocar este consentimiento en cualquier momento.\n\nOtorgo el presente consentimiento de forma libre y voluntaria, conforme a la NOM-004-SSA3-2012.`,
+    "fisioterapia":`CONSENTIMIENTO INFORMADO — FISIOTERAPIA Y REHABILITACIÓN\n\nYo, ${nom}, en Ciudad de México a ${hoy}, ACEPTO:\n\nQue he sido informado(a) de manera clara y suficiente sobre los procedimientos, posibles riesgos y contraindicaciones de la Fisioterapia y Rehabilitación, y que habiendo comprendido la información, otorgo mi consentimiento libre y voluntario para los tratamientos indicados por ${MARCA.nombre}.\n\n1. DESCRIPCIÓN\nLa Fisioterapia y Rehabilitación es la especialidad encargada de evaluar, prevenir, corregir y tratar la incapacidad física, las alteraciones del movimiento, la funcionalidad, la postura y el dolor. Los tratamientos pueden incluir: electroterapia, termoterapia, crioterapia, hidroterapia, magnetoterapia, terapia manual, masoterapia, ejercicio terapéutico, acupuntura, punción seca e infiltraciones.\n\n2. POSIBLES MOLESTIAS Y RIESGOS\n- Dolor muscular tardío tras las primeras sesiones.\n- Mareos o náuseas temporales.\n- Irritación de piel por fricción o manipulaciones.\n- ELECTROTERAPIA: quemaduras eléctricas en el sitio de electrodos, sensación de ardor o picazón, espasmos musculares. CONTRAINDICADO en portadores de marcapasos o implantes electrónicos activos.\n- TERMOTERAPIA (calor): quemaduras de primer o segundo grado, eritema, edema, agravamiento de inflamación aguda.\n- CRIOTERAPIA (frío): quemaduras por frío, crioulceración, vasoconstricción excesiva. CONTRAINDICADO en enfermedad de Raynaud o hipersensibilidad al frío.\n- MAGNETOTERAPIA: cefalea, mareo. CONTRAINDICADO en portadores de marcapasos.\n- LÁSER: daño ocular sin protección adecuada, eritema local.\n- Reacciones alérgicas a electrodos, geles, bandas, tapes o adhesivos.\n- Riesgo de lesión en pacientes con osteoporosis o alteraciones anatómicas.\n\nNOTA: Deberá notificar inmediatamente cualquier alergia, molestia o reacción inusual.\n\n3. CONTRAINDICACIONES ABSOLUTAS\n- Tumores malignos activos en zona de tratamiento.\n- Cardiopatías descompensadas, endocarditis activa, hemopatías o tuberculosis activa.\n- Marcapasos o dispositivos intracardíacos (para electroterapia y magnetoterapia).\n- Trombosis o hemorragias activas.\n\n4. CONTRAINDICACIONES RELATIVAS\n- Derrame sinovial, hemartros o heridas recientes.\n- Artritis infecciosa, micosis o dermatitis piógena.\n- Epilepsia no controlada. Embarazo o sospecha de embarazo.\n- Hipertensión arterial no controlada o várices.\n- Enfermedades agudas febriles. Alteraciones graves de la sensibilidad.\n\n5. DECLARACIONES DEL PACIENTE\n1. He recibido información suficiente sobre mi valoración y tratamiento.\n2. Declaro no presentar las contraindicaciones descritas, o haberlas notificado previamente al terapeuta.\n3. Acepto libre y voluntariamente los tratamientos indicados por ${MARCA.nombre}.\n4. Entiendo que puedo revocar este consentimiento en cualquier momento.\n\nOtorgo el presente consentimiento de forma libre y voluntaria, conforme a la NOM-004-SSA3-2012.`,
 
     "biopsia_mama":`CONSENTIMIENTO INFORMADO — BIOPSIA DE MAMA\n\nYo, ${nom}, en Ciudad de México a ${hoy}, ACEPTO:\n\nQue ${medNom} me ha informado de manera clara y suficiente sobre el procedimiento de biopsia de mama, conforme a la NOM-041-SSA2-2011, y que habiendo comprendido su contenido, autorizo su realización.\n\n1. DESCRIPCIÓN DEL PROCEDIMIENTO\nLa biopsia de mama consiste en la obtención de tejido mamario mediante aguja fina (BAAF), aguja de corte (Core Biopsy/Tru-Cut) o procedimiento quirúrgico (biopsia excisional), para estudio histopatológico. El procedimiento puede realizarse con guía clínica, ultrasonográfica o estereotáxica.\n\n2. OBJETIVO\nConfirmar o descartar la naturaleza benigna o maligna de una lesión mamaria detectada por exploración física o estudios de imagen, permitiendo establecer un diagnóstico definitivo y un plan de tratamiento apropiado.\n\n3. BENEFICIOS\n- Diagnóstico histopatológico preciso.\n- Orientación del tratamiento médico o quirúrgico.\n- Detección temprana de cáncer de mama con potencial curativo.\n\n4. RIESGOS Y POSIBLES COMPLICACIONES\n- Dolor o molestia en el sitio de punción (transitoria).\n- Hematoma o equimosis local.\n- Infección del sitio de biopsia (poco frecuente).\n- Cicatriz residual (en biopsia quirúrgica).\n- Seroma postoperatorio.\n- Resultado falso negativo (no descarta malignidad; puede requerirse nueva biopsia).\n- En casos excepcionales: fístula o reacción adversa a la anestesia local.\n\n5. ALTERNATIVAS\n- Seguimiento imagenológico sin biopsia (según categoría BI-RADS).\n- Biopsia por otro método (BAAF, Core o quirúrgica).\n- Segunda opinión médica.\n\n6. DECLARACIÓN\nHe comprendido el procedimiento, sus objetivos, beneficios, riesgos y alternativas. He podido formular mis preguntas y recibido respuestas satisfactorias. Autorizo la toma de la biopsia y el análisis del tejido obtenido. Entiendo que puedo revocar este consentimiento antes del procedimiento.\n\nOtorgo el presente de forma libre y voluntaria, conforme a los Arts. 80-81 del Reglamento de la Ley General de Salud en Materia de Prestación de Servicios de Atención Médica.`,
 
@@ -122,14 +155,14 @@ function mostrarVerificacion(){
   R().innerHTML=`
   <div style="min-height:100vh;background:linear-gradient(135deg,#0D47A1,#0288D1);display:flex;align-items:center;justify-content:center;padding:16px">
     <div class="card fade" style="width:100%;max-width:380px;text-align:center">
-      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="width:160px;margin:0 auto 16px;display:block">
+      <img src="${MARCA.logo}" style="width:160px;margin:0 auto 16px;display:block">
       <h2 style="font-size:18px;font-weight:800;color:#1A237E;margin-bottom:6px">Firma de Documentos Médicos</h2>
       <p style="color:#546E7A;font-size:13px;margin-bottom:20px;line-height:1.6">Por favor lea detenidamente los documentos que se le mostrarán y fírmelos para integrarlos a su expediente clínico.<br><br>Su información es tratada con absoluta confidencialidad.</p>
       <p style="font-size:12px;font-weight:700;color:#546E7A;margin-bottom:8px;text-align:left">Código de seguridad (como aparece en su WhatsApp)</p>
       <input id="cod-input" type="text" placeholder="Ej: AB3C9D" style="text-transform:uppercase;letter-spacing:3px;font-size:18px;text-align:center;font-weight:700" value="${COD||""}">
       <button class="btn-primary" onclick="verificarCodigo()">COMENZAR →</button>
       <div id="ver-error" style="display:none;background:#FFEBEE;color:#C62828;padding:10px;border-radius:8px;margin-top:10px;font-size:13px"></div>
-      <p style="font-size:11px;color:#90A4AE;margin-top:16px">QP Clinic — Especialistas en Salud Integral<br>qpclinic.org</p>
+      <p style="font-size:11px;color:#90A4AE;margin-top:16px">${MARCA_PIE}</p>
     </div>
   </div>`;
   // Auto-verificar si viene el código en URL
@@ -191,7 +224,7 @@ function mostrarDocumento(){
   R().innerHTML=`
   <div style="min-height:100vh;background:#F0F4F8">
     <div style="background:#0D47A1;padding:14px 16px;display:flex;align-items:center;gap:10px">
-      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:32px;background:#fff;border-radius:4px;padding:2px">
+      <img src="${MARCA.logo}" style="height:32px;background:#fff;border-radius:4px;padding:2px">
       <div>
         <p style="color:rgba(255,255,255,.7);font-size:10px">Documento ${actual} de ${total}</p>
         <p style="color:#fff;font-size:12px;font-weight:700">${nombre}</p>
@@ -240,7 +273,7 @@ function mostrarFirmaUnica(){
   R().innerHTML=`
   <div style="min-height:100vh;background:#F0F4F8">
     <div style="background:#2E7D32;padding:14px 16px;display:flex;align-items:center;gap:10px">
-      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:32px;background:#fff;border-radius:4px;padding:2px">
+      <img src="${MARCA.logo}" style="height:32px;background:#fff;border-radius:4px;padding:2px">
       <div>
         <p style="color:rgba(255,255,255,.8);font-size:10px">Último paso</p>
         <p style="color:#fff;font-size:13px;font-weight:700">Firma todos los documentos</p>
@@ -281,7 +314,7 @@ function mostrarFirmaTestigo(){
   R().innerHTML=`
   <div style="min-height:100vh;background:#F0F4F8">
     <div style="background:#6A1B9A;padding:14px 16px;display:flex;align-items:center;gap:10px">
-      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="height:32px;background:#fff;border-radius:4px;padding:2px">
+      <img src="${MARCA.logo}" style="height:32px;background:#fff;border-radius:4px;padding:2px">
       <div>
         <p style="color:rgba(255,255,255,.8);font-size:10px">Paso adicional</p>
         <p style="color:#fff;font-size:13px;font-weight:700">Firma del testigo (opcional)</p>
@@ -394,13 +427,13 @@ async function generarYGuardarPDF(docKey, sigImg, isLast=true){
     const nombre=DOCS_NOMBRES[docKey]||docKey;
 
     // ENCABEZADO
-    doc.setFillColor(13,71,161);
+    doc.setFillColor(MARCA.rgb[0],MARCA.rgb[1],MARCA.rgb[2]);
     doc.rect(0,0,210,34,"F");
     doc.setTextColor(255,255,255);
     doc.setFontSize(13);doc.setFont("helvetica","bold");
-    doc.text("QP Clinic — Especialistas en Salud Integral",14,10);
+    doc.text(MARCA.nombre+(MARCA.lema?" — "+MARCA.lema:""),14,10);
     doc.setFontSize(8);doc.setFont("helvetica","normal");
-    doc.text("Insurgentes Sur 933, Nápoles, Benito Juárez, CDMX",14,16);
+    doc.text(MARCA.direccion,14,16);
     let credLine1=medNom;
     if(med.especialidad_1)credLine1+=` | ${med.especialidad_1}${med.institucion_grado?" "+med.institucion_grado:""}`;
     if(med.cedula_medico)credLine1+=` | Céd. Prof. ${med.cedula_medico}`;
@@ -491,7 +524,7 @@ async function generarYGuardarPDF(docKey, sigImg, isLast=true){
 
     // FOOTER
     doc.setFontSize(7);doc.setTextColor(144,164,174);
-    doc.text("Documento conforme a NOM-004-SSA3-2012. QP Clinic — qpclinic.org",105,285,{align:"center"});
+    doc.text("Documento conforme a NOM-004-SSA3-2012. "+[MARCA.nombre,MARCA.web].filter(Boolean).join(" — "),105,285,{align:"center"});
 
     // SUBIR A SUPABASE
     const pdfBlob=doc.output("blob");
@@ -522,10 +555,10 @@ function mostrarTerminado(){
         <b>${S.docs.length} documento${S.docs.length>1?"s":""} firmado${S.docs.length>1?"s":""}</b> el ${new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"})}.
       </p>
       <div style="background:#E8F5E9;border-radius:10px;padding:14px;margin-bottom:16px">
-        <p style="font-size:12px;color:#2E7D32;font-weight:600">Los PDFs firmados están disponibles en su expediente clínico en QP Clinic</p>
+        <p style="font-size:12px;color:#2E7D32;font-weight:600">Los PDFs firmados están disponibles en su expediente clínico en ${MARCA.nombre}</p>
       </div>
-      <img src="https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg" style="width:140px;margin:0 auto;display:block;opacity:.6">
-      <p style="font-size:11px;color:#90A4AE;margin-top:12px">QP Clinic — Especialistas en Salud Integral<br>qpclinic.org | +52 5644237028</p>
+      <img src="${MARCA.logo}" style="width:140px;margin:0 auto;display:block;opacity:.6">
+      <p style="font-size:11px;color:#90A4AE;margin-top:12px">${MARCA_PIE}</p>
     </div>
   </div>`;
 }
