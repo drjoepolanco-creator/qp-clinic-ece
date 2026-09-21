@@ -820,3 +820,61 @@ Lo que **sigue siendo de QP Clinic a propósito**, por ser canales operativos co
 datos de la razón social: el correo `datospersonales@qpclinic.mx` para derechos ARCO y las
 direcciones web `www.qpclinic.org` / `www.qpclinic.mx` donde se publica el aviso. El domicilio
 para solicitudes ARCO sí cambia por unidad.
+
+## Revisión del 21 de septiembre de 2026 — el membrete, no solo el logo
+
+Una usuaria de amfa reportó que el mensaje de WhatsApp del enlace de firma seguía encabezando con
+«QP Clinic — Firma de Documentos Médicos». El enlace ya llevaba `&sede=amfa` correcto: **el fallo
+fue que el 14-sep se cambiaron los LOGOS pero no el TEXTO de los membretes.**
+
+Varios documentos usaban `sedeDir()` para la dirección —eso sí cambiaba— y al lado, escritos a
+mano, el nombre «QP Clinic - Especialistas en Salud Integral», los teléfonos de QP, `qpclinic.org`
+y, lo más grave, **el RFC QCL230518J66 de QP Clinic, S.C. impreso en documentos de amfa**, que es
+justo lo que el Dr. Polanco pidió que no pasara.
+
+Ayudantes nuevos junto a `sedeDir()` / `sedeTels()`, y `lema` en cada bloque de `BRANDING`:
+
+- `sedeTitulo()` → «QP Clinic — Especialistas en Salud Integral», «amfa Nutrición Especializada»
+  (sin lema, su nombre ya lo dice), «QP Surgery Clinic — Cirugía Ambulatoria».
+- `sedeContacto(sep)` → dirección, teléfonos, web y RFC **solo de la unidad que los tenga**.
+- `sedeFolioPie()` → nombre + web, para los pies con folio y NOM.
+
+Corregidos con ellos: encabezado y pie de interconsulta, hoja de referencia (incluido el RFC),
+fisioterapia, ultrasonido (dos lugares), prescripción de ejercicio, pie del consentimiento,
+«unidad de origen» de la interconsulta, mensajes de WhatsApp de firma, de interconsulta y del plan
+Famel, el nombre del consentimiento médico-deportivo en las dos listas, los valores por omisión
+«Médico QP Clinic» / «QP Clinic» cuando al médico le falta la especialidad, los subtítulos de
+Reportes y de Ultrasonido, y la dirección y teléfono por omisión del médico en fisioterapia.
+CHK-7 bajó de 6 a 5 direcciones fijas.
+
+**Cada unidad tiene su propio WhatsApp** (dato del Dr. Polanco, 21-sep): QP Clinic
+`+52 5644237028`, QP Surgery Clinic `+52 1 55 6479 4394`, amfa `+52 55 2267 5255`. Están en el
+campo `wa` de cada bloque de `BRANDING` y salen por `sedeWA()`. La constante `WA_CLINICA` se
+eliminó: estaba muerta y además fijaba el número de QP para las tres. También se usa en el texto
+del consentimiento de seguimiento, vía `ciTel()` (el WhatsApp de la unidad, o su teléfono de
+consultorio si no tuviera).
+
+**Sigue siendo de QP a propósito** (decisión del Dr. Polanco, no descuido):
+`datospersonales@qpclinic.mx` y las webs `qpclinic.org` / `qpclinic.mx` en el texto legal; los
+Términos y Condiciones y el aviso de privacidad **del sistema ECE**, que es propiedad de
+QP Clinic, S.C.; el acta constitutiva; el módulo de Inventario, que es explícitamente de QP Clinic
+y QP Surgery; y el título de la pestaña del navegador.
+
+**Lección:** al cambiar la marca de un documento no basta con el logo. Buscar en el mismo bloque
+el nombre, el teléfono, la web y el RFC escritos a mano.
+
+**Los WhatsApp también van en los membretes** (instrucción del 21-sep). `sedeTelsTexto()` arma los
+números como van en un papel membretado y `sedeTelsPie()` les antepone «Tel. ». Si el WhatsApp es
+el mismo número que un teléfono del consultorio **no se repite**: sale «5644237028 (WhatsApp)», que
+es el caso de QP Clinic. Cuando son distintos salen los dos: «5594628295 / 5594628296  ·  WhatsApp
++52 55 2267 5255». Los usan el pie de la receta, `sedeContacto()` (interconsulta, fisioterapia,
+ejercicio), la hoja de referencia, el encabezado y el sello de ultrasonido, el pie del resumen
+médico y el mensaje de WhatsApp de interconsulta. `sedeTels()` sigue existiendo para cuando solo
+se quieren los teléfonos del consultorio, sin WhatsApp.
+
+**Teléfonos por unidad, ya completos (21-sep-2026).** En `BRANDING`, `tel`/`tel2` son los del
+consultorio y `wa` el WhatsApp. QP Clinic: fijo **5556824345**, WhatsApp **+52 5644237028** (antes
+el fijo no estaba y `tel` guardaba el celular). amfa: 5594628295 / 5594628296 y WhatsApp
++52 55 2267 5255. QP Surgery: 5592247091 y WhatsApp +52 1 55 6479 4394. Nadie debe leer `B.tel`
+suelto para un membrete: se usan `sedeTelsTexto()` / `sedeTelsPie()`, que juntan ambos y no
+repiten el número cuando coinciden.

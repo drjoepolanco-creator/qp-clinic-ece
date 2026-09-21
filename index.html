@@ -229,7 +229,6 @@ window.addEventListener("error",(ev)=>{
 
 // ── ESTADO GLOBAL ─────────────────────────────────────────
 const P="#006BB6",PD="#005089",PL="#E3F4FB",AC="#24B1DA",SU="#2E7D32",DA="#C62828",BR="#CFD8DC",TX="#003A5D",MU="#546E7A",WA="#25D366";
-const WA_CLINICA="525644237028"; // WhatsApp oficial QP Clinic
 let STATE={
   user:null, userProfile:null,
   page:"login", pat:null,
@@ -799,9 +798,9 @@ async function guardarConsultaSilencioso(){
 }
 // ── BRANDING DINÁMICO POR SEDE (QP Clinic / QP Surgery Clinic) ──
 const BRANDING={
-  clinic:{nombre:"QP Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",acento:"#006BB6",razon:"QP Clinic, S.C.",direccion:"Insurgentes Sur 933, Piso 12, Col. Nápoles, C.P. 03810, CDMX",rfc:"QCL230518J66",tel:"5644237028",web:"www.qpclinic.org"},
-  amfa:{nombre:"amfa Nutrición Especializada",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/AMFA%20LOGO.png",acento:"#0E3B32",razon:"amfa Nutrición Especializada",direccion:"Anillo Periférico 3332, Consultorio 1811, Piso 18, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México, CDMX",rfc:"",tel:"5594628295",tel2:"5594628296",web:""},
-  surgery:{nombre:"QP Surgery Clinic",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",acento:"#1F8FE8",razon:"QP Surgery Clinic S.C.",direccion:"Boulevard Adolfo Ruiz Cortines No. 3332, Int. 816 y 801, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México",licencia:"Licencia Sanitaria 26-AM-09-010-0002",autorizacion:"Actos quirúrgicos (cirugía ambulatoria)",rfc:"",tel:"5592247091",web:""}
+  clinic:{nombre:"QP Clinic",lema:"Especialistas en Salud Integral",wa:"+52 5644237028",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20CLINIC%20LOGO.jpg",acento:"#006BB6",razon:"QP Clinic, S.C.",direccion:"Insurgentes Sur 933, Piso 12, Col. Nápoles, C.P. 03810, CDMX",rfc:"QCL230518J66",tel:"5556824345",web:"www.qpclinic.org"},
+  amfa:{nombre:"amfa Nutrición Especializada",lema:"",wa:"+52 55 2267 5255",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/AMFA%20LOGO.png",acento:"#0E3B32",razon:"amfa Nutrición Especializada",direccion:"Anillo Periférico 3332, Consultorio 1811, Piso 18, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México, CDMX",rfc:"",tel:"5594628295",tel2:"5594628296",web:""},
+  surgery:{nombre:"QP Surgery Clinic",lema:"Cirugía Ambulatoria",wa:"+52 1 55 6479 4394",logo:"https://ebukjdxeekhzeurmhgkj.supabase.co/storage/v1/object/public/assets/QP%20SURGERY%20LOGO.png",acento:"#1F8FE8",razon:"QP Surgery Clinic S.C.",direccion:"Boulevard Adolfo Ruiz Cortines No. 3332, Int. 816 y 801, Jardines del Pedregal, Álvaro Obregón, C.P. 01900, Ciudad de México",licencia:"Licencia Sanitaria 26-AM-09-010-0002",autorizacion:"Actos quirúrgicos (cirugía ambulatoria)",rfc:"",tel:"5592247091",web:""}
 };
 function sedeUsuario(){return STATE.userProfile?.sede||"clinic";}
 function sedeActiva(){
@@ -823,7 +822,34 @@ function brand(){return BRANDING[sedeActiva()]||BRANDING.clinic;}
 // Datos de contacto de la unidad activa, para encabezados y pies de documentos.
 function sedeDir(){return brand().direccion||BRANDING.clinic.direccion;}
 function sedeTels(){const b=brand();return[b.tel,b.tel2].filter(Boolean).join(" / ");}
-function sedePie(){return brand().nombre+"  |  "+sedeDir()+"  |  Tel: "+sedeTels();}
+// Los números tal como van en un membrete: los del consultorio y el WhatsApp
+// de la unidad. Si el WhatsApp es el mismo número que un teléfono, se nombra
+// una sola vez en vez de repetirlo (es el caso de QP Clinic).
+function _digTel(t){return String(t||"").replace(/\D/g,"").replace(/^521?/,"");}
+function sedeTelsTexto(){
+  const b=brand();
+  const tels=[b.tel,b.tel2].filter(Boolean);
+  const wa=b.wa||"";
+  if(!wa)return tels.join(" / ");
+  if(tels.some(t=>_digTel(t)===_digTel(wa)))return (tels.join(" / ")+" (WhatsApp)").trim();
+  return [tels.join(" / "),"WhatsApp "+wa].filter(Boolean).join("  ·  ");
+}
+function sedeTelsPie(){const t=sedeTelsTexto();return t?"Tel. "+t:"";}
+function sedePie(){return brand().nombre+"  |  "+sedeDir()+"  |  "+sedeTelsPie();}
+// Membrete: el nombre con su lema, y la línea de contacto de la unidad.
+// amfa y QP Surgery son razones sociales distintas: su RFC no se imprime
+// porque no está registrado en BRANDING, y el de QP Clinic no puede salir
+// en sus documentos.
+function sedeTitulo(){const b=brand();return b.nombre+(b.lema?" — "+b.lema:"");}
+function sedeWeb(){return brand().web||"";}
+// WhatsApp de la unidad. El +52 5644237028 es exclusivo de QP Clinic:
+// amfa y QP Surgery tienen el suyo y no deben aparecer con el ajeno.
+function sedeWA(){return brand().wa||"";}
+function sedeContacto(sep){
+  const b=brand(),s=sep||"  |  ";
+  return [sedeDir(),sedeTelsPie(),sedeWeb(),(b.rfc?"RFC: "+b.rfc:"")].filter(Boolean).join(s);
+}
+function sedeFolioPie(){const w=sedeWeb();return brand().nombre+(w?" — "+w:"");}
 window.setSedeActiva=function(s){STATE.sedeActiva=s;try{localStorage.setItem("qp_sede_activa",s);}catch(e){}draw();}
 function puedeCambiarSede(){
   if(sedeUsuario()==="amfa")return false;   // amfa no cambia de unidad
@@ -3712,6 +3738,9 @@ function ciRazon(){const B=brand();return B.razon||B.nombre;}
 function ciRazonRFC(){const B=brand();return B.rfc?`${ciRazon()} (RFC: ${B.rfc})`:ciRazon();}
 function ciNombre(){return brand().nombre;}
 function ciDir(){return brand().direccion||"";}
+// Teléfono de contacto de la unidad para los textos legales: su WhatsApp si
+// lo tiene, y si no, el teléfono del consultorio.
+function ciTel(){const b=brand();return b.wa||sedeTels();}
 const CI_CATALOGO={
   general:{
     titulo:"CONSENTIMIENTO INFORMADO GENERAL",
@@ -4033,7 +4062,7 @@ const CI_CATALOGO={
       "",
       `ASUMO el siguiente COMPROMISO DE SEGUIMIENTO con ${ciNombre()} para garantizar la continuidad, seguridad y efectividad de mi plan de atención médico-deportiva:`,
       "",
-      "1. CITAS Y CONTROLES. Me comprometo a acudir puntualmente a mis citas programadas. En caso de no poder asistir, avisaré con al menos 24 horas de anticipación al +52 5644237028. La inasistencia reiterada sin aviso puede resultar en la cancelación de mi plan de seguimiento.",
+      `1. CITAS Y CONTROLES. Me comprometo a acudir puntualmente a mis citas programadas. En caso de no poder asistir, avisaré con al menos 24 horas de anticipación al ${ciTel()}. La inasistencia reiterada sin aviso puede resultar en la cancelación de mi plan de seguimiento.`,
       "",
       "2. INDICACIONES MÉDICAS. Seguiré el plan de entrenamiento, nutrición y tratamiento indicado por mi médico. No modificaré dosis de medicamentos ni suplementos sin consultar previamente.",
       "",
@@ -4145,7 +4174,7 @@ window.generarConsentimientoPDF=async function(clave){
   const ci=CI_CATALOGO[clave];
   if(!ci){showToast("Consentimiento no encontrado",false);return;}
   const B=brand();
-  const _pie=[B.razon,(B.rfc?"RFC "+B.rfc:""),B.direccion,(B.tel?"Tel. "+B.tel:""),(B.web||""),(B.licencia||"")].filter(Boolean).join(" · ");
+  const _pie=[B.razon,(B.rfc?"RFC "+B.rfc:""),B.direccion,sedeTelsPie(),(B.web||""),(B.licencia||"")].filter(Boolean).join(" · ");
   const p=STATE.pat||{};
   const med=STATE.userProfile||{};
   const fecha=new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"});
@@ -4280,7 +4309,7 @@ window.generarConsentimientoPDF=async function(clave){
   doc.setDrawColor(0,58,93);doc.setLineWidth(0.4);doc.line(M,fy,W-M,fy);
   doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(70,70,70);
   doc.text(_pie,W/2,fy+4,{align:"center"});
-  doc.text(`Documento generado el ${hoy} mediante ECE QP Clinic — NOM-004-SSA3-2012`,W/2,fy+8,{align:"center"});
+  doc.text(`Documento generado el ${hoy} mediante el ECE de ${brand().nombre} — NOM-004-SSA3-2012`,W/2,fy+8,{align:"center"});
 
   const fname=`CI_${clave}_${nomPac.replace(/\s+/g,"_")}_${hoy.replace(/\//g,"-")}.pdf`;
   doc.save(fname);
@@ -6416,8 +6445,8 @@ async function cargarConsultas(){
   // Inyectar nombre del solicitante en cada interconsulta
   (ics||[]).forEach(ic=>{
     if(!ic.medico_solicitante_nombre&&ic.medico_solicitante_id)
-      ic._solNombre=icMedMap[ic.medico_solicitante_id]||"Médico QP Clinic";
-    else ic._solNombre=ic.medico_solicitante_nombre||"Médico QP Clinic";
+      ic._solNombre=icMedMap[ic.medico_solicitante_id]||("Médico "+brand().nombre);
+    else ic._solNombre=ic.medico_solicitante_nombre||("Médico "+brand().nombre);
   });
 
   if(error){cl.innerHTML=`<p style="color:${DA};padding:16px">Error al cargar: ${error.message}</p>`;return;}
@@ -6606,7 +6635,7 @@ async function renderInterconsultas(b){
             <p style="font-size:14px;font-weight:700;color:${MU};margin-bottom:5px;text-transform:uppercase">Médico solicitante</p>
             <div style="background:#F8F9FA;border:1.5px solid ${BR};border-radius:8px;padding:11px;font-size:14px;line-height:1.8">
               <b>${medNom}</b><br>
-              ${med.especialidad_2||med.especialidad_1||"QP Clinic"}<br>
+              ${med.especialidad_2||med.especialidad_1||brand().nombre}<br>
               ${sedeDir()}
             </div>
           </div>
@@ -6750,7 +6779,7 @@ window.verInterconsulta=async function(id){
   const medSolNom = medSol
     ? `${medSol.titulo||""} ${medSol.nombre||""} ${medSol.apellidos||""}`.trim()
     : "No registrado";
-  const medSolEsp = medSol?.especialidad_1||"QP Clinic";
+  const medSolEsp = medSol?.especialidad_1||brand().nombre;
   const esRespondida=ic.estatus==="Respondida";
   const medActual=STATE.userProfile;
   const medNom=`${medActual?.titulo||""} ${medActual?.nombre||""} ${medActual?.apellidos||""}`.trim();
@@ -6954,7 +6983,7 @@ window.imprimirInterconsulta=async function(id){
       doc.setFillColor(238,244,248);doc.rect(0,PH-FH,PW,FH,"F");
       doc.setDrawColor(214,228,236);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
       doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(6.2);
-      doc.text(`NOM-004-SSA3-2012 Art. 9  |  QP Clinic — qpclinic.org  |  Folio: ${folio}  |  Generado: ${hoy} ${hora}  |  Página ${pg} de ${total}`,PW/2,PH-3.5,{align:"center",maxWidth:PW-6});
+      doc.text(`NOM-004-SSA3-2012 Art. 9  |  ${sedeFolioPie()}  |  Folio: ${folio}  |  Generado: ${hoy} ${hora}  |  Página ${pg} de ${total}`,PW/2,PH-3.5,{align:"center",maxWidth:PW-6});
     };
 
     const AVAIL_H=PH-FH-ML;
@@ -6988,8 +7017,8 @@ window.imprimirInterconsulta=async function(id){
     const headerHTML=`
     <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
       <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic - Especialistas en Salud Integral</div>
-        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:7px">${sedeDir()} &nbsp;|&nbsp; Tel. 55 6442-3702 &nbsp;|&nbsp; qpclinic.org &nbsp;|&nbsp; RFC: QCL230518J66</div>
+        <div style="font-size:15px;font-weight:bold;color:#fff;margin-bottom:2px">${sedeTitulo()}</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:7px">${sedeContacto(" &nbsp;|&nbsp; ")}</div>
         <div style="font-size:10.5px;font-weight:bold;color:#fff;margin-bottom:2px">${medSolNom}</div>
         <div style="font-size:8px;color:rgba(255,255,255,.85)">${credLines.join(" &nbsp;·&nbsp; ")}</div>
       </div>
@@ -7037,7 +7066,7 @@ window.imprimirInterconsulta=async function(id){
         <div style="flex:1;padding:7px 11px;border-right:1px solid ${BRD}"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Especialidad</div><div style="font-size:10px;font-weight:600;color:${TXT}">${medSol?.especialidad_2||medSol?.especialidad_1||"—"}</div></div>
         <div style="flex:1;padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Cédula de especialidad</div><div style="font-size:10px;font-weight:600;color:${TXT}">${medSol?.cedula_esp_1||"—"}</div></div>
       </div>
-      <div style="padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Institución / unidad de origen</div><div style="font-size:9.5px;font-weight:600;color:${TXT}">QP Clinic — Insurgentes Sur 933, Piso 12, CDMX</div></div>
+      <div style="padding:7px 11px"><div style="font-size:7px;color:${MU2};text-transform:uppercase;font-weight:bold;margin-bottom:2px">Institución / unidad de origen</div><div style="font-size:9.5px;font-weight:600;color:${TXT}">${brand().nombre} — ${sedeDir()}</div></div>
     </div>`;
 
     // ── III. MÉDICO INTERCONSULTANTE ──────────────────────────
@@ -7455,7 +7484,7 @@ window.enviarWAInterconsulta=async function(){
   const medNombreLimpio=(medInter||"").split("|")[0].trim();
 
   const msg=`${esRecordatorio?"RECORDATORIO - INTERCONSULTA PENDIENTE":(urgente?"INTERCONSULTA URGENTE":"SOLICITUD DE INTERCONSULTA")}
-QP Clinic - Sistema de Interconsultas
+${brand().nombre} - Sistema de Interconsultas
 
 Estimado(a) Dr(a). ${medNombreLimpio},
 
@@ -7467,10 +7496,10 @@ Prioridad: ${prioridad}
 ${diagnostico?"Diagnostico de envio: "+diagnostico:""}
 ${motivos?"Motivo de interconsulta: "+motivos:""}
 
-Por favor revise el expediente en QP Clinic para mas detalles.
+Por favor revise el expediente en ${brand().nombre} para mas detalles.
 
 ${brand().nombre} - ${sedeDir()}
-Tel: +52 5644237028`;
+Tel: ${sedeTelsTexto()}`;
 
   window.open(`https://web.whatsapp.com/send?phone=${celFinal}&text=${encodeURIComponent(msg)}`,"_blank");
   document.getElementById("modal-wa-inter")?.remove();
@@ -7581,7 +7610,7 @@ async function renderDocsAnexos(ab){
             ["general","Consentimiento Informado General"],
             ["privacidad","Aviso de Privacidad"],
             ["telemedicina","Consentimiento de Telemedicina"],
-            ["qpclinic","Consentimiento QP Clinic — Tratamiento Médico-Deportivo"],
+            ["qpclinic","Consentimiento — Tratamiento Médico-Deportivo"],
             ["seguimiento","Carta Compromiso — Seguimiento Médico-Deportivo"],
             ["eaa","Consentimiento Uso de EAA"],
             ["infiltraciones","Consentimiento para Infiltraciones"],
@@ -7600,7 +7629,7 @@ async function renderDocsAnexos(ab){
           </label>`).join("")}
         </div>
         <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:14px;color:#1B5E20">
-          📱 <b>Se enviará desde:</b> WhatsApp QP Clinic <b>+52 5644237028</b><br>
+          📱 <b>Se enviará desde:</b> WhatsApp de ${brand().nombre} <b>${sedeWA()}</b><br>
           <span style="font-size:14px;color:#2E7D32">Asegúrese de abrir el enlace desde el celular con ese número</span>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -7659,7 +7688,7 @@ window.abrirModalFirmaGlobal=function(){
           ["general","Consentimiento Informado General"],
           ["privacidad","Aviso de Privacidad"],
           ["telemedicina","Consentimiento de Telemedicina"],
-          ["qpclinic","Consentimiento QP Clinic — Tratamiento Médico-Deportivo"],
+          ["qpclinic","Consentimiento — Tratamiento Médico-Deportivo"],
           ["seguimiento","Carta Compromiso — Seguimiento Médico-Deportivo"],
           ["eaa","Consentimiento Uso de EAA"],
           ["infiltraciones","Consentimiento para Infiltraciones"],
@@ -7761,7 +7790,7 @@ window.enviarFirmaWAGlobal=async function(){
   const saludo=esMenor&&resp?.nombre
     ? `Estimado(a) ${resp.nombre}, le enviamos los documentos médicos de *${nomPac}* (su menor hijo/representado) para leer y firmar como tutor o responsable legal:`
     : `Estimado(a) ${nomFirmante}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:`;
-  const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\n${saludo}\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\nSu información es tratada con absoluta confidencialidad.\n_QP Clinic — Especialistas en Salud Integral_`;
+  const msg=`🏥 *${brand().nombre} — Firma de Documentos Médicos*\n\n${saludo}\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\nSu información es tratada con absoluta confidencialidad.\n_${sedeTitulo()}_`;
   window.open(`https://web.whatsapp.com/send?phone=${celFinal}&text=${encodeURIComponent(msg)}`,"_blank");
   showToast("✓ Abre WhatsApp y envía el mensaje"+(esMenor?" — dirigido al responsable del menor":""));
   document.getElementById("modal-firma-global")?.remove();
@@ -7861,12 +7890,12 @@ window.enviarFirmaWA=async function(){
   // La sede viaja en el enlace: firmar.html no tiene sesión y no puede deducirla.
   const url=`https://www.qpclinic.org/firmar?pac=${pid}&docs=${docs.join(",")}&cod=${codigo}&med=${medId}&sede=${sedeActiva()}`;
   const nomPac=STATE.pat?`${STATE.pat.nombre} ${STATE.pat.apellido_paterno}`:"Paciente";
-  const msg=`🏥 *QP Clinic — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\n_Su información es tratada con absoluta confidencialidad._\n_QP Clinic — Especialistas en Salud Integral_`;
+  const msg=`🏥 *${brand().nombre} — Firma de Documentos Médicos*\n\nEstimado(a) ${nomPac}, le enviamos el enlace para leer y firmar sus documentos médicos desde su celular:\n\n🔗 ${url}\n\n*Código de seguridad: ${codigo}*\n\n_Su información es tratada con absoluta confidencialidad._\n_QP Clinic — Especialistas en Salud Integral_`;
   // Abrir WhatsApp desde el número de la clínica
-  // El enlace se abre en el dispositivo donde está logueado +52 5644237028
+  // El enlace se abre en el dispositivo donde está logueado el WhatsApp de la unidad.
   const waUrl=`https://web.whatsapp.com/send?phone=${celLimpio.length===10?"52"+celLimpio:celLimpio}&text=${encodeURIComponent(msg)}`;
   window.open(waUrl,"_blank");
-  showToast("✓ Abre WhatsApp en el celular de QP Clinic (+52 5644237028) para enviar");
+  showToast(`✓ Abre WhatsApp en el celular de ${brand().nombre} (${sedeWA()}) para enviar`);
   ocultarModalFirma();
 }
 window.enviarFirmaEmail=function(){showToast("✓ Enlace enviado por correo al paciente");ocultarModalFirma();}
@@ -11103,7 +11132,7 @@ window.generarPDFReceta=async function(tipo="receta"){
   const pieY=firmaLineY+10;
   pdfLineaDegradada(doc,M,W-M,pieY,RX_CIAN,RX_AZUL,1.0);
 
-  const telPie=(B.tel2?`${B.tel} / ${B.tel2}`:(B.tel||"")).trim();
+  const telPie=sedeTelsTexto().trim();
   const dirPie=(B.direccion||med.direccion_clinica||"").trim();
   doc.setFont("helvetica","normal");
   doc.setTextColor(RX_TINTA[0],RX_TINTA[1],RX_TINTA[2]);
@@ -11184,10 +11213,10 @@ window.imprimirHojaReferencia=async function(){
   if(logoB64){try{doc.addImage(logoB64,String(brand().logo).toLowerCase().includes("png")?"PNG":"JPEG",W-50,2,44,34);}catch(e){}}
   doc.setTextColor(255,255,255);
   doc.setFontSize(11);doc.setFont("helvetica","bold");
-  doc.text("QP Clinic - Especialistas en Salud Integral",M,9);
+  doc.text(sedeTitulo(),M,9);
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");
   doc.text(sedeDir(),M,14);
-  doc.text("Tel. 55 5682 4345 / 56 4423 7028  |  qpclinic.org  |  RFC: QCL230518J66",M,18);
+  doc.text([sedeTelsPie(),sedeWeb(),(brand().rfc?"RFC: "+brand().rfc:"")].filter(Boolean).join("  |  "),M,18);
   doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(S(medNom),M,25);
   // Caben todas dentro de la banda del encabezado: se ajusta el paso y el
   // tamaño en vez de recortar la lista en silencio.
@@ -11319,7 +11348,7 @@ window.imprimirHojaReferencia=async function(){
   doc.text("(completar en unidad receptora)",fxRec+20,y+8,{align:"center"});
   // ── FOOTER ───────────────────────────────────────────────
   doc.setFontSize(6.5);doc.setTextColor(144,164,174);
-  doc.text("NOM-004-SSA3-2012 Art. 13  |  QP Clinic — qpclinic.org  |  Folio: "+folio+"  |  Generado: "+hoy+" "+hora,W/2,272,{align:"center"});
+  doc.text("NOM-004-SSA3-2012 Art. 13  |  "+sedeFolioPie()+"  |  Folio: "+folio+"  |  Generado: "+hoy+" "+hora,W/2,272,{align:"center"});
   // ── GUARDAR EN SUPABASE ──────────────────────────────────
   const pid=STATE.pat?.id;
   if(pid){
@@ -11426,7 +11455,7 @@ window.descargarNotaPDF=async function(){
       doc.setDrawColor(215,227,234);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
       doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(5.9);
       const direccion=B.direccion||"";
-      doc.text(`${direccion}${B.tel?"  |  Tel: "+B.tel:""}${B.web?"  |  "+B.web:""}${B.licencia?"  |  "+B.licencia:""}  |  NOM-004-SSA3-2012  |  Página ${pg} de ${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});
+      doc.text(`${direccion}${sedeTelsPie()?"  |  "+sedeTelsPie():""}${B.web?"  |  "+B.web:""}${B.licencia?"  |  "+B.licencia:""}  |  NOM-004-SSA3-2012  |  Página ${pg} de ${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});
     };
 
     const AVAIL_H=PH-FH-ML;
@@ -11464,7 +11493,7 @@ window.descargarNotaPDF=async function(){
     <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
       <div style="flex:1;min-width:0">
         <div style="font-size:14.5px;font-weight:bold;color:#fff;margin-bottom:2px">${B.razon}</div>
-        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:5px">${B.direccion}${B.tel?" &nbsp;|&nbsp; Tel. "+B.tel:""}${B.web?" &nbsp;|&nbsp; "+B.web:""}${B.licencia?" &nbsp;|&nbsp; "+B.licencia:""}</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.85);margin-bottom:5px">${B.direccion}${sedeTelsPie()?" &nbsp;|&nbsp; "+sedeTelsPie():""}${B.web?" &nbsp;|&nbsp; "+B.web:""}${B.licencia?" &nbsp;|&nbsp; "+B.licencia:""}</div>
         <div style="border-top:1px solid rgba(255,255,255,.35);margin:5px 0"></div>
         <div style="font-size:10.5px;font-weight:bold;color:#fff;margin-bottom:1px">${medNom}</div>
         <div style="font-size:7.6px;color:rgba(255,255,255,.85)">${credLine1}</div>
@@ -11727,8 +11756,7 @@ window.enviarRecetaEmail=function(tipo){
   const titulos={receta:"Receta médica",lab:"Solicitud de laboratorio",gab:"Solicitud de gabinete"};
   const subject=encodeURIComponent(`${titulos[tipo]||"Documento"} — ${nomPac} — ${brand().nombre}`);
   const _b=brand();
-  const _tel=[_b.tel,_b.tel2].filter(Boolean).join(" / ");
-  const _pieCorreo=[_b.direccion,_tel,_b.web].filter(Boolean).join("\n");
+  const _pieCorreo=[_b.direccion,sedeTelsTexto(),_b.web].filter(Boolean).join("\n");
   const body=encodeURIComponent(`Estimado/a ${nomPac},\n\nAdjunto encontrará su ${titulos[tipo]||"documento"} de ${_b.nombre}.\n\n${contenido}\n\n${_b.nombre}\n${_pieCorreo}`);
   window.open(`mailto:${email}?subject=${subject}&body=${body}`);
   showToast("✓ Abriendo cliente de correo");
@@ -12049,7 +12077,7 @@ async function pgReportes(){
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <div>
         <h2 style="font-size:20px;font-weight:800;color:${TX}">📊 Reportes de Dirección</h2>
-        <p style="font-size:14px;color:${MU}">Indicadores clínicos, financieros y administrativos — QP Clinic</p>
+        <p style="font-size:14px;color:${MU}">Indicadores clínicos, financieros y administrativos — ${brand().nombre}</p>
       </div>
       <div style="display:flex;gap:8px">
         ${btn("💰 Corte de caja","go('cortecaja')","ok",1)}
@@ -15543,8 +15571,7 @@ window.generarPDFFisio=async function(){
       doc.setDrawColor(215,227,234);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
       doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(5.9);
       const _b=brand();
-      const _tel=[_b.tel,_b.tel2].filter(Boolean).join(" / ");
-      const _pie=[_b.direccion,(_tel?"Tel: "+_tel:""),_b.web,"NOM-004-SSA3-2012"].filter(Boolean).join("  |  ");
+      const _pie=[_b.direccion,sedeTelsPie(),_b.web,"NOM-004-SSA3-2012"].filter(Boolean).join("  |  ");
       doc.text(`${_pie}  |  Página ${pg} de ${total}`,PW/2,PH-3.4,{align:"center",maxWidth:PW-6});
     };
     const AVAIL_H=PH-FH-ML;
@@ -15590,8 +15617,8 @@ window.generarPDFFisio=async function(){
     const headerHTML=`
     <div style="background:${AZ};padding:13px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic Especialistas en Salud Integral</div>
-        <div style="font-size:7.5px;color:rgba(255,255,255,.85);margin-bottom:5px">${sedeDir()} &nbsp;|&nbsp; Tel. 55 5682 4345 / 56 4423 7028 &nbsp;|&nbsp; qpclinic.org</div>
+        <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:2px">${sedeTitulo()}</div>
+        <div style="font-size:7.5px;color:rgba(255,255,255,.85);margin-bottom:5px">${sedeContacto(" &nbsp;|&nbsp; ")}</div>
         <div style="border-top:1px solid rgba(255,255,255,.35);margin:5px 0"></div>
         <div style="font-size:10px;font-weight:bold;color:#fff;margin-bottom:1px">${medNom}</div>
         <div style="font-size:7.2px;color:rgba(255,255,255,.85)">${credLine1}</div>
@@ -16093,7 +16120,7 @@ async function pgUltrasonido(){
         ${STATE.pat?`<button onclick="go('expediente')" style="background:${PL};color:${P};border:1.5px solid #B3E5FC;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:700">← Expediente</button>`:""}
         <div>
           <h2 style="font-size:18px;font-weight:800;color:${TX};margin-bottom:2px">Ultrasonido — Reportes</h2>
-          <p style="font-size:13px;color:${MU}">QP Clinic · Radiología e Imagen</p>
+          <p style="font-size:13px;color:${MU}">${brand().nombre} · Radiología e Imagen</p>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -16693,8 +16720,8 @@ window.generarPDFUltrasonido=async function(){
     <!-- HEADER -->
     <div style="background:${AZ};padding:14px 16px;display:flex;gap:12px;align-items:flex-start;border-radius:4px">
       <div style="flex:1;min-width:0">
-        <div style="font-size:16px;font-weight:bold;color:#fff;margin-bottom:3px">QP CLINIC</div>
-        <div style="font-size:8.5px;color:rgba(255,255,255,.85);margin-bottom:6px">${sedeDir()} &nbsp;|&nbsp; (55) 6442-3702</div>
+        <div style="font-size:16px;font-weight:bold;color:#fff;margin-bottom:3px">${brand().nombre.toUpperCase()}</div>
+        <div style="font-size:8.5px;color:rgba(255,255,255,.85);margin-bottom:6px">${sedeDir()}${sedeTelsTexto()?" &nbsp;|&nbsp; "+sedeTelsTexto():""}</div>
         <div style="font-size:11px;font-weight:bold;color:#fff;margin-bottom:3px">${nomMed.toUpperCase()}</div>
         <div style="font-size:8px;color:rgba(255,255,255,.85);line-height:1.5">${credsToShow.join(" &nbsp;·&nbsp; ")}</div>
       </div>
@@ -16756,10 +16783,9 @@ window.generarPDFUltrasonido=async function(){
       </div>
       <div style="background:${AZLT};border-radius:8px;padding:18px 16px;min-width:160px;text-align:center">
         ${logoQPB64?`<img src="${logoQPB64}" style="max-height:40px;max-width:130px;object-fit:contain;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto">`:""}
-        <div style="font-size:11px;font-weight:bold;color:${AZ};margin-bottom:8px">QP CLINIC</div>
+        <div style="font-size:11px;font-weight:bold;color:${AZ};margin-bottom:8px">${brand().nombre.toUpperCase()}</div>
         <div style="font-size:8.5px;color:${SEC};margin-bottom:4px">${sedeDir()}</div>
-        <div style="font-size:8.5px;color:${SEC};margin-bottom:4px">Col. Nápoles, CDMX</div>
-        <div style="font-size:8.5px;color:${SEC}">(55) 6442-3702</div>
+        <div style="font-size:8.5px;color:${SEC}">${sedeTelsTexto()}</div>
       </div>
     </div>
     <div style="margin-top:12px;background:#F8FAFC;border:1px solid ${BRD};border-radius:4px;padding:9px 13px">
@@ -18563,7 +18589,7 @@ window.generarPDFNutricion=async function(soloDescargar){
     // Abrir WhatsApp con mensaje (igual que recetas — el PDF se adjunta manualmente)
     const celWA=(tel||p.celular||"").replace(/\D/g,"");
     const celFinal=celWA.length===10?"52"+celWA:celWA;
-    const msg=`🥗 *QP Clinic — Plan Nutricional Famel*\n\n*Paciente:* ${nombre}\n*Plan:* ${plant.titulo}\n*Fecha:* ${fecha}\n\nEl PDF se descargó en tu dispositivo. Adjúntalo en WhatsApp.`;
+    const msg=`🥗 *${brand().nombre} — Plan Nutricional Famel*\n\n*Paciente:* ${nombre}\n*Plan:* ${plant.titulo}\n*Fecha:* ${fecha}\n\nEl PDF se descargó en tu dispositivo. Adjúntalo en WhatsApp.`;
     if(celFinal){
       setTimeout(()=>window.open(`https://web.whatsapp.com/send?phone=${celFinal}&text=${encodeURIComponent(msg)}`,"_blank"),800);
     } else {
@@ -20060,8 +20086,8 @@ window.pgSegurosForm=async function(key){
   const medCedProf= u.cedula_medico||u.cedula||"";   // cédula licenciatura
   const medCedEsp = u.cedula_esp_1||u.cedula_especialidad||""; // cédula especialidad
   const medRfc    = u.rfc||"";
-  const medDir    = u.institucion_grado||"AV. INSURGENTES SUR 933 PISO 12, COL. NÁPOLES, BENITO JUÁREZ, CDMX";
-  const medTel    = u.telefono||"55 5682 4345";
+  const medDir    = u.institucion_grado||sedeDir().toUpperCase();
+  const medTel    = u.telefono||sedeTels();
   const medEmail  = u.email_real||u.email||"";
 
   // ── Auto-llenado desde STATE ──────────────────────────────────────
@@ -20882,7 +20908,7 @@ function resumenHTML(d){
     });
   }
   h+=`<div style="margin-top:22px;border-top:1px solid #CFD8DC;padding-top:6px;font-size:7.5px;color:#78909C;text-align:center">
-    ${brand().nombre} · ${sedeDir()} · Tel: ${sedeTels()}<br>
+    ${brand().nombre} · ${sedeDir()} · ${sedeTelsPie()}<br>
     Documento generado el ${new Date().toLocaleString("es-MX")} por ${nomMed}. Contiene información confidencial protegida por la Ley Federal de Protección de Datos Personales.</div>`;
   const bloques=h.split("<!--BLOQUE-->").map(x=>x.trim()).filter(Boolean);
   return{enc,bloques,html:enc+h};
@@ -22953,8 +22979,8 @@ window.pdfPrescripcionEjercicio=async function(){
     const encHTML=`
       <div style="background:${az};padding:12px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:2px">QP Clinic — Especialistas en Salud Integral</div>
-          <div style="font-size:7.5px;color:rgba(255,255,255,.85);margin-bottom:6px">${sedeDir()} &nbsp;|&nbsp; Tel. ${sedeTels()} &nbsp;|&nbsp; qpclinic.org</div>
+          <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:2px">${sedeTitulo()}</div>
+          <div style="font-size:7.5px;color:rgba(255,255,255,.85);margin-bottom:6px">${sedeContacto(" &nbsp;|&nbsp; ")}</div>
           <div style="font-size:10.5px;font-weight:bold;color:#fff">${nomMed}</div>
           <div style="font-size:7.5px;color:rgba(255,255,255,.85)">${[cred1,cred2].filter(Boolean).join(" &nbsp;·&nbsp; ")}</div>
         </div>
