@@ -115,6 +115,13 @@ input,select,textarea,button{font-family:inherit;font-size:14px}
   body{font-size:13.5px}
   #topnav button{padding:0 8px !important;font-size:13px !important}
 }
+/* ═══ Módulo 🏃 Carrera (design/tokens.css, lo que usa el piloto) ═══ */
+.car :is(button,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid #006BB6;outline-offset:2px}
+.car-rango{position:relative;height:8px;border-radius:4px;background:#ECEFF1;margin:10px 0 4px}
+.car-rango-ok{position:absolute;top:0;bottom:0;background:#A5D6A7;border-left:2px solid #2E7D32;border-right:2px solid #2E7D32}
+.car-rango-pin{position:absolute;top:-5px;width:4px;height:18px;border-radius:2px;margin-left:-2px;box-shadow:0 0 0 2px #fff}
+#car-captura .sticky-save{position:sticky;bottom:0}
+@media (prefers-reduced-motion:reduce){.car *{transition:none !important;animation:none !important}}
 </style>
 </head>
 <body>
@@ -364,7 +371,7 @@ async function logBitacora(accion,detalle="",paciente_id=null){
 }
 function draw(){
   RR().innerHTML="";RR().className="fade";
-  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano,"selsede":pgSelSede,"listapac":pgListaPacientes,"inventario":pgInventario};
+  const map={"login":pgLogin,"agenda":pgAgenda,"buscar":pgBuscar,"expediente":pgExp,"nuevo":pgNuevo,"consulta":pgConsulta,"perfil":pgPerfil,"medicos":pgMedicos,"bitacora":pgBitacora,"tramites":pgTramites,"reportes":pgReportes,"cortecaja":pgCorteCaja,"herramientas":pgHerramientas,"ultrasonido":pgUltrasonido,"nutricion":pgNutricion,"seguros":pgSeguros,"ejercicio":pgEjercicio,"quirofano":pgQuirofano,"selsede":pgSelSede,"listapac":pgListaPacientes,"inventario":pgInventario,"carrera":()=>pgCarrera()};
   try{(map[STATE.page]||pgLogin)();}catch(e){console.error("draw error:",e);pgLogin();}
 }
 function btn(l,f,v="p",sm=0){const st={p:`background:${P};color:#fff;border:none`,s:`background:#fff;color:${P};border:1.5px solid ${BR}`,ok:`background:${SU};color:#fff;border:none`,d:`background:${DA};color:#fff;border:none`,wa:`background:${WA};color:#fff;border:none`};return`<button onclick="${f}" style="${st[v]||st.p};padding:${sm?"4px 10px":"7px 14px"};border-radius:7px;cursor:pointer;font-weight:600;font-size:${sm?11:12}px;display:inline-flex;align-items:center;gap:4px">${l}</button>`;}
@@ -902,7 +909,7 @@ function nav(){
         <button onclick="go('nutricion',{nutriModulo:'plantillas',nutriTipo:'transicion'});toggleNutriMenu()" style="width:100%;padding:11px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:14px;color:#263238;display:flex;align-items:center;gap:8px">🍎 Fase 3: Transición</button>
       </div>
     </div>
-    `:""}${(sedeActiva()!=="surgery"&&!esAmfa())?`<button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>`:""}
+    `:""}${(sedeActiva()!=="surgery"&&!esAmfa())?`<button onclick="goEjercicio()" style="padding:0 11px;height:46px;border:none;background:${STATE.page==="ejercicio"?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${STATE.page==="ejercicio"?"3px solid #64B5F6":"3px solid transparent"}">Ejercicio</button>`:""}${typeof navCarrera==="function"?navCarrera():""}
     ${(rolActual()==="admin"||esAnalista()||(puedeVerInventario()&&!esAmfa()))?`
         <div style="position:relative" id="cfg-menu-wrap">
       <button onclick="toggleCfgMenu()" style="padding:0 11px;height:46px;border:none;background:${["medicos","bitacora","inventario"].includes(STATE.page)?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${["medicos","bitacora","inventario"].includes(STATE.page)?"3px solid #64B5F6":"3px solid transparent"}">Configuración ▾</button>
@@ -944,6 +951,7 @@ function nav(){
 async function cerrarSesion(){
   await SB.auth.signOut();
   STATE.user=null;STATE.userProfile=null;STATE.pat=null;
+  STATE.carreraProbador=undefined;STATE.carreraResponsable=false;STATE.carPac=null;
   go("login");
 }
 // ── LOGIN ──────────────────────────────────────────────────
@@ -23109,6 +23117,1052 @@ if("serviceWorker" in navigator){
     navigator.serviceWorker.register("/sw.js").catch(()=>{});
   });
 }
+</script>
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+// 🏃 CARRERA · MOTOR DE ANÁLISIS (EXPERIMENTAL, EN VALIDACIÓN)
+// Recibe la serie de puntos de MediaPipe Pose de UNA grabación y devuelve
+// métricas por lado, eventos de zancada, cuadros clave y calidad. No toca
+// la pantalla ni la red: es una función pura, para poder probarla sola.
+//
+// Supuestos: banda sin fin (el corredor se queda en su lugar), cámara fija y
+// nivelada a la altura de la cadera; lateral = perpendicular a la banda,
+// posterior = detrás del corredor. Las distancias en cm se escalan con la
+// talla del paciente y las proporciones de Drillis y Contini (hombro→tobillo
+// = 0.779 de la talla), por eso son «estimadas».
+// ══════════════════════════════════════════════════════════════════════════
+
+const CAR_MOTOR_VERSION="carrera-pose 0.1 · MediaPipe Pose Landmarker full 0.10.14";
+
+// Índices de MediaPipe Pose (33 puntos).
+const CAR_LM={nariz:0,hombro:[11,12],codo:[13,14],cadera:[23,24],rodilla:[25,26],tobillo:[27,28],talon:[29,30],punta:[31,32]};
+// lado 0 = izquierdo, 1 = derecho
+const CAR_LADO=["izq","der"];
+
+// Límites de lo FÍSICAMENTE posible al correr. Fuera de aquí el valor es un
+// error de medición, no un hallazgo: se marca artefacto y no se interpreta.
+// (Un tiempo de vuelo de 0.5 s, por ejemplo, exigiría saltar ~30 cm en cada paso.)
+const CAR_LIMITES={
+  cadencia:[120,240], contacto:[100,500], vuelo:[0,300], long_paso:[0.4,2.6],
+  rodilla_contacto:[-5,50], rodilla_apoyo:[10,80], sobrezancada:[-25,50],
+  tibia_contacto:[-20,35], tronco:[-20,40], oscilacion:[2,20], apoyo:[-35,45],
+  caida_pelvica:[-10,25], valgo_rodilla:[-30,40], ancho_paso:[-20,40],
+  cruce_linea_media:[0,100], eversion_retropie:[-25,35],
+};
+
+// Rangos de referencia PROVISIONALES para carrera recreativa en banda
+// (8–14 km/h). Los valida el médico; la app los muestra como provisionales.
+const CAR_REFERENCIAS={
+  cadencia:{min:165,max:185,u:"pasos/min",et:"Cadencia"},
+  contacto:{min:200,max:300,u:"ms",et:"Tiempo de contacto"},
+  vuelo:{min:50,max:150,u:"ms",et:"Tiempo de vuelo"},
+  long_paso:{u:"m",et:"Longitud de paso"},
+  rodilla_contacto:{min:10,max:25,u:"°",et:"Flexión de rodilla en contacto inicial"},
+  rodilla_apoyo:{min:35,max:50,u:"°",et:"Flexión de rodilla en apoyo medio"},
+  sobrezancada:{min:0,max:10,u:"cm",et:"Sobrezancada (talón por delante del centro de masa)"},
+  tibia_contacto:{min:-2,max:7,u:"°",et:"Ángulo de la tibia al contacto"},
+  tronco:{min:3,max:12,u:"°",et:"Inclinación del tronco"},
+  oscilacion:{min:5,max:10,u:"cm",et:"Oscilación vertical (estimada)"},
+  apoyo:{u:"°",et:"Tipo de apoyo (ángulo del pie al contacto)"},
+  caida_pelvica:{min:0,max:6,u:"°",et:"Caída pélvica contralateral"},
+  valgo_rodilla:{min:-5,max:10,u:"°",et:"Valgo dinámico de rodilla"},
+  ancho_paso:{min:3,max:12,u:"cm",et:"Ancho de paso (estimado)"},
+  cruce_linea_media:{min:0,max:10,u:"%",et:"Cruce de la línea media"},
+  eversion_retropie:{min:0,max:10,u:"°",et:"Eversión del retropié (baja confianza)"},
+};
+
+// ── utilidades numéricas ────────────────────────────────────────────────
+const carMed=a=>{const s=a.filter(Number.isFinite).sort((x,y)=>x-y);if(!s.length)return NaN;const m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+const carPct=(a,p)=>{const s=a.filter(Number.isFinite).sort((x,y)=>x-y);if(!s.length)return NaN;return s[Math.min(s.length-1,Math.max(0,Math.round(p*(s.length-1))))];};
+// Media recortada al 20 %: «promedio» que no se deja arrastrar por una zancada mal leída.
+const carMediaR=a=>{const s=a.filter(Number.isFinite).sort((x,y)=>x-y);if(!s.length)return NaN;const k=Math.floor(s.length*0.2);const r=s.slice(k,s.length-k);return r.reduce((x,y)=>x+y,0)/r.length;};
+const carDist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+const carGrados=r=>r*180/Math.PI;
+// Ángulo interno en b del triángulo a-b-c
+const carAngInt=(a,b,c)=>{const u=[a[0]-b[0],a[1]-b[1]],v=[c[0]-b[0],c[1]-b[1]];const n=Math.hypot(...u)*Math.hypot(...v)||1;return carGrados(Math.acos(Math.max(-1,Math.min(1,(u[0]*v[0]+u[1]*v[1])/n))));};
+
+// ── preparación ─────────────────────────────────────────────────────────
+// frames: [{t: segundos, lm: [[x,y,visibilidad]×33] normalizados 0–1, o null}]
+function carPreparar(frames,W,H,minVis=0.5){
+  const CLAVE=[11,12,23,24,25,26,27,28,29,30,31,32];
+  const out=[];
+  for(const f of frames){
+    if(!f.lm)continue;
+    const visMedia=CLAVE.reduce((s,i)=>s+(f.lm[i][2]??1),0)/CLAVE.length;
+    if(visMedia<minVis)continue;
+    out.push({t:f.t,p:f.lm.map(([x,y,v])=>[x*W,y*H,v??1])});
+  }
+  // Suavizado centrado de 3 cuadros (solo entre vecinos contiguos)
+  const dts=[];for(let i=1;i<out.length;i++)dts.push(out[i].t-out[i-1].t);
+  const dt=carMed(dts)||1/30;
+  const sm=out.map((f,i)=>{
+    const vec=[out[i-1],f,out[i+1]].filter(g=>g&&Math.abs(g.t-f.t)<=2.5*dt);
+    return{t:f.t,raw:f.p,p:f.p.map((_,k)=>[vec.reduce((s,g)=>s+g.p[k][0],0)/vec.length,vec.reduce((s,g)=>s+g.p[k][1],0)/vec.length,f.p[k][2]])};
+  });
+  return{fr:sm,dt,total:frames.length};
+}
+const carPt=(f,parte,lado)=>f.p[Array.isArray(CAR_LM[parte])?CAR_LM[parte][lado]:CAR_LM[parte]];
+const carMedio=(f,parte)=>{const a=carPt(f,parte,0),b=carPt(f,parte,1);return[(a[0]+b[0])/2,(a[1]+b[1])/2];};
+function carIntercambiarLados(fr){
+  const pares=[[11,12],[13,14],[15,16],[17,18],[19,20],[21,22],[23,24],[25,26],[27,28],[29,30],[31,32],[1,4],[2,5],[3,6],[7,8],[9,10]];
+  for(const f of fr)for(const [a,b] of pares){const x=f.p[a];f.p[a]=f.p[b];f.p[b]=x;}
+}
+
+// Escala: suma de segmentos hombro→cadera→rodilla→tobillo no cambia al
+// flexionar, así que su percentil 90 ≈ 0.779 de la talla.
+function carEscala(fr,talla_cm,vista="sagital"){
+  // Desde atrás la pierna flexionada se ve más corta: ahí se usa solo el
+  // tronco (hombro→cadera = 0.288 de la talla), que no cambia al correr.
+  if(vista==="frontal"){
+    const tr=fr.map(f=>carDist(carMedio(f,"hombro"),carMedio(f,"cadera")));
+    const tallaPx=carMed(tr)/0.288;
+    const pierna=carMed(fr.map(f=>[0,1].reduce((s,l)=>s+carDist(carPt(f,"cadera",l),carPt(f,"rodilla",l))+carDist(carPt(f,"rodilla",l),carPt(f,"tobillo",l)),0)/2));
+    return{tallaPx,pierna,cmPx:talla_cm?talla_cm/tallaPx:null};
+  }
+  const seg=fr.map(f=>{
+    const s=[0,1].map(l=>carDist(carPt(f,"hombro",l),carPt(f,"cadera",l))+carDist(carPt(f,"cadera",l),carPt(f,"rodilla",l))+carDist(carPt(f,"rodilla",l),carPt(f,"tobillo",l)));
+    return (s[0]+s[1])/2;
+  });
+  const tallaPx=carPct(seg,0.9)/0.779;
+  const pierna=carMed(fr.map(f=>[0,1].reduce((s,l)=>s+carDist(carPt(f,"cadera",l),carPt(f,"rodilla",l))+carDist(carPt(f,"rodilla",l),carPt(f,"tobillo",l)),0)/2));
+  return{tallaPx,pierna,cmPx:talla_cm?talla_cm/tallaPx:null};
+}
+
+// ── contactos con el suelo ──────────────────────────────────────────────
+// El pie (el más bajo de talón y punta) está en el suelo cuando queda cerca
+// de su punto más bajo de la zona (máximo móvil de ±0.6 s, que absorbe una
+// cámara un poco inclinada o la perspectiva de la vista posterior).
+function carContactos(fr,dt,pierna,{banda=0.025,salida=0.045}={}){
+  const res=[];
+  for(const lado of [0,1]){
+    const y=fr.map(f=>Math.max(carPt(f,"talon",lado)[1],carPt(f,"punta",lado)[1]));
+    const ven=Math.max(3,Math.round(0.6/dt));
+    const suelo=y.map((_,i)=>{let m=-Infinity;for(let j=Math.max(0,i-ven);j<=Math.min(y.length-1,i+ven);j++)m=Math.max(m,y[j]);return m;});
+    let dentro=false,ini=0;
+    const cerrar=fin=>{
+      // Un hueco en la serie (cuadros sin pose) corta el contacto: no se inventa.
+      let hueco=false;for(let k=ini+1;k<=fin;k++)if(fr[k].t-fr[k-1].t>2.5*dt)hueco=true;
+      // Instante del contacto y del despegue entre dos cuadros: se extrapola,
+      // con la velocidad del pie en los cuadros vecinos, el momento en que toca
+      // (o deja) el nivel del suelo de ESE apoyo. Sin vecinos, medio cuadro.
+      const suelo_c=carMed(y.slice(ini,fin+1));
+      const seguido=(i,k)=>i>=0&&k<fr.length&&Math.abs(fr[k].t-fr[i].t)<=1.5*dt;
+      let ic=fr[ini].t-dt/2,icA=null;
+      if(seguido(ini-1,ini)){
+        let a=0.5;
+        if(seguido(ini-2,ini-1)){const v=y[ini-1]-y[ini-2];if(v>0)a=(suelo_c-y[ini-1])/v;}
+        a=Math.max(0,Math.min(1,a));ic=fr[ini-1].t+a*(fr[ini].t-fr[ini-1].t);icA=a;
+      }
+      let to=fr[fin].t+dt/2;
+      if(seguido(fin,fin+1)){
+        let a=0.5;
+        if(seguido(fin+1,fin+2)){const v=y[fin+1]-y[fin+2];if(v>0)a=1-(suelo_c-y[fin+1])/v;}
+        a=Math.max(0,Math.min(1,a));to=fr[fin].t+a*(fr[fin+1].t-fr[fin].t);
+      }
+      const dur=to-ic;
+      if(!hueco&&dur>=0.08&&dur<=0.6)res.push({lado,i0:ini,i1:fin,ic,to,icA});
+    };
+    for(let i=0;i<fr.length;i++){
+      const cerca=y[i]>=suelo[i]-banda*pierna,lejos=y[i]<suelo[i]-salida*pierna;
+      if(!dentro&&cerca){dentro=true;ini=i;}
+      else if(dentro&&(lejos||(i>0&&fr[i].t-fr[i-1].t>2.5*dt))){cerrar(i-1);dentro=false;if(cerca){dentro=true;ini=i;}}
+    }
+    if(dentro)cerrar(fr.length-1);
+  }
+  res.sort((a,b)=>a.ic-b.ic);
+  // Al correr nunca hay dos pies en el suelo a la vez. Si se enciman (pie
+  // lejano mal estimado), queda el contacto más largo.
+  let solapes=0;const limpio=[];
+  for(const c of res){
+    const prev=limpio[limpio.length-1];
+    if(prev&&c.ic<prev.to-0.5*Math.min(prev.to-prev.ic,c.to-c.ic)){
+      solapes++;if((c.to-c.ic)>(prev.to-prev.ic))limpio[limpio.length-1]=c;
+    }else limpio.push(c);
+  }
+  return{contactos:limpio,solapes};
+}
+
+// Si dos contactos seguidos salen del mismo lado a distancia de UN paso, la
+// etiqueta izquierda/derecha del modelo se confundió (pasa con el pie lejano
+// en la vista lateral): ese contacto es del otro pie. Si la distancia es de
+// una zancada, lo que pasó es que se perdió un contacto, y se respeta la
+// etiqueta. Si un pie casi no se detectó, no se corrige nada.
+function carAlternar(cs){
+  const dif=[];for(let i=1;i<cs.length;i++)if(cs[i].lado!==cs[i-1].lado)dif.push(cs[i].ic-cs[i-1].ic);
+  if(dif.length<5)return{incierto:false,cambios:0};
+  const paso=carMed(dif);let cambios=0;
+  for(let i=1;i<cs.length;i++){
+    if(cs[i].ic-cs[i-1].ic<1.5*paso&&cs[i].lado===cs[i-1].lado){cs[i].ladoModelo=cs[i].lado;cs[i].lado=1-cs[i-1].lado;cambios++;}
+  }
+  return{incierto:cambios/(cs.length-1)>0.2,cambios};
+}
+
+// ── métrica con validación física ───────────────────────────────────────
+function carMetricaAuto(variable,lado,valores,dec=1,extra={}){
+  const lim=CAR_LIMITES[variable],ref=CAR_REFERENCIAS[variable]||{};
+  const vals=valores.filter(Number.isFinite);
+  if(!vals.length)return null;
+  const dentro=lim?vals.filter(v=>v>=lim[0]&&v<=lim[1]):vals;
+  const fuera=vals.length-dentro.length;
+  const m={variable,lado,unidad:ref.u||"",etiqueta:ref.et||variable,n:vals.length,artefacto:false,motivo_correccion:null,
+           rango_clinica_min:ref.min??null,rango_clinica_max:ref.max??null,...extra};
+  const r=x=>Math.round(x*10**dec)/10**dec;
+  if(dentro.length&&fuera/vals.length<=0.3){
+    m.valor=r(carMediaR(dentro));
+    if(fuera)m.interpretacion=[m.interpretacion,`${fuera} de ${vals.length} zancadas descartadas por valores imposibles.`].filter(Boolean).join(" ");
+  }else{
+    // La mayoría de las lecturas son imposibles: se guarda el valor tal cual,
+    // marcado como artefacto, para que se vea qué midió el sistema y por qué no sirve.
+    m.valor=r(carMediaR(vals));m.artefacto=true;
+    m.motivo_correccion=`Fuera de lo físicamente posible al correr (${lim[0]} a ${lim[1]} ${m.unidad}) en ${fuera} de ${vals.length} zancadas.`;
+  }
+  return m;
+}
+
+// ── análisis principal ──────────────────────────────────────────────────
+// opts: {vista:"sagital"|"frontal", W, H, talla_cm, velocidad_kmh, minZancadas}
+function carAnalizar(frames,opts){
+  const {vista,W,H,talla_cm,velocidad_kmh}=opts;
+  const minZ=opts.minZancadas??5;
+  const calidad={vista,cuadros:frames.length,motor:CAR_MOTOR_VERSION,avisos:[]};
+  const {fr,dt}=carPreparar(frames,W,H);
+  calidad.fps_real=Math.round(1/dt);
+  calidad.cuadros_pose_pct=frames.length?Math.round(fr.length/frames.length*100):0;
+  if(fr.length<frames.length*0.6||fr.length<60){
+    calidad.avisos.push("No se detectó a la persona en suficientes cuadros. Revisa luz, encuadre y que el cuerpo completo quepa.");
+    return{metricas:[],cuadrosClave:[],calidad,ok:false};
+  }
+  if(calidad.fps_real<50)calidad.avisos.push(`Se analizó a ${calidad.fps_real} cuadros/s: los tiempos de contacto y vuelo tienen un margen de ±${Math.round(1000/calidad.fps_real)} ms.`);
+
+  // Vista posterior: el lado izquierdo del paciente es el izquierdo de la
+  // imagen. Si el modelo creyó que la persona miraba a la cámara, se corrige.
+  if(vista==="frontal"){
+    const izqDer=carMed(fr.map(f=>carPt(f,"cadera",0)[0]-carPt(f,"cadera",1)[0]));
+    if(izqDer>0){carIntercambiarLados(fr);calidad.lados_corregidos=true;}
+  }
+  const esc=carEscala(fr,talla_cm,vista);
+  calidad.escala_cm_px=esc.cmPx?Math.round(esc.cmPx*1000)/1000:null;
+  if(!esc.cmPx)calidad.avisos.push("Sin talla: no se calculan las distancias en centímetros.");
+  const cm=px=>esc.cmPx?px*esc.cmPx:NaN;
+
+  const {contactos,solapes}=carContactos(fr,dt,esc.pierna,vista==="frontal"?{banda:0.10,salida:0.14}:{});
+  const alt=vista==="sagital"?carAlternar(contactos):{incierto:false,cambios:0};
+  calidad.lados_reasignados=alt.cambios;
+  calidad.contactos_izq=contactos.filter(c=>c.lado===0).length;
+  calidad.contactos_der=contactos.filter(c=>c.lado===1).length;
+  calidad.solapes=solapes;
+  if(alt.incierto){calidad.lados_inciertos=true;calidad.avisos.push("El modelo confundió izquierda y derecha en varias zancadas; se corrigieron por alternancia. Revisa la asimetría con cautela.");}
+  const met=[];const clave=[];
+  const add=m=>{if(m){if(alt.incierto&&m.lado!=="ambos")m.interpretacion=[m.interpretacion,"Lado asignado por alternancia."].filter(Boolean).join(" ");met.push(m);}};
+  const porLado=lado=>contactos.filter(c=>c.lado===lado);
+
+  if(vista==="sagital"){
+    // Dirección de carrera: la punta del pie está por delante del talón.
+    const dir=Math.sign(carMed(fr.map(f=>(carPt(f,"punta",0)[0]-carPt(f,"talon",0)[0])+(carPt(f,"punta",1)[0]-carPt(f,"talon",1)[0]))))||1;
+    calidad.direccion=dir>0?"derecha":"izquierda";
+    // Pasos: de un contacto inicial al siguiente (del otro pie)
+    const pasos=[],vuelos=[[],[]];
+    for(let k=0;k+1<contactos.length;k++){
+      const a=contactos[k],b=contactos[k+1];
+      if(a.lado===b.lado)continue;
+      const paso=b.ic-a.ic;
+      if(paso<0.2||paso>0.6)continue;   // se perdió un contacto: no se mide ese paso
+      pasos.push(paso);vuelos[a.lado].push((b.ic-a.to)*1000);
+    }
+    let cad=pasos.length>=minZ?60/carMed(pasos):NaN;
+    if(!Number.isFinite(cad)){
+      // Respaldo: zancada del mismo pie (si un pie casi no se detectó)
+      const z=[];for(const lado of [0,1]){const c=porLado(lado);for(let k=1;k<c.length;k++){const d=c[k].ic-c[k-1].ic;if(d>=0.4&&d<=1.2)z.push(d);}}
+      if(z.length>=minZ){cad=120/carMed(z);calidad.avisos.push("Cadencia calculada con la zancada de cada pie: faltaron contactos alternos.");}
+    }
+    if(Number.isFinite(cad)){
+      add(carMetricaAuto("cadencia","ambos",[cad],0));
+      if(velocidad_kmh)add(carMetricaAuto("long_paso","ambos",[(velocidad_kmh/3.6)*(60/cad)],2,{interpretacion:`Con ${velocidad_kmh} km/h y ${Math.round(cad)} pasos/min.`}));
+    }else calidad.avisos.push("No hubo suficientes pasos limpios para calcular la cadencia.");
+
+    for(const lado of [0,1]){
+      const cs=porLado(lado);
+      if(cs.length<minZ){calidad.avisos.push(`Solo ${cs.length} contactos del pie ${lado?"derecho":"izquierdo"}: no se calculan sus métricas.`);continue;}
+      const L=CAR_LADO[lado];
+      const ct=[],kIC=[],kMax=[],os=[],tib=[],ap=[];
+      // Puntos en el instante exacto del contacto: interpolados entre el último
+      // cuadro en el aire y el primero en el suelo (a 8 km/h el pie avanza ~4 cm
+      // entre dos cuadros de 60 fps; tomar el cuadro siguiente sesga la medida).
+      const enContacto=c=>{
+        if(c.icA==null)return fr[c.i0];
+        const A=fr[c.i0-1].raw,B=fr[c.i0].raw;
+        return{t:c.ic,p:A.map((q,k)=>[q[0]+c.icA*(B[k][0]-q[0]),q[1]+c.icA*(B[k][1]-q[1]),B[k][2]])};
+      };
+      for(const c of cs){
+        ct.push((c.to-c.ic)*1000);
+        const f0=enContacto(c);
+        const cad_=carPt(f0,"cadera",lado),rod=carPt(f0,"rodilla",lado),tob=carPt(f0,"tobillo",lado),tal=carPt(f0,"talon",lado);
+        kIC.push(180-carAngInt(cad_,rod,tob));
+        let mx=-Infinity,iMx=c.i0;
+        for(let i=c.i0;i<=c.i1;i++){const f=fr[i];const v=180-carAngInt(carPt(f,"cadera",lado),carPt(f,"rodilla",lado),carPt(f,"tobillo",lado));if(v>mx){mx=v;iMx=i;}}
+        kMax.push(mx);c.iMedio=iMx;
+        os.push(cm(dir*(tal[0]-carMedio(f0,"cadera")[0])));
+        tib.push(carGrados(Math.atan2(dir*(tob[0]-rod[0]),tob[1]-rod[1])));
+        // Ángulo del pie al contacto menos el del pie plano a mitad del apoyo
+        const angPie=f=>carGrados(Math.atan2(carPt(f,"talon",lado)[1]-carPt(f,"punta",lado)[1],Math.abs(carPt(f,"punta",lado)[0]-carPt(f,"talon",lado)[0])));
+        ap.push(angPie(f0)-angPie(fr[Math.round((c.i0+c.i1)/2)]));
+      }
+      add(carMetricaAuto("contacto",L,ct,0));
+      add(carMetricaAuto("vuelo",L,vuelos[lado],0,{interpretacion:"Vuelo después del despegue de este pie."}));
+      add(carMetricaAuto("rodilla_contacto",L,kIC));
+      add(carMetricaAuto("rodilla_apoyo",L,kMax));
+      if(esc.cmPx)add(carMetricaAuto("sobrezancada",L,os));
+      add(carMetricaAuto("tibia_contacto",L,tib));
+      const mAp=carMetricaAuto("apoyo",L,ap);
+      if(mAp&&!mAp.artefacto){mAp.interpretacion=[mAp.valor>8?"Talón":mAp.valor<-5?"Antepié":"Medio pie",mAp.interpretacion].filter(Boolean).join(". ");}
+      add(mAp);
+      // Cuadros clave: el contacto más típico (rodilla más cercana a su promedio)
+      const prom=carMediaR(kIC);let mejor=cs[0];
+      for(const c of cs){const f0=enContacto(c);const v=180-carAngInt(carPt(f0,"cadera",lado),carPt(f0,"rodilla",lado),carPt(f0,"tobillo",lado));
+        const fm=enContacto(mejor);const vm=180-carAngInt(carPt(fm,"cadera",lado),carPt(fm,"rodilla",lado),carPt(fm,"tobillo",lado));
+        if(Math.abs(v-prom)<Math.abs(vm-prom))mejor=c;}
+      clave.push({evento:"contacto_inicial",lado:L,t:fr[mejor.i0].t,etiqueta:`Contacto inicial ${lado?"derecho":"izquierdo"}`});
+      clave.push({evento:"apoyo_medio",lado:L,t:fr[mejor.iMedio].t,etiqueta:`Apoyo medio ${lado?"derecho":"izquierdo"}`});
+    }
+    add(carMetricaAuto("tronco","ambos",fr.map(f=>{const h=carMedio(f,"cadera"),s=carMedio(f,"hombro");return carGrados(Math.atan2(dir*(s[0]-h[0]),h[1]-s[1]));})));
+    if(esc.cmPx){
+      const osc=[];
+      for(let k=0;k+1<contactos.length;k++){
+        const a=contactos[k],b=contactos[k+1];if(b.ic-a.ic<0.2||b.ic-a.ic>0.6)continue;
+        let lo=Infinity,hi=-Infinity;for(let i=a.i0;i<b.i0;i++){const y=carMedio(fr[i],"cadera")[1];lo=Math.min(lo,y);hi=Math.max(hi,y);}
+        osc.push(cm(hi-lo));
+      }
+      add(carMetricaAuto("oscilacion","ambos",osc));
+    }
+  }else{
+    // ── vista posterior ──
+    const oblicuidad=f=>{const l=carPt(f,"cadera",0),r=carPt(f,"cadera",1);return carGrados(Math.atan2(l[1]-r[1],Math.abs(r[0]-l[0])));};  // + = cadera izquierda más baja
+    const sesgo=carMed(fr.map(oblicuidad));
+    const pies=[];
+    for(const lado of [0,1]){
+      const cs=porLado(lado);
+      if(cs.length<minZ){calidad.avisos.push(`Solo ${cs.length} apoyos del pie ${lado?"derecho":"izquierdo"}: no se calculan sus métricas.`);continue;}
+      const L=CAR_LADO[lado],medial=lado===0?1:-1;   // desde atrás: hacia la línea media
+      const caida=[],valgo=[],ever=[];let mejor=null,mejorV=-Infinity;
+      for(const c of cs){
+        let pk=-Infinity,vk=-Infinity,iV=c.i0;const ev=[];let visOk=0,n=0;
+        for(let i=c.i0;i<=c.i1;i++){
+          const f=fr[i];
+          const o=oblicuidad(f)-sesgo;pk=Math.max(pk,lado===1?o:-o);   // apoyo der → cae la izquierda
+          const cad_=carPt(f,"cadera",lado),rod=carPt(f,"rodilla",lado),tob=carPt(f,"tobillo",lado),tal=carPt(f,"talon",lado);
+          // ¿La rodilla queda hacia la línea media respecto a la recta cadera-tobillo? (+ = valgo)
+          const xRecta=cad_[0]+(tob[0]-cad_[0])*((rod[1]-cad_[1])/((tob[1]-cad_[1])||1));
+          const s=Math.sign(rod[0]-xRecta)*medial;
+          const v=(180-carAngInt(cad_,rod,tob))*(s||1);
+          if(v>vk){vk=v;iV=i;}
+          const fase=(i-c.i0)/Math.max(1,c.i1-c.i0);
+          if(fase>=0.25&&fase<=0.75){
+            n++;if(Math.min(tob[2],tal[2])>=0.75)visOk++;
+            // retropié: desviación del talón respecto a la prolongación de la pierna
+            const sx=tob[0]-rod[0],sy=tob[1]-rod[1];
+            const ang=carGrados(Math.atan2(tal[0]-tob[0],tal[1]-tob[1])-Math.atan2(sx,sy));
+            ev.push(ang*-medial);   // + = talón hacia afuera = eversión
+          }
+        }
+        caida.push(pk);valgo.push(vk);
+        if(n&&visOk/n>=0.7)ever.push(carMed(ev));
+        if(vk>mejorV){mejorV=vk;mejor=iV;}
+        const xs=[];for(let i=c.i0;i<=c.i1;i++)xs.push(carPt(fr[i],"tobillo",lado)[0]);   // el tobillo, no el talón: la eversión mueve el talón
+        const xm=[];for(let i=c.i0;i<=c.i1;i++)xm.push(carMedio(fr[i],"cadera")[0]);
+        pies.push({lado,t:c.ic,x:carMed(xs),cruza:lado===0?carMed(xs)>carMed(xm):carMed(xs)<carMed(xm)});
+      }
+      add(carMetricaAuto("caida_pelvica",L,caida,1,{interpretacion:`Cadera ${lado?"izquierda":"derecha"} durante el apoyo ${lado?"derecho":"izquierdo"}.`}));
+      add(carMetricaAuto("valgo_rodilla",L,valgo));
+      if(ever.length>=minZ)add(carMetricaAuto("eversion_retropie",L,ever,1,{interpretacion:"Baja confianza: el modelo de pose no marca el calcáneo, solo el talón."}));
+      else calidad.avisos.push(`Eversión del retropié ${lado?"derecho":"izquierdo"}: el talón no se vio con claridad suficiente; no se calcula.`);
+      add(carMetricaAuto("cruce_linea_media",L,[pies.filter(p=>p.lado===lado).filter(p=>p.cruza).length/Math.max(1,pies.filter(p=>p.lado===lado).length)*100],0));
+      clave.push({evento:"apoyo_medio_posterior",lado:L,t:fr[mejor??cs[0].i0].t,etiqueta:`Apoyo ${lado?"derecho":"izquierdo"} desde atrás`});
+    }
+    if(esc.cmPx){
+      pies.sort((a,b)=>a.t-b.t);
+      const anchos=[];for(let k=1;k<pies.length;k++){const a=pies[k-1],b=pies[k];if(a.lado===b.lado||b.t-a.t>0.6)continue;const iz=a.lado===0?a:b,de=a.lado===0?b:a;anchos.push(cm(de.x-iz.x));}
+      add(carMetricaAuto("ancho_paso","ambos",anchos,1,{interpretacion:"Negativo = el pie cae del otro lado de la línea media."}));
+    }
+  }
+  calidad.zancadas_validas=met.length;
+  return{metricas:met,cuadrosClave:clave,calidad,ok:met.length>0};
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// 🏃 CARRERA · MÓDULO (PILOTO CON PERSONAL)
+// Reglas del piloto (Dr. Polanco, 28-oct-2026):
+//   1. El video NUNCA sale del teléfono: se graba en memoria, se analiza ahí
+//      y se descarta. A Storage solo van 3–6 cuadros clave en JPG con el
+//      esqueleto dibujado y la cara pixelada, en el bucket privado «carrera».
+//   2. Solo lo ven los usuarios de carrera_probadores (CARRERA_2_piloto.sql);
+//      la base lo hace cumplir con políticas restrictivas, no solo el botón.
+//   3. Todo resultado automático va marcado «Experimental, en validación».
+// Además, mientras dure el piloto solo se capturan pacientes de prueba: los
+// que tienen nombre o apellido paterno empezando con CAR_PILOTO_PREFIJO.
+// ══════════════════════════════════════════════════════════════════════════
+
+const CAR_PILOTO_PREFIJO="PRUEBA";
+const CAR_SEG_GRABACION=15;
+const CAR_BUCKET="carrera";   // bucket privado propio (CARRERA_3_bucket.sql), no «expedientes»
+const CAR_MP_VER="0.10.14";
+const CAR_MP_MODELO="https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
+const CAR_OKL="#E8F5E9",CAR_DAL="#FFEBEE",CAR_WA="#E65100",CAR_WAT="#BF360C",CAR_WAL="#FFF3E0",CAR_BI="#78909C";
+const CAR_ORDEN={sagital:["cadencia","long_paso","contacto","vuelo","rodilla_contacto","rodilla_apoyo","sobrezancada","tibia_contacto","tronco","oscilacion","apoyo"],
+                 frontal:["caida_pelvica","valgo_rodilla","ancho_paso","cruce_linea_media","eversion_retropie"]};
+const CAR_HUESOS=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[27,29],[29,31],[27,31],[24,26],[26,28],[28,30],[30,32],[28,32]];
+// Estado de la captura en curso (fuera de STATE: lleva blobs y la cámara)
+let CAR={};
+
+const carEsc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const carNum=(v,dec=1)=>v==null||v===""||isNaN(v)?"—":Number(v).toFixed(dec).replace(/\.0+$/,"");
+
+// ── Permiso del piloto ──────────────────────────────────────────────────
+function carreraHabilitado(){return STATE.carreraProbador===true&&!esAmfa();}
+async function carreraCargarPermiso(){
+  STATE.carreraProbador=null;   // consultando
+  const {data,error}=await SB.rpc("carrera_es_probador");
+  // Si la función no existe todavía (CARRERA_2 sin correr) o falla, el módulo queda oculto.
+  STATE.carreraProbador=!error&&data===true;
+  if(STATE.carreraProbador){
+    const r=await SB.rpc("carrera_es_responsable");
+    STATE.carreraResponsable=!r.error&&r.data===true;
+  }
+  const slot=document.getElementById("nav-carrera");
+  if(slot)slot.outerHTML=navCarrera();
+}
+// Botón de la barra superior (a la derecha de «Ejercicio»). Se llama desde nav().
+function navCarrera(){
+  if(STATE.userProfile&&STATE.carreraProbador===undefined)setTimeout(carreraCargarPermiso,0);
+  if(!carreraHabilitado())return`<span id="nav-carrera"></span>`;
+  const a=STATE.page==="carrera";
+  return`<button id="nav-carrera" onclick="go('carrera')" style="padding:0 11px;height:46px;border:none;background:${a?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;white-space:nowrap;border-bottom:${a?"3px solid #64B5F6":"3px solid transparent"}">🏃 Carrera</button>`;
+}
+
+// ── Piezas visuales (design/components.md) ──────────────────────────────
+const CAR_ESTADOS={
+  normal:    {txt:"Normal",    icon:"ti-circle-check",   col:SU,      fondo:CAR_OKL},
+  limitrofe: {txt:"Limítrofe", icon:"ti-alert-triangle", col:CAR_WAT, fondo:CAR_WAL, borde:CAR_WA},
+  alterado:  {txt:"Alterado",  icon:"ti-alert-octagon",  col:DA,      fondo:CAR_DAL},
+  sinrango:  {txt:"Sin rango", icon:"ti-help-circle",    col:MU,      fondo:"#F5F7F9"},
+  artefacto: {txt:"Artefacto", icon:"ti-ban",            col:MU,      fondo:"#F5F7F9"},
+};
+function carRango(m){
+  if(m.rango_clinica_min!=null||m.rango_clinica_max!=null)return{min:m.rango_clinica_min,max:m.rango_clinica_max};
+  return null;
+}
+// Normal = dentro · limítrofe = fuera por ≤10 % del ancho del rango · alterado = más
+function carEstado(m){
+  if(m.artefacto)return"artefacto";
+  const r=carRango(m);if(!r||m.valor==null)return"sinrango";
+  const min=r.min??-Infinity,max=r.max??Infinity,v=Number(m.valor);
+  if(v>=min&&v<=max)return"normal";
+  const ancho=(isFinite(min)&&isFinite(max))?(max-min):Math.abs(isFinite(min)?min:max)||1;
+  return (v<min?min-v:v-max)<=ancho*0.10?"limitrofe":"alterado";
+}
+function carChip(estado){
+  const e=CAR_ESTADOS[estado]||CAR_ESTADOS.sinrango;
+  return`<span style="display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700;color:${e.col};background:${e.fondo};border:1px solid ${e.borde||e.col}40;white-space:nowrap"><i class="ti ${e.icon}" aria-hidden="true"></i>${e.txt}</span>`;
+}
+const CAR_EXPERIMENTAL=`<span title="Resultado automático del análisis de pose: experimental, en validación" style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700;color:${CAR_WAT};background:${CAR_WAL};border:1px solid ${CAR_WA}55;white-space:nowrap"><i class="ti ti-flask" aria-hidden="true"></i>Experimental</span>`;
+function carAvisoExperimental(){
+  return`<div role="note" style="display:flex;gap:10px;align-items:flex-start;background:${CAR_WAL};border:1px solid ${CAR_WA}66;border-radius:8px;padding:10px 12px;margin-bottom:12px;color:${CAR_WAT};font-size:13px;line-height:1.45">
+    <i class="ti ti-flask" style="font-size:20px;flex-shrink:0" aria-hidden="true"></i>
+    <span><b>Experimental, en validación.</b> Resultados automáticos del análisis de pose en el teléfono. No se usan para decisiones clínicas hasta compararlos contra un sistema de referencia. Rangos de referencia provisionales.</span>
+  </div>`;
+}
+function carVacio(icon,titulo,sub="",accion=""){
+  return`<div class="empty-state"><div class="empty-icon"><i class="ti ${icon}" aria-hidden="true"></i></div><p>${titulo}</p>${sub?`<small style="color:${MU}">${sub}</small>`:""}${accion?`<div style="margin-top:14px">${accion}</div>`:""}</div>`;
+}
+function carMetrica(m){
+  const est=carEstado(m),e=CAR_ESTADOS[est],r=carRango(m),v=Number(m.valor);
+  let barra="";
+  if(r&&r.min!=null&&r.max!=null&&!m.artefacto){
+    const ancho=r.max-r.min||1,lo=r.min-ancho/2,hi=r.max+ancho/2;
+    const pct=x=>Math.max(0,Math.min(100,(x-lo)/(hi-lo)*100));
+    barra=`<div class="car-rango" role="img" aria-label="Valor ${carNum(v)} ${carEsc(m.unidad)}, rango ${carNum(r.min)} a ${carNum(r.max)}">
+      <div class="car-rango-ok" style="left:${pct(r.min)}%;right:${100-pct(r.max)}%"></div>
+      <div class="car-rango-pin" style="left:${pct(v)}%;background:${e.col}"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:${MU}"><span>${carNum(r.min)}</span><span>${carNum(r.max)}</span></div>`;
+  }
+  const lado=m.lado&&m.lado!=="ambos"?`<span style="font-size:11px;font-weight:700;color:${MU};border:1px solid ${BR};border-radius:4px;padding:0 5px">${m.lado==="izq"?"IZQ":"DER"}</span>`:"";
+  let par="";
+  if(m.par&&!m.artefacto&&!m.par.artefacto&&isFinite(m.par.valor)){
+    const a=Math.abs(v-m.par.valor)/Math.max(Math.abs(v),Math.abs(m.par.valor),1e-9)*100;
+    par=`<div style="font-size:12px;color:${a>10?CAR_WAT:MU};margin-top:6px">${m.lado==="izq"?"DER":"IZQ"} ${carNum(m.par.valor)} ${carEsc(m.unidad)} · asimetría ${carNum(a,0)} %${a>10?" ⚠":""}</div>`;
+  }
+  const ref=CAR_REFERENCIAS[m.variable]||{};
+  return`<div style="background:#fff;border:1px solid ${BR};border-left:4px solid ${e.borde||e.col};border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;min-width:0">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
+      <span class="fld-label" style="margin:0">${carEsc(ref.et||m.variable)}</span>${lado}
+    </div>
+    <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px;flex-wrap:wrap">
+      ${m.artefacto?`<s style="font-size:16px;color:${MU}" aria-label="Valor descartado">${carNum(v)}</s>`:`<span style="font-size:24px;font-weight:800;color:${TX}">${carNum(v,m.unidad==="m"?2:1)}</span>`}
+      <span style="font-size:13px;color:${MU}">${carEsc(m.unidad)}</span>
+      <span style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap">${carChip(est)}</span>
+    </div>
+    ${barra}
+    <div style="font-size:12px;color:${MU};margin-top:6px">${r?`Referencia provisional: ${carNum(r.min)}–${carNum(r.max)} ${carEsc(m.unidad)}`:"Sin rango de referencia"}</div>
+    ${m.artefacto?`<div style="font-size:12px;color:${TX};background:#F5F7F9;border-radius:6px;padding:6px 8px;margin-top:6px"><b>Artefacto:</b> ${carEsc(m.motivo_correccion)}</div>`:""}
+    ${m.interpretacion?`<div style="font-size:13px;color:${TX};margin-top:6px;line-height:1.45">${carEsc(m.interpretacion)}</div>`:""}
+    ${par}
+    <div style="margin-top:8px">${CAR_EXPERIMENTAL}</div>
+  </div>`;
+}
+// Tarjetas de una vista, en orden clínico, con izquierda y derecha juntas.
+function carTarjetas(metricas,vista){
+  if(!metricas.length)return carVacio("ti-chart-dots","Sin métricas en esta vista","Revisa los avisos de calidad y repite la grabación.");
+  const orden=CAR_ORDEN[vista]||[];
+  const LADOS=["ambos","izq","der"];
+  const lista=[...metricas].sort((a,b)=>(orden.indexOf(a.variable)-orden.indexOf(b.variable))||(LADOS.indexOf(a.lado)-LADOS.indexOf(b.lado)));
+  return`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px">${lista.map(m=>{
+    const otro=m.lado==="izq"?"der":m.lado==="der"?"izq":null;
+    const par=otro&&lista.find(x=>x.variable===m.variable&&x.lado===otro);
+    return carMetrica({...m,par:par?{valor:Number(par.valor),artefacto:par.artefacto}:null});
+  }).join("")}</div>`;
+}
+function carCalidadHTML(c){
+  if(!c)return"";
+  const lin=[`${c.fps_real||"—"} cuadros/s analizados`,`persona detectada en ${c.cuadros_pose_pct??"—"} % de los cuadros`];
+  if(c.contactos_izq!=null)lin.push(`${c.contactos_izq} apoyos izq · ${c.contactos_der} der`);
+  return`<div style="font-size:12px;color:${MU};margin:8px 0">${lin.join(" · ")}</div>
+    ${(c.avisos||[]).map(a=>`<div style="font-size:13px;color:${CAR_WAT};display:flex;gap:6px;margin:4px 0"><i class="ti ti-alert-triangle" aria-hidden="true"></i><span>${carEsc(a)}</span></div>`).join("")}`;
+}
+
+// ── Página ──────────────────────────────────────────────────────────────
+function pgCarrera(){
+  if(!carreraHabilitado()){
+    RR().innerHTML=nav()+`<div style="max-width:700px;margin:40px auto;padding:14px">${carVacio("ti-lock","Módulo en prueba","El análisis de carrera está en piloto y tu usuario no está en la lista de prueba.")}</div>`;
+    return;
+  }
+  RR().innerHTML=nav()+`<div class="car fade" style="max-width:1100px;margin:0 auto;padding:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <div><b style="font-size:18px;color:${TX}">🏃 Análisis de carrera</b>
+        <div style="font-size:13px;color:${MU}">Piloto con personal · solo pacientes de prueba («${CAR_PILOTO_PREFIJO} …»)</div></div>
+      ${CAR_EXPERIMENTAL}
+    </div>
+    <div id="car-cuerpo"></div>
+    ${STATE.carreraResponsable?`<div id="car-probadores" style="margin-top:18px"></div>`:""}
+  </div>`;
+  carDibujarCuerpo();
+  if(STATE.carreraResponsable)carProbadoresPanel();
+}
+function carEsPrueba(p){
+  const pre=CAR_PILOTO_PREFIJO.toUpperCase();
+  return String(p?.nombre||"").toUpperCase().startsWith(pre)||String(p?.apellido_paterno||"").toUpperCase().startsWith(pre);
+}
+function carNombre(p){return`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.replace(/\s+/g," ").trim();}
+function carDibujarCuerpo(){
+  const el=document.getElementById("car-cuerpo");if(!el)return;
+  // Si hay un expediente abierto y es de prueba, se toma de ahí.
+  if(!STATE.carPac&&STATE.pat&&carEsPrueba(STATE.pat))STATE.carPac=STATE.pat;
+  const p=STATE.carPac;
+  if(!p){
+    el.innerHTML=`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px">
+      ${fld("Paciente de prueba",`<input id="car-buscar" placeholder="Escribe parte del nombre" oninput="carBuscarPrueba()" style="width:100%;padding:10px 13px;border:1.5px solid ${CAR_BI};border-radius:8px;outline:none">`)}
+      <div style="font-size:12px;color:${MU};margin-top:6px">Durante el piloto solo aparecen expedientes cuyo nombre o primer apellido empieza con «${CAR_PILOTO_PREFIJO}». Para un integrante del personal, regístralo en Nuevo paciente como «${CAR_PILOTO_PREFIJO} Nombre».</div>
+      <div id="car-resultados" style="margin-top:12px"></div>
+    </div>`;
+    carBuscarPrueba();
+    return;
+  }
+  el.innerHTML=`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+    <div style="background:${PD};padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <b style="color:#fff;font-size:14px">${carEsc(carNombre(p))} <span style="font-weight:400;opacity:.8">· Exp. #${carEsc(p.numero_expediente||"—")}</span></b>
+      <div style="display:flex;gap:6px">${btn("Cambiar","STATE.carPac=null;carDibujarCuerpo()","s",1)}${btn('<i class="ti ti-camera" aria-hidden="true"></i> Nueva captura',"carCapturaAbrir()","p",1)}</div>
+    </div>
+    <div id="car-capturas" style="padding:14px"><p style="color:${MU};font-size:13px"><i class="ti ti-loader-2 spin" aria-hidden="true"></i> Cargando capturas…</p></div>
+  </div>`;
+  carCargarCapturas();
+}
+window.carBuscarPrueba=async function(){
+  const res=document.getElementById("car-resultados");if(!res)return;
+  const q=(gv("car-buscar")||"").trim().toUpperCase();
+  const {data,error}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente,fecha_nacimiento,sexo_biologico")
+    .or(`nombre.ilike.${CAR_PILOTO_PREFIJO}%,apellido_paterno.ilike.${CAR_PILOTO_PREFIJO}%`).limit(100);
+  if(error){res.innerHTML=`<p style="color:${DA};font-size:13px">No se pudo buscar: ${carEsc(error.message)}</p>`;return;}
+  const lista=(data||[]).filter(carEsPrueba).filter(p=>!q||carNombre(p).toUpperCase().includes(q));
+  STATE._carLista=lista;
+  res.innerHTML=lista.length?lista.map((p,i)=>`<button onclick="STATE.carPac=STATE._carLista[${i}];carDibujarCuerpo()" style="width:100%;display:flex;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid ${BR};border-radius:8px;background:#fff;cursor:pointer;margin-bottom:6px;text-align:left">
+      <span style="font-weight:600;color:${TX}">${carEsc(carNombre(p))}</span><span style="color:${MU};font-size:12px">Exp. #${carEsc(p.numero_expediente||"—")}</span></button>`).join("")
+    :carVacio("ti-user-search","No hay pacientes de prueba",`Registra al integrante del personal en Nuevo paciente con el nombre «${CAR_PILOTO_PREFIJO} …».`);
+};
+async function carCargarCapturas(){
+  const el=document.getElementById("car-capturas");if(!el||!STATE.carPac)return;
+  const {data,error}=await SB.from("carrera_evaluaciones")
+    .select("id,fecha,tipo,estado,created_at,carrera_analisis(id,vista,fuente,velocidad_kmh,video_fps,calidad,cuadros,carrera_mediciones(*))")
+    .eq("paciente_id",STATE.carPac.id).order("created_at",{ascending:false});
+  if(error){el.innerHTML=`<p style="color:${DA};font-size:13px">No se pudieron leer las capturas: ${carEsc(error.message)}</p>`;return;}
+  STATE._carCapturas=data||[];
+  if(!data.length){el.innerHTML=carVacio("ti-run","Sin capturas todavía","Graba la vista lateral y la posterior en la banda desde el teléfono.",btn('<i class="ti ti-camera" aria-hidden="true"></i> Nueva captura',"carCapturaAbrir()","p"));return;}
+  el.innerHTML=data.map((ev,i)=>{
+    const an=ev.carrera_analisis||[];
+    const meds=an.flatMap(a=>a.carrera_mediciones||[]);
+    const fuera=meds.filter(m=>["alterado","limitrofe"].includes(carEstado(m))).length,art=meds.filter(m=>m.artefacto).length;
+    return`<button onclick="carVerCaptura(${i})" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;border:1px solid ${BR};border-radius:10px;background:#fff;cursor:pointer;margin-bottom:8px;text-align:left;flex-wrap:wrap">
+      <span><b style="color:${TX}">${carEsc(ev.fecha)}</b> <span style="color:${MU};font-size:13px">· ${an.map(a=>a.vista==="sagital"?"lateral":"posterior").join(" + ")} · ${carNum(an[0]?.velocidad_kmh)} km/h</span></span>
+      <span style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px;color:${MU}">${meds.length} métricas${fuera?` · <span style="color:${CAR_WAT};font-weight:700">${fuera} fuera de rango</span>`:""}${art?` · ${art} artefactos`:""} ${CAR_EXPERIMENTAL}</span>
+    </button>`;
+  }).join("");
+}
+window.carVerCaptura=async function(i){
+  const ev=STATE._carCapturas?.[i];const el=document.getElementById("car-capturas");if(!ev||!el)return;
+  const an=[...(ev.carrera_analisis||[])].sort((a,b)=>a.vista==="sagital"?-1:1);
+  el.innerHTML=`<div style="margin-bottom:10px">${btn('<i class="ti ti-arrow-left" aria-hidden="true"></i> Capturas',"carCargarCapturas()","s",1)}</div>
+    ${carAvisoExperimental()}
+    ${an.map(a=>`<h3 style="font-size:14px;color:${TX};margin:14px 0 6px">${a.vista==="sagital"?"Vista lateral":"Vista posterior"} · ${carNum(a.velocidad_kmh)} km/h</h3>
+      ${carCalidadHTML(a.calidad)}
+      <div id="car-cuadros-${a.id}" style="display:flex;gap:8px;overflow-x:auto;margin:8px 0"></div>
+      ${carTarjetas(a.carrera_mediciones||[],a.vista)}`).join("")}`;
+  for(const a of an){
+    const box=document.getElementById("car-cuadros-"+a.id);if(!box)continue;
+    for(const q of (a.cuadros||[])){
+      const {data:u,error}=await SB.storage.from(q.bucket||CAR_BUCKET).createSignedUrl(q.storage_path,600);
+      box.insertAdjacentHTML("beforeend",error?`<div style="font-size:12px;color:${DA};padding:8px">No se pudo abrir ${carEsc(q.etiqueta||q.evento)}</div>`
+        :`<figure style="margin:0;flex-shrink:0"><img src="${carEsc(u.signedUrl)}" alt="${carEsc(q.etiqueta||q.evento)}" style="height:180px;border-radius:8px;border:1px solid ${BR};display:block"><figcaption style="font-size:12px;color:${MU};margin-top:4px">${carEsc(q.etiqueta||q.evento)}</figcaption></figure>`);
+    }
+  }
+};
+
+// ── Lista de usuarios de prueba (solo el responsable) ───────────────────
+async function carProbadoresPanel(){
+  const el=document.getElementById("car-probadores");if(!el)return;
+  const [{data:lista,error:e1},{data:us,error:e2}]=await Promise.all([
+    SB.from("carrera_probadores").select("usuario_id,es_responsable,created_at"),
+    SB.from("usuarios").select("id,nombre,apellidos,username,rol,activo").order("apellidos")]);
+  if(e1||e2){el.innerHTML=`<p style="color:${DA};font-size:13px">No se pudo leer la lista de prueba: ${carEsc((e1||e2).message)}</p>`;return;}
+  const ids=new Set(lista.map(x=>x.usuario_id));
+  const nom=id=>{const u=us.find(x=>x.id===id);return u?`${u.nombre||""} ${u.apellidos||""}`.trim()+` (${u.username||"—"})`:id;};
+  el.innerHTML=`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+    <div style="background:${PD};padding:10px 14px"><b style="color:#fff;font-size:14px">👥 Usuarios de prueba del módulo</b></div>
+    <div style="padding:14px">
+      ${lista.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #ECEFF1">
+        <span style="font-size:14px;color:${TX}">${carEsc(nom(x.usuario_id))}${x.es_responsable?` <span style="font-size:11px;font-weight:700;color:${P};background:${PL};border-radius:20px;padding:1px 8px">Responsable</span>`:""}</span>
+        ${x.es_responsable?"":btn('<i class="ti ti-user-minus" aria-hidden="true"></i> Quitar',`carProbadorQuitar('${x.usuario_id}')`,"s",1)}
+      </div>`).join("")}
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <select id="car-prob-nuevo" style="flex:1;min-width:220px;padding:9px 12px;border:1.5px solid ${CAR_BI};border-radius:8px;background:#fff">
+          <option value="">Agregar a…</option>
+          ${us.filter(u=>u.activo!==false&&!ids.has(u.id)).map(u=>`<option value="${u.id}">${carEsc(`${u.nombre||""} ${u.apellidos||""}`.trim())} · ${carEsc(u.rol||"")}</option>`).join("")}
+        </select>
+        ${btn('<i class="ti ti-user-plus" aria-hidden="true"></i> Agregar',"carProbadorAgregar()","p",1)}
+      </div>
+      <div style="font-size:12px;color:${MU};margin-top:8px">Quien esté en la lista ve el botón 🏃 Carrera y puede capturar y consultar pacientes de prueba. La base de datos aplica la misma lista.</div>
+    </div></div>`;
+}
+window.carProbadorAgregar=async function(){
+  const id=gv("car-prob-nuevo");if(!id){showToast("Elige a quién agregar",false);return;}
+  const {error}=await SB.from("carrera_probadores").insert({usuario_id:id});
+  if(error){showToast("No se agregó: "+error.message,false);return;}
+  logBitacora("CARRERA_PROBADOR_ALTA",`usuario ${id}`,null);
+  showToast("Agregado a la lista de prueba");carProbadoresPanel();
+};
+window.carProbadorQuitar=async function(id){
+  if(!await qpConfirm("¿Quitar a este usuario de la lista de prueba? Dejará de ver el módulo.",{title:"Usuarios de prueba",okLabel:"Quitar",danger:true}))return;
+  const {error,count}=await SB.from("carrera_probadores").delete({count:"exact"}).eq("usuario_id",id);
+  if(error){showToast("No se quitó: "+error.message,false);return;}
+  if(!count){showToast("No se quitó: la base no lo permitió",false);return;}
+  logBitacora("CARRERA_PROBADOR_BAJA",`usuario ${id}`,null);
+  showToast("Quitado de la lista de prueba");carProbadoresPanel();
+};
+
+// ══ CAPTURA GUIADA ═════════════════════════════════════════════════════
+// Siluetas dibujadas para este módulo (trazo grueso = silueta).
+const CAR_SILUETA={
+  sagital:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"><circle cx="112" cy="40" r="22" fill="#fff"/><path d="M108 72 L96 190"/><path d="M104 92 L132 140 L162 124"/><path d="M104 92 L76 140 L60 178"/><path d="M96 190 L136 268 L116 360 L144 366"/><path d="M96 190 L70 270 L36 314"/></g><path d="M10 372 H190" stroke="#fff" stroke-width="4" stroke-dasharray="10 8"/></svg>`,
+  frontal:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"><circle cx="100" cy="40" r="22" fill="#fff"/><path d="M100 70 V190"/><path d="M68 92 H132"/><path d="M68 92 L50 150 L56 196"/><path d="M132 92 L150 150 L144 196"/><path d="M80 190 L76 280 L80 366"/><path d="M120 190 L126 270 L118 330"/></g><path d="M100 10 V390" stroke="#fff" stroke-width="3" stroke-dasharray="8 8"/><path d="M10 372 H190" stroke="#fff" stroke-width="4" stroke-dasharray="10 8"/></svg>`,
+};
+const CAR_GUIA={
+  sagital:"LATERAL · teléfono de lado a la banda, a la altura de la cadera, a 2.5–3 m. Que se vea el cuerpo completo, de la cabeza a los pies.",
+  frontal:"POSTERIOR · teléfono detrás del corredor, centrado, a la altura de la cadera, a 2.5–3 m. Cuerpo completo, pies incluidos.",
+};
+
+window.carCapturaAbrir=async function(){
+  if(!STATE.carPac||!carEsPrueba(STATE.carPac)){showToast("Elige primero un paciente de prueba",false);return;}
+  // Talla: el último signo vital (puede venir en m o en cm)
+  let talla="";
+  const {data:sv}=await SB.from("signos_vitales").select("talla,fecha").eq("paciente_id",STATE.carPac.id).not("talla","is",null).order("fecha",{ascending:false}).limit(1);
+  if(sv&&sv[0]&&Number(sv[0].talla)>0){const t=Number(sv[0].talla);talla=t<3?Math.round(t*100):Math.round(t);}
+  CAR={paso:"config",talla,velocidad:"10.0",vista:"sagital",res:{}};
+  const ov=document.createElement("div");ov.id="car-captura";ov.className="car";
+  ov.style.cssText="position:fixed;inset:0;z-index:9998;background:#0F1A20;color:#fff;display:flex;flex-direction:column;overflow:auto";
+  document.body.appendChild(ov);
+  carCapturaDibujar();
+};
+function carOpcionesVelocidad(sel){let h="";for(let i=40;i<=200;i++){const v=(i/10).toFixed(1);h+=`<option value="${v}" ${v===sel?"selected":""}>${v} km/h</option>`;}return h;}
+function carCapturaDibujar(){
+  const ov=document.getElementById("car-captura");if(!ov)return;
+  const cab=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:${PD};flex-shrink:0">
+    <b style="font-size:15px;color:#fff">🏃 ${carEsc(carNombre(STATE.carPac))}</b>
+    <button onclick="carCapturaCerrar()" aria-label="Cerrar captura" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:7px;color:#fff;padding:5px 10px;cursor:pointer">✕</button></div>`;
+  if(CAR.paso==="config"){
+    ov.innerHTML=cab+`<div style="padding:18px;max-width:520px;margin:0 auto;width:100%">
+      ${carAvisoExperimental()}
+      <label class="fld-label" for="car-vel" style="color:#CFD8DC">Velocidad de la banda</label>
+      <select id="car-vel" style="width:100%;padding:12px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:18px;margin-bottom:14px">${carOpcionesVelocidad(CAR.velocidad)}</select>
+      <label class="fld-label" for="car-talla" style="color:#CFD8DC">Talla del paciente (cm)</label>
+      <input id="car-talla" type="number" inputmode="numeric" min="100" max="230" value="${CAR.talla}" placeholder="Ej. 172" style="width:100%;padding:12px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:18px;margin-bottom:6px">
+      <div style="font-size:12px;color:#B0BEC5;margin-bottom:18px">Se usa para estimar distancias en centímetros. ${CAR.talla?"Tomada del último registro de signos vitales.":""}</div>
+      <div style="font-size:13px;color:#ECEFF1;line-height:1.5;margin-bottom:18px">Se harán dos grabaciones de ${CAR_SEG_GRABACION} s: primero <b>LATERAL</b> y luego <b>POSTERIOR</b>. El video no sale del teléfono: se analiza aquí y se descarta.</div>
+      <button onclick="carAbrirCamara()" style="width:100%;padding:14px;border:none;border-radius:10px;background:${P};color:#fff;font-size:16px;font-weight:700;cursor:pointer"><i class="ti ti-camera" aria-hidden="true"></i> Abrir cámara</button>
+    </div>`;
+    return;
+  }
+  if(CAR.paso==="camara"){
+    const v=CAR.vista;
+    ov.innerHTML=cab+`<div style="position:relative;flex:1;min-height:0;background:#000" id="car-escena">
+      <video id="car-vivo" playsinline muted autoplay style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain"></video>
+      <img id="car-silueta" alt="" src="data:image/svg+xml,${encodeURIComponent(CAR_SILUETA[v])}" style="position:absolute;left:50%;top:50%;height:86%;transform:translate(-50%,-50%);opacity:.32;pointer-events:none">
+      <canvas id="car-lienzo" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
+      <div id="car-hud" style="position:absolute;left:10px;right:10px;top:10px;display:flex;flex-direction:column;gap:6px;pointer-events:none"></div>
+      <div id="car-cuenta" aria-live="assertive" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:120px;font-weight:800;text-shadow:0 2px 12px #000;pointer-events:none"></div>
+    </div>
+    <div style="padding:10px 14px;background:#16252D;flex-shrink:0">
+      <div style="font-size:13px;color:#ECEFF1;margin-bottom:8px">${carEsc(CAR_GUIA[v])}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span id="car-fps" style="font-size:12px;color:#B0BEC5"></span>
+        <span style="font-size:12px;color:#B0BEC5">· ${CAR.velocidad} km/h</span>
+        <button id="car-grabar" onclick="carGrabar()" style="margin-left:auto;padding:12px 18px;border:none;border-radius:10px;background:${DA};color:#fff;font-size:15px;font-weight:700;cursor:pointer"><i class="ti ti-player-record" aria-hidden="true"></i> Grabar ${v==="sagital"?"LATERAL":"POSTERIOR"} (${CAR_SEG_GRABACION} s)</button>
+      </div>
+    </div>`;
+    const vid=document.getElementById("car-vivo");vid.srcObject=CAR.stream;vid.play().catch(()=>{});
+    const s=CAR.stream.getVideoTracks()[0].getSettings();
+    document.getElementById("car-fps").textContent=`Cámara: ${Math.round(s.frameRate||0)} cuadros/s${(s.frameRate||0)<50?" (este teléfono no da 60)":""} · ${s.width||"?"}×${s.height||"?"}`;
+    carVivoIniciar();
+    return;
+  }
+  if(CAR.paso==="analizando"){
+    ov.innerHTML=cab+`<div style="padding:30px 18px;max-width:520px;margin:0 auto;width:100%;text-align:center">
+      <i class="ti ti-loader-2 spin" style="font-size:40px;color:#24B1DA" aria-hidden="true"></i>
+      <div style="font-size:16px;font-weight:700;margin:12px 0 6px">Analizando vista ${CAR.vista==="sagital"?"lateral":"posterior"} en el teléfono…</div>
+      <div id="car-prog-txt" style="font-size:13px;color:#B0BEC5">Cargando…</div>
+      <div style="height:8px;background:#263238;border-radius:4px;margin-top:14px;overflow:hidden"><div id="car-prog" style="height:100%;width:0;background:#24B1DA;transition:width .2s"></div></div>
+      <div style="font-size:12px;color:#B0BEC5;margin-top:14px">No cierres esta pantalla. El video no se sube a ningún servidor.</div>
+    </div>`;
+    return;
+  }
+  if(CAR.paso==="revision"){
+    const r=CAR.res[CAR.vista];
+    const siguiente=CAR.vista==="sagital";
+    ov.innerHTML=cab+`<div style="padding:16px;max-width:900px;margin:0 auto;width:100%;background:#F0F4F8;color:${TX};border-radius:10px;margin-top:12px">
+      <h2 style="font-size:16px;margin-bottom:6px">Vista ${CAR.vista==="sagital"?"lateral":"posterior"}: ${r.ok?`${r.metricas.length} métricas`:"sin resultado"}</h2>
+      ${carCalidadHTML(r.calidad)}
+      <div style="display:flex;gap:8px;overflow-x:auto;margin:10px 0">${(r.cuadros||[]).map(q=>`<figure style="margin:0;flex-shrink:0"><img src="${q.url}" alt="${carEsc(q.etiqueta)}" style="height:150px;border-radius:8px;border:1px solid ${BR};display:block"><figcaption style="font-size:12px;color:${MU}">${carEsc(q.etiqueta)}</figcaption></figure>`).join("")}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px">
+        ${btn('<i class="ti ti-refresh" aria-hidden="true"></i> Repetir esta vista',"carRepetirVista()","s")}
+        ${siguiente?btn('Continuar con POSTERIOR <i class="ti ti-arrow-right" aria-hidden="true"></i>',"carSiguienteVista()","p"):btn('Ver resultados <i class="ti ti-arrow-right" aria-hidden="true"></i>',"carVerResultados()","p")}
+      </div></div>`;
+    return;
+  }
+  if(CAR.paso==="resultados"){
+    ov.style.background="#F0F4F8";ov.style.color=TX;
+    const bloques=["sagital","frontal"].filter(v=>CAR.res[v]).map(v=>{const r=CAR.res[v];return`<h3 style="font-size:15px;color:${TX};margin:16px 0 4px">${v==="sagital"?"Vista lateral":"Vista posterior"} · ${CAR.velocidad} km/h</h3>
+      ${carCalidadHTML(r.calidad)}
+      <div style="display:flex;gap:8px;overflow-x:auto;margin:8px 0">${(r.cuadros||[]).map(q=>`<figure style="margin:0;flex-shrink:0"><img src="${q.url}" alt="${carEsc(q.etiqueta)}" style="height:160px;border-radius:8px;border:1px solid ${BR};display:block"><figcaption style="font-size:12px;color:${MU}">${carEsc(q.etiqueta)}</figcaption></figure>`).join("")}</div>
+      ${carTarjetas(r.metricas,v)}`;}).join("");
+    ov.innerHTML=cab+`<div style="padding:14px;max-width:1100px;margin:0 auto;width:100%">${carAvisoExperimental()}${bloques}</div>
+      <div class="sticky-save">${btn("Descartar","carDescartar()","s")}${btn("💾 Guardar en el expediente de prueba","carGuardarCaptura()","ok")}</div>`;
+  }
+}
+
+// ── Cámara, nivel y encuadre ────────────────────────────────────────────
+window.carAbrirCamara=async function(){
+  CAR.velocidad=gv("car-vel");
+  const t=parseFloat(gv("car-talla"));CAR.talla=t>=100&&t<=230?t:null;
+  if(!CAR.talla&&!await qpConfirm("Sin talla no se calculan las distancias en centímetros (sobrezancada, oscilación, ancho de paso). ¿Continuar así?",{title:"Talla",okLabel:"Continuar"}))return;
+  // iOS pide permiso para leer el nivel, y solo dentro de un toque del usuario
+  try{if(typeof DeviceMotionEvent!=="undefined"&&DeviceMotionEvent.requestPermission)await DeviceMotionEvent.requestPermission();}catch(e){}
+  if(!navigator.mediaDevices?.getUserMedia){showToast("Este navegador no da acceso a la cámara",false);return;}
+  // 60 cuadros/s como ideal, sin mínimo: un mínimo que la cámara no alcanza (poca luz) la deja sin abrir.
+  const pedir=video=>navigator.mediaDevices.getUserMedia({audio:false,video});
+  try{
+    try{CAR.stream=await pedir({facingMode:{ideal:"environment"},frameRate:{ideal:60},width:{ideal:1280},height:{ideal:720}});}
+    catch(e){if(e.name!=="OverconstrainedError")throw e;CAR.stream=await pedir({facingMode:{ideal:"environment"}});}
+  }catch(e){showToast("No se pudo abrir la cámara: "+(e.name==="NotAllowedError"?"permiso negado":e.message),false);return;}
+  CAR.nivel={roll:null,pitch:null,ts:0};
+  CAR.onMotion=ev=>{
+    const g=ev.accelerationIncludingGravity;if(!g||g.x==null)return;
+    const ang=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
+    const vertical=Math.abs(ang)%180===0?Math.abs(g.y):Math.abs(g.x),lateral=Math.abs(ang)%180===0?Math.abs(g.x):Math.abs(g.y);
+    CAR.nivel={roll:Math.atan2(lateral,vertical)*180/Math.PI,pitch:Math.atan2(Math.abs(g.z),Math.hypot(g.x,g.y))*180/Math.PI,ts:performance.now()};
+  };
+  window.addEventListener("devicemotion",CAR.onMotion);
+  CAR.paso="camara";carCapturaDibujar();
+  carPoseCargar().catch(e=>carHud([{tipo:"error",txt:"No se pudo cargar el modelo de pose: "+e.message}]));
+};
+// MediaPipe se carga solo cuando se usa (unos 10 MB la primera vez; luego el navegador lo guarda).
+async function carPoseCargar(){
+  if(CAR_POSE.lmk)return CAR_POSE.lmk;
+  if(!CAR_POSE.prom){
+    CAR_POSE.prom=(async()=>{
+      const mp=await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${CAR_MP_VER}/vision_bundle.mjs`);
+      const fs=await mp.FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${CAR_MP_VER}/wasm`);
+      const crear=delegate=>mp.PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:CAR_MP_MODELO,delegate},runningMode:"VIDEO",numPoses:1});
+      try{CAR_POSE.lmk=await crear("GPU");}catch(e){CAR_POSE.lmk=await crear("CPU");}
+      return CAR_POSE.lmk;
+    })();
+    CAR_POSE.prom.catch(()=>{CAR_POSE.prom=null;});
+  }
+  return CAR_POSE.prom;
+}
+const CAR_POSE={lmk:null,prom:null,ts:0};
+// MediaPipe en modo VIDEO exige marcas de tiempo siempre crecientes, también entre grabaciones.
+function carPoseTs(){CAR_POSE.ts=Math.max(CAR_POSE.ts+1,performance.now());return CAR_POSE.ts;}
+function carRectVideo(v){
+  const W=v.clientWidth,H=v.clientHeight,vw=v.videoWidth||1,vh=v.videoHeight||1,s=Math.min(W/vw,H/vh);
+  return{x:(W-vw*s)/2,y:(H-vh*s)/2,w:vw*s,h:vh*s};
+}
+function carHud(items){
+  const h=document.getElementById("car-hud");if(!h)return;
+  h.innerHTML=items.map(i=>`<div style="align-self:flex-start;background:${i.tipo==="ok"?"rgba(27,94,32,.85)":i.tipo==="error"?"rgba(183,28,28,.9)":"rgba(191,54,12,.9)"};color:#fff;font-size:14px;font-weight:600;padding:6px 10px;border-radius:8px"><i class="ti ${i.tipo==="ok"?"ti-circle-check":"ti-alert-triangle"}" aria-hidden="true"></i> ${carEsc(i.txt)}</div>`).join("");
+}
+function carEncuadre(lm){
+  if(!lm)return[{tipo:"aviso",txt:"No se ve a la persona"}];
+  const av=[];const fuera=i=>{const p=lm[i];return!p||(p.visibility??1)<0.5||p.x<0.02||p.x>0.98||p.y<0.02||p.y>0.98;};
+  if([29,30,31,32].some(fuera))av.push({tipo:"aviso",txt:"Los pies no caben: aléjate o baja el teléfono"});
+  if([11,12].some(fuera))av.push({tipo:"aviso",txt:"Los hombros no caben: aléjate o sube el teléfono"});
+  const top=Math.min(lm[0].y,lm[11].y,lm[12].y),pie=Math.max(lm[29].y,lm[30].y,lm[31].y,lm[32].y);
+  if(!av.length&&pie-top<0.45)av.push({tipo:"aviso",txt:"El cuerpo se ve pequeño: acércate"});
+  return av;
+}
+function carNivelAvisos(){
+  const n=CAR.nivel;
+  if(!n||!n.ts||performance.now()-n.ts>1500)return[{tipo:"aviso",txt:"No se puede leer el nivel del teléfono: usa tripié y revisa que esté derecho"}];
+  const av=[];
+  if(n.roll>3)av.push({tipo:"aviso",txt:`Teléfono inclinado ${Math.round(n.roll)}° hacia un lado: enderézalo`});
+  if(n.pitch>10)av.push({tipo:"aviso",txt:`Teléfono inclinado ${Math.round(n.pitch)}° hacia adelante o atrás`});
+  return av;
+}
+function carDibujarEsqueleto(ctx,lm,rect,{grosor=3,colorIzq="#24B1DA",colorDer="#FFB74D"}={}){
+  const P_=i=>[rect.x+lm[i].x*rect.w,rect.y+lm[i].y*rect.h];
+  ctx.lineCap="round";
+  for(const [a,b] of CAR_HUESOS){
+    if((lm[a].visibility??1)<0.3||(lm[b].visibility??1)<0.3)continue;
+    const izq=a%2===1&&b%2===1;   // índices impares = lado izquierdo en MediaPipe
+    ctx.strokeStyle="rgba(0,0,0,.6)";ctx.lineWidth=grosor+3;ctx.beginPath();ctx.moveTo(...P_(a));ctx.lineTo(...P_(b));ctx.stroke();
+    ctx.strokeStyle=(a===11&&b===12)||(a===23&&b===24)?"#fff":izq?colorIzq:colorDer;ctx.lineWidth=grosor;ctx.beginPath();ctx.moveTo(...P_(a));ctx.lineTo(...P_(b));ctx.stroke();
+  }
+}
+// Vista previa: esqueleto simple y avisos, 1 de cada 3 cuadros (solo para encuadrar).
+function carVivoIniciar(){
+  const v=document.getElementById("car-vivo"),cv=document.getElementById("car-lienzo");if(!v||!cv)return;
+  CAR.vivo=true;let n=0;
+  const paso=async()=>{
+    if(!CAR.vivo||!document.getElementById("car-vivo"))return;
+    n++;
+    if(n%3===0&&CAR_POSE.lmk&&v.readyState>=2&&!CAR.analizando){
+      const r=CAR_POSE.lmk.detectForVideo(v,carPoseTs());
+      const lm=r.landmarks?.[0];
+      cv.width=cv.clientWidth;cv.height=cv.clientHeight;
+      const ctx=cv.getContext("2d");ctx.clearRect(0,0,cv.width,cv.height);
+      if(lm)carDibujarEsqueleto(ctx,lm,carRectVideo(v),{grosor:2,colorIzq:"#fff",colorDer:"#fff"});
+      if(!CAR.grabando){const av=[...carNivelAvisos(),...carEncuadre(lm)];carHud(av.length?av:[{tipo:"ok",txt:"Nivel y encuadre correctos"}]);}
+    }else if(!CAR_POSE.lmk&&!CAR.grabando&&n%15===0)carHud([{tipo:"aviso",txt:"Cargando modelo de pose…"},...carNivelAvisos()]);
+    if(v.requestVideoFrameCallback)v.requestVideoFrameCallback(paso);else requestAnimationFrame(paso);
+  };
+  paso();
+}
+function carMimeGrabacion(){
+  for(const m of["video/mp4;codecs=avc1","video/mp4","video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"])
+    if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m))return m;
+  return"";
+}
+window.carGrabar=async function(){
+  if(CAR.grabando)return;
+  if(!window.MediaRecorder){showToast("Este navegador no puede grabar video",false);return;}
+  if(!HTMLVideoElement.prototype.requestVideoFrameCallback){showToast("Este navegador no permite analizar cuadro por cuadro. Usa Chrome o Safari actualizados.",false);return;}
+  const b=document.getElementById("car-grabar");if(b)b.disabled=true;
+  const cuenta=document.getElementById("car-cuenta");cuenta.style.display="flex";
+  for(const n of[3,2,1]){cuenta.textContent=n;await new Promise(r=>setTimeout(r,1000));}
+  const mime=carMimeGrabacion(),trozos=[];
+  let rec;try{rec=new MediaRecorder(CAR.stream,mime?{mimeType:mime,videoBitsPerSecond:8000000}:{videoBitsPerSecond:8000000});}
+  catch(e){cuenta.style.display="none";if(b)b.disabled=false;showToast("No se pudo iniciar la grabación: "+e.message,false);return;}
+  rec.ondataavailable=e=>{if(e.data&&e.data.size)trozos.push(e.data);};
+  const fin=new Promise(r=>rec.onstop=r);
+  CAR.grabando=true;rec.start(1000);
+  const t0=performance.now();
+  carHud([{tipo:"error",txt:"● Grabando"}]);
+  const reloj=setInterval(()=>{const q=CAR_SEG_GRABACION-Math.floor((performance.now()-t0)/1000);cuenta.textContent=Math.max(0,q);cuenta.style.fontSize="72px";},200);
+  setTimeout(()=>{try{rec.stop();}catch(e){}},CAR_SEG_GRABACION*1000);
+  await fin;clearInterval(reloj);CAR.grabando=false;cuenta.style.display="none";cuenta.style.fontSize="120px";
+  const blob=new Blob(trozos,{type:rec.mimeType||mime||"video/webm"});
+  if(!blob.size){showToast("La grabación quedó vacía. Intenta de nuevo.",false);if(b)b.disabled=false;return;}
+  CAR.fpsCamara=CAR.stream.getVideoTracks()[0].getSettings().frameRate||null;
+  CAR.analizando=true;CAR.paso="analizando";carCapturaDibujar();
+  try{CAR.res[CAR.vista]=await carAnalizarGrabacion(blob,CAR.vista);}
+  catch(e){CAR.res[CAR.vista]={ok:false,metricas:[],cuadros:[],calidad:{avisos:["El análisis falló: "+e.message]}};}
+  CAR.analizando=false;CAR.paso="revision";carCapturaDibujar();
+};
+
+// ── Análisis de la grabación (en el teléfono) ───────────────────────────
+function carProgreso(f,txt){const b=document.getElementById("car-prog"),t=document.getElementById("car-prog-txt");if(b)b.style.width=Math.round(f*100)+"%";if(t)t.textContent=txt;}
+function carVideoDeBlob(blob){
+  const v=document.createElement("video");v.muted=true;v.playsInline=true;v.preload="auto";
+  v.src=URL.createObjectURL(blob);
+  return new Promise((res,rej)=>{v.onloadeddata=()=>res(v);v.onerror=()=>rej(new Error("no se pudo leer la grabación"));});
+}
+async function carAnalizarGrabacion(blob,vista){
+  carProgreso(0,"Cargando el modelo de pose…");
+  const lmk=await carPoseCargar();
+  const v=await carVideoDeBlob(blob);
+  const fps=CAR.fpsCamara||30,dur=CAR_SEG_GRABACION;
+  // Paso 1: reproducir despacio y detectar la pose en cada cuadro presentado.
+  // La velocidad se ajusta sola para que el teléfono alcance a procesar cada cuadro.
+  const frames=[];
+  await new Promise((res,rej)=>{
+    let rate=0.25;v.playbackRate=rate;
+    const cb=(ahora,meta)=>{
+      const t0=performance.now();
+      const r=lmk.detectForVideo(v,carPoseTs());
+      const ms=performance.now()-t0;
+      const lm=r.landmarks?.[0];
+      frames.push({t:meta.mediaTime,lm:lm?lm.map(p=>[p.x,p.y,p.visibility??1]):null});
+      const necesaria=(1/fps)/(ms/1000*1.3);
+      if(necesaria<rate){rate=Math.max(0.1,necesaria);v.playbackRate=rate;}
+      carProgreso(Math.min(0.85,meta.mediaTime/dur*0.85),`Cuadro ${frames.length} · ${Math.round(meta.mediaTime*10)/10} de ${dur} s`);
+      if(!v.ended)v.requestVideoFrameCallback(cb);
+    };
+    v.requestVideoFrameCallback(cb);
+    v.onended=()=>res();v.onerror=()=>rej(new Error("se interrumpió la lectura del video"));
+    v.play().catch(rej);
+  });
+  const W=v.videoWidth,H=v.videoHeight;
+  const r=carAnalizar(frames,{vista,W,H,talla_cm:CAR.talla,velocidad_kmh:parseFloat(CAR.velocidad)});
+  if(CAR.fpsCamara&&r.calidad.fps_real<CAR.fpsCamara*0.8)r.calidad.avisos.push(`El teléfono solo alcanzó a analizar ${r.calidad.fps_real} de ${Math.round(CAR.fpsCamara)} cuadros/s.`);
+  r.calidad.fps_camara=CAR.fpsCamara?Math.round(CAR.fpsCamara):null;
+  // Paso 2: volver a reproducir para sacar los cuadros clave con el esqueleto.
+  carProgreso(0.88,"Preparando cuadros clave…");
+  r.cuadros=r.ok?await carSacarCuadros(v,frames,r.cuadrosClave,vista):[];
+  URL.revokeObjectURL(v.src);v.removeAttribute("src");v.load();   // el video se descarta aquí
+  carProgreso(1,"Listo");
+  return r;
+}
+function carFrameMasCercano(frames,t){let m=null,d=Infinity;for(const f of frames){const x=Math.abs(f.t-t);if(f.lm&&x<d){d=x;m=f;}}return m;}
+async function carSacarCuadros(v,frames,objetivos,vista){
+  if(!objetivos.length)return[];
+  const pend=[...objetivos].sort((a,b)=>a.t-b.t),salida=[];
+  v.currentTime=0;v.playbackRate=1;
+  await new Promise(res=>{
+    const cb=(ahora,meta)=>{
+      while(pend.length&&meta.mediaTime>=pend[0].t-0.004){
+        const o=pend.shift();salida.push(carCuadroJPG(v,carFrameMasCercano(frames,meta.mediaTime),o,vista));
+      }
+      if(pend.length&&!v.ended)v.requestVideoFrameCallback(cb);else res();
+    };
+    v.requestVideoFrameCallback(cb);v.onended=()=>res();
+    v.play().catch(()=>res());
+  });
+  return (await Promise.all(salida)).filter(Boolean);
+}
+// Cuadro JPG: imagen + esqueleto + cara pixelada + leyenda «Experimental».
+function carCuadroJPG(v,f,obj,vista){
+  const lado=Math.max(v.videoWidth,v.videoHeight),k=Math.min(1,1280/lado);
+  const c=document.createElement("canvas");c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);
+  const ctx=c.getContext("2d");ctx.drawImage(v,0,0,c.width,c.height);
+  if(f&&f.lm){
+    const lm=f.lm.map(([x,y,vis])=>({x,y,visibility:vis}));
+    // Cara: caja de los puntos 0–10, ampliada, en mosaico de 12 px
+    const cara=lm.slice(0,11).filter(p=>p.visibility>0.2);
+    if(cara.length){
+      const xs=cara.map(p=>p.x*c.width),ys=cara.map(p=>p.y*c.height);
+      const w=(Math.max(...xs)-Math.min(...xs))||c.width*0.06,cx=(Math.max(...xs)+Math.min(...xs))/2,cy=(Math.max(...ys)+Math.min(...ys))/2,s=Math.max(w*2.2,c.width*0.08);
+      const x0=Math.max(0,cx-s/2),y0=Math.max(0,cy-s/1.6),ww=Math.min(c.width-x0,s),hh=Math.min(c.height-y0,s*1.25);
+      if(ww>0&&hh>0){const t=document.createElement("canvas");t.width=Math.max(1,Math.round(ww/12));t.height=Math.max(1,Math.round(hh/12));
+        t.getContext("2d").drawImage(c,x0,y0,ww,hh,0,0,t.width,t.height);ctx.imageSmoothingEnabled=false;ctx.drawImage(t,0,0,t.width,t.height,x0,y0,ww,hh);ctx.imageSmoothingEnabled=true;}
+    }
+    carDibujarEsqueleto(ctx,lm,{x:0,y:0,w:c.width,h:c.height},{grosor:Math.max(3,Math.round(c.width/220))});
+  }
+  const fs=Math.max(14,Math.round(c.width/45));
+  ctx.fillStyle="rgba(0,0,0,.6)";ctx.fillRect(0,c.height-fs*2.4,c.width,fs*2.4);
+  ctx.fillStyle="#fff";ctx.font=`700 ${fs}px system-ui,sans-serif`;ctx.fillText(`${obj.etiqueta} · ${CAR.velocidad} km/h`,fs*0.6,c.height-fs*1.25);
+  ctx.fillStyle="#FFB74D";ctx.font=`600 ${Math.round(fs*0.8)}px system-ui,sans-serif`;ctx.fillText("EXPERIMENTAL, EN VALIDACIÓN · izq. azul / der. naranja",fs*0.6,c.height-fs*0.35);
+  return new Promise(res=>c.toBlob(b=>res(b?{...obj,vista,blob:b,url:URL.createObjectURL(b)}:null),"image/jpeg",0.82));
+}
+
+window.carRepetirVista=function(){
+  (CAR.res[CAR.vista]?.cuadros||[]).forEach(q=>URL.revokeObjectURL(q.url));
+  delete CAR.res[CAR.vista];CAR.paso="camara";carCapturaDibujar();
+};
+window.carSiguienteVista=function(){CAR.vista="frontal";CAR.paso="camara";carCapturaDibujar();};
+window.carVerResultados=function(){
+  CAR.vivo=false;
+  if(CAR.stream)CAR.stream.getTracks().forEach(t=>t.stop());CAR.stream=null;
+  CAR.paso="resultados";carCapturaDibujar();
+};
+function carLiberar(){
+  CAR.vivo=false;
+  if(CAR.stream)CAR.stream.getTracks().forEach(t=>t.stop());
+  if(CAR.onMotion)window.removeEventListener("devicemotion",CAR.onMotion);
+  Object.values(CAR.res||{}).forEach(r=>(r.cuadros||[]).forEach(q=>q.url&&URL.revokeObjectURL(q.url)));
+  document.getElementById("car-captura")?.remove();
+  CAR={};
+}
+window.carCapturaCerrar=async function(){
+  const hay=Object.keys(CAR.res||{}).length;
+  if(hay&&!await qpConfirm("Se perderá la captura sin guardar. ¿Cerrar?",{title:"Captura de carrera",okLabel:"Cerrar sin guardar",danger:true}))return;
+  carLiberar();
+};
+window.carDescartar=async function(){
+  if(!await qpConfirm("¿Descartar esta captura? No se guardará nada.",{title:"Captura de carrera",okLabel:"Descartar",danger:true}))return;
+  carLiberar();
+};
+
+// ── Guardar: métricas + cuadros clave (nunca el video) ──────────────────
+window.carGuardarCaptura=async function(){
+  const pac=STATE.carPac;if(!pac||!carEsPrueba(pac)){showToast("Solo se guardan capturas de pacientes de prueba",false);return;}
+  const vistas=["sagital","frontal"].filter(v=>CAR.res[v]&&CAR.res[v].ok);
+  if(!vistas.length){showToast("No hay resultados que guardar",false);return;}
+  loading(true,"Guardando captura…");
+  const previas=(STATE._carCapturas||[]).length;
+  const {data:ev,error:e1}=await SB.from("carrera_evaluaciones").insert({
+    paciente_id:pac.id,medico_id:STATE.userProfile?.id||null,sede:sedeActiva(),
+    tipo:previas?"reanalisis":"inicial",motivo:"Piloto: análisis automático en el teléfono (experimental)",estado:"borrador"
+  }).select("id").single();
+  if(e1){loading(false);showToast("No se guardó nada: "+e1.message,false);return;}
+  // Si algo de la base falla a la mitad, se borra la evaluación (arrastra lo demás) para no dejar medias capturas.
+  const deshacer=async msg=>{
+    const {error:eDel}=await SB.from("carrera_evaluaciones").delete().eq("id",ev.id);
+    loading(false);
+    showToast(eDel?`No se guardó completa (${msg}) y no se pudo limpiar: revisa la captura del ${new Date().toLocaleDateString("es-MX")}`:`No se guardó nada: ${msg}`,false);
+  };
+  const ids={};
+  for(const v of vistas){
+    const r=CAR.res[v];
+    const {data:an,error:e2}=await SB.from("carrera_analisis").insert({
+      evaluacion_id:ev.id,paciente_id:pac.id,vista:v,actividad:"carrera",fuente:"motor_propio",
+      velocidad_kmh:parseFloat(CAR.velocidad),video_fps:r.calidad.fps_camara||r.calidad.fps_real||null,
+      motor_version:CAR_MOTOR_VERSION,calidad:r.calidad,estado:"listo"
+    }).select("id").single();
+    if(e2){await deshacer(e2.message);return;}
+    ids[v]=an.id;
+    const filas=r.metricas.map(m=>({analisis_id:an.id,variable:m.variable,lado:m.lado,valor:m.valor,unidad:m.unidad,
+      rango_clinica_min:m.rango_clinica_min,rango_clinica_max:m.rango_clinica_max,
+      interpretacion:m.interpretacion||null,artefacto:!!m.artefacto,motivo_correccion:m.motivo_correccion||null}));
+    if(filas.length){
+      const {error:e3}=await SB.from("carrera_mediciones").insert(filas);
+      if(e3){await deshacer(e3.message);return;}
+    }
+  }
+  // Cuadros clave a Storage. Si alguno falla, las métricas se quedan y se dice cuántos faltaron.
+  let subidos=0,fallidos=0;
+  for(const v of vistas){
+    const cuadros=[];
+    for(const q of (CAR.res[v].cuadros||[])){
+      const path=`${pac.id}/${ids[v]}/${q.evento}_${q.lado}.jpg`;
+      const {error}=await SB.storage.from(CAR_BUCKET).upload(path,q.blob,{contentType:"image/jpeg",upsert:false});
+      if(error){fallidos++;continue;}
+      subidos++;cuadros.push({evento:q.evento,lado:q.lado,t:Math.round(q.t*1000)/1000,etiqueta:q.etiqueta,bucket:CAR_BUCKET,storage_path:path});
+    }
+    if(cuadros.length){
+      const {error:e4}=await SB.from("carrera_analisis").update({cuadros}).eq("id",ids[v]);
+      if(e4){fallidos+=cuadros.length;subidos-=cuadros.length;}
+    }
+  }
+  loading(false);
+  logBitacora("CARRERA_CAPTURA",`${vistas.join("+")} · ${CAR.velocidad} km/h · ${subidos} cuadros`,pac.id);
+  carLiberar();
+  showToast(fallidos?`Métricas guardadas; ${fallidos} cuadro(s) clave no se subieron`:"Captura guardada (métricas y cuadros clave)",!fallidos);
+  carCargarCapturas();
+};
 </script>
 </body>
 </html>
