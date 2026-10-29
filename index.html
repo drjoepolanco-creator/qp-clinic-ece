@@ -23535,7 +23535,7 @@ function navCarrera(){
   if(STATE.userProfile&&STATE.carreraProbador===undefined)setTimeout(carreraCargarPermiso,0);
   if(!carreraHabilitado())return`<span id="nav-carrera"></span>`;
   const a=STATE.page==="carrera";
-  return`<button id="nav-carrera" onclick="go('carrera')" style="padding:0 11px;height:46px;border:none;background:${a?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;white-space:nowrap;border-bottom:${a?"3px solid #64B5F6":"3px solid transparent"}">🏃 Carrera</button>`;
+  return`<button id="nav-carrera" onclick="go('carrera')" style="padding:0 11px;height:46px;border:none;background:${a?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${a?"3px solid #64B5F6":"3px solid transparent"}">Carrera</button>`;
 }
 
 // ── Piezas visuales (design/components.md) ──────────────────────────────
@@ -23746,7 +23746,7 @@ async function carProbadoresPanel(){
         </select>
         ${btn('<i class="ti ti-user-plus" aria-hidden="true"></i> Agregar',"carProbadorAgregar()","p",1)}
       </div>
-      <div style="font-size:12px;color:${MU};margin-top:8px">Quien esté en la lista ve el botón 🏃 Carrera y puede capturar y consultar pacientes de prueba. La base de datos aplica la misma lista.</div>
+      <div style="font-size:12px;color:${MU};margin-top:8px">Quien esté en la lista ve el botón «Carrera» y puede capturar y consultar pacientes de prueba. La base de datos aplica la misma lista.</div>
     </div></div>`;
 }
 window.carProbadorAgregar=async function(){
