@@ -23497,10 +23497,12 @@ function carAnalizar(frames,opts){
 //   2. Solo lo ven los usuarios de carrera_probadores (CARRERA_2_piloto.sql);
 //      la base lo hace cumplir con políticas restrictivas, no solo el botón.
 //   3. Todo resultado automático va marcado «Experimental, en validación».
-// Además, mientras dure el piloto solo se capturan pacientes de prueba: los
-// que tienen nombre o apellido paterno empezando con CAR_PILOTO_PREFIJO.
+// Funciona como Ejercicio: sobre el expediente abierto. Con CAR_SOLO_PRUEBA
+// en true solo deja grabar pacientes cuyo nombre o apellido paterno empieza
+// con CAR_PILOTO_PREFIJO (regla de la app; la base no la aplica).
 // ══════════════════════════════════════════════════════════════════════════
 
+const CAR_SOLO_PRUEBA=false;
 const CAR_PILOTO_PREFIJO="PRUEBA";
 const CAR_SEG_GRABACION=15;
 const CAR_BUCKET="carrera";   // bucket privado propio (CARRERA_3_bucket.sql), no «expedientes»
@@ -23535,7 +23537,7 @@ function navCarrera(){
   if(STATE.userProfile&&STATE.carreraProbador===undefined)setTimeout(carreraCargarPermiso,0);
   if(!carreraHabilitado())return`<span id="nav-carrera"></span>`;
   const a=STATE.page==="carrera";
-  return`<button id="nav-carrera" onclick="go('carrera')" style="padding:0 11px;height:46px;border:none;background:${a?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${a?"3px solid #64B5F6":"3px solid transparent"}">Carrera</button>`;
+  return`<button id="nav-carrera" onclick="STATE.carVer=null;go('carrera')" style="padding:0 11px;height:46px;border:none;background:${a?"rgba(255,255,255,.15)":"transparent"};color:#fff;cursor:pointer;font-size:14px;border-bottom:${a?"3px solid #64B5F6":"3px solid transparent"}">Carrera</button>`;
 }
 
 // ── Piezas visuales (design/components.md) ──────────────────────────────
@@ -23629,71 +23631,70 @@ function carCalidadHTML(c){
 }
 
 // ── Página ──────────────────────────────────────────────────────────────
+// Igual que Ejercicio: trabaja sobre el expediente abierto (STATE.pat). Sin
+// expediente abierto manda al buscador de Pacientes del ECE; con uno abierto
+// entra directo. Dentro: lista de pruebas → una prueba, con «←» para volver.
+const CAR_VOLVER_ST=`background:${PL};color:${P};border:1.5px solid #B3E5FC;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:700`;
+function carCabecera(volver,accion,titulo,sub,derecha=""){
+  return`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button onclick="${accion}" style="${CAR_VOLVER_ST}">← ${volver}</button>
+      <div><h2 style="font-size:18px;font-weight:800;color:${TX}">${titulo}</h2>
+      <p style="font-size:13px;color:${MU}">${sub}</p></div>
+    </div>${derecha}
+  </div>`;
+}
 function pgCarrera(){
   if(!carreraHabilitado()){
     RR().innerHTML=nav()+`<div style="max-width:700px;margin:40px auto;padding:14px">${carVacio("ti-lock","Módulo en prueba","El análisis de carrera está en piloto y tu usuario no está en la lista de prueba.")}</div>`;
     return;
   }
-  RR().innerHTML=nav()+`<div class="car fade" style="max-width:1100px;margin:0 auto;padding:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <div><b style="font-size:18px;color:${TX}">🏃 Análisis de carrera</b>
-        <div style="font-size:13px;color:${MU}">Piloto con personal · solo pacientes de prueba («${CAR_PILOTO_PREFIJO} …»)</div></div>
-      ${CAR_EXPERIMENTAL}
-    </div>
+  const p=STATE.pat||{};
+  if(!p.id){
+    STATE.carPac=null;STATE.carVer=null;
+    RR().innerHTML=nav()+`<div style="max-width:520px;margin:60px auto;text-align:center;background:#fff;border-radius:14px;padding:36px;box-shadow:0 1px 6px #00000012" class="fade">
+      <p style="font-size:44px">🏃</p><h3 style="font-size:17px;font-weight:800;color:${TX};margin:8px 0">Abre un expediente primero</h3>
+      <button onclick="go('buscar')" style="background:${P};color:#fff;border:none;border-radius:9px;padding:11px 22px;font-weight:700;cursor:pointer">🔍 Buscar paciente →</button></div>
+      ${STATE.carreraResponsable?`<div class="car" style="max-width:1100px;margin:0 auto;padding:0 16px 16px"><div id="car-probadores"></div></div>`:""}`;
+    if(STATE.carreraResponsable)carProbadoresPanel();
+    return;
+  }
+  if(STATE.carPac?.id!==p.id)STATE.carVer=null;
+  STATE.carPac=p;
+  RR().innerHTML=nav()+`<div class="car fade" style="max-width:1100px;margin:0 auto;padding:16px">
     <div id="car-cuerpo"></div>
-    ${STATE.carreraResponsable?`<div id="car-probadores" style="margin-top:18px"></div>`:""}
+    ${STATE.carreraResponsable&&STATE.carVer==null?`<div id="car-probadores" style="margin-top:18px"></div>`:""}
   </div>`;
-  carDibujarCuerpo();
-  if(STATE.carreraResponsable)carProbadoresPanel();
+  if(STATE.carVer!=null)carDibujarPrueba();else carDibujarPaciente();
+  if(STATE.carreraResponsable&&STATE.carVer==null)carProbadoresPanel();
 }
 function carEsPrueba(p){
+  if(!CAR_SOLO_PRUEBA)return true;
   const pre=CAR_PILOTO_PREFIJO.toUpperCase();
   return String(p?.nombre||"").toUpperCase().startsWith(pre)||String(p?.apellido_paterno||"").toUpperCase().startsWith(pre);
 }
 function carNombre(p){return`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.replace(/\s+/g," ").trim();}
-function carDibujarCuerpo(){
+function carDibujarPaciente(){
   const el=document.getElementById("car-cuerpo");if(!el)return;
-  // Si hay un expediente abierto y es de prueba, se toma de ahí.
-  if(!STATE.carPac&&STATE.pat&&carEsPrueba(STATE.pat))STATE.carPac=STATE.pat;
   const p=STATE.carPac;
-  if(!p){
-    el.innerHTML=`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;padding:16px">
-      ${fld("Paciente de prueba",`<input id="car-buscar" placeholder="Escribe parte del nombre" oninput="carBuscarPrueba()" style="width:100%;padding:10px 13px;border:1.5px solid ${CAR_BI};border-radius:8px;outline:none">`)}
-      <div style="font-size:12px;color:${MU};margin-top:6px">Durante el piloto solo aparecen expedientes cuyo nombre o primer apellido empieza con «${CAR_PILOTO_PREFIJO}». Para un integrante del personal, regístralo en Nuevo paciente como «${CAR_PILOTO_PREFIJO} Nombre».</div>
-      <div id="car-resultados" style="margin-top:12px"></div>
+  el.innerHTML=carCabecera("Expediente","go('expediente')","🏃 Análisis de carrera",
+      `${carEsc(carNombre(p))} · Exp. #${carEsc(p.numero_expediente||"—")}`,
+      `<button id="car-nueva" onclick="carCapturaAbrir()" style="background:${P};color:#fff;border:none;border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer"><i class="ti ti-player-record" aria-hidden="true"></i> Nueva prueba</button>`)
+    +`<div style="background:#fff;border-radius:12px;box-shadow:0 1px 6px #00000012;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid ${BR};background:#F8FAFB;padding:10px 16px">
+        <b style="font-size:14px;color:${TX}">Pruebas</b>${CAR_EXPERIMENTAL}</div>
+      <div id="car-capturas" style="padding:16px"><p style="color:${MU};font-size:13px"><i class="ti ti-loader-2 spin" aria-hidden="true"></i> Cargando pruebas…</p></div>
     </div>`;
-    carBuscarPrueba();
-    return;
-  }
-  el.innerHTML=`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
-    <div style="background:${PD};padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <b style="color:#fff;font-size:14px">${carEsc(carNombre(p))} <span style="font-weight:400;opacity:.8">· Exp. #${carEsc(p.numero_expediente||"—")}</span></b>
-      <div style="display:flex;gap:6px">${btn("Cambiar","STATE.carPac=null;carDibujarCuerpo()","s",1)}${btn('<i class="ti ti-camera" aria-hidden="true"></i> Nueva captura',"carCapturaAbrir()","p",1)}</div>
-    </div>
-    <div id="car-capturas" style="padding:14px"><p style="color:${MU};font-size:13px"><i class="ti ti-loader-2 spin" aria-hidden="true"></i> Cargando capturas…</p></div>
-  </div>`;
   carCargarCapturas();
 }
-window.carBuscarPrueba=async function(){
-  const res=document.getElementById("car-resultados");if(!res)return;
-  const q=(gv("car-buscar")||"").trim().toUpperCase();
-  const {data,error}=await SB.from("pacientes").select("id,nombre,apellido_paterno,apellido_materno,numero_expediente,fecha_nacimiento,sexo_biologico")
-    .or(`nombre.ilike.${CAR_PILOTO_PREFIJO}%,apellido_paterno.ilike.${CAR_PILOTO_PREFIJO}%`).limit(100);
-  if(error){res.innerHTML=`<p style="color:${DA};font-size:13px">No se pudo buscar: ${carEsc(error.message)}</p>`;return;}
-  const lista=(data||[]).filter(carEsPrueba).filter(p=>!q||carNombre(p).toUpperCase().includes(q));
-  STATE._carLista=lista;
-  res.innerHTML=lista.length?lista.map((p,i)=>`<button onclick="STATE.carPac=STATE._carLista[${i}];carDibujarCuerpo()" style="width:100%;display:flex;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid ${BR};border-radius:8px;background:#fff;cursor:pointer;margin-bottom:6px;text-align:left">
-      <span style="font-weight:600;color:${TX}">${carEsc(carNombre(p))}</span><span style="color:${MU};font-size:12px">Exp. #${carEsc(p.numero_expediente||"—")}</span></button>`).join("")
-    :carVacio("ti-user-search","No hay pacientes de prueba",`Registra al integrante del personal en Nuevo paciente con el nombre «${CAR_PILOTO_PREFIJO} …».`);
-};
 async function carCargarCapturas(){
   const el=document.getElementById("car-capturas");if(!el||!STATE.carPac)return;
   const {data,error}=await SB.from("carrera_evaluaciones")
     .select("id,fecha,tipo,estado,created_at,carrera_analisis(id,vista,fuente,velocidad_kmh,video_fps,calidad,cuadros,carrera_mediciones(*))")
     .eq("paciente_id",STATE.carPac.id).order("created_at",{ascending:false});
-  if(error){el.innerHTML=`<p style="color:${DA};font-size:13px">No se pudieron leer las capturas: ${carEsc(error.message)}</p>`;return;}
+  if(error){el.innerHTML=`<p style="color:${DA};font-size:13px">No se pudieron leer las pruebas: ${carEsc(error.message)}</p>`;return;}
   STATE._carCapturas=data||[];
-  if(!data.length){el.innerHTML=carVacio("ti-run","Sin capturas todavía","Graba la vista lateral y la posterior en la banda desde el teléfono.",btn('<i class="ti ti-camera" aria-hidden="true"></i> Nueva captura',"carCapturaAbrir()","p"));return;}
+  if(!data.length){el.innerHTML=carVacio("ti-run","Sin pruebas todavía","Con «Nueva prueba» se graba la vista lateral y la posterior en la banda desde el teléfono.");return;}
   el.innerHTML=data.map((ev,i)=>{
     const an=ev.carrera_analisis||[];
     const meds=an.flatMap(a=>a.carrera_mediciones||[]);
@@ -23704,15 +23705,21 @@ async function carCargarCapturas(){
     </button>`;
   }).join("");
 }
-window.carVerCaptura=async function(i){
-  const ev=STATE._carCapturas?.[i];const el=document.getElementById("car-capturas");if(!ev||!el)return;
+window.carVerCaptura=function(i){if(!STATE._carCapturas?.[i])return;STATE.carVer=i;pgCarrera();window.scrollTo(0,0);};
+window.carVolverPaciente=function(){STATE.carVer=null;pgCarrera();};
+async function carDibujarPrueba(){
+  const el=document.getElementById("car-cuerpo");if(!el)return;
+  const ev=STATE._carCapturas?.[STATE.carVer];
+  if(!ev){STATE.carVer=null;pgCarrera();return;}
   const an=[...(ev.carrera_analisis||[])].sort((a,b)=>a.vista==="sagital"?-1:1);
-  el.innerHTML=`<div style="margin-bottom:10px">${btn('<i class="ti ti-arrow-left" aria-hidden="true"></i> Capturas',"carCargarCapturas()","s",1)}</div>
+  el.innerHTML=carCabecera("Volver al paciente","carVolverPaciente()",`Prueba del ${carEsc(ev.fecha)}`,
+      `${carEsc(carNombre(STATE.carPac))} · ${an.map(a=>a.vista==="sagital"?"lateral":"posterior").join(" + ")} · ${carNum(an[0]?.velocidad_kmh)} km/h`,CAR_EXPERIMENTAL)
+    +`<div id="car-prueba" style="background:#fff;border-radius:12px;box-shadow:0 1px 6px #00000012;padding:16px">
     ${carAvisoExperimental()}
     ${an.map(a=>`<h3 style="font-size:14px;color:${TX};margin:14px 0 6px">${a.vista==="sagital"?"Vista lateral":"Vista posterior"} · ${carNum(a.velocidad_kmh)} km/h</h3>
       ${carCalidadHTML(a.calidad)}
       <div id="car-cuadros-${a.id}" style="display:flex;gap:8px;overflow-x:auto;margin:8px 0"></div>
-      ${carTarjetas(a.carrera_mediciones||[],a.vista)}`).join("")}`;
+      ${carTarjetas(a.carrera_mediciones||[],a.vista)}`).join("")}</div>`;
   for(const a of an){
     const box=document.getElementById("car-cuadros-"+a.id);if(!box)continue;
     for(const q of (a.cuadros||[])){
@@ -23721,7 +23728,7 @@ window.carVerCaptura=async function(i){
         :`<figure style="margin:0;flex-shrink:0"><img src="${carEsc(u.signedUrl)}" alt="${carEsc(q.etiqueta||q.evento)}" style="height:180px;border-radius:8px;border:1px solid ${BR};display:block"><figcaption style="font-size:12px;color:${MU};margin-top:4px">${carEsc(q.etiqueta||q.evento)}</figcaption></figure>`);
     }
   }
-};
+}
 
 // ── Lista de usuarios de prueba (solo el responsable) ───────────────────
 async function carProbadoresPanel(){
@@ -23746,7 +23753,7 @@ async function carProbadoresPanel(){
         </select>
         ${btn('<i class="ti ti-user-plus" aria-hidden="true"></i> Agregar',"carProbadorAgregar()","p",1)}
       </div>
-      <div style="font-size:12px;color:${MU};margin-top:8px">Quien esté en la lista ve el botón «Carrera» y puede capturar y consultar pacientes de prueba. La base de datos aplica la misma lista.</div>
+      <div style="font-size:12px;color:${MU};margin-top:8px">Quien esté en la lista ve el botón «Carrera» y puede hacer y consultar pruebas. La base de datos aplica la misma lista.</div>
     </div></div>`;
 }
 window.carProbadorAgregar=async function(){
@@ -23777,33 +23784,37 @@ const CAR_GUIA={
 };
 
 window.carCapturaAbrir=async function(){
-  if(!STATE.carPac||!carEsPrueba(STATE.carPac)){showToast("Elige primero un paciente de prueba",false);return;}
-  // Talla: el último signo vital (puede venir en m o en cm)
-  let talla="";
-  const {data:sv}=await SB.from("signos_vitales").select("talla,fecha").eq("paciente_id",STATE.carPac.id).not("talla","is",null).order("fecha",{ascending:false}).limit(1);
-  if(sv&&sv[0]&&Number(sv[0].talla)>0){const t=Number(sv[0].talla);talla=t<3?Math.round(t*100):Math.round(t);}
-  CAR={paso:"config",talla,velocidad:"10.0",vista:"sagital",res:{}};
+  if(!STATE.carPac){showToast("Selecciona un paciente primero",false);return;}
+  if(!carEsPrueba(STATE.carPac)){showToast(`Durante el piloto solo se graban expedientes «${CAR_PILOTO_PREFIJO} …»`,false);return;}
+  // iOS pide permiso para leer el nivel, y solo dentro del toque: antes de cualquier await de red
+  const permisoNivel=(typeof DeviceMotionEvent!=="undefined"&&DeviceMotionEvent.requestPermission)?DeviceMotionEvent.requestPermission().catch(()=>{}):null;
+  CAR={paso:"abriendo",talla:"",velocidad:"10.0",vista:"sagital",res:{}};
   const ov=document.createElement("div");ov.id="car-captura";ov.className="car";
   ov.style.cssText="position:fixed;inset:0;z-index:9998;background:#0F1A20;color:#fff;display:flex;flex-direction:column;overflow:auto";
   document.body.appendChild(ov);
   carCapturaDibujar();
+  // Talla: el último signo vital (puede venir en m o en cm); se corrige en la pantalla de la cámara
+  SB.from("signos_vitales").select("talla,fecha").eq("paciente_id",STATE.carPac.id).not("talla","is",null).order("fecha",{ascending:false}).limit(1)
+    .then(({data:sv})=>{
+      if(!sv||!sv[0]||!(Number(sv[0].talla)>0)||CAR.talla)return;
+      const t=Number(sv[0].talla);CAR.talla=t<3?Math.round(t*100):Math.round(t);
+      const i=document.getElementById("car-talla");if(i&&!i.value)i.value=CAR.talla;
+    });
+  if(permisoNivel)await permisoNivel;
+  await carAbrirCamara();
 };
 function carOpcionesVelocidad(sel){let h="";for(let i=40;i<=200;i++){const v=(i/10).toFixed(1);h+=`<option value="${v}" ${v===sel?"selected":""}>${v} km/h</option>`;}return h;}
 function carCapturaDibujar(){
   const ov=document.getElementById("car-captura");if(!ov)return;
-  const cab=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:${PD};flex-shrink:0">
-    <b style="font-size:15px;color:#fff">🏃 ${carEsc(carNombre(STATE.carPac))}</b>
-    <button onclick="carCapturaCerrar()" aria-label="Cerrar captura" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:7px;color:#fff;padding:5px 10px;cursor:pointer">✕</button></div>`;
-  if(CAR.paso==="config"){
-    ov.innerHTML=cab+`<div style="padding:18px;max-width:520px;margin:0 auto;width:100%">
-      ${carAvisoExperimental()}
-      <label class="fld-label" for="car-vel" style="color:#CFD8DC">Velocidad de la banda</label>
-      <select id="car-vel" style="width:100%;padding:12px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:18px;margin-bottom:14px">${carOpcionesVelocidad(CAR.velocidad)}</select>
-      <label class="fld-label" for="car-talla" style="color:#CFD8DC">Talla del paciente (cm)</label>
-      <input id="car-talla" type="number" inputmode="numeric" min="100" max="230" value="${CAR.talla}" placeholder="Ej. 172" style="width:100%;padding:12px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:18px;margin-bottom:6px">
-      <div style="font-size:12px;color:#B0BEC5;margin-bottom:18px">Se usa para estimar distancias en centímetros. ${CAR.talla?"Tomada del último registro de signos vitales.":""}</div>
-      <div style="font-size:13px;color:#ECEFF1;line-height:1.5;margin-bottom:18px">Se harán dos grabaciones de ${CAR_SEG_GRABACION} s: primero <b>LATERAL</b> y luego <b>POSTERIOR</b>. El video no sale del teléfono: se analiza aquí y se descarta.</div>
-      <button onclick="carAbrirCamara()" style="width:100%;padding:14px;border:none;border-radius:10px;background:${P};color:#fff;font-size:16px;font-weight:700;cursor:pointer"><i class="ti ti-camera" aria-hidden="true"></i> Abrir cámara</button>
+  const cab=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${PD};flex-shrink:0">
+    <button id="car-volver" onclick="carCapturaCerrar()" style="${CAR_VOLVER_ST};flex-shrink:0">← Volver al paciente</button>
+    <div style="min-width:0"><b style="font-size:15px;color:#fff">Nueva prueba</b>
+    <div style="font-size:12px;color:#B0BEC5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${carEsc(carNombre(STATE.carPac))}</div></div></div>`;
+  if(CAR.paso==="abriendo"||CAR.paso==="sincamara"){
+    ov.innerHTML=cab+`<div style="padding:30px 18px;max-width:520px;margin:0 auto;width:100%;text-align:center">
+      ${CAR.paso==="abriendo"?`<i class="ti ti-loader-2 spin" style="font-size:36px;color:#24B1DA" aria-hidden="true"></i><div style="margin-top:10px;font-size:15px">Abriendo la cámara…</div>`
+        :`<i class="ti ti-camera-off" style="font-size:36px;color:#FFB74D" aria-hidden="true"></i><div style="margin:10px 0 16px;font-size:15px">${carEsc(CAR.errorCamara||"No se pudo abrir la cámara")}</div>
+          <button onclick="CAR.paso='abriendo';carCapturaDibujar();carAbrirCamara()" style="padding:12px 20px;border:none;border-radius:10px;background:${P};color:#fff;font-size:15px;font-weight:700;cursor:pointer"><i class="ti ti-refresh" aria-hidden="true"></i> Reintentar</button>`}
     </div>`;
     return;
   }
@@ -23818,9 +23829,15 @@ function carCapturaDibujar(){
     </div>
     <div style="padding:10px 14px;background:#16252D;flex-shrink:0">
       <div style="font-size:13px;color:#ECEFF1;margin-bottom:8px">${carEsc(CAR_GUIA[v])}</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
+        <label style="font-size:12px;color:#CFD8DC">Velocidad de la banda<br>
+          <select id="car-vel" onchange="CAR.velocidad=this.value" style="padding:8px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:16px;margin-top:3px">${carOpcionesVelocidad(CAR.velocidad)}</select></label>
+        <label style="font-size:12px;color:#CFD8DC">Talla (cm)<br>
+          <input id="car-talla" type="number" inputmode="numeric" min="100" max="230" value="${CAR.talla||""}" placeholder="Ej. 172" onchange="CAR.talla=this.value" style="width:96px;padding:8px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:16px;margin-top:3px"></label>
+        <span style="font-size:11px;color:#90A4AE;flex-basis:100%">Sin talla no se calculan las distancias en cm. El video no sale del teléfono.</span>
+      </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span id="car-fps" style="font-size:12px;color:#B0BEC5"></span>
-        <span style="font-size:12px;color:#B0BEC5">· ${CAR.velocidad} km/h</span>
         <button id="car-grabar" onclick="carGrabar()" style="margin-left:auto;padding:12px 18px;border:none;border-radius:10px;background:${DA};color:#fff;font-size:15px;font-weight:700;cursor:pointer"><i class="ti ti-player-record" aria-hidden="true"></i> Grabar ${v==="sagital"?"LATERAL":"POSTERIOR"} (${CAR_SEG_GRABACION} s)</button>
       </div>
     </div>`;
@@ -23860,24 +23877,22 @@ function carCapturaDibujar(){
       <div style="display:flex;gap:8px;overflow-x:auto;margin:8px 0">${(r.cuadros||[]).map(q=>`<figure style="margin:0;flex-shrink:0"><img src="${q.url}" alt="${carEsc(q.etiqueta)}" style="height:160px;border-radius:8px;border:1px solid ${BR};display:block"><figcaption style="font-size:12px;color:${MU}">${carEsc(q.etiqueta)}</figcaption></figure>`).join("")}</div>
       ${carTarjetas(r.metricas,v)}`;}).join("");
     ov.innerHTML=cab+`<div style="padding:14px;max-width:1100px;margin:0 auto;width:100%">${carAvisoExperimental()}${bloques}</div>
-      <div class="sticky-save">${btn("Descartar","carDescartar()","s")}${btn("💾 Guardar en el expediente de prueba","carGuardarCaptura()","ok")}</div>`;
+      <div class="sticky-save">${btn("Descartar","carDescartar()","s")}${btn("💾 Guardar en el expediente","carGuardarCaptura()","ok")}</div>`;
   }
 }
 
 // ── Cámara, nivel y encuadre ────────────────────────────────────────────
 window.carAbrirCamara=async function(){
-  CAR.velocidad=gv("car-vel");
-  const t=parseFloat(gv("car-talla"));CAR.talla=t>=100&&t<=230?t:null;
-  if(!CAR.talla&&!await qpConfirm("Sin talla no se calculan las distancias en centímetros (sobrezancada, oscilación, ancho de paso). ¿Continuar así?",{title:"Talla",okLabel:"Continuar"}))return;
-  // iOS pide permiso para leer el nivel, y solo dentro de un toque del usuario
-  try{if(typeof DeviceMotionEvent!=="undefined"&&DeviceMotionEvent.requestPermission)await DeviceMotionEvent.requestPermission();}catch(e){}
-  if(!navigator.mediaDevices?.getUserMedia){showToast("Este navegador no da acceso a la cámara",false);return;}
+  const sinCam=m=>{if(!document.getElementById("car-captura"))return;CAR.errorCamara=m;CAR.paso="sincamara";carCapturaDibujar();};
+  if(!navigator.mediaDevices?.getUserMedia){sinCam("Este navegador no da acceso a la cámara");return;}
   // 60 cuadros/s como ideal, sin mínimo: un mínimo que la cámara no alcanza (poca luz) la deja sin abrir.
   const pedir=video=>navigator.mediaDevices.getUserMedia({audio:false,video});
   try{
     try{CAR.stream=await pedir({facingMode:{ideal:"environment"},frameRate:{ideal:60},width:{ideal:1280},height:{ideal:720}});}
     catch(e){if(e.name!=="OverconstrainedError")throw e;CAR.stream=await pedir({facingMode:{ideal:"environment"}});}
-  }catch(e){showToast("No se pudo abrir la cámara: "+(e.name==="NotAllowedError"?"permiso negado":e.message),false);return;}
+  }catch(e){sinCam("No se pudo abrir la cámara: "+(e.name==="NotAllowedError"?"permiso negado":e.message));return;}
+  // Si salió mientras se abría la cámara, apagarla
+  if(!document.getElementById("car-captura")){CAR.stream.getTracks().forEach(t=>t.stop());CAR.stream=null;return;}
   CAR.nivel={roll:null,pitch:null,ts:0};
   CAR.onMotion=ev=>{
     const g=ev.accelerationIncludingGravity;if(!g||g.x==null)return;
@@ -23885,7 +23900,8 @@ window.carAbrirCamara=async function(){
     const vertical=Math.abs(ang)%180===0?Math.abs(g.y):Math.abs(g.x),lateral=Math.abs(ang)%180===0?Math.abs(g.x):Math.abs(g.y);
     CAR.nivel={roll:Math.atan2(lateral,vertical)*180/Math.PI,pitch:Math.atan2(Math.abs(g.z),Math.hypot(g.x,g.y))*180/Math.PI,ts:performance.now()};
   };
-  window.addEventListener("devicemotion",CAR.onMotion);
+  if(CAR.onMotion0)window.removeEventListener("devicemotion",CAR.onMotion0);
+  CAR.onMotion0=CAR.onMotion;window.addEventListener("devicemotion",CAR.onMotion);
   CAR.paso="camara";carCapturaDibujar();
   carPoseCargar().catch(e=>carHud([{tipo:"error",txt:"No se pudo cargar el modelo de pose: "+e.message}]));
 };
@@ -23968,6 +23984,8 @@ function carMimeGrabacion(){
 }
 window.carGrabar=async function(){
   if(CAR.grabando)return;
+  const vel=gv("car-vel");if(vel)CAR.velocidad=vel;
+  const t=parseFloat(gv("car-talla"));CAR.talla=t>=100&&t<=230?t:null;
   if(!window.MediaRecorder){showToast("Este navegador no puede grabar video",false);return;}
   if(!HTMLVideoElement.prototype.requestVideoFrameCallback){showToast("Este navegador no permite analizar cuadro por cuadro. Usa Chrome o Safari actualizados.",false);return;}
   const b=document.getElementById("car-grabar");if(b)b.disabled=true;
@@ -24098,20 +24116,20 @@ function carLiberar(){
 }
 window.carCapturaCerrar=async function(){
   const hay=Object.keys(CAR.res||{}).length;
-  if(hay&&!await qpConfirm("Se perderá la captura sin guardar. ¿Cerrar?",{title:"Captura de carrera",okLabel:"Cerrar sin guardar",danger:true}))return;
+  if(hay&&!await qpConfirm("Se perderá la prueba sin guardar. ¿Volver al paciente?",{title:"Nueva prueba",okLabel:"Salir sin guardar",danger:true}))return;
   carLiberar();
 };
 window.carDescartar=async function(){
-  if(!await qpConfirm("¿Descartar esta captura? No se guardará nada.",{title:"Captura de carrera",okLabel:"Descartar",danger:true}))return;
+  if(!await qpConfirm("¿Descartar esta prueba? No se guardará nada.",{title:"Nueva prueba",okLabel:"Descartar",danger:true}))return;
   carLiberar();
 };
 
 // ── Guardar: métricas + cuadros clave (nunca el video) ──────────────────
 window.carGuardarCaptura=async function(){
-  const pac=STATE.carPac;if(!pac||!carEsPrueba(pac)){showToast("Solo se guardan capturas de pacientes de prueba",false);return;}
+  const pac=STATE.carPac;if(!pac||!carEsPrueba(pac)){showToast(`Durante el piloto solo se guardan expedientes «${CAR_PILOTO_PREFIJO} …»`,false);return;}
   const vistas=["sagital","frontal"].filter(v=>CAR.res[v]&&CAR.res[v].ok);
   if(!vistas.length){showToast("No hay resultados que guardar",false);return;}
-  loading(true,"Guardando captura…");
+  loading(true,"Guardando prueba…");
   const previas=(STATE._carCapturas||[]).length;
   const {data:ev,error:e1}=await SB.from("carrera_evaluaciones").insert({
     paciente_id:pac.id,medico_id:STATE.userProfile?.id||null,sede:sedeActiva(),
@@ -24160,8 +24178,8 @@ window.carGuardarCaptura=async function(){
   loading(false);
   logBitacora("CARRERA_CAPTURA",`${vistas.join("+")} · ${CAR.velocidad} km/h · ${subidos} cuadros`,pac.id);
   carLiberar();
-  showToast(fallidos?`Métricas guardadas; ${fallidos} cuadro(s) clave no se subieron`:"Captura guardada (métricas y cuadros clave)",!fallidos);
-  carCargarCapturas();
+  showToast(fallidos?`Métricas guardadas; ${fallidos} cuadro(s) clave no se subieron`:"Prueba guardada (métricas y cuadros clave)",!fallidos);
+  STATE.carVer=null;if(STATE.page==="carrera")pgCarrera();
 };
 </script>
 </body>
