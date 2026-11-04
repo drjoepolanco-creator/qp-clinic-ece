@@ -10262,8 +10262,9 @@ async function pgConsulta(){
         <div id="cardsoap-expl" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px #00000012;display:flex;flex-direction:column${(CAMPOS_OCULTOS_NOTA[c.tipo_nota||""]||[]).includes('expl')?';display:none':''}">
           <div style="padding:9px 13px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
             <b style="font-size:14px;color:${TX}">🫀 Exploración física</b>
-            <span style="font-size:14px;color:${MU};background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA puede sugerir en este campo</span>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${esDrPolanco()?`<button type="button" onclick="toggleEFPlant()" title="Plantillas de exploración física y tratamiento (basadas en GPC)" style="background:${PL};color:${P};border:1px solid #B3E5FC;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:13px;font-weight:600">📑 Plantillas</button>`:""}<span style="font-size:14px;color:${MU};background:#F3E5F5;padding:2px 8px;border-radius:20px">🤖 IA puede sugerir en este campo</span></div>
           </div>
+          ${efPlantPanelHTML()}
           <div style="padding:12px;flex:1;display:flex;flex-direction:column">
             <div style="position:relative;flex:1;display:flex;flex-direction:column">
               <textarea id="cs_expl" placeholder="La IA puede sugerir hallazgos a buscar. El médico completa con los encontrados..." style="flex:1;min-height:180px;width:100%;padding:10px 40px 10px 13px;border:1.5px solid ${BR};border-radius:8px;resize:vertical;outline:none;font-family:inherit;line-height:1.5;font-size:14px">${c.exploracion_fisica||""}</textarea>
@@ -10467,6 +10468,506 @@ async function pgConsulta(){
     setTimeout(()=>showToast(`Signos vitales de enfermería cargados${h?" ("+h+")":""}`),400);
   }
 }
+// ── PLANTILLAS DE EXPLORACIÓN FÍSICA (solo Dr. Polanco) ───────────────────
+// Mismo patrón que las plantillas de ultrasonido: categoría → padecimiento →
+// el texto se agrega al recuadro «Exploración física» de la nota. Cada plantilla
+// trae exploración, tratamiento fisioterapéutico, recomendaciones de la GPC y la
+// leyenda «Basado en las guías de práctica clínica». Los textos salen de las notas
+// del Dr. Polanco (sin nombres ni datos de pacientes); «___» = dato por completar.
+// Para editar un texto: buscar su nombre en EF_PLANTILLAS más abajo.
+function esDrPolanco(){
+  const u=STATE.userProfile||{};
+  const e=String(STATE.user?.email||u.email||"").toLowerCase().trim();
+  const n=String(u.username||"").toLowerCase().trim();
+  return /^drjoepolanco(\+[a-z0-9]+)?@gmail\.com$/.test(e)||n==="dr..jose.alan.polanco.fierro";
+}
+// Los controles del panel van sin id a propósito: agCampos() (autoguardado) recoge
+// todo input/textarea/select con id, y la vista previa no debe entrar al borrador.
+function efq(k){return document.querySelector('#ef-plant-panel [data-efp="'+k+'"]');}
+const EF_PLANTILLAS={
+ "Columna": {
+  "Cervicalgia / esguince cervical": {
+   "ef": "A la exploración física arcos de movimiento activos de cuello flexión 80°, extensión 55°, rotaciones 70° bilateral, flexiones laterales 35° bilateral. Arcos de movimiento de hombros completos. Dolor a la digitopresión de trapecio y esternocleidomastoideo ___. Maniobra de Séze negativa para neurotensión. Maniobras de Speed, Yergason y Gerber negativas. Maniobra de Romberg negativa. Fuerza de musculatura de cuello y miembros torácicos 5/5 en la escala de Daniels, reflejos de estiramiento muscular 2/4. Sensibilidad conservada en todos los dermatomas. Función de pinza fina término-terminal del primero con el segundo y del primero con tercero al quinto dedos de ambas manos conservada; pinza gruesa cilíndrica y esférica conservadas. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a región cervical.\nCorrientes interferenciales 80-150 Hz.\nMasoterapia descontracturante de trapecios y paravertebrales cervicales.\nEstiramientos de musculatura cervical y cintura escapular.\nEjercicios isométricos cervicales y de estabilización escapular.\nHigiene de columna y ergonomía.\nAgendar cita en un mes.",
+   "recs": [
+    "Ejercicio activo de movilidad y estiramiento de cuello y músculos escapulares en fase aguda (Grado A); en fase crónica combinado con estiramientos (Grado B).",
+    "Crioterapia en las primeras 48 horas (Grado D); después, calor superficial en la zona afectada durante 20 minutos (Grado C).",
+    "Electroterapia, termoterapia, masaje y ultrasonido como complemento cuando no hay mejoría solo con ejercicio (Grado C); la movilización pasiva debe combinarse con ejercicios activos (Grado C).",
+    "Evitar el collarín y el reposo; es preferible continuar con las actividades de la vida diaria (Grado A/B).",
+    "Educación al paciente con videos o material impreso (Grado B).",
+    "Programa en casa: flexión, inclinación lateral y rotación de cuello y ejercicios de hombros, 10 repeticiones, tres veces al día (Grado C).",
+    "Referir ante datos de alarma: signos neurológicos, parestesias en manos, vértigo o dolor de más de 3 meses con tratamiento (IMSS-629-13)."
+   ],
+   "guia": "GPC «Atención del paciente con esguince cervical en el primer nivel», SSA-008-08; para cervicobraquialgia, abordaje diagnóstico IMSS-629-13 (no existe GPC mexicana terapéutica específica)"
+  },
+  "Cervicobraquialgia (osteoartrosis cervical)": {
+   "ef": "A la exploración física paciente de edad aparente de acuerdo con la cronológica, despierta, tranquila, orientada en tiempo, lugar y persona, cooperadora. Marcha independiente, realiza adecuadamente todas las fases dinámicas y estáticas. Arcos de movimiento activos de cuello flexión 80°, extensión 55°, rotaciones 70° bilateral, flexiones laterales 35° bilateral. Arcos de movimiento activos de hombro ___ abducción 180°, flexión 180°, extensión 40°, rotación interna 70°, rotación externa 65°. Dolor a la palpación y digitopresión de músculos trapecio, supraespinoso e infraespinoso ___. Maniobras de Apley superior e inferior negativas, Jobe negativa, prueba del infraespinoso negativa, Hawkins-Kennedy negativa, arco doloroso de 30 a 90° negativo. Maniobra de Séze negativa para neurotensión. Maniobras de Speed, Yergason y Gerber negativas. Fuerza muscular 5/5 en la escala de Daniels en todos los grupos musculares, reflejos de estiramiento muscular ++/++++. Sensibilidad al tacto y al pinchazo en dermatomas cervicobraquiales aparentemente conservada. Función de pinza fina término-terminal y pinza gruesa cilíndrica y esférica conservadas. Maniobra de Romberg negativa. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a región cervical y hombro ___.\nCorrientes interferenciales 80-150 Hz.\nMasoterapia descontracturante cervical.\nEstiramientos y ejercicios de control motor cervical (flexores profundos) y escapular.\nHigiene de columna y postura.\nAgendar cita en un mes.",
+   "recs": [
+    "Ejercicio activo de movilidad y estiramiento de cuello y músculos escapulares en fase aguda (Grado A); en fase crónica combinado con estiramientos (Grado B).",
+    "Crioterapia en las primeras 48 horas (Grado D); después, calor superficial en la zona afectada durante 20 minutos (Grado C).",
+    "Electroterapia, termoterapia, masaje y ultrasonido como complemento cuando no hay mejoría solo con ejercicio (Grado C); la movilización pasiva debe combinarse con ejercicios activos (Grado C).",
+    "Evitar el collarín y el reposo; es preferible continuar con las actividades de la vida diaria (Grado A/B).",
+    "Educación al paciente con videos o material impreso (Grado B).",
+    "Programa en casa: flexión, inclinación lateral y rotación de cuello y ejercicios de hombros, 10 repeticiones, tres veces al día (Grado C).",
+    "Referir ante datos de alarma: signos neurológicos, parestesias en manos, vértigo o dolor de más de 3 meses con tratamiento (IMSS-629-13)."
+   ],
+   "guia": "GPC «Atención del paciente con esguince cervical en el primer nivel», SSA-008-08; para cervicobraquialgia, abordaje diagnóstico IMSS-629-13 (no existe GPC mexicana terapéutica específica)"
+  },
+  "Lumbalgia mecánica / postraumática": {
+   "ef": "A la exploración física realiza marcha independiente, logra variantes dinámicas y estáticas sin problema, lordosis lumbar ___, dolor a la palpación de musculatura paravertebral lumbar, unión lumbosacra y sacroiliaca. Punto ciático negativo. Lasègue y Bragard negativos bilaterales, Patrick negativo. Puede realizar marcha de puntas y talones. Fuerza 5/5 en la escala de Daniels, reflejos de estiramiento muscular patelar y aquíleo 2/4 bilaterales. Sensibilidad conservada por dermatomas. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 2 sesiones por semana, 8 sesiones.\nCompresa húmedo caliente a región lumbar.\nCorrientes interferenciales 0-200 Hz.\nMasoterapia descontracturante lumbar.\nEjercicios de Williams.\nEjercicios de estabilización lumbopélvica (core).\nHigiene de columna.\nAgendar cita en un mes.",
+   "recs": [
+    "Ejercicio terapéutico de estabilización lumbar (1+, A).",
+    "Combinar el programa de ejercicio con educación al paciente e higiene de columna (1++, A).",
+    "TENS o corrientes interferenciales para disminuir la intensidad del dolor (1++, A).",
+    "Compresa húmedo caliente para el dolor lumbar agudo (B) y masoterapia (A).",
+    "Mantener, restaurar y aumentar la actividad; no se recomienda el reposo en cama (B).",
+    "No usar tracción ni soportes lumbares para prevenir episodios (A).",
+    "Ejercicio aeróbico de bajo esfuerzo lumbar (caminar, bicicleta, nadar) en lumbalgia subaguda y crónica (A, IMSS-045-08).",
+    "Rehabilitación multidisciplinaria con enfoque biopsicosocial en pacientes con riesgo de cronicidad (A)."
+   ],
+   "guia": "GPC «Manejo integral en rehabilitación del dolor lumbar inespecífico», GPC-DIF-313-19 (2019) e IMSS-045-08 (lumbalgia aguda y crónica en primer nivel)"
+  },
+  "Radiculopatía lumbar / protrusión discal": {
+   "ef": "A la exploración física extremidades íntegras, marcha independiente, realiza adecuadamente todas las fases dinámicas y estáticas y variantes de puntas y talones. Dolor ___ a la palpación y digitopresión de musculatura paravertebral lumbar, procesos espinosos, unión lumbosacra y articulación sacroiliaca. Signo de Lasègue ___ positivo a ___°, Bragard ___, Patrick negativo. Fuerza 5/5 en la escala de Daniels, reflejos de estiramiento muscular patelar y aquíleo ++/++++ bilaterales. Hipoestesia en región de dermatoma ___ (L5 / S1). Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 2 sesiones por semana, 8 sesiones.\nCompresa húmedo caliente a región lumbar.\nCorrientes interferenciales 0-200 Hz.\nEjercicios de Williams.\nEjercicios de estabilización lumbopélvica.\nHigiene de columna y postura.\nAgendar cita en un mes.",
+   "recs": [
+    "Ejercicio terapéutico de estabilización lumbar combinado con educación e higiene de columna (A).",
+    "TENS o corrientes interferenciales para disminuir el dolor (A); compresa húmedo caliente en fase aguda (B).",
+    "Continuar con las actividades de la vida diaria; el reposo de más de 2-3 días es ineficaz o dañino (A).",
+    "No usar tracción (A).",
+    "La manipulación está contraindicada en déficit neurológico grave o progresivo (A).",
+    "Envío a segundo nivel ante dolor radicular con signos de alarma (A)."
+   ],
+   "guia": "GPC-DIF-313-19 (dolor lumbar, 2019) e IMSS-045-08 (lumbalgia en primer nivel); no existe GPC mexicana específica de hernia discal"
+  },
+  "Espondilolistesis": {
+   "ef": "A la exploración física extremidades íntegras, dolor a la palpación y digitopresión de musculatura paravertebral lumbar. Signo de Lasègue ___ positivo, Bragard ___ positivo, Patrick negativo. Fuerza 5/5 en la escala de Daniels, reflejos de estiramiento muscular 2/4. Hipoestesia en región de dermatoma L5 y S1. Puede realizar marcha de puntas y talones. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 2 sesiones por semana, 8 sesiones.\nCompresa húmedo caliente a región lumbar.\nCorrientes interferenciales 0-200 Hz.\nMasoterapia descontracturante lumbar.\nEjercicios de Williams (flexión), evitar hiperextensión lumbar.\nEstabilización lumbopélvica.\nHigiene de columna.\nAgendar cita en un mes.",
+   "recs": [
+    "Ejercicio terapéutico de estabilización lumbar (A) combinado con educación e higiene de columna (A).",
+    "Fortalecimiento abdominal y lumbar 2-3 veces por semana (B) y ejercicio aeróbico de bajo impacto (A).",
+    "TENS o corrientes interferenciales para disminuir el dolor (A).",
+    "Mantener la actividad; evitar el reposo en cama (B).",
+    "Envío a Ortopedia ante déficit neurológico o signos de alarma (A)."
+   ],
+   "guia": "GPC-DIF-313-19 (dolor lumbar, 2019) e IMSS-045-08 como respaldo general; no existe GPC mexicana de espondilolistesis del adulto"
+  }
+ },
+ "Hombro": {
+  "Pinzamiento subacromial": {
+   "ef": "A la exploración física arcos de movimiento activos de hombro ___ abducción 90° (pasivo 170°), flexión 110° (pasivo 180°), extensión 40°, rotación interna 70°, rotación externa 45°. Dolor a la palpación de músculos trapecio, supraespinoso e infraespinoso ___. Maniobra de Apley superior ___, Apley inferior ___, Jobe ___, prueba del infraespinoso ___, prueba de pinzamiento (Hawkins-Kennedy) positiva, arco doloroso positivo en abducción de 30 a 90°. Fuerza muscular 4/5 en la escala de Daniels, reflejos de estiramiento muscular 2/4. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a hombro ___.\nUltrasonido pulsátil 20%, 1 W/cm², 1 MHz, 6 min, a espacio subacromial ___.\nCorrientes interferenciales 80-150 Hz.\nEjercicios de Codman. Abducción y flexión de hombro ___ en escalerilla.\nPolea, escalerilla y timón.\nFortalecimiento de manguito rotador y estabilizadores escapulares con carga progresiva a tolerancia.\nCita en un mes.",
+   "recs": [
+    "Programa de ejercicio supervisado o en casa: mejora dolor y función (A).",
+    "Mantener el arco de movilidad pasiva con ejercicios pendulares (Codman) y escalerilla de pared (D).",
+    "Rehabilitación con ejercicios fisiátricos, calor local, diatermia y ultrasonido terapéutico, indicada y supervisada por Medicina Física y Rehabilitación (C).",
+    "Evitar el movimiento continuo que requiera elevación del brazo por arriba del nivel del hombro (A).",
+    "Informar al paciente sobre la naturaleza de su padecimiento (A).",
+    "Si no mejora tras dos infiltraciones y rehabilitación, valorar tratamiento quirúrgico (punto de buena práctica)."
+   ],
+   "guia": "GPC «Diagnóstico y tratamiento del síndrome de hombro doloroso en primer nivel de atención», IMSS-085-08 (2016) y «Síndrome de Abducción Dolorosa del Hombro», IMSS-355-09"
+  },
+  "Tendinopatía del manguito rotador": {
+   "ef": "A la exploración física arcos de movimiento activos de hombro ___ abducción 80°, flexión 80°, extensión 40°, rotación interna 70°, rotación externa 40°. Maniobra de Apley superior positiva, Apley inferior positiva, maniobra de Jobe positiva, prueba del infraespinoso ___, prueba de pinzamiento (Hawkins-Kennedy) ___, arco doloroso positivo en abducción de 30 a 90°. Fuerza muscular 5/5, reflejos osteotendinosos 2/4. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a hombro ___.\nUltrasonido pulsátil 20%, 1 W/cm², 1 MHz, 6 min, a supraespinoso ___.\nCorrientes interferenciales 80-150 Hz.\nEjercicios de Codman, polea, escalerilla y timón.\nFortalecimiento progresivo de manguito rotador (isométricos → isotónicos con banda elástica) y estabilizadores escapulares.\nCita en un mes.",
+   "recs": [
+    "Rehabilitación funcional con ejercicios fisiátricos, calor local, diatermia y ultrasonido terapéutico (nivel III).",
+    "Rehabilitación indicada y supervisada por Medicina Física y Rehabilitación (C).",
+    "Programa en casa: ejercicios de Codman y estiramientos de 5-15 repeticiones.",
+    "Cambiar la actividad laboral si favorece la lesión (C).",
+    "Si no mejora tras dos infiltraciones y rehabilitación, valorar cirugía (punto de buena práctica)."
+   ],
+   "guia": "GPC «Diagnóstico y Tratamiento del Síndrome del Manguito Rotador», IMSS-617-13"
+  },
+  "Hombro rígido posinmovilización / luxación glenohumeral reducida": {
+   "ef": "A la exploración física de miembro torácico ___ arcos de movimiento activos de hombro abducción 48°, flexión 30°, extensión 40°, rotación interna 70°, rotación externa ___°; codo flexión ___°, extensión ___°. Fuerza 5/5 en la escala de Daniels, reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a hombro ___.\nCorrientes interferenciales 80-150 Hz.\nEjercicios de Codman. Abducción y flexión de hombro ___ en escalerilla.\nPolea, escalerilla y timón.\nMovilidad activa asistida progresiva; evitar abducción + rotación externa forzada en fase inicial.\nFortalecimiento de manguito rotador y cintura escapular al recuperar arcos.\nCita en un mes.",
+   "recs": [
+    "Tres semanas de cabestrillo después de una luxación de hombro (C, IMSS-085-08).",
+    "A la tercera semana retirar el inmovilizador e iniciar ejercicios pasivos y activos asistidos (C).",
+    "A la sexta semana movilización activa con rango completo; a la octava semana fortalecimiento (C).",
+    "Terapia física para fortalecer el manguito rotador en inestabilidad (III).",
+    "Retorno deportivo cuando la fuerza y la movilidad estén cercanas a lo normal (C)."
+   ],
+   "guia": "GPC «Tratamiento Quirúrgico de la Inestabilidad Anterior de Hombro en el Adulto», IMSS-531-11 e IMSS-085-08 (hombro doloroso); no existe GPC mexicana de rehabilitación de luxación"
+  },
+  "Fractura de clavícula posoperada (RAFI)": {
+   "ef": "A la exploración física paciente con cicatriz quirúrgica clavicular ___ adherida a planos medios sin datos de infección, dolor a la palpación de clavícula ___, dolor a la digitopresión de trapecio y esternocleidomastoideo. Arcos de movimiento de cuello completos. Miembro torácico ___: hombro flexión ___°, extensión ___°, abducción ___°, aducción ___°; codo flexión ___°, extensión ___°; muñeca flexión ___°, extensión ___°; mano con flexión de dedos ___, distancia dedo-palmar ___ cm. Fuerza de musculatura de miembro torácico ___ se infiere en ___/5 en la escala de Daniels por dolor y arcos limitados, reflejos de estiramiento muscular ___. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a hombro ___.\nCorrientes interferenciales 80-150 Hz.\nEjercicios de Codman. Abducción y flexión de hombro en escalerilla.\nPolea, escalerilla y timón.\nMasaje de despegue a cicatriz.\nEjercicios que beneficien flexoextensión de codo, muñeca y mano.\nFortalecimiento al completar arcos funcionales.\nAgendar cita en un mes.",
+   "recs": [
+    "Cabestrillo para inmovilizar la extremidad; no se recomienda el vendaje Velpeau ni el vendaje en «8» (C).",
+    "Control radiológico a las 6 y 12 semanas; con callo óseo, regreso a actividades restringiendo carga y tracción (A).",
+    "La rehabilitación busca evitar rigidez, atrofia y limitación de la movilidad; regreso laboral tan pronto sea posible (IV).",
+    "La consolidación toma en promedio 90 días, 120 en adultos mayores (III)."
+   ],
+   "guia": "GPC «Tratamiento de la Fractura de Clavícula en el Adulto», IMSS-584-12"
+  }
+ },
+ "Muñeca y mano": {
+  "Fractura de radio distal (tratamiento conservador)": {
+   "ef": "A la exploración física miembro torácico ___: perímetro de muñeca ___ cm mayor que contralateral, dolor a la palpación de muñeca y región de radio distal. Arcos de movimiento activos: HOMBRO: completos. CODO: flexión ___°, extensión ___°, pronación ___°, supinación ___°. MUÑECA: flexión ___°, extensión ___°, desviación ulnar ___°, desviación radial ___°. MANO: extensión de metacarpofalángicas e interfalángicas completa, flexión limitada, distancia dedo-palmar ___ cm. Fuerza prensil de mano 4/5 en la escala de Daniels, reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nTina de remolino arriba de codo ___.\nCorrientes interferenciales 80-150 Hz a muñeca ___.\nEjercicios que beneficien flexoextensión, desviaciones y pronosupinación de muñeca y mano.\nTerapia ocupacional de mano.\nFortalecimiento de mano al completar arcos funcionales.\nAgendar cita en un mes.",
+   "recs": [
+    "Durante la inmovilización iniciar en 1 a 4 días un programa de rehabilitación en casa personalizado de ejercicios y/o terapia ocupacional (Grado A).",
+    "Movilización activa de articulaciones no afectadas (dedos, codo, hombro y cuello); entregar por escrito cuidados de la piel y control del edema, con demostración práctica (Grado A).",
+    "En pacientes operados es aconsejable iniciar la rehabilitación igual que en los de manejo conservador (punto de buena práctica).",
+    "Al retirar la inmovilización, programa escrito de actividades en casa con aumento gradual de la resistencia; la combinación consultorio + casa tiene fuerte evidencia (Ia).",
+    "Crioterapia al terminar la inmovilización para disminuir el dolor (Ib); hidroterapia y compresas húmedo-calientes sin diferencia entre sí (Ia).",
+    "Ultrasonido sin evidencia para uso rutinario; puede emplearse como complemento (punto de buena práctica).",
+    "Ante riesgo de complicaciones (edad, conminución, lesión nerviosa) considerar programa supervisado multidisciplinario (Grado D)."
+   ],
+   "guia": "GPC «Rehabilitación de Fracturas Distales de Radio», IMSS-636-13 (2013); complementaria IMSS-534-11"
+  },
+  "Fractura de radio distal posoperada (RAFI)": {
+   "ef": "A la exploración física miembro torácico ___: cicatriz quirúrgica normotrófica adherida a planos medios sin datos de infección. Arcos de movimiento activos: HOMBRO: flexión ___°, extensión ___°, abducción ___°. CODO: flexión ___°, extensión ___°, pronación ___°, supinación ___°. MUÑECA: flexión ___°, extensión ___°, desviación ulnar ___°, desviación radial ___°. MANO: extensión de metacarpofalángicas e interfalángicas completa, flexión limitada, distancia dedo-palmar ___ cm. Fuerza prensil de mano 4/5 en la escala de Daniels, reflejos de estiramiento muscular ___. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a hombro ___.\nTina de remolino arriba de codo ___.\nCorrientes interferenciales 80-150 Hz a muñeca ___.\nMasaje de despegue a cicatriz.\nEjercicios de Codman. Abducción y flexión de hombro en escalerilla. Polea, escalerilla y timón.\nEjercicios que beneficien flexoextensión de muñeca y mano.\nFortalecimiento de mano al completar arcos funcionales.\nAgendar cita en un mes.",
+   "recs": [
+    "Durante la inmovilización iniciar en 1 a 4 días un programa de rehabilitación en casa personalizado de ejercicios y/o terapia ocupacional (Grado A).",
+    "Movilización activa de articulaciones no afectadas (dedos, codo, hombro y cuello); entregar por escrito cuidados de la piel y control del edema, con demostración práctica (Grado A).",
+    "En pacientes operados es aconsejable iniciar la rehabilitación igual que en los de manejo conservador (punto de buena práctica).",
+    "Al retirar la inmovilización, programa escrito de actividades en casa con aumento gradual de la resistencia; la combinación consultorio + casa tiene fuerte evidencia (Ia).",
+    "Crioterapia al terminar la inmovilización para disminuir el dolor (Ib); hidroterapia y compresas húmedo-calientes sin diferencia entre sí (Ia).",
+    "Ultrasonido sin evidencia para uso rutinario; puede emplearse como complemento (punto de buena práctica).",
+    "Ante riesgo de complicaciones (edad, conminución, lesión nerviosa) considerar programa supervisado multidisciplinario (Grado D)."
+   ],
+   "guia": "GPC «Rehabilitación de Fracturas Distales de Radio», IMSS-636-13 (2013); complementaria IMSS-534-11"
+  },
+  "Síndrome del túnel del carpo": {
+   "ef": "A la exploración física dirigida paciente con miembros torácicos íntegros, simétricos, tono conservado, arcos de movilidad completos, fuerza 5/5 en la escala de Daniels en todos los grupos musculares. Realiza las funciones básicas de la mano: pinza término-terminal y subterminal bilateral, garra, puño, flexión, oposición y oponencia del pulgar conservadas. Maniobras de Phalen y Tinel ___ en mano ___. Trofismo de eminencia tenar ___. Sensibilidad ___ en territorio del nervio mediano, reflejos de estiramiento muscular ++/++++. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nFérula nocturna de muñeca en posición neutra.\nUltrasonido pulsátil 20%, 1 W/cm², 3 MHz, 5 min, a túnel del carpo ___.\nEjercicios de deslizamiento tendinoso y neural del nervio mediano.\nModificación de actividades y ergonomía.\nAgendar cita en un mes.",
+   "recs": [
+    "El tratamiento conservador es el ideal para los eventos de primera vez (Nivel 4).",
+    "Inmovilizar con férula de descarga en posición neutra de muñeca, nocturna y durante actividades laborales y no laborales (Grado D).",
+    "Inmersión en agua caliente a tolerancia de la mano afectada 20 minutos 3 veces al día hasta remitir los síntomas (Grado D).",
+    "Evitar la flexoextensión forzada de muñeca y la actividad que exacerba el dolor (Grado D).",
+    "Referir a Rehabilitación a los pacientes posoperados de túnel del carpo (punto de buena práctica)."
+   ],
+   "guia": "GPC «Diagnóstico y Tratamiento del Síndrome de Túnel del Carpo en Primer Nivel de Atención», IMSS-043-08 (actualización 2016)"
+  },
+  "Túnel del carpo posoperado (liberación)": {
+   "ef": "A la exploración física miembro superior ___ con cicatriz en pliegue de eminencia tenar adherida a planos medios, arcos de movimiento activos de muñeca extensión ___°, flexión ___°; articulaciones metacarpofalángicas e interfalángicas de todos los dedos completas; logra oposición de dedos, logra cierre de puño. Hipoestesia al tacto en terreno del nervio mediano ___. Fuerza prensil de mano ___ 5/5 en la escala de Daniels. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nTina de remolino arriba de codo ___.\nUltrasonido pulsátil 20%, 1 W/cm², 3 MHz a zona de cicatriz.\nCorrientes interferenciales 0-200 Hz a mano ___.\nMasaje de despegue a cicatriz.\nTerapia ocupacional de mano ___.\nPronóstico reservado a evolución.\nAgendar cita en un mes.",
+   "recs": [
+    "El tratamiento conservador es el ideal para los eventos de primera vez (Nivel 4).",
+    "Inmovilizar con férula de descarga en posición neutra de muñeca, nocturna y durante actividades laborales y no laborales (Grado D).",
+    "Inmersión en agua caliente a tolerancia de la mano afectada 20 minutos 3 veces al día hasta remitir los síntomas (Grado D).",
+    "Evitar la flexoextensión forzada de muñeca y la actividad que exacerba el dolor (Grado D).",
+    "Referir a Rehabilitación a los pacientes posoperados de túnel del carpo (punto de buena práctica)."
+   ],
+   "guia": "GPC «Diagnóstico y Tratamiento del Síndrome de Túnel del Carpo en Primer Nivel de Atención», IMSS-043-08 (actualización 2016)"
+  },
+  "Tenosinovitis de De Quervain": {
+   "ef": "Exploración física de muñeca y mano ___: con férula para mantener en extensión y abducción el pulgar. Arcos de movimiento activos: MUÑECA: flexión ___°, extensión ___°. PRIMER DEDO: metacarpofalángica flexión ___°, extensión ___°; interfalángica extensión ___°, flexión ___°. SEGUNDO A QUINTO DEDOS: ___; oposición de dedos ___, cierre de puño ___, distancia dedo-palmar ___ cm. Dolor a la palpación de tendones extensor corto y abductor largo del pulgar y de la apófisis estiloides radial. Maniobra de Finkelstein positiva. Fuerza de primer dedo 4/5 en la escala de Daniels, fuerza prensil de mano se infiere ___/5 por dolor. Reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nFérula en espica de pulgar.\nTina de remolino arriba de codo.\nUltrasonido pulsátil 20%, 1 W/cm², 3 MHz, 5 min, a abductor largo y extensor corto del pulgar.\nEjercicios que beneficien la movilidad del pulgar; pinza fina término-terminal, pinza cilíndrica gruesa y esférica.\nModificación de actividades.\nCita en un mes.",
+   "recs": [
+    "Inmovilización con férula de descarga y reposo relativo de la actividad que desencadena el dolor (por analogía, Grado D).",
+    "Termoterapia: inmersión en agua caliente a tolerancia 20 minutos 3 veces al día (por analogía, Grado D).",
+    "Evitar movimientos forzados repetitivos de muñeca y pulgar (por analogía, Grado D)."
+   ],
+   "guia": "sin GPC mexicana específica; manejo conservador por analogía con GPC IMSS-043-08 (túnel del carpo, 2016)"
+  },
+  "Fractura de metacarpiano / falange (posoperada o conservadora)": {
+   "ef": "A la exploración física mano ___ con herida quirúrgica/cicatriz ___ sin datos de infección. Arcos de movimiento ___ dedo: metacarpofalángica flexión ___°, extensión ___°; interfalángica proximal flexión ___°, extensión ___°; interfalángica distal flexión ___°, extensión ___°. Logra oposición de dedos, cierre de puño ___ con distancia dedo-palmar ___ cm. Función de pinza fina término-terminal del primero con el segundo y del primero con tercero al quinto dedos ___; pinza gruesa cilíndrica y esférica ___. Fuerza prensil de mano 4/5 en la escala de Daniels, reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nTina de remolino arriba de codo ___.\nEjercicios que beneficien la flexoextensión de muñeca y mano ___.\nTerapia ocupacional de mano ___.\nMasaje de despegue a cicatriz.\nFortalecimiento al completar arcos de movimiento funcionales.\nAgendar cita en un mes.",
+   "recs": [
+    "En fracturas de falanges es indispensable la movilización temprana para evitar la rigidez (Grado D).",
+    "Las fracturas no desplazadas pueden inmovilizarse con el dedo vecino (sindactilización), cuidando la piel (Grado D).",
+    "La inmovilización no debe abarcar estructuras no afectadas; usar férulas que dejen libres las articulaciones adyacentes (punto de buena práctica).",
+    "Crioterapia intermitente 10 minutos 3 veces al día y movilización progresiva de articulaciones no afectadas (Grado D).",
+    "Desde los días 7 a 10, baños de contraste (5 min caliente / 2 min frío hasta 20 min) seguidos de movilidad activa (Grado D).",
+    "A los 21 días valorar retiro de la inmovilización e iniciar hidroterapia con agua caliente y movilidad activa progresiva (Grado D)."
+   ],
+   "guia": "GPC «Diagnóstico y Manejo Integral de las Lesiones Traumáticas de Mano en el Adulto», IMSS-065-08 (actualización 2015)"
+  },
+  "Lesión de tendones extensores / dedo en martillo (posoperado)": {
+   "ef": "A la exploración física miembro superior ___ con cicatriz adherida a planos medios en zona ___ extensora del ___ dedo. Arcos de movimiento activos de muñeca completos; ___ dedo: metacarpofalángica flexión ___°, extensión ___°; interfalángica proximal extensión ___°, flexión ___°; interfalángica distal flexión ___°, extensión ___° (déficit de extensión activa ___°, pasiva ___). Logra oposición de dedos, logra cierre de puño. Fuerza prensil de mano ___ 4/5, reflejos de estiramiento muscular 2/4. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nTina de remolino arriba de codo ___.\nUltrasonido pulsátil 20%, 1 W/cm², 3 MHz a cicatriz.\nMasaje de despegue a cicatriz.\nMovilidad protegida según protocolo y tiempo posquirúrgico; evitar flexión forzada de la articulación reparada.\nTerapia ocupacional de mano ___.\nAgendar cita en un mes.",
+   "recs": [
+    "Dedo en martillo: férula en extensión de la interfalángica distal, sin dejarla en hiperextensión (Grado D).",
+    "Después de tenorrafia iniciar programa de rehabilitación 3 a 5 días posteriores a la cirugía (Grado D).",
+    "Movilización pasiva protegida, sin aumentar el dolor, después de frío local: 10 repeticiones 3 veces al día (punto de buena práctica).",
+    "Si aparece peritendinitis postraumática (días 28 a 42): hidroterapia caliente y rutina de ejercicios prescrita por Medicina Física (Grado D)."
+   ],
+   "guia": "GPC «Diagnóstico y Manejo Integral de las Lesiones Traumáticas de Mano en el Adulto», IMSS-065-08 (actualización 2015)"
+  },
+  "Lesión de tendones flexores (posoperado)": {
+   "ef": "A la exploración física cicatriz quirúrgica de aproximadamente ___ cm en zona ___ flexora de ___, sin datos de infección. Muñeca ___ flexión ___°, extensión ___°; metacarpofalángicas flexión ___°; interfalángicas con movimientos activos ___. Logra oponencia con todos los dedos y puño ___. Sensibilidad conservada. Circunferencia de antebrazo ___ ___ cm menor que contralateral. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nTina de remolino arriba de codo ___.\nMasaje de despegue a cicatriz.\nEjercicios de deslizamiento tendinoso según protocolo y tiempo posquirúrgico; evitar extensión forzada combinada de muñeca y dedos en fase de protección.\nTerapia ocupacional de mano ___.\nFortalecimiento progresivo a partir de la consolidación de la reparación.\nAgendar cita en un mes.",
+   "recs": [
+    "Iniciar rehabilitación 3 a 5 días después de la tenorrafia (Grado D).",
+    "Movilización pasiva protegida 10 repeticiones 3 veces al día (punto de buena práctica).",
+    "Si aparece peritendinitis: hidroterapia caliente y ejercicios prescritos por Medicina Física (Grado D)."
+   ],
+   "guia": "GPC «Diagnóstico y Manejo Integral de las Lesiones Traumáticas de Mano en el Adulto», IMSS-065-08 (actualización 2015); no existe GPC mexicana específica de rehabilitación de flexores"
+  },
+  "Lesión de nervio radial / neurorrafia": {
+   "ef": "A la exploración física miembro superior ___ con cicatriz ___. Arcos de movimiento activos de muñeca extensión ___°, flexión ___°; metacarpofalángicas flexión ___°, extensión ___°; interfalángicas extensión ___, flexión ___°. Extensión de dedos ___, cierre de puño ___, supinación ___. Función de pinza fina término-terminal ___; pinza gruesa cilíndrica y esférica ___. Hipoestesia al tacto y al pinchazo en terreno del nervio radial ___. Fuerza prensil de mano ___/5, fuerza extensora de muñeca y dedos ___/5, extensión y abducción del pulgar ___/5. Reflejos de estiramiento muscular bicipital 2/4, estilorradial ___/4. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nFérula dinámica / de reposo de muñeca y dedos en extensión.\nTina de remolino arriba de codo ___.\nElectroestimulación (EMS) a extensores de muñeca y dedos.\nMovilidad pasiva y activa asistida para mantener arcos.\nReeducación sensitiva con texturas.\nTerapia ocupacional de mano ___.\nAgendar cita en un mes.",
+   "recs": [
+    "Las lesiones con daño nervioso evolucionan mejor con intervención inmediata de rehabilitación (Nivel 4).",
+    "Crioterapia los primeros 3 días; electroterapia según valoración (electroestimulación o corriente analgésica); movilización pasiva de segmentos afectados y activa de los no afectados (Grado D).",
+    "Valoración de arcos, masa muscular, sensibilidad, reflejos, examen muscular manual y funciones de la mano (Grado D).",
+    "Estudio electrodiagnóstico inicial y de control a los 3 meses de la lesión nerviosa (Nivel 3).",
+    "Desensibilización con texturas de la más suave a la más áspera y reentrenamiento de oponencia y prensión (Grado D, IMSS-065-08).",
+    "10 a 15 sesiones, con hasta 3 ciclos adicionales si hay mejoría parcial (punto de buena práctica)."
+   ],
+   "guia": "sin GPC mexicana específica de neurorrafia; GPC IMSS-193-08 (fracturas de antebrazo, 2017), IMSS-555-12 (diáfisis de húmero) e IMSS-065-08 (lesiones de mano, 2015)"
+  },
+  "Cicatriz / colgajo / quiste sinovial de mano posoperado": {
+   "ef": "A la exploración física mano ___ con cicatriz quirúrgica ___ en ___, sin datos de infección. Arcos de movimiento activos de muñeca extensión ___°, flexión ___°; primer dedo metacarpofalángica flexión ___°, extensión ___°, interfalángica flexión ___°; dedos segundo a quinto metacarpofalángicas flexión ___°, interfalángicas flexión ___°. Oposición de dedos ___, pinza ___, cierre de puño ___. Fuerza de mano ___/5 en la escala de Daniels, reflejos de estiramiento muscular 2/4. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nTina de remolino o compresa húmedo caliente a mano ___.\nUltrasonido pulsátil 20%, 1 W/cm², 3 MHz a cicatriz.\nMasaje de despegue a cicatriz; lubricar piel con aceite mineral o de almendras.\nEjercicios de movilidad articular y fortalecimiento de mano (pinzas de ropa, plastilina).\nReeducación sensitiva con texturas de la más suave a la más áspera.\nAgendar cita en un mes.",
+   "recs": [
+    "Movilización precoz para prevenir contracturas (Grado A, IMSS-375-17).",
+    "Movilizaciones y elongaciones del tejido blando durante curaciones y cambios de vendaje (Grado B, IMSS-375-17).",
+    "Posicionamiento temprano según la localización de la lesión o injerto para disminuir edema y preservar la función (Nivel 3).",
+    "Desensibilización con texturas de la más suave a la más áspera e inmersión en semillas; reentrenamiento de oponencia y prensión (Grado D, IMSS-065-08).",
+    "Ropa compresiva hasta la maduración completa de la cicatriz para prevenir cicatriz hipertrófica (IMSS-040-08)."
+   ],
+   "guia": "GPC IMSS-065-08 (lesiones traumáticas de mano, 2015) e IMSS-375-17 (atención del adulto gran quemado, 2017); sin GPC mexicana específica de cicatriz o ganglión"
+  }
+ },
+ "Cadera y rodilla": {
+  "Fractura de cadera posoperada (osteosíntesis)": {
+   "ef": "A la exploración física paciente con marcha con apoyo de ___. Arcos de movimiento activos de miembro inferior ___: CADERA extensión ___°, flexión con rodilla extendida ___°, flexión con rodilla flexionada ___°, abducción ___°, aducción ___°. RODILLA flexión ___°, extensión ___°. TOBILLO completos. Fuerza ___/5 en la escala de Daniels, reflejos de estiramiento muscular 2/4. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresas húmedo calientes a cadera ___.\nCorrientes interferenciales 80-150 Hz.\nFortalecimiento de glúteo medio, glúteo mayor, psoasiliaco, aductores de cadera, cuádriceps e isquiotibiales.\nReeducación de la marcha en paralelas con descarga según indicación de Ortopedia.\nPrevención de caídas.\nCita en un mes.",
+   "recs": [
+    "El programa de rehabilitación debe iniciar en las primeras 24 a 48 horas; deambulación asistida temprana dentro de las 48 horas de la cirugía.",
+    "Movilización temprana supervisada durante los primeros 40 días.",
+    "Reducción y fijación interna: apoyo total después de 8 semanas de tolerar la descarga parcial.",
+    "Programa de ejercicios respiratorios (espirometría incentiva supervisada, Grado A).",
+    "Prevención de caídas: ejercicio de resistencia, actividad física con múltiples tipos de actividades y revisión de barreras arquitectónicas en el domicilio; valorar con prueba Up & Go (Grado C)."
+   ],
+   "guia": "GPC «Manejo Médico Integral de Fractura de Cadera en el Adulto Mayor», IMSS-236-14"
+  },
+  "Artroplastia de cadera (total o hemiartroplastia)": {
+   "ef": "A la exploración física paciente con marcha con apoyo de andadera, lenta, claudicante a expensas de miembro pélvico ___. Medición aparente (ombligo-maléolo medial) ___ cm derecho / ___ cm izquierdo. Miembro inferior ___: cicatriz quirúrgica ___ sin datos de infección. Arcos de movimiento activos: CADERA extensión ___°, flexión con rodilla extendida ___°, flexión con rodilla flexionada ___°, abducción ___°, aducción ___°, rotación interna ___°, rotación externa ___°. RODILLA flexión ___°, extensión 0°. TOBILLO completos. Fuerza psoasiliaco ___/5, glúteo mayor ___/5, glúteo medio ___/5, aductores ___/5, cuádriceps ___/5, isquiotibiales ___/5 en la escala de Daniels. Reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a cadera ___.\nCorrientes EMS a flexores, abductores y aductores de cadera ___ y cuádriceps.\nFortalecimiento con isométricos de glúteo medio, glúteo mayor, psoasiliaco, aductores de cadera, cuádriceps e isquiotibiales bilaterales.\nNO flexionar cadera >80° ni abducir >30°. Evitar aducción más allá de la línea media y rotación interna con flexión (ajustar según abordaje quirúrgico).\nReeducación de la marcha progresiva en andadera, paralelas e independiente.\nControl de peso.\nAgendar cita en dos meses.",
+   "recs": [
+    "Ejercicios respiratorios y de fortalecimiento de cuádriceps en el plan de rehabilitación (Grado A).",
+    "Fortalecimiento muscular desde las 24 h poscirugía, arcos de movilidad de cadera y reeducación de la marcha, con programa individualizado (Grado C).",
+    "Ciclismo ergométrico en posoperados de artroplastia total de cadera (Grado A) y programa de ejercicios ambulatorio (Grado A).",
+    "Prótesis cementada: soporte de peso parcial según tolerancia con andadera de 4 a 6 semanas (IMSS-236-14).",
+    "Precauciones: evitar flexión del tronco por debajo de la altura de la cadera y elevar la rodilla más allá de la cadera; cojín entre las rodillas; no cruzar las piernas, asiento de baño elevado, evitar cuclillas (Grado D / PBP).",
+    "Reducción de peso como base del tratamiento en sobrepeso u obesidad (Grado A, SSA-053-08)."
+   ],
+   "guia": "GPC «Tratamiento de Fractura Desplazada del Cuello Femoral con Artroplastia Total en Adultos Mayores de 65 años», IMSS-573-12; IMSS-236-14 (fractura de cadera) y SSA-053-08 (osteoartrosis de cadera y rodilla)"
+  },
+  "Gonartrosis": {
+   "ef": "A la exploración física paciente con genu ___, venas superficiales ___, godete ___. Marcha independiente, realiza adecuadamente todas las fases dinámicas. Arcos de movimiento activos de miembro inferior ___: cadera completos, rodilla flexión ___°, extensión ___°, tobillo completos. Dolor a la palpación de interlínea articular ___. Signo del cepillo positivo, sin datos de inestabilidad de rodilla a las maniobras. Fuerza cuádriceps ___/5, isquiotibiales ___/5 en la escala de Daniels, reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a rodilla ___.\nCorrientes interferenciales 0-200 Hz a rodilla ___.\nIsométricos de cuádriceps e isquiotibiales; progresar a fortalecimiento de cadera y musculatura antigravitatoria.\nReeducación de la marcha.\nSe explica que la gonartrosis es un padecimiento crónico y que el ejercicio constituye el tratamiento principal, independientemente de la edad, comorbilidades, intensidad de dolor o grado de discapacidad. Programa de ejercicio en casa de manera regular e indefinida (movilidad, flexibilidad y fortalecimiento progresivo de rodilla y cadera).\nAlternar la actividad con periodos cortos de reposo, evitar el sedentarismo y modificar actividades que produzcan sobrecarga, impacto o sobreuso articular.\nReducción ponderal progresiva y sostenible con valoración por Nutrición.\nAgendar cita en dos meses.",
+   "recs": [
+    "El ejercicio es el tratamiento principal independientemente de edad, comorbilidad o intensidad del dolor; ejercicio aeróbico y fortalecimiento de cuádriceps regular (Grado A).",
+    "Fortalecimiento isométrico, isotónico o isocinético: 8 a 10 repeticiones por ejercicio, 2 a 3 veces por semana (Grado A).",
+    "Caminata de 45 minutos cada tercer día con 10 min de calentamiento y 10 de enfriamiento (Grado A); el ejercicio debe ser continuo, al suspenderlo se pierde el beneficio (Ia).",
+    "Calor local para dolor y rigidez (Ia); crioterapia en fase aguda (PBP); TENS al menos 4 semanas (C) y corrientes interferenciales (Ia); ultrasonido sin evidencia suficiente.",
+    "Rodilleras y plantillas con cuña según el eje (Ia, B/C).",
+    "Auxiliar de la marcha en la mano contralateral cuando el dolor es moderado o severo (Ia).",
+    "Reducción de peso junto con ejercicio (Grado A, IMSS-079-08)."
+   ],
+   "guia": "GPC «Prevención, Diagnóstico y Tratamiento de Rehabilitación en el Paciente Adulto con Osteoartrosis de Rodilla en los Tres Niveles de Atención», IMSS-726-14"
+  },
+  "Síndrome de la banda iliotibial": {
+   "ef": "A la exploración física paciente con genu ___, marcha independiente, realiza adecuadamente todas las fases dinámicas. Arcos de movimiento activos de miembro inferior ___: cadera completos, rodilla flexión ___°, extensión 0°, tobillo completos. Punto hipersensible a la palpación del cóndilo femoral lateral y del tubérculo de Gerdy. Prueba de Noble ___, prueba de Renne ___, prueba de Ober ___. Sin datos de inestabilidad de rodilla a las maniobras. Fuerza cuádriceps ___/5, isquiotibiales ___/5, aductores ___/5, abductores ___/5 en la escala de Daniels, reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente a cadera y rodilla ___.\nCorrientes interferenciales 80-150 Hz.\nEstiramientos de banda iliotibial, flexores de cadera y flexores plantares.\nFortalecimiento de abductores de cadera (glúteo medio) y control neuromuscular.\nModificar carga de carrera (evitar pendientes descendentes) y revisar calzado.\nCita en un mes.",
+   "recs": [
+    "Ejercicio terapéutico de fortalecimiento de cuádriceps y musculatura de cadera de forma regular (por analogía, IMSS-726-14).",
+    "Calor local para dolor y rigidez; crioterapia en fase aguda (por analogía, IMSS-726-14)."
+   ],
+   "guia": "sin GPC mexicana específica; ejercicio terapéutico de rodilla por analogía con GPC IMSS-726-14"
+  },
+  "Ruptura de tendón rotuliano posoperada (cerclaje)": {
+   "ef": "A la exploración física paciente con marcha independiente claudicante a expensas de miembro pélvico ___, con rodillera larga con varillas laterales que se retira para la exploración. Muslo con hipotrofia muscular, circunferencia de muslo medio ___ cm menor que contralateral, circunferencias de rodillas simétricas. Arcos de movimiento de miembro inferior ___: cadera completos, rodilla flexión ___°, extensión ___°, tobillo completos. Fuerza cuádriceps ___/5, isquiotibiales ___/5 en la escala de Daniels, reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 2 sesiones por semana, 8 sesiones.\nCompresa húmedo caliente a rodilla ___.\nCorrientes EMS (Kotz / rusas) a cuádriceps ___.\nMovilidad articular activa asistida a tolerancia de rodilla ___ según indicación de Ortopedia.\nIsométricos de cuádriceps e isquiotibiales.\nAl lograr arco de flexión de 90°, excéntricos de cuádriceps e isquiotibiales.\nReeducación de la marcha.\nSe explica posibilidad de ruptura del alambre del cerclaje.\nPronóstico reservado a evolución. Agendar cita en un mes.",
+   "recs": [
+    "Con fijación estable, movimiento pasivo de flexoextensión desde los primeros días del posoperatorio; los movimientos activos hasta la consolidación (II/III).",
+    "Ejercicios de flexoextensión de cadera y tobillo desde los primeros días (II/III).",
+    "Referir a Medicina Física a las 4-6 semanas para fortalecimiento de cuádriceps y flexoextensión de rodilla (PBP).",
+    "Todo manejo fisiátrico debe ser supervisado por Medicina Física y Rehabilitación (C)."
+   ],
+   "guia": "sin GPC mexicana específica; GPC «Diagnóstico y Tratamiento de Fractura Cerrada de Rótula en el Adulto», IMSS-575-12 (aparato extensor)"
+  }
+ },
+ "Pierna, tobillo y pie": {
+  "Fractura diafisaria de tibia y peroné": {
+   "ef": "A la exploración física paciente con marcha con apoyo de ___. Arcos de movimiento de miembro inferior ___: cadera completos, rodilla flexión ___°, extensión ___°; tobillo flexión dorsal ___°, flexión plantar ___°, inversión ___°, eversión ___°. Edema ___. Fuerza ___/5 en la escala de Daniels, reflejos de estiramiento muscular 2/4. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 2 sesiones por semana, 8 sesiones.\nTina de remolino a pierna ___.\nUltrasonido pulsátil 20%, 0.8 W/cm², 3 MHz, 5 min, a foco de fractura (según consolidación).\nCorrientes interferenciales 80-150 Hz.\nExcéntricos de cuádriceps, isquiotibiales, aductores y abductores de cadera, tibiales anterior y posterior, peroneos y tríceps sural.\nReeducación de la marcha con carga progresiva según indicación de Ortopedia.\nCita en un mes.",
+   "recs": [
+    "Pacientes con yeso: ejercicios de fortalecimiento de cuádriceps y deambulación con yeso hasta la consolidación (PBP).",
+    "Desde el posoperatorio inmediato, movilidad activa de todas las articulaciones (evidencia II).",
+    "Apoyo parcial progresivo hasta total de acuerdo con la evolución de la consolidación (Grado B).",
+    "Enviar a rehabilitación para enseñanza de la marcha y mejorar arcos de movilidad; programa en casa con apoyos parciales progresivos los primeros 3 meses (PBP)."
+   ],
+   "guia": "GPC «Diagnóstico y Tratamiento de Fractura de la Diáfisis de Tibia», IMSS-139-08"
+  },
+  "Fractura de tobillo posoperada": {
+   "ef": "A la exploración física paciente con marcha con apoyo de ___ con descarga ___ de pie ___. Extremidades íntegras, tobillo ___ con circunferencia perimaleolar ___ cm mayor que contralateral, edema godete ___, cicatrices quirúrgicas sin datos de infección. Arcos de movimiento activos de tobillo flexión dorsal ___°, flexión plantar ___°, inversión ___°, eversión ___°. Fuerza de musculatura de tobillo ___/5 en la escala de Daniels, reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nTina de remolino hasta arriba de rodilla ___.\nCorrientes interferenciales 80-150 Hz.\nMasaje de despegue a cicatrices.\nMovilidad de tobillo; excéntricos de tibiales anterior y posterior, tríceps sural y peroneos.\nPropiocepción y equilibrio.\nReeducación de la marcha con apoyo gradual y progresivo según indicación de Ortopedia.\nAgendar cita en un mes.",
+   "recs": [
+    "La rehabilitación puede iniciar tan pronto termine el periodo de inmovilización (Ia).",
+    "Preferir inmovilizadores removibles que permitan movimiento; la inmovilización total posquirúrgica retrasa la recuperación (Ia/IIa).",
+    "Propiocepción de todo el miembro pélvico con ejercicios de cadena cerrada y abierta (Ia/IIa).",
+    "Fortalecimiento de dorsiflexores y plantiflexores (Ia/IIa).",
+    "Hidroterapia para mejorar el arco de movilidad; inmersión en agua caliente en casa (PBP)."
+   ],
+   "guia": "GPC «Tratamiento de la Fractura de Tobillo en el Adulto», IMSS-493-11"
+  },
+  "Esguince de tobillo / secuelas": {
+   "ef": "A la exploración física extremidades íntegras, tobillo ___ con dolor a la palpación de ligamentos peroneoastragalino anterior y peroneocalcáneo, edema ___. Arcos de movimiento de tobillo ___. Clunk test negativo, Squeeze test negativo, Cotton test negativo, cajones anterior y posterior negativos, inclinación talar negativa. Fuerza de musculatura de tobillo 5/5 en la escala de Daniels, reflejos de estiramiento muscular ++/++++. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nTina de remolino / compresa a tobillo ___ (crioterapia en fase aguda).\nCorrientes interferenciales 80-150 Hz.\nMovilidad de tobillo y fortalecimiento de peroneos, tibiales y tríceps sural.\nEntrenamiento propioceptivo y de equilibrio monopodal progresivo.\nReeducación de la marcha y retorno gradual a la actividad.\nAgendar cita en un mes.",
+   "recs": [
+    "Hielo local 20 minutos cada 8 horas y elevación a 30° en fase aguda (C/D).",
+    "Vendaje elástico; compresivo después de 72 h (Ib).",
+    "No inmovilizar con férula de yeso en esguinces grado I y II; el tratamiento funcional reintegra más rápido al trabajo y al deporte (B).",
+    "Apoyo parcial progresivo después de 72 h y movilización activa a tolerancia (C/D).",
+    "Ejercicios de propiocepción (rodar una botella, arrugar una toalla con los dedos) y de estiramiento y fortalecimiento a contrarresistencia (C/D)."
+   ],
+   "guia": "GPC «Diagnóstico y Manejo del Esguince de Tobillo en la Fase Aguda en el Primer Nivel de Atención», IMSS-034-08"
+  },
+  "Fascitis plantar": {
+   "ef": "A la exploración física extremidades íntegras, pie ___ con dolor a la palpación de región plantar y del tubérculo medial del calcáneo en la inserción de la fascia plantar, dolor a la hiperextensión de ortejos (Windlass ___). Flexión dorsal de tobillo ___° con rodilla extendida. Fuerza 5/5 en la escala de Daniels, reflejos de estiramiento muscular 2/4. Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nTina de remolino / contraste a pie ___.\nUltrasonido pulsátil 20%, 1 W/cm², 3 MHz, 5 min, a inserción de fascia plantar.\nEstiramientos de fascia plantar y tríceps sural (en escalón, con toalla), varias veces al día.\nMasaje con rodillo / botella fría en arco plantar.\nFortalecimiento de musculatura intrínseca del pie.\nCalzado con soporte de arco y talonera; control de peso.\nAgendar cita en un mes.",
+   "recs": [
+    "Estiramiento de fascia plantar y tríceps sural, educación y modificación de carga (guía internacional).",
+    "Órtesis plantares y calzado con soporte; férula nocturna en casos persistentes (guía internacional)."
+   ],
+   "guia": "sin GPC mexicana específica en el Catálogo Maestro; manejo conservador de acuerdo con guía internacional APTA/JOSPT de dolor de talón (2023)"
+  },
+  "Pie plano rígido": {
+   "ef": "A la exploración física dirigida paciente con marcha con pronación excesiva y aplanamiento del arco longitudinal medial. En bipedestación se observa colapso del arco longitudinal medial; el retropié muestra valgo evidente. No hay elevación del arco al ponerse de puntillas ni con la prueba de Jack. Dolor a la palpación en la región plantar del talón sobre la inserción de la fascia plantar en el tubérculo medial del calcáneo. Limitación de la movilidad subtalar e inversión/eversión del retropié; movimiento del mediopié reducido, lo que confirma la rigidez del pie plano. Fuerza 5/5 en la escala de Daniels en todos los grupos musculares, sensibilidad aparentemente conservada, llenado capilar inmediato.",
+   "trat": "Terapia física 3 sesiones por semana, 12 sesiones.\nCompresa húmedo caliente / tina de remolino a pies.\nUltrasonido pulsátil 20%, 1 W/cm², 3 MHz a fascia plantar.\nEstiramientos de tríceps sural y fascia plantar.\nFortalecimiento de tibial posterior y musculatura intrínseca del pie.\nPlantillas ortopédicas a la medida con soporte de arco y cuña según valoración de Órtesis.\nCalzado adecuado y control de peso.\nAgendar cita en un mes.",
+   "recs": [
+    "Pie plano rígido o doloroso: valoración por Ortopedia (Grado C, IMSS-779-15)."
+   ],
+   "guia": "sin GPC mexicana para el adulto (IMSS-779-15 es pediátrica: pie plano rígido o doloroso se refiere a Ortopedia, Grado C)"
+  }
+ },
+ "Neurológico": {
+  "Parálisis facial periférica (Bell)": {
+   "ef": "A la exploración física paciente con Glasgow 15, consciente, orientado en tiempo, lugar y persona, lenguaje sin elementos afásicos. Cráneo normocéfalo sin exostosis ni hundimientos. Cuello cilíndrico sin signos meníngeos. NC I sin alteraciones olfativas aparentes. NC II visión y colores conservados a corta distancia, campimetría por confrontación normal. NC III, IV y VI adecuada movilidad ocular, sin ptosis palpebral, pupilas isocóricas y normorrefléxicas. NC V adecuada apertura y cierre bucal, sensibilidad de cara conservada al tacto y al pinchazo. NC VII con desviación de la comisura labial hacia ___, parálisis de hemicara ___ al solicitar arrugar la frente, fruncir el ceño, cerrar los ojos, sonreír, inflar los carrillos y silbar; cierre incompleto de ojo ___, signo de Bell ___; clasificación de House-Brackmann ___. NC VIII agudeza auditiva aparentemente conservada, Romberg ___. NC IX, X y XII velo del paladar, úvula y lengua centrales con adecuada movilidad, adecuada deglución. NC XI fuerza de esternocleidomastoideo y trapecio 5/5. Funciones cerebelosas sin dismetrías ni disdiadococinesias. Fuerza 5/5 por grupos musculares, tono y trofismo normales, reflejos de estiramiento muscular ++/++++ simétricos, sin clonus, Babinski negativo.",
+   "trat": "Terapia física 3 veces por semana, 12 sesiones.\nCompresas húmedo calientes a hemicara ___.\nReeducación neuromuscular facial: ejercicios faciales frente al espejo, ejercicios de coordinación.\nMasoterapia facial del centro hacia la oreja (en círculos).\nEjercicios de gesticulación (terapia de la mímica) y de relajación de hemicara contralateral.\nProtección ocular: lágrimas artificiales 1 gota en ojo ___ cada 4 h y oclusión nocturna.\nEducación para realizar programa en casa.\nCita en un mes.",
+   "recs": [
+    "Fisioterapia (ejercicio, masaje, reeducación neuromuscular y educación) mejora simetría y movilidad y reduce la sincinesia; el ejercicio de mímica es efectivo (1+).",
+    "Iniciar lo más pronto posible, sobre todo reeducación neuromuscular y ejercicios de mímica.",
+    "Protección ocular de rutina si el cierre palpebral es incompleto: lubricante de día y ungüento de noche (recomendación fuerte).",
+    "Electroestimulación: recomendación débil, evidencia de muy baja calidad; acupuntura no de rutina.",
+    "Graduar con House-Brackmann; evitar vibrador y goma de mascar (versión 2008)."
+   ],
+   "guia": "GPC «Diagnóstico y tratamiento del adulto con parálisis de Bell en el primer y segundo nivel de atención», IMSS-066-08 (actualización 2017)"
+  },
+  "Enfermedad vascular cerebral — secuelas (hemiparesia)": {
+   "ef": "A la exploración física dirigida paciente consciente, atenta, orientada, con Glasgow 15. Funciones mentales superiores ___. Lenguaje ___ (afasia / disartria). Cráneo normocéfalo, sin exostosis ni hundimientos. Cuello cilíndrico, sin rigidez de nuca ni otros signos meníngeos. NC I sin alteraciones olfativas aparentes. NC II visión y campimetría ___. NC III, IV y VI adecuada motilidad ocular, pupilas isocóricas y normorreactivas. NC V apertura y cierre bucal conservados, sensibilidad facial conservada. NC VII desviación de comisura labial hacia ___. NC VIII agudeza auditiva conservada, Romberg ___. NC IX, X y XII velo del paladar, úvula y lengua centrales, deglución ___. NC XI fuerza de esternocleidomastoideo y trapecio 5/5. Funciones cerebelosas sin dismetrías ni disdiadococinesias. Exploración motora: miembro torácico ___ fuerza ___/5, miembro pélvico ___ fuerza ___/5 en la escala de Daniels; tono ___ (Ashworth modificada ___), trofismo ___. Escala de Brunnstrom (hemicuerpo ___): miembro superior etapa ___, mano etapa ___, miembro inferior etapa ___. Sensibilidad táctil, vibratoria y artrocinética ___. Reflejos de estiramiento muscular ___, Babinski ___. Marcha ___. Extremidades íntegras, llenado capilar inmediato.",
+   "trat": "Terapia física 3 veces por semana, 12 sesiones.\nCompresas húmedo calientes a hombro y rodilla ___.\nMovilización y posicionamiento para prevenir hombro doloroso y contracturas.\nEjercicios de Codman y escalerilla de hombro ___.\nFacilitación neuromuscular, control motor y coordinación; uso funcional de la extremidad afectada.\nFortalecimiento progresivo; isométricos de cuádriceps.\nEntrenamiento de equilibrio y reeducación de la marcha.\nTerapia ocupacional (AVD) y valoración por Terapia de Lenguaje.\nPrograma en casa con apoyo de cuidador.\nAgendar cita en un mes.",
+   "recs": [
+    "Iniciar la rehabilitación lo antes posible (A); movilización temprana con cambios de posición, movilización pasiva y sedestación (C).",
+    "Programas combinados de potenciación muscular y condicionamiento físico (A), 3-7 días por semana, 20-60 min (D).",
+    "Reeducación de la marcha (C); órtesis de miembro inferior en pie equino (A).",
+    "Terapia de restricción del lado sano para el déficit del brazo (A).",
+    "Hombro doloroso: posicionamiento correcto del brazo pléjico (C) y movilización pasiva sin pasar de 90° de flexión/abducción (A).",
+    "Tratar la espasticidad cuando dé síntomas (B); en espasticidad focal grave, toxina botulínica más fisioterapia (A).",
+    "Educación al paciente y cuidador y manejo multidisciplinario de las AVD (A)."
+   ],
+   "guia": "GPC «Rehabilitación de adultos con enfermedad vascular cerebral», DIF-331-09 e IMSS-114-08 (prevención secundaria, 2015)"
+  }
+ },
+ "Amputación y cardiaca": {
+  "Amputación de miembro pélvico — fase preprotésica": {
+   "ef": "A la exploración física paciente con amputación ___ (transtibial / transfemoral) ___, muñón ___ de forma ___, cicatriz ___ sin datos de infección, sin neuromas palpables, sensación de miembro fantasma ___. Arcos de movimiento de cadera ___ y rodilla ___ (sin contractura en flexión ___). Fuerza de miembro residual ___/5 y de miembro contralateral ___/5 en la escala de Daniels. Equilibrio monopodal ___ s. Marcha con ___ (muletas / andadera). Sensibilidad aparentemente conservada. Pulsos sincrónicos, rítmicos y con adecuada intensidad. Llenado capilar inmediato.",
+   "trat": "Terapia física 2 veces por semana.\nVendaje compresivo del muñón en ocho.\nEjercicios de Buerger-Allen.\nFortalecimiento de miembro pélvico contralateral: excéntricos de cuádriceps e isquiotibiales con banda elástica resistencia baja 4 series de 12 repeticiones; isométricos de tibial anterior, posterior, peroneos y tríceps sural 3 series de 10 repeticiones (6 s contracción × 6 s reposo).\nFortalecimiento de extensores y abductores de cadera del lado amputado; evitar posiciones en flexión prolongada.\nEquilibrio en un pie y entrenamiento de marcha con muletas en paralelas.\nDesensibilización del muñón con texturas.\nAgendar cita en dos meses.",
+   "recs": [
+    "Vendaje del muñón para protegerlo, disminuir el edema y favorecer la cicatrización; compresión externa cuando no se usa la prótesis (A); inspección diaria con espejo (A).",
+    "Posicionar siempre el muñón para evitar contracturas; no colocar almohadas bajo las rodillas (A).",
+    "Fortalecimiento inicial de cuádriceps y glúteos; entrenamiento de miembros superiores, tronco, muñón y extremidad contralateral (A).",
+    "Fase preprotésica: cambios de posición, control del dolor, cuidado del muñón y prevención de caídas (A); socket definitivo al madurar el muñón, a los 3-4 meses (A).",
+    "Balance valorado con Tinetti o Berg, progresando de sedestación a bipedestación y apoyo monopodal (A).",
+    "Educación sobre el muñón y la colocación y retiro de la prótesis (A)."
+   ],
+   "guia": "GPC «Rehabilitación del Paciente Adulto Amputado de Extremidad Inferior por Diabetes Mellitus, en el Segundo y Tercer Nivel de Atención», DIF-257-09"
+  },
+  "Rehabilitación cardiaca fase I — programa de marcha": {
+   "ef": "A la exploración física paciente consciente, orientado, cooperador. Signos vitales en reposo: TA ___ mmHg, FC ___ lpm, FR ___ rpm, SatO₂ ___%. Precordio rítmico, sin soplos; campos pulmonares bien ventilados, sin estertores. Extremidades íntegras, sin edema, pulsos periféricos presentes. Fuerza 5/5 en la escala de Daniels, marcha independiente. Escala de Borg ___.",
+   "trat": "Ejercicios de movilidad articular y respiración. Ejecutarlos con precaución, lentamente y con conciencia del movimiento:\n- Elevación de hombros hacia el cuello asociada al movimiento respiratorio, 10 repeticiones.\n- Flexión-extensión de columna cervical sentado: inspirar con la extensión, espirar con la flexión, 10 repeticiones.\n- Rotación de columna cervical sentado, 10 repeticiones.\n- Elevación lateral de brazos sentado: inspirar al elevar, espirar al descender.\nEsquema de marcha (suspender si hay dolor torácico, disnea desproporcionada, mareo o Borg >13):\n- 6.º día 25 m, 20-25 pasos/min.\n- 7.º día 50 m, 25-30 pasos/min.\n- 8.º día 75 m, 30-40 pasos/min.\n- 9.º día 100 m, 40-50 pasos/min.\n- 10.º día 150 m, 50-60 pasos/min.\n- 11.º día 200 m, 60-70 pasos/min.\n- 12.º día 250 m, 70-80 pasos/min.\n- 13.º día 300 m, 80-90 pasos/min.\n- 14.º día 350 m, más de 90 pasos/min.\nPosteriormente subir y bajar de 15 a 20 escalones.",
+   "recs": [
+    "Estratificación de riesgo y prueba de esfuerzo antes de ingresar a fase II (IV).",
+    "Intensidad del 40-85% de la capacidad funcional; Borg 12-13 (esfuerzo moderado); con betabloqueador no guiar por la frecuencia cardiaca predicha (IV).",
+    "Ejercicio aeróbico de grandes grupos musculares 3-5 veces por semana, al menos 20 minutos; 30-40% del programa contra resistencia (IV).",
+    "Riesgo alto (clase C): rehabilitación supervisada con monitoreo electrocardiográfico 8-12 semanas (IV).",
+    "Intervenciones psicológicas y educativas; consejo antitabaco (A).",
+    "Ejercicio no supervisado en casa con bitácora de marcha según frecuencia cardiaca de entrenamiento (SSA-152-08)."
+   ],
+   "guia": "GPC «Abordaje de la Rehabilitación Cardiaca en Cardiopatía Isquémica, Valvulopatías y Grupos Especiales», IMSS-429-10 y SSA-152-08"
+  }
+ }
+};
+function efPlantTexto(p){
+  if(!p)return "";
+  let t="EXPLORACIÓN FÍSICA:\n"+p.ef+"\n\nTRATAMIENTO FISIOTERAPÉUTICO:\n"+p.trat;
+  if(p.recs&&p.recs.length)t+="\n\nRECOMENDACIONES TERAPÉUTICAS (GPC):\n"+p.recs.map(r=>"- "+r).join("\n");
+  t+="\n\nBasado en las guías de práctica clínica"+(p.guia?": "+p.guia:"")+".";
+  return t;
+}
+window.toggleEFPlant=function(){
+  if(!esDrPolanco())return;
+  const d=document.getElementById("ef-plant-panel");
+  if(!d)return;
+  d.style.display=d.style.display==="none"?"block":"none";
+}
+window.efPlantCat=function(){
+  const cat=efq("cat")?.value;
+  const sel=efq("tipo");
+  const prev=efq("prev");
+  if(!sel)return;
+  sel.innerHTML=`<option value="">-- Padecimiento --</option>`;
+  if(prev)prev.value="";
+  if(cat&&EF_PLANTILLAS[cat]){
+    Object.keys(EF_PLANTILLAS[cat]).forEach(k=>{
+      const o=document.createElement("option");o.value=k;o.textContent=k;sel.appendChild(o);
+    });
+  }
+}
+window.efPlantCargar=function(){
+  const cat=efq("cat")?.value;
+  const tipo=efq("tipo")?.value;
+  const prev=efq("prev");
+  if(!prev)return;
+  prev.value=(cat&&tipo)?efPlantTexto(EF_PLANTILLAS[cat]?.[tipo]):"";
+}
+window.efPlantInsertar=function(){
+  if(!esDrPolanco())return;
+  const prev=efq("prev");
+  const ta=document.getElementById("cs_expl");
+  const txt=(prev?.value||"").trim();
+  if(!txt){showToast("Elige primero la región y el padecimiento",false);return;}
+  if(!ta){showToast("No encontré el recuadro de Exploración física en esta nota",false);return;}
+  ta.value=ta.value.trim()?ta.value.replace(/\s+$/,"")+"\n\n"+txt:txt;
+  // Avisar al autoguardado igual que si se hubiera escrito a mano
+  ta.dispatchEvent(new Event("input",{bubbles:true}));
+  ta.dispatchEvent(new Event("change",{bubbles:true}));
+  const d=document.getElementById("ef-plant-panel");if(d)d.style.display="none";
+  ta.focus();ta.scrollTop=ta.scrollHeight;
+  showToast("Plantilla agregada a Exploración física. Completa los «___».");
+}
+function efPlantPanelHTML(){
+  if(!esDrPolanco())return "";
+  return `<div id="ef-plant-panel" style="display:none;border-bottom:1px solid ${BR};padding:10px 12px;background:#FAFAFA">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <select data-efp="cat" onchange="efPlantCat()" style="flex:1;min-width:150px;padding:8px 10px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;background:#fff;outline:none">
+        <option value="">-- Región --</option>
+        ${Object.keys(EF_PLANTILLAS).map(c=>`<option>${c}</option>`).join("")}
+      </select>
+      <select data-efp="tipo" onchange="efPlantCargar()" style="flex:2;min-width:200px;padding:8px 10px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;background:#fff;outline:none">
+        <option value="">-- Padecimiento --</option>
+      </select>
+    </div>
+    <textarea data-efp="prev" placeholder="Vista previa: puedes recortarla aquí antes de agregarla." style="width:100%;box-sizing:border-box;min-height:150px;padding:8px 10px;border:1.5px solid ${BR};border-radius:8px;font-family:inherit;font-size:13px;line-height:1.45;resize:vertical;outline:none"></textarea>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+      <button type="button" onclick="toggleEFPlant()" style="background:#fff;color:${MU};border:1.5px solid ${BR};border-radius:7px;padding:6px 12px;cursor:pointer;font-size:14px">Cerrar</button>
+      <button type="button" onclick="efPlantInsertar()" style="background:${P};color:#fff;border:none;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:14px;font-weight:600">Agregar a Exploración física</button>
+    </div>
+  </div>`;
+}
+
 // ── MOTIVOS COMUNES ───────────────────────────────────────
 window.toggleMotivos=function(){
   const d=document.getElementById("motivos-dropdown");
