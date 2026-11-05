@@ -351,14 +351,14 @@ Medido sobre 5,275 ejercicios principales de las 250 combinaciones: carga potenc
 
 ### Decidido y todavía NO construido
 
-- **Cardio con zonas reales.** El Dr. Polanco eligió **reproducir el modelo Fitmate** (el de sus
+- ✅ *Construido el 4-nov-2026, ver la sección siguiente.* **Cardio con zonas reales.** El Dr. Polanco eligió **reproducir el modelo Fitmate** (el de sus
   estudios COSMED): seis zonas por % de VO2máx —quema de grasa 24-31 %, resistencia 32-39 %, umbral
   40-44 %, carrera 45-73 %, VO2máx 74-100 %, anaeróbico 101-105 %— con lpm, watts y km/h, para que
   el paciente vea lo mismo en el estudio y en la receta. Dos orígenes: **medido** (captura del
   informe: VO2máx, FCmáx alcanzada, FC y VO2 en umbral) o **calculado**, y en este último la FCmáx
   teórica va con **Tanaka (208 − 0.7 × edad)**, no con 220 − edad. El PDF debe decir cuál se usó y
   si es medida o estimada.
-- **Ampliar casa, peso corporal y funcional.** La medición por celda grupo × patrón: pesas 14.7
+- ✅ *Construido el 4-nov-2026.* **Ampliar casa, peso corporal y funcional.** La medición por celda grupo × patrón: pesas 14.7
   medios de promedio y ninguna celda pobre; funcional 10.6 con tres celdas de 1 o 2; casa 6.5 con
   una vacía (jalón vertical) y cuatro de 1 o 2; peso corporal 4.2 con cuatro vacías y diez de 1 o 2;
   rehabilitación 8.7 con dos vacías. **Para gimnasio no falta catálogo, faltaba criterio.**
@@ -385,6 +385,65 @@ Medido sobre 5,275 ejercicios principales de las 250 combinaciones: carga potenc
 Probado antes de entregar: 250 combinaciones de secuencia × método × lugar sin excepciones, sin
 ejercicios vacíos y sin ninguna sesión por encima del tope; las cuatro vistas dibujadas en
 navegador sin errores; y cuatro PDF generados y revisados página por página.
+
+## Ejercicio: biblioteca ampliada, videos, variantes y cardio por zonas (4 noviembre 2026)
+
+**Biblioteca.** `EJ_BIBLIO` (457 del Excel) queda intacta; `EJ_BIBLIO_AMPLIACION` se fusiona justo
+debajo y lleva el total a ~610. Cubre las celdas pobres de casa, peso corporal, funcional y
+rehabilitación (jalón vertical en casa ya no está vacío). Los nombres siguen la forma sistemática
+porque `ejFamilia/ejEquipo/ejCargaPotencial` leen el texto.
+⚠️ **Defecto corregido en `ejEquipo`:** «prensa» se clasificaba siempre como máquina, así que
+«Prensa para pecho con mancuernas» o «Prensa militar con mancuernas» NUNCA salían en casa ni en
+funcional. Ahora sólo «prensa para pierna» es máquina. También: «colgando» exige barra
+(suspendido), «fondos en banco/silla» es peso corporal, «saco» se busca como palabra completa
+(«cosaco» contenía «saco»), y se toleran los typos «mamcuerna/mamcierna».
+Prueba: 1,000 combinaciones secuencia × método × lugar × nivel sin errores, sin filas vacías, sin
+sesión sobre el tope; carga potencial media del principal 2.15/3; cero regresiones como principal
+fuera de corporal/rehab; seis meses seguidos en casa sin repetir principal.
+
+**Por fila del plan:** `alternativa` (otro movimiento del mismo patrón, otra familia, misma
+lista filtrada por lugar/nivel/contraindicaciones; botón «usar»), `siguiente` (sólo para lo que
+no progresa por carga —carga potencial 0-1— o regresiones: la variante más cercana en
+`ejDificultad`; fuera de la familia sólo un escalón corto) y `video` (enlace propio del médico).
+**Progresión semana a semana** (`ejSemanas`): adaptación RIR+1 · carga · sobrecarga RIR−1 ·
+descarga con la mitad de series; nunca debajo del RIR mínimo del lugar.
+
+**Videos.** `EJ_VIDEOS`: 78 reglas regex → URL, de lo específico a lo general, gana la primera.
+Las 80 URLs las reunió un agente con búsqueda en YouTube (todas en español, ninguna construida a
+mano; no se verificó que sigan en línea). Sin regla → enlace de BÚSQUEDA de YouTube, que no se
+rompe. El médico puede pegar su propio enlace por fila (`ejUrlSegura` sólo acepta youtube.com /
+youtu.be). En el PDF son **anotaciones clicables**: se miden dentro del CLON de html2canvas
+(`onclone`), porque el clon maqueta ~10 % más compacto que la página y las posiciones medidas en
+la página caían fuera de la imagen (se perdía el enlace del último ejercicio de cada día).
+
+**Cardio (pestaña 3).** Decisión del Dr. Polanco: **zonas 1-5 del informe Fitmate** (quema de
+grasa/recuperación, resistencia, umbral, carrera, VO2máx; la anaeróbica NO se prescribe). Sin
+prueba: **FCmáx teórica de Tanaka** y bandas de Edwards 50-60/60-70/70-80/80-90/90-100 %. El PDF
+dice cuál se usó. `plan.cardio` se guarda con el plan; planes viejos sin `cardio` conservan su
+texto (`textos._cardioManual`).
+- **Pruebas de esfuerzo:** `anexos` con `__PRUEBA_ESFUERZO__:` + JSON, `tipo_documento`
+  «Prueba de esfuerzo», PDF en `expedientes/{pid}/pruebas_esfuerzo/`. Aparecen también en
+  Documentos. Se suben (PDF → pdf.js 3.11.174 → `ejLeerFitmate`) o se capturan a mano; el
+  médico revisa el formulario antes de guardar.
+- `ejLeerFitmate` lee por POSICIÓN, no por orden: las zonas vienen en tres columnas que el orden
+  de lectura intercala, y la gráfica tiene una leyenda «HR» y «VO2/kg» que engaña si se toma la
+  primera coincidencia (el encabezado válido es el que está justo encima de la fila). Validado
+  contra el informe real de abril 2024: VO2máx 37.9, 10.8 METs, FCmáx 177, umbral 109 lpm /
+  15.8 mL/kg/min, las 5 zonas con FC, W y km/h.
+- ⚠️ **Rareza de Fitmate a saber:** su zona «Umbral» (87-95 lpm en ese informe) queda POR DEBAJO
+  de la FC medida en el umbral anaeróbico (109). Se reproduce tal cual por decisión clínica; las
+  zonas son editables en la tabla si el médico prefiere anclarlas al umbral medido.
+- **Menú de intervalos** (`EJ_HIIT`): 1:2 de la clínica, 4×4 noruego, 10×1, 30/30, aeróbicos
+  5×3, umbral 3×8 y personalizado. Se eligen intervalos de semana 1 y 3, trabajo y recuperación
+  (segundos + zona), calentamiento y enfriamiento; semana 2 intermedia, semana 4 descarga.
+  Continuo opcional. `ejCardioAvisos` advierte zona 4-5 con cardiopatía, HAS, retinopatía,
+  embarazo o con zonas sólo estimadas.
+- **Mes siguiente** (`ejCardioProgresar`): conserva la prueba; si el cuestionario permite
+  progresar, arranca donde terminó (6-8 → 8-10) con tope de 20 min de trabajo; si pide
+  recuperación, retrocede un escalón. Continuo ±10 min (15-60).
+- El texto de cardio de Indicaciones se escribe solo desde el menú hasta que el médico lo edita;
+  entonces deja de seguirlo y aparece «Rehacer el texto desde el menú». Las tablas del PDF siempre
+  salen del menú.
 
 ## Pendientes
 

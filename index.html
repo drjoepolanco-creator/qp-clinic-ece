@@ -4533,6 +4533,11 @@ window.abrirExpediente=async function(id){
   STATE.antNoPatText="";STATE.otrosText="";
   STATE.medText="";STATE.medOtrosText="";
   STATE.signosHoy=null;STATE.consultaActual=null;STATE._svPendiente=null;
+  // Prescripción de ejercicio: el plan, las variables del modelo (sexo, talla,
+  // peso…), el cuestionario y las pruebas de esfuerzo son DEL PACIENTE. Sin esto
+  // el siguiente expediente heredaba el plan y las variables del anterior.
+  STATE._ejPlanActual=null;STATE.ejCfg=null;STATE._ejBienestar={};STATE._ejLegacy=null;
+  STATE._ejPruebaForm=null;STATE._ejVidEdit=null;STATE._ejPruebas=null;STATE._ejPruebasPid=null;STATE._ejHist={};STATE.ejTab="config";
   STATE.expTab="ficha";STATE.ficTab="gen";STATE.antTab="fam";STATE.anexoTab="docs";
   loading(true,"Cargando expediente...");
   const {data,error}=await SB.from("pacientes").select("*").eq("id",id).single();
@@ -21886,7 +21891,8 @@ window.goEjercicio=function(){
   STATE.page="ejercicio";
   draw();
 };
-// ── Biblioteca de medios: 11 grupos · 31 patrones · 457 ejercicios ──────────
+// ── Biblioteca de medios: 12 grupos · 31 patrones · 457 ejercicios del Excel ─
+// (más la ampliación de noviembre de 2026, que se fusiona justo debajo)
 // Extraída de las listas desplegables de las plantillas de Excel del Dr. Polanco.
 const EJ_BIBLIO={
   "Cuadríceps":{
@@ -22433,6 +22439,248 @@ const EJ_BIBLIO={
 };
 
 // ── Secuencias de días tomadas tal cual de las 5 plantillas ────────────────
+// ── Ampliación de la biblioteca (noviembre 2026) ─────────────────────────────
+// La biblioteca original del Excel queda INTACTA arriba. Esta ampliación cubre
+// las sedes pobres —casa, peso corporal, funcional y rehabilitación— que la
+// medición de septiembre señaló: celdas grupo × patrón con 0, 1 o 2 familias.
+// Los nombres siguen la forma sistemática de la biblioteca («X con mancuernas»,
+// «X con ligas», «X en suspensión (TRX)», «X isométrico (n segundos)»), porque
+// ejFamilia(), ejEquipo() y ejCargaPotencial() los leen del texto: un nombre
+// fuera de esa forma da una familia o un equipo equivocados.
+const EJ_BIBLIO_AMPLIACION={
+  "Cuadríceps":{
+    "Bilateral":[
+      "Sentadilla con mancuernas",
+      "Sentadilla con pausa (2 segundos)",
+      "Sentadilla con pausa (2 segundos) con mancuernas",
+      "Sentadilla con salto",
+      "Sentadilla isométrica (30 segundos) en la pared",
+      "Sentadilla asistida",
+      "Sentadilla asistida en suspensión (TRX)",
+      "Sentadilla en suspensión (TRX)",
+      "Sentadilla con pesa rusa en posición de rack",
+      "Sentadilla a cajón con mancuerna",
+      "Sentadilla con ligas",
+      "Levantarse y sentarse de una silla con ligas",
+      "Prensa para pierna con pies bajos",
+      "Prensa para pierna con rango parcial",
+    ],
+    "Dominantes de rodilla unilateral":[
+      "Desplante reverso",
+      "Desplante reverso con mancuernas",
+      "Desplante reverso con pesa rusa",
+      "Desplante reverso con ligas",
+      "Desplante lateral",
+      "Desplante lateral con mancuernas",
+      "Desplante en caminata",
+      "Desplante en caminata con mancuernas",
+      "Desplante asistido",
+      "Sentadilla split asistida",
+      "Sentadilla split con ligas",
+      "Sentadilla split en suspensión (TRX)",
+      "Sentadilla cosaco",
+      "Sentadilla cosaco con pesa rusa",
+      "Bajada lateral desde escalón",
+      "Subida a escalón bajo con apoyo",
+    ],
+  },
+  "Glúteo":{
+    "Empuje vertical":[
+      "Bisagra de cadera con palo",
+      "Bisagra de cadera con mancuerna desde altura elevada",
+      "Bisagra de cadera con ligas",
+      "Pull through con ligas",
+      "Swing con pesa rusa",
+    ],
+  },
+  "Isquiosurales":{
+    "Dominante de cadera":[
+      "Buenos días con barra",
+      "Buenos días con mancuerna",
+      "Buenos días con ligas",
+      "Kickstand rumano con mancuerna",
+      "Kickstand rumano con pesa rusa",
+      "Puente isquiosural con talones en silla",
+      "Puente isquiosural unilateral con talones en silla",
+      "Extensión de cadera en banco romano",
+    ],
+    "Dominante de rodilla":[
+      "Curl femoral con toalla en el suelo",
+      "Curl femoral con toalla en el suelo unilateral",
+      "Curl femoral de pie con ligas",
+      "Curl femoral acostado con ligas",
+      "Curl femoral acostado con mancuerna",
+      "Curl femoral de pie con polaina",
+      "Curl femoral sentado en máquina",
+      "Curl femoral sentado en máquina unilateral",
+    ],
+  },
+  "Pantorrilla":{
+    "Rodilla en extensión":[
+      "Elevación de talones de pie con ligas",
+      "Elevación de talones de pie con pausa (2 segundos)",
+      "Elevación de talones de pie con pesa rusa",
+    ],
+    "Rodilla en flexión":[
+      "Elevación de talones sentado",
+      "Elevación de talones sentado con mancuernas sobre las rodillas",
+      "Elevación de talones sentado con ligas",
+      "Elevación de talones sentado en máquina",
+      "Elevación de talones sentado en máquina unilateral",
+    ],
+    "Rodilla en extensión cadera en flexión":[
+      "Elevación de talones tipo burro con mancuerna",
+      "Elevación de talones tipo burro unilateral",
+      "Elevación de talones tipo burro con ligas",
+    ],
+  },
+  "Abdomen/Psoas":{
+    "Flexión de cadera":[
+      "Elevación de piernas acostado",
+      "Elevación de piernas acostado con polainas",
+      "Elevación de rodillas acostado",
+      "Elevación de rodillas sentado en banco/silla",
+      "Flexión de cadera de pie con ligas",
+      "Flexión de cadera de pie con polaina",
+      "Escaladores (mountain climbers)",
+    ],
+    "Isométricos":[
+      "Pallof press con ligas",
+      "Pallof press en polea",
+      "Caminata del granjero unilateral con mancuerna",
+      "Caminata del granjero unilateral con pesa rusa",
+      "Plancha con toque de hombro",
+      "Plancha lateral con elevación de pierna",
+    ],
+  },
+  "Pectorales":{
+    "Empuje horizontal":[
+      "Lagartijas con pausa (2 segundos)",
+      "Lagartijas con lastre",
+      "Lagartijas con déficit",
+      "Lagartijas arqueras",
+      "Lagartijas pliométricas",
+      "Prensa para pecho en suelo con ligas",
+      "Prensa para pecho de pie con ligas",
+      "Prensa para pecho de pie unilateral con ligas",
+      "Prensa para pecho acostado en suelo con pesa rusa",
+    ],
+    "Empuje diagonal":[
+      "Prensa para pecho inclinado con ligas",
+      "Prensa para pecho de pie diagonal ascendente con ligas",
+      "Press landmine a 1 mano",
+      "Press landmine de pie",
+      "Lagartijas con piernas elevadas con pausa (2 segundos)",
+      "Lagartijas con piernas elevadas en suspensión (TRX)",
+    ],
+    "Aislados":[
+      "Aperturas para pecho con ligas",
+      "Aperturas para pecho de pie con ligas",
+      "Aperturas para pecho con toallas en el suelo",
+      "Aperturas para pecho inclinado con mancuernas",
+    ],
+  },
+  "Espalda alta":{
+    "Jalón vertical":[
+      "Jalón al pecho con ligas",
+      "Jalón al pecho unilateral con ligas",
+      "Jalón al pecho arrodillado con ligas",
+      "Dominada asistida con ligas",
+      "Dominada negativa",
+      "Pull over con ligas",
+      "Pull over con mancuerna",
+    ],
+    "Jalón horizontal":[
+      "Remo invertido bajo mesa",
+      "Remo invertido bajo mesa con rodillas flexionadas",
+      "Remo invertido en barra",
+      "Remo sentado con ligas",
+      "Remo con pesa rusa",
+      "Remo renegado con mancuernas",
+      "Remo inclinado con mancuernas",
+    ],
+    "Jalón horizontal (accesorios)":[
+      "Remo con mancuerna a 1 mano con apoyo en banco",
+      "Remo a 1 mano con pesa rusa",
+      "Remo sentado unilateral con ligas",
+      "Remo en suspensión (TRX) a 1 mano",
+      "Remo invertido bajo mesa unilateral",
+    ],
+  },
+  "Hombro":{
+    "Deltoides anterior":[
+      "Lagartijas en pica",
+      "Lagartijas en pica con pies elevados",
+      "Prensa militar de pie con pesa rusa",
+      "Press Arnold con mancuernas",
+      "Press Arnold sentado con mancuernas",
+    ],
+    "Deltoides lateral":[
+      "Elevaciones laterales inclinado con mancuerna",
+      "Elevaciones laterales parciales con ligas",
+      "Elevaciones laterales en suspensión (TRX)",
+      "Remo al mentón con ligas",
+      "Remo al mentón con mancuernas",
+      "Elevación lateral isométrica (10 segundos) contra marco de puerta",
+    ],
+    "Deltoides posterior":[
+      "Elevaciones en T boca abajo",
+      "Elevaciones en T boca abajo con mancuernas",
+      "Aperturas posteriores con mancuernas con pecho apoyado",
+      "Aperturas posteriores de pie con ligas",
+    ],
+  },
+  "Trapecio":{
+    "Trapecio":[
+      "Caminata del granjero con mancuernas",
+      "Caminata del granjero con pesa rusa",
+      "Encogimientos de hombro anterior con ligas",
+      "Elevaciones en Y boca abajo",
+      "Elevaciones en Y boca abajo con mancuernas",
+      "Elevaciones en Y con ligas",
+    ],
+  },
+  "Bíceps":{
+    "Hombro en flexión":[
+      "Curl concentrado para bíceps con ligas",
+      "Curl araña para bíceps con mancuernas",
+      "Curl para bíceps con ligas anclada arriba",
+    ],
+    "Hombro neutro":[
+      "Curl para bíceps de pie con ligas",
+      "Curl martillo con ligas",
+      "Curl zottman con mancuernas",
+      "Curl isométrico (10 segundos) con toalla",
+      "Curl martillo con pesa rusa",
+    ],
+    "Hombro en extensión":[
+      "Curl bayesian con ligas",
+      "Curl para bíceps con ligas por detrás del cuerpo",
+    ],
+  },
+  "Tríceps":{
+    "Vertical (superior a inferior)":[
+      "Extensión para tríceps con ligas anclada arriba",
+      "Patada para tríceps con ligas",
+      "Fondos para tríceps en banco/silla",
+      "Fondos para tríceps en banco/silla con piernas elevadas",
+      "Lagartijas cerradas para tríceps",
+      "Lagartijas cerradas para tríceps con ligas",
+    ],
+    "Vertical (inferior a superior)":[
+      "Extensión para tríceps trasnuca con ligas",
+      "Extensión de tríceps desde plancha en antebrazos",
+      "Extensión para tríceps en suspensión (TRX)",
+    ],
+  },
+};
+// Se fusiona sin duplicar: si un nombre ya existe, no se repite.
+Object.entries(EJ_BIBLIO_AMPLIACION).forEach(([g,pats])=>Object.entries(pats).forEach(([p,lista])=>{
+  const nodo=(EJ_BIBLIO[g]||{})[p];
+  if(!nodo)return;
+  lista.forEach(n=>{if(!nodo.ejs.includes(n))nodo.ejs.push(n);});
+}));
+
 const EJ_SECUENCIAS={
   "3d":{label:"3 días · Cuerpo completo",dias:[
     [{s:"1",g:"Pectorales",p:"Empuje horizontal"},{s:"2",g:"Pectorales",p:"Aislados"},{s:"3A",g:"Hombro",p:"Deltoides anterior"},{s:"3B",g:"Espalda alta",p:"Jalón vertical"},{s:"4A",g:"Hombro",p:"Deltoides posterior"},{s:"4B",g:"Tríceps",p:"Vertical (superior a inferior)"},{s:"5A",g:"Cuadríceps",p:"Exclusivos"},{s:"5B",g:"Isquiosurales",p:"Dominante de rodilla"},{s:"5C",g:"Abdomen/Psoas",p:"Flexión de tronco"}],
@@ -22572,27 +22820,27 @@ const EJ_AJUSTES=[
 // Se evalúan por expresión regular sobre el nombre del ejercicio, para que
 // atrapen variantes ("Sentadilla trasera con barra y cadenas", etc.).
 const EJ_CONTRA=[
-  {k:"hombro",label:"Hombro doloroso / manguito rotador",re:/(tr[aá]s de nuca|jal[oó]n vertical.*nuca|press militar tras|fondos|dips|lagartijas en anillas|arranque|envi[oó]n)/i,
+  {k:"hombro",label:"Hombro doloroso / manguito rotador",re:/(tr[aá]s de nuca|jal[oó]n vertical.*nuca|press militar tras|fondos|dips|lagartijas en anillas|lagartijas en pica|ment[oó]n|arranque|envi[oó]n)/i,
    nota:"Evitar rotación externa forzada y abducción sobre 90°. Preferir plano escapular y agarre neutro."},
-  {k:"lumbalgia",label:"Lumbalgia / hernia discal",re:/(peso muerto(?! rumano unilateral)|sentadilla trasera|buenos d[ií]as|remo de pie con barra|remo inclinado|hiperextensi|sentadilla frontal)/i,
+  {k:"lumbalgia",label:"Lumbalgia / hernia discal",re:/(peso muerto(?! rumano unilateral)|sentadilla trasera|buenos d[ií]as|remo de pie con barra|remo inclinado|hiperextensi|sentadilla frontal|swing)/i,
    nota:"Evitar carga axial y flexión lumbar cargada. Preferir variantes con apoyo o en máquina."},
   {k:"rodilla",label:"Gonartrosis / prótesis de rodilla",re:/(sentadilla profunda|sentadilla sissy|hack|extensi[oó]n de rodilla|salto|pliom|desplante en caminata)/i,
    nota:"Limitar flexión de rodilla a rango indoloro. Evitar impacto y cizallamiento."},
-  {k:"cadera",label:"Prótesis de cadera",re:/(sentadilla profunda|abducci[oó]n|aducci[oó]n|desplante|zancada|peso muerto sumo)/i,
+  {k:"cadera",label:"Prótesis de cadera",re:/(sentadilla profunda|abducci[oó]n|aducci[oó]n|desplante|zancada|peso muerto sumo|cosaco)/i,
    nota:"Respetar restricciones de flexión, aducción y rotación interna según el protocolo quirúrgico."},
-  {k:"embarazo",label:"Embarazo",re:/(acostado en suelo|acostada|flexi[oó]n de tronco|abdominal|crunch|plancha|valsalva|peso muerto|sentadilla trasera)/i,
+  {k:"embarazo",label:"Embarazo",re:/(acostado en suelo|acostada|elevaci[oó]n de (piernas|rodillas) acostad|boca abajo|curl femoral acostado|curl acostado|flexi[oó]n de tronco|abdominal|crunch|plancha|valsalva|peso muerto|sentadilla trasera)/i,
    nota:"Evitar decúbito supino prolongado a partir del 2.º trimestre, Valsalva y ejercicio abdominal directo."},
-  {k:"has",label:"Hipertensión no controlada",re:/(isom[eé]trico|plancha|valsalva|militar)/i,
+  {k:"has",label:"Hipertensión no controlada",re:/(isom[eé]tric|plancha|valsalva|militar)/i,
    nota:"Evitar maniobra de Valsalva e isometrías sostenidas. Mantener respiración continua."},
   {k:"hernia_ing",label:"Hernia inguinal / abdominal",re:/(abdominal|crunch|flexi[oó]n de tronco|elevaci[oó]n de piernas|plancha|peso muerto|sentadilla trasera)/i,
    nota:"Evitar aumentos bruscos de presión intraabdominal hasta resolución quirúrgica."},
-  {k:"retinopatia",label:"Retinopatía diabética proliferativa",re:/(isom[eé]trico|valsalva|invertid|cabeza abajo|peso muerto|sentadilla trasera)/i,
+  {k:"retinopatia",label:"Retinopatía diabética proliferativa",re:/(isom[eé]tric|valsalva|invertid|cabeza abajo|peso muerto|sentadilla trasera)/i,
    nota:"Evitar Valsalva, isometrías máximas y posiciones con la cabeza por debajo del corazón."},
   {k:"osteoporosis",label:"Osteoporosis",re:/(flexi[oó]n de tronco|crunch|abdominal|rotaci[oó]n de tronco|salto|pliom)/i,
    nota:"Evitar flexión y rotación vertebral cargada. Priorizar carga axial controlada y equilibrio."},
   {k:"epicondil",label:"Epicondilitis / epitrocleitis",re:/(curl|extensi[oó]n de tr[ií]ceps|agarre|mu[ñn]eca|press franc)/i,
    nota:"Reducir carga en prensión y evitar excéntricos rápidos de muñeca hasta control del dolor."},
-  {k:"cardiopatia",label:"Cardiopatía isquémica estable",re:/(isom[eé]trico|valsalva|m[aá]xim|1rm|fallo)/i,
+  {k:"cardiopatia",label:"Cardiopatía isquémica estable",re:/(isom[eé]tric|valsalva|m[aá]xim|1rm|fallo)/i,
    nota:"Trabajar por debajo del fallo, con RIR ≥ 3. Evitar Valsalva. Vigilar síntomas."},
 ];
 
@@ -22602,15 +22850,20 @@ const EJ_CONTRA=[
 // existe en un gimnasio de aparatos) al más disponible (peso corporal).
 function ejEquipo(n){
   const s=(n||"").toLowerCase();
-  if(/(m[aá]quina|smith|multipower|hack|prensa|peck|pec ?fly|banco romano|predicador|gravit[oó]n)/.test(s))return"maquina";
+  // «Prensa» en esta biblioteca casi siempre es *press* (para pecho, militar):
+  // sólo la prensa PARA PIERNA es una máquina. Antes «Prensa para pecho con
+  // mancuernas» se clasificaba como máquina y no salía nunca en casa.
+  if(/(m[aá]quina|smith|multipower|hack|prensa para pierna|peck|pec ?fly|banco romano|predicador|gravit[oó]n)/.test(s))return"maquina";
+  // Fondos en banco o silla no exigen paralelas.
+  if(/fondos.*(banco|silla)/.test(s))return"corporal";
   if(/(polea|cable|cross ?over|pull ?down|face pull)/.test(s))return"polea";
   if(/(barra|disco|cadena|romana|t-?bar|landmine)/.test(s))return"barra";
-  if(/(dominada|fondos|paralelas|anillas)/.test(s))return"suspendido";
-  if(/(mancuerna)/.test(s))return"mancuerna";
+  if(/(dominada|fondos|paralelas|anillas|colgando)/.test(s))return"suspendido";
+  if(/(mancuerna|mamcuerna|mamcierna)/.test(s))return"mancuerna";
   if(/(pesa rusa|kettlebell)/.test(s))return"rusa";
   if(/(trx|suspensi[oó]n)/.test(s))return"trx";
   if(/(liga|banda el[aá]stica|miniban)/.test(s))return"liga";
-  if(/(bal[oó]n|pelota|caj[oó]n|step ?up|bosu|deslizador|trineo|sled|saco)/.test(s))return"funcional";
+  if(/(bal[oó]n|pelota|caj[oó]n|step ?up|bosu|deslizador|trineo|sled|\bsaco\b)/.test(s))return"funcional";
   // Ya agotados los implementos nombrados, quedan los nombres que implican
   // aparato aunque no lo digan: un «jalón al pecho» es polea alta.
   if(/(jal[oó]n|remo sentado|pull over)/.test(s))return"polea";
@@ -22733,8 +22986,8 @@ Object.assign(EJ_SECUENCIAS,{
 // ── Complejidad técnica y tope por nivel de experiencia ──────────────────────
 function ejComplejidad(n){
   const s=(n||"").toLowerCase();
-  if(/(arranque|envi[oó]n|cargada|n[oó]rdico|sissy|pistol|anillas|b[uú]lgara|unilateral con barra|supramaximal)/.test(s))return 3;
-  if(/(barra|peso muerto|sentadilla|desplante|zancada|dominada|fondo)/.test(s))return 2;
+  if(/(arranque|envi[oó]n|cargada|n[oó]rdico|sissy|pistol|anillas|b[uú]lgara|unilateral con barra|supramaximal|pliom|con salto|arquer|renegado|desde bipedestaci)/.test(s))return 3;
+  if(/(barra|peso muerto|sentadilla|desplante|zancada|dominada|fondo|buenos d[ií]as|swing|cosaco|landmine|en pica)/.test(s))return 2;
   return 1;
 }
 const EJ_NIVEL_MAX={"Novato (0-12 meses)":1,"Principiante (1-3 años)":2,"Intermedio (4-8 años)":3,"Avanzado (>8 años)":3};
@@ -22866,6 +23119,191 @@ function ejCandidatos(grupo,patron,cfg){
   if(!lista.length){lista=todos.slice();fuera=true;}
   const limpios=lista.filter(e=>!e.contra.length);
   return{comp:!!nodo.comp,lista:limpios.length?limpios:lista,fuera};
+}
+
+// ── Videos de técnica ────────────────────────────────────────────────────────
+// Cada regla se evalúa sobre el nombre sin acentos y GANA LA PRIMERA, así que
+// van de lo específico a lo general («peso muerto rumano» antes que «peso
+// muerto»). Los enlaces los reunió una búsqueda en YouTube de noviembre de 2026
+// y todos están en español; ninguno se construyó a mano. Si un ejercicio no
+// tiene regla, el enlace es una BÚSQUEDA de YouTube con su nombre, que nunca se
+// rompe. El médico puede pegar en cada fila el enlace que prefiera —por
+// ejemplo, uno de su propio canal— y ése es el que se guarda e imprime.
+const EJ_VIDEOS=[
+  [/remo al menton/,null,"",""],
+  [/talones.*(sentado|costurera|cuclillas)/,"Pantorrilla","https://www.youtube.com/watch?v=Hq7ZnmkuZWM","Seated Calf Raise (Elevación de talones sentado en máquina) // Técnica y Puntos clave"],
+  [/talones/,"Pantorrilla","https://www.youtube.com/watch?v=JDfWLEipMOc","Cómo hacer ELEVACIÓN DE TALONES correctamente"],
+  [/(jalon para triceps|extension para triceps.*(polea|ligas anclada)|extension para triceps con barra corta)/,"Tríceps","https://www.youtube.com/watch?v=Fv7v6IAHc0I","EXTENSIÓN de TRÍCEPS en polea con CUERDA: ejecución paso a paso"],
+  [/(trasnuca|tras nuca|copa|triceps en suspension)/,"Tríceps","https://www.youtube.com/watch?v=46CvDmposAc","Extensión de Tríceps tras nuca con mancuerna"],
+  [/press frances/,"Tríceps","https://www.youtube.com/watch?v=_n194KVOxLU","Press Francés con Barra Z (Barbell SkullCrushers)"],
+  [/patada para triceps/,"Tríceps","https://www.youtube.com/watch?v=KBX9Sf0P_eo","Ejercicio PATADA DE TRÍCEPS con MANCUERNA apoyado en Banco || Técnica, Errores y Consejos"],
+  [/fondos.*(banco|silla)/,null,"https://www.youtube.com/watch?v=V1K9BFx9OeM","Ejercicio FONDOS DE TRÍCEPS en BANCO (BENCH DIPS) || Técnica, Errores y Consejos"],
+  [/fondos/,null,"https://www.youtube.com/watch?v=1Vm1ATIi0AE","FONDOS EN PARALELAS (DIPS) - TECNICA, ERRORES, CONSEJOS"],
+  [/sentadilla frontal/,null,"https://www.youtube.com/watch?v=VabOUIgSGk0","Sentadilla Frontal / Front Squat. Como Realizar Correctamente Sentadilla Frontal con Barra"],
+  [/(sentadilla goblet|posicion de rack|sentadilla a cajon con mancuerna)/,null,"https://www.youtube.com/watch?v=5HHITKuLxUs","Cómo Hacer Sentadilla Goblet Con Mancuerna (Tutorial Paso a Paso)"],
+  [/pistol/,null,"https://www.youtube.com/watch?v=RH7wEFKQ95M","CÓMO HACER LA PISTOL SQUAT. Progresión paso a paso"],
+  [/(bulgara|sentadilla split)/,null,"https://www.youtube.com/watch?v=IdilLr9nyuQ","Como Hacer Sentadilla Bulgara (Tutorial Paso a Paso)"],
+  [/hack/,null,"https://www.youtube.com/watch?v=o-1-iESUb-I","Sentadilla Hack: Técnica Correcta, Errores Comunes y Cómo Maximizar Glúteo y Cuádriceps"],
+  [/prensa para pierna/,null,"https://www.youtube.com/watch?v=ccDlOeZ90hs","PRENSA de PIERNAS: EVITA ESTOS ERRORES + TUTORIAL PASO A PASO"],
+  [/sentadilla.*(trx|suspension)/,null,"https://www.youtube.com/watch?v=JU1ONA5shmg","TRX Squat - Sentadilla"],
+  [/sentadilla.*ligas/,null,"https://www.youtube.com/watch?v=PYpUze9SLFA","Sentadilla con banda elástica - Tutorial - Entrenador Wellness"],
+  [/(sentadilla trasera|sentadilla.*barra)/,null,"https://www.youtube.com/watch?v=9D7zI27gFHM","Cómo Hacer SENTADILLA con Barra (Guía Completa Paso a Paso)"],
+  [/(levantarse y sentarse|sentadilla asistida)/,null,"https://www.youtube.com/watch?v=nnXy0gcEtBU","Sarcopenia: Ejercicio de sentarse y levantarse de silla"],
+  [/sentadilla(?! sissy| cosaco| skater| hindu)/,null,"https://www.youtube.com/watch?v=yluv--sqkNo","Sentadilla con peso corporal"],
+  [/(desplante|zancada|cosaco)/,null,"https://www.youtube.com/watch?v=TG6waqGQBUA","Desplantes: Técnica, Tips, Errores y Variaciones"],
+  [/(step ?up|subida a escalon|bajada lateral)/,null,"https://www.youtube.com/watch?v=7NXhn2EEHOk","STEP-UPS - Técnica del ejercicio y 9 variantes"],
+  [/(extension de rodilla|extension para cuadriceps)/,null,"https://www.youtube.com/watch?v=zfJOoHBGXa8","TÉCNICA de EXTENSIÓN DE RODILLA en MÁQUINA - Ejercicio Cuádriceps"],
+  [/curl n[oó]rd[ií]co(?! invertido)/,null,"https://www.youtube.com/watch?v=OKLtLny-MAA","Curl Nórdico para FEMORALES En Principiantes (Progresivos)"],
+  [/(peso muerto rumano unilateral|kickstand)/,null,"https://www.youtube.com/watch?v=u8g_1Q_E8G4","Peso muerto rumano a una pierna: técnica paso a paso"],
+  [/(peso muerto rumano|bisagra de cadera)/,null,"https://www.youtube.com/watch?v=pCrNlGFo7h4","Tutorial PESO MUERTO RUMANO con BARRA: Técnica, Consejos y Errores Comunes"],
+  [/peso muerto sumo/,null,"https://www.youtube.com/watch?v=6ktoPBJasHA","Peso Muerto Sumo / Sumo Deadlift - HSN Guía Ejercicios"],
+  [/buenos dias/,null,"https://www.youtube.com/watch?v=Yti49lp8isU","Cómo Hacer Buenos Dias Con Barra (Tutorial Paso a Paso)"],
+  [/swing/,null,"https://www.youtube.com/watch?v=FfO9WObnZVc","Curso de entrenamiento con kettlebell - 3.2.3. Swing. Errores comunes"],
+  [/peso muerto/,null,"https://www.youtube.com/watch?v=0XL4cZR2Ink","Cómo hacer el PESO MUERTO con seguridad (EN 5 PASOS)"],
+  [/hip thrust/,null,"https://www.youtube.com/watch?v=2DVaazHpotc","Como Hacer Hip Thrust Con Barra (Tutorial Paso a Paso)"],
+  [/(puente|frog pump)/,null,"https://www.youtube.com/watch?v=v_9dS-l3GWU","¿Cómo hacer PUENTES de GLÚTEO? Técnica, Tips, Errores & Variaciones"],
+  [/patada para gluteo/,null,"https://www.youtube.com/watch?v=dbqagbN6gNs","Patada de Glúteo en Cuadrupedia Correctamente"],
+  [/monster walk/,null,"https://www.youtube.com/watch?v=ycJzmVn4E2U","Monster walk con banda: Cómo hacerlo de forma correcta"],
+  [/abduccion/,null,"https://www.youtube.com/watch?v=1nabNRrKUyU","Máquina de Abducción de Cadera Sentado (Seated Hip Abductor) // Técnica y Puntos clave"],
+  [/(curl de rodilla|curl femoral).*(pelota|fitball|deslizador|slider|toalla|suspension)/,null,"https://www.youtube.com/watch?v=LRTUGGtdENA","CURL FEMORAL EN FITBALL - Trainequi"],
+  [/(curl (acostado|femoral|de rodilla)|curl isometrico.*acostado)/,null,"https://www.youtube.com/watch?v=C9YlA0vmSHA","FLEXIÓN DE RODILLA EN MÁQUINA ACOSTADO - Breve Explicación Técnica del CURL FEMORAL"],
+  [/rueda/,null,"https://www.youtube.com/watch?v=b01FmYynI2o","Como hacer Ab Wheel (RUEDA ABDOMINAL): Errores Comunes y Progresiones - Tutorial Completo"],
+  [/pallof/,null,"https://www.youtube.com/watch?v=W8Yf1uyUnoM","Press PALLOF en polea: core ANTI-ROTACIÓN (técnica segura)"],
+  [/granjero/,null,"https://www.youtube.com/watch?v=69hTPgHwA08","CAMINATA DE GRANJERO (FARMER'S WALK): técnica correcta paso a paso"],
+  [/plancha lateral/,"Abdomen/Psoas","https://www.youtube.com/watch?v=kyOeSuh7LLo","PLANCHA LATERAL: TÉCNICA CORRECTA y core fuerte (sin dolor)"],
+  [/plancha/,"Abdomen/Psoas","https://www.youtube.com/watch?v=xeVZvvzHaw0","Plancha - Cómo hacerla correctamente y errores más frecuentes"],
+  [/dead bug/,null,"https://www.youtube.com/watch?v=HN3wyEcYC2g","Cómo hacer el Dead Bug"],
+  [/bird dog/,null,"https://www.youtube.com/watch?v=4pGRt8aLH7I","La forma correcta del Bird-Dog (evita errores y lesiones)"],
+  [/(superman|extension de tronco|hiperextension)/,null,"https://www.youtube.com/watch?v=7p4l-KnxxaY","Superman: técnica paso a paso"],
+  [/(colgando|desde paralelas)/,null,"https://www.youtube.com/watch?v=yJW8Gsovjfo","Cómo hacer los Leg raises colgado de la barra - Posición y técnica"],
+  [/(crunch abdominal reverso|elevacion de piernas)/,null,"https://www.youtube.com/watch?v=mzeKszLNGEQ","Tutorial Crunch Inverso con Elevación de Cadera. Rutina Abdomen"],
+  [/(crunch|abdominal)/,"Abdomen/Psoas","https://www.youtube.com/watch?v=hl9Yu7UZqHU","Cómo hacer CRUNCH ABDOMINAL. Técnica correcta"],
+  [/(mountain|escalador)/,null,"https://www.youtube.com/watch?v=XWlDAy4_Dvw","MOUNTAIN CLIMBERS: Técnica Correcta y Errores Comunes (CORE)"],
+  [/burpee/,null,"https://www.youtube.com/watch?v=xVi180VAjpA","Cómo hacer un burpee perfecto (Guía paso a paso del burpee para principiantes)"],
+  [/lagartijas(?! en v| en pica)/,null,"https://www.youtube.com/watch?v=hbGR_wq7wzo","FLEXIONES DE PECHO para principiantes: técnica, progresión y consejos"],
+  [/(apertura posterior|aperturas posteriores|pajaros|elevaciones en t)/,null,"https://www.youtube.com/watch?v=MkSXElWrtDU","Cómo hacer Pájaros correctamente"],
+  [/(aperturas|fly|pec dec)/,null,"https://www.youtube.com/watch?v=wtiR55hCv40","Cómo Hacer Aperturas Con Mancuernas (Ejercicio De Pecho)"],
+  [/(cross ?over|cruce)/,null,"https://www.youtube.com/watch?v=XnaMi2Gb_9Q","Cruces en Polea con Cable / Cable Crossovers - HSN Guía Ejercicios"],
+  [/(prensa para pecho inclinado|press inclinado)/,null,"https://www.youtube.com/watch?v=oTD5g77GgSA","Cómo Hacer Press Inclinado Con Mancuernas (Tutorial Paso a Paso)"],
+  [/prensa para pecho.*ligas/,null,"https://www.youtube.com/watch?v=YVmEWu_Vl8c","PRESS PECTORAL con BANDAS ELÁSTICAS. Ejercicio de FUERZA para tus pectorales, deltoides y tríceps"],
+  [/prensa para pecho.*mancuerna/,null,"https://www.youtube.com/watch?v=uii5wbbN99w","\"Press Banca con Mancuernas\" (Técnica Correcta)"],
+  [/prensa para pecho/,null,"https://www.youtube.com/watch?v=xxVztNVtoSE","Press de Banca con Barra // TÉCNICA desde 0"],
+  [/dominada/,null,"https://www.youtube.com/watch?v=OjVOjO_8f30","Dominada Perfecta: guía paso a paso"],
+  [/(jalon a la cara|face pull)/,null,"https://www.youtube.com/watch?v=X-xCQ1gh-kA","Cómo Hacer Face Pull Correctamente ¡Evita lesiones! con Powerexplosive"],
+  [/jalon al pecho.*ligas/,null,"https://www.youtube.com/watch?v=cX1AoSUeIwg","916. Jalón dorsal con banda elástica"],
+  [/jalon al pecho/,null,"https://www.youtube.com/watch?v=oLQj4fySWQQ","Jalón al Pecho en Polea Alta. Espalda y Dorsal"],
+  [/pull ?over/,null,"https://www.youtube.com/watch?v=Q8zAg5ljwPs","EVITA estos ERRORES al Realizar el PULL OVER con Mancuerna"],
+  [/remo invertido/,null,"https://www.youtube.com/watch?v=e_ZMXkPdijk","REMO INVERTIDO: Errores y Como progresar"],
+  [/remo.*(trx|suspension)/,null,"https://www.youtube.com/watch?v=6fFv1gG5iAw","REMO en TRX desde cero para PRINCIPIANTES"],
+  [/remo.*ligas/,null,"https://www.youtube.com/watch?v=RBs3SqAwXOs","REMO con GOMAS ELÁSTICAS, BANDAS O LIGAS (Te ENSEÑO a Hacerlo paso a paso)"],
+  [/remo sentado/,null,"https://www.youtube.com/watch?v=nwdptbhYjTw","Remo Sentado con Polea - Técnica Correcta y Músculos Involucrados"],
+  [/remo.*(mancuerna|pesa rusa)(?!.*pecho apoyado)/,null,"https://www.youtube.com/watch?v=fZYGcNtMWSc","Cómo Hacer REMO CON MANCUERNA Perfecto (paso a paso)"],
+  [/remo (con barra|de pie con barra|inclinado)/,null,"https://www.youtube.com/watch?v=3adnRn0fXLY","Remo con barra inclinado: técnica paso a paso"],
+  [/(press arnold|prensa militar.*sentado.*mancuerna)/,null,"https://www.youtube.com/watch?v=SYA1r1J49R8","PRESS de HOMBROS Sentado con MANCUERNAS: Técnica SEGURA y potente"],
+  [/(prensa militar|press militar)/,null,"https://www.youtube.com/watch?v=xXCwkx5oXBQ","Press militar de pie - Tutorial completo"],
+  [/(elevaciones? laterale?s?|elevacion lateral)/,null,"https://www.youtube.com/watch?v=V3LaKO8iZUE","Como Hacer Elevaciones Laterales con Mancuernas (Tutorial Paso a Paso)"],
+  [/elevaciones frontales/,null,"https://www.youtube.com/watch?v=4VppmL9W0E8","TÉCNICA Elevaciones Frontales con MANCUERNAS"],
+  [/encogimiento/,null,"https://www.youtube.com/watch?v=lsWCVukYaPA","Cómo Hacer Los Encogimiento de Hombros (Tutorial Paso a Paso)"],
+  [/(curl martillo|zottman)/,"Bíceps","https://www.youtube.com/watch?v=mPvlpDWIoDA","CURL de BÍCEPS MARTILLO con MANCUERNAS / TÉCNICA CORRECTA"],
+  [/(scott|predicador)/,"Bíceps","https://www.youtube.com/watch?v=DG1e_15NifM","CURL BICEPS EN PREDICADOR-BANCO SCOTT-BIOMECANICA, ERRORES, Y TIPS"],
+  [/(banco inclinado|bayesian)/,"Bíceps","https://www.youtube.com/watch?v=ysEVZPMY0Y8","Curl inclinado con mancuernas: técnica paso a paso"],
+  [/curl.*barra/,"Bíceps","https://www.youtube.com/watch?v=z5RwgAMUEQo","Ejercicio CURL DE BÍCEPS con BARRA RECTA de pie || Técnica, Errores Comunes y Consejos Varios"],
+  [/curl/,"Bíceps","https://www.youtube.com/watch?v=b-DeZccsPSY","Ejercicio Curl de Bíceps ALTERNO con MANCUERNAS"],
+];
+// Video educativo para la sección de cardio del PDF.
+const EJ_VIDEO_ZONAS="https://www.youtube.com/watch?v=1S-vFqwC-2k";
+function ejNormTxt(n){return String(n||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");}
+function ejVideo(nombre,grupo){
+  const s=ejNormTxt(nombre);
+  if(!s)return null;
+  const r=EJ_VIDEOS.find(([re,g])=>(!g||g===grupo)&&re.test(s));
+  if(r&&r[2])return{url:r[2],titulo:r[3],tipo:"catalogo"};
+  return{url:"https://www.youtube.com/results?search_query="+encodeURIComponent(ejFamilia(nombre).familia+" técnica correcta ejercicio"),titulo:"Búsqueda en YouTube",tipo:"busqueda"};
+}
+// El enlace que vale para una fila: el que el médico pegó, o el del catálogo.
+function ejVideoFila(f){
+  if(f&&f.video)return{url:f.video,titulo:"Enlace elegido por el médico",tipo:"propio"};
+  return ejVideo(f&&f.ejercicio,f&&f.grupo);
+}
+function ejUrlSegura(u){
+  u=String(u||"").trim();
+  return /^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//i.test(u)?u:"";
+}
+
+// ── Variabilidad y progresión de la variante ─────────────────────────────────
+// La doble progresión (repeticiones y luego carga) sólo sirve en lo que admite
+// carga externa. Una lagartija, un remo invertido o una sentadilla con peso
+// corporal progresan cambiando de VARIANTE. ejDificultad ordena las variantes
+// de un mismo patrón para poder decir «cuando domine ésta, pase a aquélla».
+function ejDificultad(x){
+  return x.carga*2+x.cx+(x.tempo?1:0)+(x.unilateral?1:0)-(x.regresion?3:0);
+}
+// Alternativa: otro movimiento del mismo patrón, de otra familia, para cuando
+// el aparato esté ocupado o el ejercicio moleste. Sale de la misma lista
+// filtrada por lugar, nivel y contraindicaciones, así que es igual de segura.
+function ejAlternativa(lista,pick,ctx){
+  if(!pick)return null;
+  let mejor=null,mv=-Infinity;
+  lista.forEach(x=>{
+    if(x.familia===pick.familia||x.n===pick.n)return;
+    const v=ejPuntuar(x,{...ctx,usadas:new Set()})-(ctx.historial[x.familia]===1?4:0);
+    if(v>mv){mv=v;mejor=x;}
+  });
+  return mejor;
+}
+// Siguiente variante: sólo para lo que no progresa por carga (carga potencial
+// 0-1) o para una regresión. Se busca la más cercana en dificultad por encima,
+// prefiriendo la misma familia, con el equipo del lugar y sin contraindicación.
+// Puede pasar un escalón la complejidad del nivel, porque es una meta, no la
+// prescripción del día.
+function ejSiguienteVariante(grupo,patron,cfg,pick){
+  if(!pick||(pick.carga>1&&!pick.regresion))return null;
+  const nodo=(EJ_BIBLIO[grupo]||{})[patron];if(!nodo)return null;
+  const sede=EJ_SEDES[ejNormSede(cfg.sede||cfg.lugar)]||EJ_SEDES.pesas;
+  const maxCx=Math.min(sede.maxCx,(EJ_NIVEL_MAX[cfg.nivel]||3)+1);
+  const contras=(cfg.condiciones||[]).map(k=>EJ_CONTRA.find(c=>c.k===k)).filter(Boolean);
+  const d0=ejDificultad(pick);
+  let mejor=null,mv=Infinity;
+  nodo.ejs.forEach(n=>{
+    if(n===pick.n)return;
+    if(!sede.equipo.includes(ejEquipo(n))||ejComplejidad(n)>maxCx)return;
+    if(contras.some(c=>c.re.test(n)))return;
+    const f=ejFamilia(n);
+    const x={n,carga:ejCargaPotencial(n),cx:ejComplejidad(n),tempo:f.tempo,regresion:f.regresion,unilateral:f.mods.has("unilateral"),familia:f.familia};
+    const d=ejDificultad(x);
+    if(d<=d0)return;
+    const mismaFam=x.familia===pick.familia||x.familia.startsWith(pick.familia);
+    // Fuera de la familia sólo se admite un escalón corto: de un crunch no se
+    // pasa a la rueda abdominal de pie.
+    if(!mismaFam&&(d-d0>2||x.cx>pick.cx+1))return;
+    const v=(d-d0)+(mismaFam?0:1.5);
+    if(v<mv){mv=v;mejor=x;}
+  });
+  return mejor?mejor.n:null;
+}
+
+// ── Progresión semana a semana dentro del mes ────────────────────────────────
+// El mes es una sola tabla; lo que cambia cada semana es el esfuerzo. Semana 1
+// de adaptación (una repetición más en reserva), 2 y 3 de carga y sobrecarga,
+// 4 de descarga, que ya estaba escrita en las precauciones. El RIR nunca baja
+// del mínimo del lugar: en rehabilitación se queda en 3.
+function ejSemanas(plan){
+  const sede=EJ_SEDES[plan.sede]||EJ_SEDES.pesas;
+  const rirs=[];
+  (plan.dias||[]).forEach(d=>(d.bloques||[]).forEach(b=>(b.filas||[]).forEach(f=>rirs.push(parseInt(f.rir)||0))));
+  const base=rirs.length?Math.round(rirs.reduce((a,b)=>a+b,0)/rirs.length):2;
+  const r=v=>Math.max(sede.rirMin,v);
+  const hayDrop=(plan.dias||[]).some(d=>(d.bloques||[]).some(b=>(b.filas||[]).some(f=>f.drop)));
+  return[
+    {n:1,nombre:"Adaptación",series:"Las indicadas",rir:r(base+1),
+     texto:"Aprender la técnica de cada ejercicio y encontrar la carga de trabajo. Terminar cada serie con una repetición más en reserva de lo indicado."+(hayDrop?" Sin series descendentes.":"")},
+    {n:2,nombre:"Carga",series:"Las indicadas",rir:r(base),
+     texto:"Trabajar con el esfuerzo indicado en la tabla y registrar carga y repeticiones."},
+    {n:3,nombre:"Sobrecarga",series:"Las indicadas",rir:r(base-1),
+     texto:"Aplicar la doble progresión: sumar una repetición por serie o, si ya se completa el rango, subir la carga."+(sede.rirMin>=3?" El esfuerzo no pasa de 3 repeticiones en reserva.":"")},
+    {n:4,nombre:"Descarga",series:"La mitad",rir:r(base+2),
+     texto:"Los mismos ejercicios y la misma carga con la mitad de las series"+(hayDrop?", sin series descendentes":"")+". Permite recuperarse antes del mes siguiente."},
+  ];
 }
 
 // Agrupa las filas de una sesión en bloques según el método de ese día.
@@ -23074,6 +23512,8 @@ function ejGenerarPlan(cfg){
         let pick=null,mejor=-Infinity;
         urna.forEach(x=>{const v=ejPuntuar(x,ctx);if(v>mejor){mejor=v;pick=x;}});
         if(pick)usadas.add(pick.familia);
+        const alt=ejAlternativa(urna.length>1?urna:cand.lista,pick,ctx);
+        const sig=ejSiguienteVariante(f.g,f.p,cfg,pick);
         const rango=cand.comp?m.reps.comp:m.reps.ais;
         return{
           seq:(bi+1)+(grupoFilas.length>1?String.fromCharCode(65+fi):""),
@@ -23086,7 +23526,8 @@ function ejGenerarPlan(cfg){
           rir:Math.max(m.rir||0,sede.rirMin),
           tempo:m.tempo,
           descanso:cand.comp?m.descanso.comp:m.descanso.ais,
-          drop:false,peso:"",nota:"",ajuste:""
+          drop:false,peso:"",nota:"",ajuste:"",
+          alternativa:alt?alt.n:"",siguiente:sig||"",video:""
         };
       });
       if(m.drop&&filas.length)filas[filas.length-1].drop=true;
@@ -23264,12 +23705,281 @@ window.ejProgresarMes=function(){
   const nuevo=ejGenerarPlan(cfg);
   if(!nuevo){showToast("No se pudo generar el mes siguiente",false);return;}
   ejAplicarAjuste(p,nuevo,r);
+  // El cardio sigue con la misma prueba y avanza o retrocede un escalón.
+  nuevo.cardio=p.cardio?ejCardioProgresar(p.cardio,r,cfg.condiciones):ejCardioDefault(cfg.cardio||"mixto",nuevo.dias.length,ejEdadPaciente());
+  if(p.textos&&p.textos._cardioManual&&!p.cardio){nuevo.textos.cardio=p.textos.cardio;nuevo.textos._cardioManual=true;}
+  else nuevo.textos.cardio=ejCardioTexto(nuevo.cardio);
   nuevo.origen={mes:p.mes||1,puntaje:res.total,accion:r.accion};
   nuevo.textos.progresion=r.accion+"\n"+nuevo.textos.progresion;
   STATE.ejCfg=cfg;STATE._ejPlanActual=nuevo;STATE._ejBienestar={};
   STATE.ejTab="plan";pgEjercicio();
   showToast("Mes "+nuevo.mes+" generado · cuestionario "+res.total+"/30");
 };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CARDIO: ZONAS DE ENTRENAMIENTO Y SESIONES DE INTERVALOS (noviembre 2026)
+// Decisión del Dr. Polanco: se usan las cinco primeras zonas del informe
+// Fitmate (COSMED) —quema de grasa/recuperación, resistencia, umbral, carrera y
+// VO2máx; la anaeróbica no se prescribe— para que el paciente vea en la receta
+// lo mismo que en su estudio. Sin prueba de esfuerzo, las zonas se calculan con
+// la FCmáx teórica de Tanaka (208 − 0.7 × edad), no con 220 − edad, en cinco
+// bandas de % de FCmáx. El PDF dice siempre cuál de los dos orígenes se usó.
+// ══════════════════════════════════════════════════════════════════════════════
+const EJ_ZONAS=[
+  {n:1,label:"Quema de grasa / Recuperación",corto:"Recuperación",pctFC:[50,60],rpe:"2–3",
+   re:/^(quema|fat ?burn|recuper)/i},
+  {n:2,label:"Resistencia",corto:"Resistencia",pctFC:[60,70],rpe:"3–4",re:/^(resistencia|endurance)/i},
+  {n:3,label:"Umbral",corto:"Umbral",pctFC:[70,80],rpe:"5–6",re:/^(umbral|threshold)\*?$/i},
+  {n:4,label:"Carrera",corto:"Carrera",pctFC:[80,90],rpe:"7–8",re:/^(carrera|running|run)$/i},
+  {n:5,label:"VO2máx",corto:"VO2máx",pctFC:[90,100],rpe:"9",re:/^vo2 ?m[aá]x$/i},
+];
+function ejTanaka(edad){const e=parseFloat(edad);return isFinite(e)&&e>0?Math.round(208-0.7*e):null;}
+// Cinco bandas de % de FCmáx (Edwards). Sirven para la FCmáx teórica y, si una
+// prueba sólo registró la FCmáx alcanzada, para esa FCmáx medida.
+function ejZonasPorFC(fcMax){
+  const f=parseFloat(fcMax);
+  // El límite inferior de cada zona empieza un latido arriba del superior de
+  // la anterior, para que ninguna frecuencia caiga en dos zonas.
+  return EJ_ZONAS.map(z=>({n:z.n,fc:isFinite(f)?[Math.round(f*z.pctFC[0]/100)+(z.n>1?1:0),Math.round(f*z.pctFC[1]/100)]:null,
+    vel:null,watt:null,pctVO2:null,pctFC:z.pctFC.slice()}));
+}
+function ejRango(v){
+  if(v==null||v==="")return null;
+  if(Array.isArray(v))return v.length===2&&v.every(x=>isFinite(parseFloat(x)))?[parseFloat(v[0]),parseFloat(v[1])]:null;
+  const m=String(v).replace(/,/g,".").match(/(-?\d+(?:\.\d+)?)\s*[-–a]\s*(-?\d+(?:\.\d+)?)/);
+  if(m)return[parseFloat(m[1]),parseFloat(m[2])];
+  const u=parseFloat(String(v).replace(",","."));
+  return isFinite(u)?[u,u]:null;
+}
+function ejTxtRango(r,dec){
+  if(!r)return"—";
+  const f=x=>dec?String(Math.round(x*10)/10):String(Math.round(x));
+  return r[0]===r[1]?f(r[0]):f(r[0])+"–"+f(r[1]);
+}
+// Zonas vigentes para un cardio: las de la prueba (o las que el médico corrigió
+// a mano en la tabla), o las teóricas.
+function ejZonasCardio(c){
+  if(!c)return ejZonasPorFC(null);
+  if(Array.isArray(c.zonas)&&c.zonas.length===5)return c.zonas;
+  if(c.origen==="prueba"&&c.prueba){
+    if(Array.isArray(c.prueba.zonas)&&c.prueba.zonas.length===5&&c.prueba.zonas.some(z=>z&&z.fc))return c.prueba.zonas;
+    if(c.prueba.fcMax)return ejZonasPorFC(c.prueba.fcMax);
+  }
+  return ejZonasPorFC(c.fcMaxTeorica);
+}
+function ejOrigenTexto(c){
+  if(c&&c.origen==="prueba"&&c.prueba){
+    const p=c.prueba;
+    const partes=[p.vo2max?"VO2máx "+p.vo2max+" mL/kg/min":"",p.mets?p.mets+" METs":"",p.fcMax?"FC máxima alcanzada "+p.fcMax+" lpm":"",
+      p.fcUmbral?"umbral anaeróbico a "+p.fcUmbral+" lpm":""].filter(Boolean).join(", ");
+    const zonasDeLaPrueba=Array.isArray(p.zonas)&&p.zonas.some(z=>z&&z.fc)&&!p.zonasCalculadas;
+    return"Zonas basadas en su prueba de esfuerzo"+(p.equipo?" ("+p.equipo+")":"")+(p.fecha?" del "+ejFechaLegible(p.fecha):"")+
+      (partes?": "+partes:"")+"."+(zonasDeLaPrueba?" Zonas medidas en la prueba.":" La prueba no trae tabla de zonas: se calcularon como 50-60, 60-70, 70-80, 80-90 y 90-100 % de la FC máxima alcanzada.")+
+      (c.zonas?" Rangos ajustados por el médico.":"");
+  }
+  const fc=c&&c.fcMaxTeorica;
+  return"Zonas ESTIMADAS, sin prueba de esfuerzo: frecuencia cardiaca máxima teórica de Tanaka (208 − 0.7 × edad"+
+    (c&&c.edad?" = 208 − 0.7 × "+c.edad:"")+")"+(fc?" = "+fc+" lpm":"")+", en bandas de 50-60, 60-70, 70-80, 80-90 y 90-100 % de esa cifra."+
+    (c&&c.zonas?" Rangos ajustados por el médico.":"");
+}
+function ejFechaLegible(f){
+  const m=String(f||"").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m?m[3]+"/"+m[2]+"/"+m[1]:String(f||"");
+}
+
+// ── Protocolos de intervalos ─────────────────────────────────────────────────
+// n = [intervalos de la semana 1, intervalos de la semana 3]. La semana 2 queda
+// en medio y la 4 es de descarga. «1:2» es el que ya prescribía la clínica.
+const EJ_HIIT={
+  "1x2":{label:"Interválico 1:2 · protocolo de la clínica",ref:"Prescripciones del Dr. Polanco",
+    n:[6,8],trab:{s:60,z:5},rec:{s:120,z:3},cal:{min:10,z:2},enf:{min:5,z:1}},
+  "4x4":{label:"4 × 4 minutos (protocolo noruego)",ref:"Wisløff et al., Circulation 2007",
+    n:[3,4],trab:{s:240,z:5},rec:{s:180,z:2},cal:{min:10,z:2},enf:{min:5,z:1}},
+  "10x1":{label:"10 × 1 minuto",ref:"Little, Gibala et al., J Physiol 2010",
+    n:[8,10],trab:{s:60,z:5},rec:{s:60,z:1},cal:{min:5,z:2},enf:{min:5,z:1}},
+  "30x30":{label:"30 s / 30 s",ref:"Billat et al., Eur J Appl Physiol 2001",
+    n:[10,16],trab:{s:30,z:5},rec:{s:30,z:1},cal:{min:10,z:2},enf:{min:5,z:1}},
+  "aerobico":{label:"Intervalos aeróbicos 5 × 3 minutos",ref:"Seiler, Int J Sports Physiol Perform 2010",
+    n:[4,6],trab:{s:180,z:4},rec:{s:120,z:2},cal:{min:10,z:2},enf:{min:5,z:1}},
+  "umbral":{label:"Intervalos de umbral 3 × 8 minutos",ref:"Seiler, Int J Sports Physiol Perform 2010",
+    n:[3,4],trab:{s:480,z:3},rec:{s:120,z:1},cal:{min:10,z:1},enf:{min:5,z:1}},
+  "personalizado":{label:"Personalizado",ref:"",
+    n:[6,8],trab:{s:60,z:5},rec:{s:120,z:3},cal:{min:10,z:2},enf:{min:5,z:1}},
+};
+const EJ_MODALIDAD={
+  banda:"banda con 1 % de inclinación",bici:"bicicleta fija",eliptica:"elíptica",
+  remo:"remo ergómetro",caminata:"caminata al aire libre",varias:"banda con 1 % de inclinación, bicicleta fija o elíptica",
+};
+// Condiciones del cuestionario de contraindicaciones que piden cautela con la
+// intensidad alta, y lo que se le dice al médico en pantalla.
+const EJ_CARDIO_RIESGO={
+  cardiopatia:"Cardiopatía isquémica: los intervalos en zona 4-5 requieren prueba de esfuerzo reciente que descarte isquemia a esa intensidad y, de preferencia, supervisión. Considere intervalos de umbral o aeróbicos.",
+  has:"Hipertensión no controlada: no prescribir intervalos en zona 4-5 hasta controlar la presión arterial.",
+  retinopatia:"Retinopatía proliferativa: evitar picos de presión arterial; preferir zona 1-3.",
+  embarazo:"Embarazo: no usar zona 5; guiarse por la prueba del habla y la percepción de esfuerzo.",
+};
+function ejCardioDefault(claveCardio,nDias,edad){
+  const hiit=claveCardio==="interv"||claveCardio==="mixto";
+  const cont=claveCardio==="continuo"||claveCardio==="mixto";
+  const nd=Math.max(1,nDias||3);
+  const p=EJ_HIIT["1x2"];
+  return{
+    origen:"teorica",prueba:null,pruebaId:null,zonas:null,
+    edad:edad!=null&&edad!==""?edad:null,fcMaxTeorica:ejTanaka(edad),
+    modalidad:"varias",
+    hiit:{activo:hiit,protocolo:"1x2",sesiones:claveCardio==="mixto"?Math.ceil(nd/2):Math.min(3,nd),
+      nMin:p.n[0],nMax:p.n[1],trabS:p.trab.s,trabZ:p.trab.z,recS:p.rec.s,recZ:p.rec.z,recTipo:"activa",
+      calMin:p.cal.min,calZ:p.cal.z,enfMin:p.enf.min,enfZ:p.enf.z},
+    continuo:{activo:cont,sesiones:claveCardio==="mixto"?Math.floor(nd/2)||1:Math.min(3,nd),min:30,z:3},
+  };
+}
+function ejCardioAplicarProtocolo(c,clave){
+  const p=EJ_HIIT[clave];if(!p||!c.hiit)return;
+  Object.assign(c.hiit,{protocolo:clave,nMin:p.n[0],nMax:p.n[1],trabS:p.trab.s,trabZ:p.trab.z,recS:p.rec.s,recZ:p.rec.z,
+    calMin:p.cal.min,calZ:p.cal.z,enfMin:p.enf.min,enfZ:p.enf.z});
+}
+// Intervalos por semana: 1 = mínimo, 2 = intermedio, 3 = máximo, 4 = descarga.
+function ejHiitSemanas(h){
+  const a=Math.max(1,parseInt(h.nMin)||1),b=Math.max(a,parseInt(h.nMax)||a);
+  return[a,Math.round((a+b)/2),b,Math.max(1,Math.min(a,Math.ceil(a/2)))];
+}
+function ejContinuoSemanas(k){
+  const m=Math.max(5,parseInt(k.min)||30);
+  return[m,m+5,m+10,Math.max(10,Math.round(m*0.6))];
+}
+function ejDuracion(s){
+  s=Math.round(parseFloat(s)||0);
+  if(s<60)return s+" s";
+  const m=Math.floor(s/60),r=s%60;
+  return r?m+" min "+r+" s":m+" min";
+}
+// Una fase de la sesión con las cifras de su zona.
+function ejFase(nombre,dur,zn,zonas){
+  const z=EJ_ZONAS[(zn||1)-1]||EJ_ZONAS[0],d=(zonas||[])[(zn||1)-1]||{};
+  return{fase:nombre,dur,zona:z.n,zonaLabel:z.label,fc:d.fc||null,vel:d.vel||null,watt:d.watt||null,rpe:z.rpe};
+}
+function ejHiitFases(c){
+  const h=c.hiit,zonas=ejZonasCardio(c),sem=ejHiitSemanas(h);
+  return{
+    fases:[
+      ejFase("Calentamiento",ejDuracion((parseFloat(h.calMin)||0)*60),h.calZ,zonas),
+      ejFase("Intervalo de trabajo",ejDuracion(h.trabS),h.trabZ,zonas),
+      ejFase("Recuperación "+(h.recTipo==="pasiva"?"pasiva":"activa"),ejDuracion(h.recS),h.recTipo==="pasiva"?1:h.recZ,zonas),
+      ejFase("Enfriamiento",ejDuracion((parseFloat(h.enfMin)||0)*60),h.enfZ,zonas),
+    ],
+    semanas:sem,
+    minutos:sem.map(n=>Math.round(((parseFloat(h.calMin)||0)*60+n*((parseFloat(h.trabS)||0)+(parseFloat(h.recS)||0))+(parseFloat(h.enfMin)||0)*60)/60)),
+  };
+}
+function ejCardioAvisos(c,condiciones){
+  const av=[];
+  const alta=(c.hiit&&c.hiit.activo&&parseInt(c.hiit.trabZ)>=4)||(c.continuo&&c.continuo.activo&&parseInt(c.continuo.z)>=4);
+  if(alta)(condiciones||[]).forEach(k=>{if(EJ_CARDIO_RIESGO[k])av.push(EJ_CARDIO_RIESGO[k]);});
+  if(alta&&c.origen!=="prueba")av.push("Intensidad alta con zonas estimadas: la FCmáx teórica puede desviarse ±10 lpm o más de la real. Si hay factores de riesgo cardiovascular, conviene una prueba de esfuerzo antes de prescribir zona 4-5.");
+  if(c.origen==="prueba"&&!c.prueba)av.push("Elegiste zonas de prueba de esfuerzo pero no hay ninguna prueba seleccionada: se están usando las zonas teóricas.");
+  if(c.origen!=="prueba"&&!c.fcMaxTeorica)av.push("Falta la edad del paciente para calcular la FCmáx teórica.");
+  return av;
+}
+// Texto para el paciente. Las cifras van en las tablas del PDF; aquí van las
+// reglas de uso, en lenguaje llano.
+function ejCardioTexto(c){
+  if(!c)return"";
+  const h=c.hiit||{},k=c.continuo||{};
+  if(!h.activo&&!k.activo)return"";
+  const zonas=ejZonasCardio(c);
+  const fc=n=>{const d=zonas[n-1]||{};return d.fc?" ("+ejTxtRango(d.fc)+" latidos por minuto)":"";};
+  const zl=n=>"zona "+n+" · "+(EJ_ZONAS[n-1]||{}).label;
+  const sesTot=(h.activo?parseInt(h.sesiones)||0:0)+(k.activo?parseInt(k.sesiones)||0:0);
+  const L=[];
+  L.push("Realizar ejercicio cardiopulmonar "+sesTot+" "+(sesTot===1?"vez":"veces")+" por semana en "+(EJ_MODALIDAD[c.modalidad]||EJ_MODALIDAD.varias)+
+    ", siempre al terminar el entrenamiento de fuerza o separado de éste por al menos 6 horas. No realizarlo antes del entrenamiento de fuerza.");
+  if(h.activo){
+    const s=ejHiitSemanas(h);
+    L.push("Sesiones de intervalos ("+(parseInt(h.sesiones)||0)+" por semana): "+(parseFloat(h.calMin)||0)+" minutos de calentamiento en "+zl(h.calZ)+
+      "; después, cada intervalo es "+ejDuracion(h.trabS)+" en "+zl(h.trabZ)+fc(h.trabZ)+" seguido de "+ejDuracion(h.recS)+
+      (h.recTipo==="pasiva"?" de descanso caminando muy despacio":" de recuperación activa en "+zl(h.recZ)+fc(h.recZ))+
+      "; al final, "+(parseFloat(h.enfMin)||0)+" minutos de enfriamiento en "+zl(h.enfZ)+".");
+    L.push("Número de intervalos: semana 1, "+s[0]+"; semana 2, "+s[1]+"; semana 3, "+s[2]+"; semana 4 (descarga), "+s[3]+". Si no logra mantener la zona indicada en los últimos intervalos, quedarse en el número de la semana anterior.");
+  }
+  if(k.activo){
+    const s=ejContinuoSemanas(k);
+    L.push("Sesiones continuas ("+(parseInt(k.sesiones)||0)+" por semana): "+s[0]+" minutos sin interrupción en "+zl(k.z)+fc(k.z)+
+      ", subiendo a "+s[1]+" minutos la semana 2 y "+s[2]+" la semana 3; la semana 4, "+s[3]+" minutos.");
+  }
+  L.push("Use un monitor de frecuencia cardiaca (banda de pecho de preferencia, o reloj). Si toma medicamentos que bajan la frecuencia cardiaca, como los betabloqueadores, guíese por el esfuerzo percibido de la tabla y no por los latidos.");
+  return L.join("\n");
+}
+
+// ── Lector del informe Fitmate (COSMED) ──────────────────────────────────────
+// Recibe los textos de pdf.js con su posición (x, y en puntos, y crece hacia
+// arriba) y busca cada dato JUNTO A SU ETIQUETA, no por el orden del texto:
+// las zonas vienen en tres columnas y el orden de lectura las intercala.
+// Devuelve lo encontrado y la lista de lo que faltó; el médico revisa todo en
+// el formulario antes de guardar.
+function ejLeerFitmate(items){
+  const it=(items||[]).map(i=>({s:String(i.s||"").trim(),x:+i.x,y:+i.y,p:i.p||1})).filter(i=>i.s);
+  const num=s=>{const v=parseFloat(String(s||"").replace(",","."));return isFinite(v)?v:null;};
+  const derecha=(lab,maxDx)=>{
+    if(!lab)return null;
+    const c=it.filter(i=>i.p===lab.p&&Math.abs(i.y-lab.y)<=3&&i.x>lab.x+1&&i.x-lab.x<=(maxDx||260)&&i!==lab)
+      .sort((a,b)=>a.x-b.x);
+    return c[0]||null;
+  };
+  const etiqueta=re=>it.find(i=>re.test(i.s));
+  const valor=(re,maxDx)=>{
+    for(const lab of it.filter(i=>re.test(i.s))){const v=derecha(lab,maxDx);if(v&&num(v.s)!=null)return v.s;}
+    return null;
+  };
+  const out={equipo:"Fitmate (COSMED)",fuente:"fitmate",zonas:[]};
+  const falt=[];
+  const nom=[etiqueta(/^Nombre:?$|^First name/i),etiqueta(/^Apellido:?$|^Last name/i)].map(l=>{const v=derecha(l,150);return v?v.s:"";}).filter(Boolean).join(" ");
+  if(nom)out.nombre=nom;
+  const fe=derecha(etiqueta(/^Fecha de informe|^Report date/i),150);
+  if(fe){const m=fe.s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)out.fecha=m[3]+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0");}
+  const ed=valor(/^Edad:?$|^Age:?$/i,120);if(ed)out.edadPrueba=num(ed);
+  const pe=valor(/\(kg\):?$/i,120);if(pe)out.pesoPrueba=num(pe);
+  const vo=valor(/^Aptitud cardio-?respiratoria|^Cardio-?respiratory fitness/i);
+  if(vo)out.vo2max=num(vo);else falt.push("VO2máx");
+  const me=valor(/^Capacidad funcional|^Functional capacity/i);if(me)out.mets=num(me);
+  const er=derecha(etiqueta(/^Tipo de ergómetro|^Ergometer/i));if(er)out.ergometro=er.s;
+  const tt=derecha(etiqueta(/^Tipo de test|^Test type/i));if(tt)out.tipoTest=tt.s;
+  // Tabla «Resumen»: fila de valores pico y fila de umbral anaeróbico.
+  // El encabezado de cada columna es el que está justo ENCIMA de la fila: la
+  // gráfica de la misma página tiene una leyenda «HR» y «VO2/kg» que engaña.
+  const cHR=/^HR$/,cVO=/^VO2\/kg$/i,cVel=/^Velocidad$|^Speed$/i,cGr=/^Grado$|^Grade$/i;
+  const fila=re=>{
+    const lab=it.find(i=>re.test(i.s));if(!lab)return null;
+    const t=it.filter(i=>i.p===lab.p&&Math.abs(i.x-lab.x)<8&&i.y<lab.y&&lab.y-i.y<20&&/^\d{1,2}:\d{2}(:\d{2})?$/.test(i.s))
+      .sort((a,b)=>b.y-a.y)[0];
+    if(!t)return null;
+    const en=re=>{const c=it.filter(i=>i.p===t.p&&re.test(i.s)&&i.y>t.y&&i.y-t.y<80).sort((a,b)=>a.y-b.y)[0];
+      if(!c)return null;const v=it.filter(i=>i.p===t.p&&Math.abs(i.y-t.y)<=3&&Math.abs(i.x-c.x)<22).sort((a,b)=>Math.abs(a.x-c.x)-Math.abs(b.x-c.x))[0];return v?num(v.s):null;};
+    return{t:t.s,hr:en(cHR),vo2:en(cVO),vel:en(cVel),grado:en(cGr)};
+  };
+  const pico=fila(/^Valores Pico$|^Peak values$/i),umb=fila(/^Umbral Anaer[oó]bico$|^Anaerobic threshold$/i);
+  if(pico){out.fcMax=pico.hr;if(out.vo2max==null&&pico.vo2)out.vo2max=pico.vo2;out.velMax=pico.vel;out.tiempo=pico.t;}
+  if(!out.fcMax)falt.push("FC máxima");
+  if(umb){out.fcUmbral=umb.hr;out.vo2Umbral=umb.vo2;out.velUmbral=umb.vel;}
+  const nota=it.find(i=>/Umbral Anaer[oó]bico\s*=|Anaerobic threshold\s*=/i.test(i.s));
+  if(nota){const m=nota.s.match(/=\s*(\d+)\s*%\s*VO2/i),m2=nota.s.match(/(\d+)\s*%\s*HR/i);if(m)out.pctVO2Umbral=+m[1];if(m2)out.pctFCUmbral=+m2[1];}
+  // Zonas: encabezado de zona → porcentaje a su derecha → renglones debajo.
+  const ref=it.find(i=>/^Zonas de Entrenamiento|^Training zones/i.test(i.s));
+  EJ_ZONAS.forEach(z=>{
+    const h=it.filter(i=>z.re.test(i.s)&&(!ref||(i.p===ref.p&&i.y<ref.y))).sort((a,b)=>b.y-a.y)[0];
+    if(!h){out.zonas.push({n:z.n,fc:null,vel:null,watt:null,pctVO2:null});falt.push("zona "+z.n);return;}
+    const pct=it.filter(i=>i.p===h.p&&/\d+\s*-\s*\d+\s*%/.test(i.s)&&Math.abs(i.y-h.y)<=14&&i.x>=h.x-2&&i.x-h.x<260)
+      .sort((a,b)=>(Math.abs(a.y-h.y)+Math.abs(a.x-h.x)/10)-(Math.abs(b.y-h.y)+Math.abs(b.x-h.x)/10))[0];
+    const renglon=re=>{
+      const lab=it.filter(i=>i.p===h.p&&re.test(i.s)&&i.x>=h.x-2&&i.x-h.x<=45&&i.y<h.y&&h.y-i.y<=75).sort((a,b)=>b.y-a.y)[0];
+      const v=derecha(lab,160);return v?ejRango(v.s):null;
+    };
+    out.zonas.push({n:z.n,pctVO2:pct?(m=>m?[+m[1],+m[2]]:null)(pct.s.match(/(\d+)\s*-\s*(\d+)\s*%/)):null,
+      fc:renglon(/^HR \(bpm\)|^FC/i),watt:renglon(/^Carga \(watt|^Load/i),vel:renglon(/^Velocidad \(km|^Speed/i)});
+    if(!out.zonas[out.zonas.length-1].fc)falt.push("FC de la zona "+z.n);
+  });
+  const okZonas=out.zonas.filter(z=>z.fc).length;
+  return{prueba:out,faltan:falt,ok:out.vo2max!=null&&(okZonas===5||out.fcMax!=null)};
+}
 
 // ── Interfaz del módulo ──────────────────────────────────────────────────────
 function ejCfg(){
@@ -23350,8 +24060,15 @@ window.ejGenerar=function(){
     showToast("Falta capturar "+faltan.join(", ")+" para calcular el volumen",false);return;
   }
   c.mes=1;c.rotacion=0;c.deltaVolumen=0;
+  const previo=STATE._ejPlanActual&&STATE._ejPlanActual.cardio;
   const plan=ejGenerarPlan(c);
   if(!plan){showToast("Selecciona una secuencia de días",false);return;}
+  // Regenerar no debe borrar lo que el médico ya ajustó en Cardio: se conserva
+  // completo, pero SÓLO si es del mismo paciente.
+  if(previo&&previo.pacienteId&&previo.pacienteId===STATE.pat?.id)plan.cardio=JSON.parse(JSON.stringify(previo));
+  else plan.cardio=ejCardioDefault(c.cardio||"mixto",plan.dias.length,ejEdadPaciente());
+  plan.cardio.pacienteId=STATE.pat?.id||null;
+  plan.textos.cardio=ejCardioTexto(plan.cardio);
   STATE._ejPlanActual=plan;STATE.ejTab="plan";
   pgEjercicio();
 };
@@ -23363,11 +24080,31 @@ window.ejEditar=function(d,b,i,campo,val){
   else fila[campo]=val;
   if(campo==="ejercicio"){
     fila.equipo=ejEquipo(val);
+    // Cambia el ejercicio: el video propio, la alternativa y la siguiente
+    // variante eran del anterior.
+    fila.video="";
+    const cfgE=STATE._ejPlanActual.cfg||ejCfg();
+    const cand=ejCandidatos(fila.grupo,fila.patron,cfgE);
+    const yo=cand.lista.find(x=>x.n===val)||(()=>{const f=ejFamilia(val);return{n:val,familia:f.familia,carga:ejCargaPotencial(val),cx:ejComplejidad(val),tempo:f.tempo,regresion:f.regresion,unilateral:f.mods.has("unilateral"),jitter:0};})();
+    const alt=ejAlternativa(cand.lista,yo,{posicion:fila.pos||0,cxDeseada:2,nivelNum:EJ_NIVEL_NUM[cfgE.nivel]??2,permiteRegresion:true,usadas:new Set(),historial:STATE._ejHist||{}});
+    fila.alternativa=alt?alt.n:"";
+    fila.siguiente=ejSiguienteVariante(fila.grupo,fila.patron,cfgE,yo)||"";
     const contras=(ejCfg().condiciones||[]).map(k=>EJ_CONTRA.find(c=>c.k===k)).filter(Boolean).filter(c=>c.re.test(val));
     fila.contra=contras.map(c=>c.k);fila.notasContra=contras.map(c=>c.nota);
     pgEjercicio();return;
   }
   if(campo==="series"){STATE._ejPlanActual.aviso=ejFueraDeBanda(STATE._ejPlanActual);ejPintarSemaforo();}
+};
+window.ejUsarAlternativa=function(d,b,i){
+  const fila=STATE._ejPlanActual?.dias?.[d]?.bloques?.[b]?.filas?.[i];
+  if(!fila||!fila.alternativa)return;
+  ejEditar(d,b,i,"ejercicio",fila.alternativa);
+};
+window.ejVideoPropio=function(d,b,i,val){
+  const fila=STATE._ejPlanActual?.dias?.[d]?.bloques?.[b]?.filas?.[i];if(!fila)return;
+  const v=String(val||"").trim();
+  if(v&&!ejUrlSegura(v)){showToast("El enlace debe ser de YouTube (youtube.com o youtu.be)",false);return;}
+  fila.video=v;STATE._ejVidEdit=null;pgEjercicio();
 };
 window.ejAgregarFila=function(d,b){
   const bloque=STATE._ejPlanActual?.dias?.[d]?.bloques?.[b];if(!bloque)return;
@@ -23377,7 +24114,8 @@ window.ejAgregarFila=function(d,b){
   const usados=bloque.filas.map(f=>f.ejercicio);
   const libre=cand.lista.find(x=>!usados.includes(x.n))||cand.lista[0];
   bloque.filas.push({...ult,ejercicio:libre?libre.n:"",equipo:libre?libre.equipo:"",
-    contra:libre?libre.contra:[],notasContra:libre?libre.notas:[],peso:"",nota:"",ajuste:"",drop:false});
+    contra:libre?libre.contra:[],notasContra:libre?libre.notas:[],peso:"",nota:"",ajuste:"",drop:false,
+    video:"",alternativa:"",siguiente:libre?(ejSiguienteVariante(ult.grupo,ult.patron,ejCfg(),libre)||""):""});
   if(ult.drop){ult.drop=false;bloque.filas[bloque.filas.length-1].drop=true;}
   STATE._ejPlanActual.aviso=ejFueraDeBanda(STATE._ejPlanActual);
   pgEjercicio();
@@ -23392,6 +24130,7 @@ window.ejQuitarFila=function(d,b,i){
 window.ejTexto=function(k,val){
   const p=STATE._ejPlanActual;if(!p)return;
   p.textos=p.textos||{};p.textos[k]=val;
+  if(k==="cardio")p.textos._cardioManual=true;
 };
 function ejPintarSemaforo(){
   const box=document.getElementById("ej-semaforo");if(!box)return;
@@ -23430,8 +24169,9 @@ async function pgEjercicio(){
       <div style="display:flex;border-bottom:2px solid ${BR};background:#F8FAFB;padding:0 8px;overflow-x:auto">
         ${tab("config","1 · Variables y volumen")}
         ${hayPlan?tab("plan","2 · Plan del mes"):""}
-        ${hayPlan?tab("textos","3 · Indicaciones"):""}
-        ${tab("bienestar","4 · Cuestionario de bienestar")}
+        ${hayPlan?tab("cardio","3 · Cardio"):""}
+        ${hayPlan?tab("textos","4 · Indicaciones"):""}
+        ${tab("bienestar","5 · Cuestionario de bienestar")}
         ${planes.length?tab("historial",`Historial (${planes.length})`):""}
       </div>
       <div id="ej-body" style="padding:18px"></div>
@@ -23439,6 +24179,7 @@ async function pgEjercicio(){
   const cb=document.getElementById("ej-body");
   if(STATE.ejTab==="config")ejVistaConfig(cb);
   else if(STATE.ejTab==="plan")ejVistaPlan(cb);
+  else if(STATE.ejTab==="cardio")ejVistaCardio(cb);
   else if(STATE.ejTab==="textos")ejVistaTextos(cb);
   else if(STATE.ejTab==="bienestar")ejVistaBienestar(cb);
   else if(STATE.ejTab==="legacy")ejVistaLegacy(cb,STATE._ejLegacy);
@@ -23518,6 +24259,30 @@ function ejAvisoHTML(p){
   return out;
 }
 
+// Video, alternativa y siguiente variante de una fila, debajo del ejercicio.
+function ejFilaExtrasHTML(f,d,b,i){
+  const v=ejVideoFila(f);const clave=d+"-"+b+"-"+i;
+  const esc=x=>String(x||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+  let h=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px;font-size:11px">`;
+  if(v)h+=`<a href="${esc(v.url)}" target="_blank" rel="noopener" title="${esc(v.titulo)}" style="color:#C62828;font-weight:700;text-decoration:none">▶ Técnica${v.tipo==="busqueda"?" (búsqueda)":v.tipo==="propio"?" (propio)":""}</a>`;
+  h+=`<button onclick="STATE._ejVidEdit=STATE._ejVidEdit==='${clave}'?null:'${clave}';pgEjercicio()" title="Pegar un enlace de YouTube propio" style="background:none;border:none;color:${MU};cursor:pointer;font-size:11px;padding:0">🔗 ${f.video?"cambiar":"usar otro"} video</button>`;
+  h+=`</div>`;
+  if(STATE._ejVidEdit===clave)h+=`<div style="display:flex;gap:6px;margin-top:4px"><input id="ej-vid-${clave}" value="${esc(f.video)}" placeholder="https://www.youtube.com/watch?v=…" style="flex:1;padding:4px 7px;border:1.5px solid ${BR};border-radius:6px;font-size:11.5px">
+    <button onclick="ejVideoPropio(${d},${b},${i},document.getElementById('ej-vid-${clave}').value)" style="background:${P};color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">Usar</button>
+    ${f.video?`<button onclick="ejVideoPropio(${d},${b},${i},'')" style="background:#fff;color:${MU};border:1px solid ${BR};border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer">Quitar</button>`:""}</div>`;
+  if(f.alternativa)h+=`<div style="font-size:11px;color:${MU};margin-top:3px">⇄ Alternativa: <span style="color:${TX}">${esc(f.alternativa)}</span> <button onclick="ejUsarAlternativa(${d},${b},${i})" style="background:none;border:none;color:${P};font-weight:700;cursor:pointer;font-size:11px;padding:0">usar</button></div>`;
+  if(f.siguiente)h+=`<div style="font-size:11px;color:#2E7D32;margin-top:2px">↗ Cuando la domine: ${esc(f.siguiente)}</div>`;
+  return h;
+}
+function ejSemanasHTML(p){
+  const sem=ejSemanas(p);
+  return`<details style="background:#F8FAFB;border-radius:8px;padding:10px 12px;margin-bottom:12px" ${STATE._ejSemAbiertas?"open":""} ontoggle="STATE._ejSemAbiertas=this.open">
+    <summary style="cursor:pointer;font-size:11px;color:${MU};text-transform:uppercase;font-weight:700">Progresión semana a semana dentro del mes</summary>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px">
+      <thead><tr>${["Semana","Series","RIR","Indicación"].map(t=>`<th style="text-align:left;padding:4px 8px;color:${MU};font-size:11px">${t}</th>`).join("")}</tr></thead>
+      <tbody>${sem.map(x=>`<tr style="border-top:1px solid #ECEFF1"><td style="padding:5px 8px;font-weight:700;color:${TX};white-space:nowrap">${x.n} · ${x.nombre}</td><td style="padding:5px 8px;white-space:nowrap">${x.series}</td><td style="padding:5px 8px">${x.rir}</td><td style="padding:5px 8px;color:${MU}">${x.texto}</td></tr>`).join("")}</tbody>
+    </table></details>`;
+}
 function ejVistaPlan(cb){
   const p=STATE._ejPlanActual;if(!p){cb.innerHTML="";return;}
   const cfg=p.cfg||ejCfg();
@@ -23547,6 +24312,7 @@ function ejVistaPlan(cb){
       <div id="ej-semaforo" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
     ${ejAvisoHTML(p)}
+    ${ejSemanasHTML(p)}
     ${p.dias.map((dia,d)=>`
       <div style="border:1px solid ${BR};border-radius:10px;margin-bottom:12px;overflow:hidden">
         <div style="background:${PL};padding:8px 13px;font-weight:800;color:${P};font-size:13.5px">Día ${dia.etiqueta}${dia.subtitulo?` · <span style="font-weight:600">${dia.subtitulo}</span>`:""} · ${dia.bloques.reduce((a,b)=>a+b.filas.length,0)} ejercicios</div>
@@ -23568,6 +24334,7 @@ function ejVistaPlan(cb){
                 ${f.contra&&f.contra.length?`<div style="font-size:10.5px;color:#C62828;margin-top:3px">⚠️ ${f.notasContra.join(" ")}</div>`:""}
                 ${f.fueraSede?`<div style="font-size:10.5px;color:#E65100;margin-top:3px">Requiere más equipo del que hay en ${(EJ_SEDES[p.sede]||{}).corto||"el lugar elegido"}</div>`:""}
                 ${f.drop?`<div style="font-size:10.5px;color:#8E24AA;margin-top:3px">Última serie descendente: al fallo técnico, bajar 25 % la carga y continuar</div>`:""}
+                ${ejFilaExtrasHTML(f,d,b,i)}
               </td>
               <td style="padding:5px 8px">${num(f.series,`ejEditar(${d},${b},${i},'series',this.value)`,44)}</td>
               <td style="padding:5px 8px;white-space:nowrap">${num(f.repsMin,`ejEditar(${d},${b},${i},'repsMin',this.value)`,42)} <span style="color:${MU}">–</span> ${num(f.repsMax,`ejEditar(${d},${b},${i},'repsMax',this.value)`,42)}</td>
@@ -23598,9 +24365,348 @@ function ejVistaTextos(cb){
     ${campo("calentamiento","Calentamiento",3)}
     ${campo("progresion","Progresión de la carga",4)}
     ${campo("abdomen","Abdomen",2)}
-    ${campo("cardio","Ejercicio cardiopulmonar",5)}
+    ${campo("cardio","Ejercicio cardiopulmonar"+(t._cardioManual?" · editado a mano":" · se escribe desde la pestaña Cardio"),7)}
+    ${t._cardioManual?`<div style="margin:-8px 0 14px">${btn("Rehacer el texto de cardio desde el menú","ejCardioRehacerTexto()","s",1)}</div>`:""}
     ${campo("enfriamiento","Enfriamiento",2)}
     ${campo("precauciones","Precauciones",7)}`;
+}
+
+// ── Cardio: interfaz ─────────────────────────────────────────────────────────
+// El cardio vive dentro del plan del mes (plan.cardio) y se guarda con él. Las
+// pruebas de esfuerzo se guardan aparte en «anexos» con el prefijo
+// __PRUEBA_ESFUERZO__: y el PDF original en Storage, así aparecen también en
+// Documentos del expediente y sirven para los meses siguientes.
+function ejEsc(x){return String(x??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+function ejLimpio(x){return String(x??"").replace(/[<>"'`]/g,"").trim().slice(0,120);}
+function ejEdadPaciente(){
+  const e=edadAnios((STATE.pat||{}).fecha_nacimiento);
+  return e!=null&&isFinite(e)?e:null;
+}
+function ejCardioPlan(){
+  const p=STATE._ejPlanActual;if(!p)return null;
+  if(!p.cardio){
+    p.cardio=ejCardioDefault((p.cfg||{}).cardio||"mixto",(p.dias||[]).length,ejEdadPaciente());
+    // Un plan guardado antes de este módulo conserva su texto: sólo se
+    // reescribe si el médico lo pide con el botón.
+    p.textos=p.textos||{};
+    if((p.textos.cardio||"").trim())p.textos._cardioManual=true;
+  }
+  const c=p.cardio;
+  if(c.edad==null){const e=ejEdadPaciente();if(e!=null){c.edad=e;c.fcMaxTeorica=ejTanaka(e);}}
+  if(!c.pacienteId)c.pacienteId=STATE.pat?.id||null;
+  return c;
+}
+function ejCardioRefrescarTexto(forzar){
+  const p=STATE._ejPlanActual;if(!p||!p.cardio)return;
+  p.textos=p.textos||{};
+  if(forzar)p.textos._cardioManual=false;
+  if(!p.textos._cardioManual)p.textos.cardio=ejCardioTexto(p.cardio);
+}
+// El mes siguiente arranca donde terminó el anterior si el cuestionario
+// permite progresar, y retrocede un escalón si pide recuperación.
+// Topes: 20 min de trabajo y 50 min de sesión. Con una condición de riesgo
+// cardiovascular marcada, el cardio NO progresa solo: lo decide el médico.
+function ejCardioProgresar(c,r,condiciones){
+  if(!c)return c;
+  const n=JSON.parse(JSON.stringify(c));
+  const h=n.hiit,k=n.continuo;
+  const riesgo=(condiciones||[]).some(x=>EJ_CARDIO_RIESGO[x]);
+  if(r&&(r.vol>0||r.carga>0)&&!riesgo){
+    if(h){const d=Math.max(1,(parseInt(h.nMax)||0)-(parseInt(h.nMin)||0));
+      const ciclo=Math.max(15,(parseFloat(h.trabS)||60)+(parseFloat(h.recS)||0));
+      const fijo=((parseFloat(h.calMin)||0)+(parseFloat(h.enfMin)||0))*60;
+      const tope=Math.max(parseInt(h.nMax)||1,Math.min(Math.floor(1200/Math.max(15,parseFloat(h.trabS)||60)),Math.floor((3000-fijo)/ciclo)));
+      h.nMin=parseInt(h.nMax)||h.nMin;h.nMax=Math.min(tope,(parseInt(h.nMax)||0)+d);}
+    if(k)k.min=Math.min(60,(parseInt(k.min)||30)+10);
+  }else if(r&&(r.vol>0||r.carga>0)&&riesgo){
+    n.nota="El cardio no progresó solo por la condición de riesgo registrada; ajústalo a mano si procede.";
+  }else if(r&&r.vol<0){
+    if(h){const d=Math.max(1,(parseInt(h.nMax)||0)-(parseInt(h.nMin)||0));
+      h.nMax=parseInt(h.nMin)||h.nMax;h.nMin=Math.max(2,(parseInt(h.nMin)||2)-d);}
+    if(k)k.min=Math.max(15,(parseInt(k.min)||30)-10);
+  }
+  return n;
+}
+window.ejCS=function(ruta,val,repintar){
+  const c=ejCardioPlan();if(!c)return;
+  const partes=ruta.split(".");let o=c;
+  for(let i=0;i<partes.length-1;i++){o[partes[i]]=o[partes[i]]||{};o=o[partes[i]];}
+  const k=partes[partes.length-1];
+  o[k]=typeof val==="string"&&/^-?\d+(\.\d+)?$/.test(val)?parseFloat(val):val;
+  if(ruta==="hiit.protocolo")ejCardioAplicarProtocolo(c,val);
+  // Si se tocan los parámetros, ya no es el protocolo publicado: el PDF no
+  // debe citar al 4×4 noruego para una sesión de intervalos de 60 s.
+  else if(/^hiit\.(nMin|nMax|trabS|trabZ|recS|recZ|recTipo)$/.test(ruta)&&c.hiit)c.hiit.protocolo="personalizado";
+  if(ruta==="origen"){c.zonas=null;}
+  if(ruta==="edad"){c.fcMaxTeorica=ejTanaka(val);if(c.origen!=="prueba")c.zonas=null;}
+  ejCardioRefrescarTexto();
+  if(repintar!==false)ejVistaCardio(document.getElementById("ej-body"));
+};
+window.ejCZona=function(i,campo,val){
+  const c=ejCardioPlan();if(!c)return;
+  const z=JSON.parse(JSON.stringify(ejZonasCardio(c)));
+  z[i]=z[i]||{n:i+1};
+  z[i][campo]=ejRango(val);
+  c.zonas=z;
+  ejCardioRefrescarTexto();
+  ejVistaCardio(document.getElementById("ej-body"));
+};
+window.ejCZonasRestaurar=function(){
+  const c=ejCardioPlan();if(!c)return;
+  c.zonas=null;ejCardioRefrescarTexto();ejVistaCardio(document.getElementById("ej-body"));
+};
+window.ejCardioRehacerTexto=function(){
+  ejCardioRefrescarTexto(true);showToast("Texto de cardio rehecho desde el menú");
+  if(STATE.ejTab==="textos")ejVistaTextos(document.getElementById("ej-body"));
+};
+
+async function ejCargarPruebas(forzar){
+  const pid=STATE.pat?.id;if(!pid)return[];
+  if(!forzar&&STATE._ejPruebasPid===pid&&Array.isArray(STATE._ejPruebas))return STATE._ejPruebas;
+  const{data,error}=await SB.from("anexos").select("id,fecha,titulo,descripcion,storage_path,created_at")
+    .eq("paciente_id",pid).like("descripcion","__PRUEBA_ESFUERZO__:%").order("fecha",{ascending:false});
+  if(error){showToast("No se pudieron leer las pruebas de esfuerzo: "+error.message,false);return[];}
+  STATE._ejPruebas=(data||[]).map(a=>{
+    let o=null;try{o=JSON.parse(String(a.descripcion||"").replace("__PRUEBA_ESFUERZO__:",""));}catch(e){}
+    return o?{...o,id:a.id,storage_path:a.storage_path||null,titulo:a.titulo}:null;
+  }).filter(Boolean);
+  STATE._ejPruebasPid=pid;
+  return STATE._ejPruebas;
+}
+window.ejCardioUsarPrueba=function(id){
+  const c=ejCardioPlan();if(!c)return;
+  const pr=(STATE._ejPruebas||[]).find(x=>String(x.id)===String(id));
+  if(!pr){c.prueba=null;c.pruebaId=null;}
+  else{const{id:_i,storage_path:_s,titulo:_t,...snap}=pr;c.prueba=snap;c.pruebaId=pr.id;c.origen="prueba";}
+  c.zonas=null;
+  ejCardioRefrescarTexto();
+  ejVistaCardio(document.getElementById("ej-body"));
+};
+
+// pdf.js se carga sólo al leer un informe. Misma versión que en el banco de
+// pruebas donde se validó el lector contra un informe Fitmate real.
+async function ejPdfJs(){
+  if(window.pdfjsLib)return window.pdfjsLib;
+  await new Promise((res,rej)=>{const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  return window.pdfjsLib;
+}
+window.ejSubirPrueba=function(){
+  const inp=document.createElement("input");
+  inp.type="file";inp.accept=".pdf,image/*";
+  inp.onchange=async()=>{
+    const file=inp.files&&inp.files[0];if(!file)return;
+    if(file.size>20*1024*1024){showToast("El archivo pesa más de 20 MB",false);return;}
+    const base={fecha:new Date().toISOString().slice(0,10),equipo:"",zonas:EJ_ZONAS.map(z=>({n:z.n,fc:null,vel:null,watt:null}))};
+    if(!/pdf$/i.test(file.type)&&!/\.pdf$/i.test(file.name)){
+      STATE._ejPruebaForm={...base,_archivo:file,_aviso:"Es una imagen: no se puede leer automáticamente. Captura los datos del informe."};
+      ejVistaCardio(document.getElementById("ej-body"));return;
+    }
+    loading(true,"Leyendo el informe...");
+    try{
+      const lib=await ejPdfJs();
+      const doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+      const items=[];
+      for(let pg=1;pg<=Math.min(doc.numPages,4);pg++){
+        const page=await doc.getPage(pg);const tc=await page.getTextContent();
+        tc.items.forEach(i=>items.push({s:i.str,x:i.transform[4],y:i.transform[5],p:pg}));
+      }
+      const r=ejLeerFitmate(items);
+      loading(false);
+      const leidos=r.prueba.zonas.filter(z=>z.fc).length;
+      STATE._ejPruebaForm={...base,...r.prueba,_archivo:file,
+        _aviso:r.ok?`Informe leído: ${leidos} de 5 zonas${r.faltan.length?" · no se encontró: "+r.faltan.join(", "):""}. Revisa los datos contra el PDF antes de guardar.`
+          :`No parece un informe Fitmate o no se pudo leer completo${r.faltan.length?" (falta: "+r.faltan.join(", ")+")":""}. Captura o corrige los datos antes de guardar.`};
+    }catch(e){
+      loading(false);console.error(e);
+      STATE._ejPruebaForm={...base,_archivo:file,_aviso:"No se pudo leer el PDF ("+(e.message||e)+"). Captura los datos a mano; el archivo se guardará igual."};
+    }
+    ejVistaCardio(document.getElementById("ej-body"));
+  };
+  inp.click();
+};
+window.ejCapturarPrueba=function(){
+  STATE._ejPruebaForm={fecha:new Date().toISOString().slice(0,10),equipo:"Prueba de esfuerzo",
+    zonas:EJ_ZONAS.map(z=>({n:z.n,fc:null,vel:null,watt:null}))};
+  ejVistaCardio(document.getElementById("ej-body"));
+};
+window.ejPF=function(k,v){
+  const f=STATE._ejPruebaForm;if(!f)return;
+  if(["vo2max","mets","fcMax","fcUmbral","vo2Umbral","velUmbral","fcReposo"].includes(k)){const n=parseFloat(String(v).replace(",","."));f[k]=isFinite(n)?n:null;}
+  else f[k]=v;
+};
+window.ejPFZona=function(i,campo,v){const f=STATE._ejPruebaForm;if(!f)return;f._zonasCalculadas=false;f.zonas[i]=f.zonas[i]||{n:i+1};f.zonas[i][campo]=ejRango(v);};
+window.ejPFCalcularZonas=function(){
+  const f=STATE._ejPruebaForm;if(!f)return;
+  if(!f.fcMax){showToast("Captura primero la FC máxima alcanzada",false);return;}
+  f.zonas=ejZonasPorFC(f.fcMax);f._zonasCalculadas=true;
+  ejVistaCardio(document.getElementById("ej-body"));
+};
+window.ejGuardarPrueba=async function(){
+  const f=STATE._ejPruebaForm;const pid=STATE.pat?.id;
+  if(!f||!pid)return;
+  const zonasOk=(f.zonas||[]).filter(z=>z&&z.fc).length;
+  if(!f.fecha){showToast("Falta la fecha de la prueba",false);return;}
+  if(!f.fcMax&&zonasOk<5){showToast("Captura la FC máxima alcanzada o la FC de las cinco zonas",false);return;}
+  if(zonasOk>0&&zonasOk<5){showToast("Faltan "+(5-zonasOk)+" zonas por capturar. Complétalas o déjalas todas vacías para calcularlas con la FC máxima.",false);return;}
+  loading(true,"Guardando prueba de esfuerzo...");
+  let storagePath=null;
+  if(f._archivo){
+    const ext=((f._archivo.name||"").split(".").pop()||"pdf").toLowerCase();
+    const path=`${pid}/pruebas_esfuerzo/${Date.now()}.${ext}`;
+    const{error:ue}=await SB.storage.from("expedientes").upload(path,f._archivo,{cacheControl:"3600",upsert:false,contentType:f._archivo.type||undefined});
+    if(ue){loading(false);showToast("No se pudo subir el archivo: "+ue.message+". No se guardó nada.",false);return;}
+    storagePath=path;
+  }
+  const datos={version:1};
+  ["fecha","equipo","fuente","ergometro","tipoTest","vo2max","mets","fcMax","fcUmbral","vo2Umbral","velUmbral","velMax","fcReposo","pctVO2Umbral","pctFCUmbral","tiempo","notas"]
+    .forEach(k=>{if(f[k]!=null&&f[k]!=="")datos[k]=typeof f[k]==="string"?ejLimpio(f[k]):f[k];});
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha||"")){loading(false);showToast("La fecha de la prueba no es válida",false);return;}
+  if(f._zonasCalculadas)datos.zonasCalculadas=true;
+  datos.zonas=zonasOk===5?f.zonas.map((z,i)=>({n:i+1,fc:z.fc||null,vel:z.vel||null,watt:z.watt||null,pctVO2:z.pctVO2||null})):null;
+  const{data:ins,error}=await SB.from("anexos").insert({
+    paciente_id:pid,
+    titulo:("PRUEBA DE ESFUERZO — "+(datos.equipo||"captura manual")+" — "+ejFechaLegible(datos.fecha)).toUpperCase().slice(0,180),
+    tipo_documento:"Prueba de esfuerzo",origen:storagePath?"subido":"generado",firmado:false,
+    storage_path:storagePath,fecha:datos.fecha,
+    descripcion:"__PRUEBA_ESFUERZO__:"+JSON.stringify(datos),
+  }).select("id").single();
+  if(error){
+    if(storagePath){try{await SB.storage.from("expedientes").remove([storagePath]);}catch(e){}}
+    loading(false);showToast("Error al guardar la prueba: "+error.message+". No se guardó nada.",false);return;}
+  loading(false);
+  try{await logBitacora("GUARDAR_PRUEBA_ESFUERZO",`Paciente ${pid} · ${datos.equipo||"manual"} · ${datos.fecha}`);}catch(e){}
+  STATE._ejPruebaForm=null;
+  await ejCargarPruebas(true);
+  showToast("✅ Prueba de esfuerzo guardada en el expediente");
+  if(STATE._ejPlanActual&&ins&&ins.id)ejCardioUsarPrueba(ins.id);
+  else ejVistaCardio(document.getElementById("ej-body"));
+};
+window.ejCancelarPrueba=function(){STATE._ejPruebaForm=null;ejVistaCardio(document.getElementById("ej-body"));};
+
+// El informe trae el nombre del evaluado: se compara con el expediente abierto.
+function ejNombreCoincide(nom){
+  const p=STATE.pat||{};
+  const t=ejNormTxt(nom).split(/\s+/).filter(w=>w.length>2);
+  const e=ejNormTxt([p.nombre,p.apellido_paterno,p.apellido_materno].join(" "));
+  return t.length?t.filter(w=>e.includes(w)).length>=Math.min(2,t.length):true;
+}
+function ejFormPruebaHTML(f){
+  const inp=(k,ph,w)=>`<input value="${f[k]!=null?ejEsc(f[k]):""}" placeholder="${ph||""}" oninput="ejPF('${k}',this.value)" style="width:${w||"100%"};padding:7px 9px;border:1.5px solid ${BR};border-radius:7px;font-size:13px">`;
+  const zinp=(i,c,ph)=>`<input value="${ejTxtRango(((f.zonas||[])[i]||{})[c],c==="vel").replace("—","")}" placeholder="${ph}" oninput="ejPFZona(${i},'${c}',this.value)" style="width:86px;padding:5px 7px;border:1.5px solid ${BR};border-radius:6px;font-size:12.5px;text-align:center">`;
+  return`<div style="background:#F8FAFB;border:1.5px solid ${P};border-radius:10px;padding:14px;margin-bottom:16px">
+    <div style="font-size:14px;font-weight:800;color:${TX};margin-bottom:6px">Prueba de esfuerzo${f._archivo?" · "+ejEsc(f._archivo.name):" · captura manual"}</div>
+    ${f.nombre&&!ejNombreCoincide(f.nombre)?`<div style="background:#FFEBEE;border-left:3px solid #C62828;border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#C62828">⚠️ El informe es de <b>${ejEsc(f.nombre)}</b> y el expediente abierto es de <b>${ejEsc([STATE.pat?.nombre,STATE.pat?.apellido_paterno].filter(Boolean).join(" "))}</b>. Verifica que sea el paciente correcto antes de guardar.</div>`:""}
+    ${f._aviso?`<div style="background:#FFF3E0;border-left:3px solid #E65100;border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#E65100">${f._aviso}</div>`:""}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px">
+      ${fld("Fecha",`<input type="date" value="${f.fecha||""}" oninput="ejPF('fecha',this.value)" style="width:100%;padding:7px 9px;border:1.5px solid ${BR};border-radius:7px;font-size:13px">`)}
+      ${fld("Equipo / tipo de prueba",inp("equipo","Fitmate, ergoespirometría…"))}
+      ${fld("VO2máx (mL/kg/min)",inp("vo2max","37.9"))}
+      ${fld("METs",inp("mets","10.8"))}
+      ${fld("FC máxima alcanzada",inp("fcMax","lpm"))}
+      ${fld("FC en umbral anaeróbico",inp("fcUmbral","lpm"))}
+      ${fld("VO2 en umbral",inp("vo2Umbral","mL/kg/min"))}
+      ${fld("FC de reposo",inp("fcReposo","lpm"))}
+    </div>
+    <div style="font-size:11.5px;font-weight:700;color:${MU};text-transform:uppercase;margin:6px 0">Zonas 1 a 5 del informe (rango, por ejemplo 71-85)</div>
+    <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12.5px;min-width:520px">
+      <thead><tr>${["Zona","FC (lpm)","Velocidad (km/h)","Carga (W)"].map(h=>`<th style="text-align:left;padding:4px 8px;color:${MU};font-size:11px">${h}</th>`).join("")}</tr></thead>
+      <tbody>${EJ_ZONAS.map((z,i)=>`<tr><td style="padding:4px 8px;font-weight:700;color:${TX}">${z.n} · ${z.label}</td>
+        <td style="padding:4px 8px">${zinp(i,"fc","55-69")}</td><td style="padding:4px 8px">${zinp(i,"vel","2-3")}</td><td style="padding:4px 8px">${zinp(i,"watt","40-60")}</td></tr>`).join("")}</tbody></table></div>
+    <p style="font-size:11.5px;color:${MU};margin:6px 0 10px">Si la prueba no trae tabla de zonas, deja las cinco vacías: se calculan como 50-60, 60-70, 70-80, 80-90 y 90-100 % de la FC máxima alcanzada. ${btn("Calcular ahora con la FC máxima","ejPFCalcularZonas()","s",1)}</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">${btn("Cancelar","ejCancelarPrueba()","s")}${btn("💾 Guardar prueba en el expediente","ejGuardarPrueba()","ok")}</div>
+  </div>`;
+}
+
+async function ejVistaCardio(cb){
+  if(!cb)return;
+  const p=STATE._ejPlanActual;if(!p){cb.innerHTML="";return;}
+  const c=ejCardioPlan();
+  const pruebas=await ejCargarPruebas();
+  if(STATE.ejTab!=="cardio")return;
+  const zonas=ejZonasCardio(c);
+  const h=c.hiit,k=c.continuo;
+  const sel=(ruta,val,ops,w)=>`<select onchange="ejCS('${ruta}',this.value)" style="width:${w||"100%"};padding:7px 9px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;background:#fff">${ops.map(([v,l])=>`<option value="${v}" ${String(val)===String(v)?"selected":""}>${l}</option>`).join("")}</select>`;
+  const nin=(ruta,val,w)=>`<input type="number" value="${val??""}" onchange="ejCS('${ruta}',this.value)" style="width:${w||70}px;padding:6px 7px;border:1.5px solid ${BR};border-radius:7px;font-size:13px;text-align:center">`;
+  const zOps=EJ_ZONAS.map(z=>[z.n,z.n+" · "+z.label+(zonas[z.n-1]&&zonas[z.n-1].fc?" ("+ejTxtRango(zonas[z.n-1].fc)+" lpm)":"")]);
+  const caja=(col,bg,html)=>`<div style="background:${bg};border-left:3px solid ${col};border-radius:0 8px 8px 0;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:${col};line-height:1.6">${html}</div>`;
+  const avisos=ejCardioAvisos(c,(p.cfg||{}).condiciones||[]);
+  const fx=h&&h.activo?ejHiitFases(c):null;
+  const hayVel=zonas.some(z=>z&&z.vel),hayW=zonas.some(z=>z&&z.watt);
+  cb.innerHTML=`
+    ${STATE._ejPruebaForm?ejFormPruebaHTML(STATE._ejPruebaForm):""}
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:8px">1 · Origen de las zonas</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${[["prueba","Prueba de esfuerzo"],["teorica","FCmáx teórica (Tanaka)"]].map(([v,l])=>`<label style="display:flex;align-items:center;gap:6px;padding:7px 12px;border:1.5px solid ${c.origen===v?P:BR};border-radius:20px;cursor:pointer;background:${c.origen===v?PL:"#fff"};font-size:13px;font-weight:${c.origen===v?700:500}">
+        <input type="radio" name="ej-origen" ${c.origen===v?"checked":""} onchange="ejCS('origen','${v}')" style="accent-color:${P}">${l}</label>`).join("")}
+    </div>
+    ${c.origen==="prueba"?`
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        ${pruebas.length?`<select onchange="ejCardioUsarPrueba(this.value)" style="flex:1;min-width:240px;padding:8px 10px;border:1.5px solid ${BR};border-radius:8px;font-size:13px;background:#fff">
+          <option value="">— Elegir prueba —</option>
+          ${pruebas.map(x=>`<option value="${x.id}" ${String(c.pruebaId)===String(x.id)?"selected":""}>${ejFechaLegible(x.fecha)} · ${ejEsc(x.equipo||"Prueba")}${x.vo2max?" · VO2máx "+x.vo2max:""}${x.fcMax?" · FCmáx "+x.fcMax:""}</option>`).join("")}</select>`
+          :`<span style="font-size:12.5px;color:${MU}">Este paciente no tiene pruebas de esfuerzo guardadas.</span>`}
+        ${btn("📄 Subir informe (PDF Fitmate)","ejSubirPrueba()","p")}
+        ${btn("✍️ Capturar a mano","ejCapturarPrueba()","s")}
+      </div>`
+      :`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px;color:${TX}">
+        Edad ${nin("edad",c.edad,64)} años → FCmáx teórica = 208 − 0.7 × edad = <b>${c.fcMaxTeorica?c.fcMaxTeorica+" lpm":"—"}</b>
+      </div>`}
+    <div style="background:#F8FAFB;border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:12.5px;color:${TX};line-height:1.55">${ejEsc(ejOrigenTexto(c))}</div>
+    ${avisos.map(a=>caja("#C62828","#FFEBEE","⚠️ "+a)).join("")}
+    ${c.nota?caja("#E65100","#FFF3E0",ejEsc(c.nota)):""}
+
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin:16px 0 8px">2 · Zonas de entrenamiento ${c.zonas?`<span style="text-transform:none;font-weight:600;color:#E65100">· corregidas a mano</span> ${btn("Restaurar","ejCZonasRestaurar()","s",1)}`:""}</p>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:620px;margin-bottom:6px">
+      <thead><tr style="background:${PL}">${["Zona","FC (lpm)","Velocidad (km/h)","Carga (W)","Esfuerzo percibido (0-10)"].map(t=>`<th style="text-align:left;padding:6px 8px;color:${P};font-size:11px;text-transform:uppercase">${t}</th>`).join("")}</tr></thead>
+      <tbody>${EJ_ZONAS.map((z,i)=>{const d=zonas[i]||{};const ci=(campo,dec)=>`<input value="${ejTxtRango(d[campo],dec).replace("—","")}" onchange="ejCZona(${i},'${campo}',this.value)" style="width:92px;padding:5px 7px;border:1.5px solid ${BR};border-radius:6px;font-size:12.5px;text-align:center">`;
+        return`<tr style="border-bottom:1px solid #F0F0F0"><td style="padding:5px 8px;font-weight:700;color:${TX}">${z.n} · ${z.label}</td><td style="padding:5px 8px">${ci("fc")}</td><td style="padding:5px 8px">${ci("vel",true)}</td><td style="padding:5px 8px">${ci("watt")}</td><td style="padding:5px 8px;color:${MU}">${z.rpe}</td></tr>`;}).join("")}</tbody>
+    </table></div>
+    <p style="font-size:11px;color:${MU};margin-bottom:14px">Se usan las zonas 1 a 5 del informe Fitmate; la anaeróbica no se prescribe. Velocidad y carga sólo existen cuando hay prueba de esfuerzo.</p>
+
+    <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin:16px 0 8px">3 · Sesiones</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:12px">
+      ${fld("Modalidad",sel("modalidad",c.modalidad,Object.entries(EJ_MODALIDAD).map(([v,l])=>[v,l.charAt(0).toUpperCase()+l.slice(1)])))}
+    </div>
+    <div style="border:1px solid ${BR};border-radius:10px;padding:12px;margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;color:${TX};cursor:pointer;margin-bottom:${h.activo?10:0}px">
+        <input type="checkbox" ${h.activo?"checked":""} onchange="ejCS('hiit.activo',this.checked)" style="accent-color:${P};width:16px;height:16px">Intervalos (HIIT)</label>
+      ${h.activo?`
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:10px">
+        ${fld("Protocolo",sel("hiit.protocolo",h.protocolo,Object.entries(EJ_HIIT).map(([v,o])=>[v,o.label])))}
+        ${fld("Sesiones por semana",nin("hiit.sesiones",h.sesiones))}
+      </div>
+      ${EJ_HIIT[h.protocolo]&&EJ_HIIT[h.protocolo].ref?`<p style="font-size:11px;color:${MU};margin:-4px 0 10px">Referencia: ${EJ_HIIT[h.protocolo].ref}</p>`:""}
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;font-size:12.5px;color:${TX};margin-bottom:10px">
+        <div><div style="font-size:11px;color:${MU};font-weight:700;text-transform:uppercase;margin-bottom:4px">Número de intervalos</div>semana 1 ${nin("hiit.nMin",h.nMin,56)} → semana 3 ${nin("hiit.nMax",h.nMax,56)}</div>
+        <div><div style="font-size:11px;color:${MU};font-weight:700;text-transform:uppercase;margin-bottom:4px">Trabajo</div>${nin("hiit.trabS",h.trabS,70)} s en ${sel("hiit.trabZ",h.trabZ,zOps,"220px")}</div>
+        <div><div style="font-size:11px;color:${MU};font-weight:700;text-transform:uppercase;margin-bottom:4px">Recuperación</div>${nin("hiit.recS",h.recS,70)} s ${sel("hiit.recTipo",h.recTipo,[["activa","activa en"],["pasiva","pasiva"]],"96px")} ${h.recTipo==="pasiva"?"":sel("hiit.recZ",h.recZ,zOps,"220px")}</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:${TX};margin-bottom:12px">
+        <div>Calentamiento ${nin("hiit.calMin",h.calMin,56)} min en ${sel("hiit.calZ",h.calZ,zOps,"220px")}</div>
+        <div>Enfriamiento ${nin("hiit.enfMin",h.enfMin,56)} min en ${sel("hiit.enfZ",h.enfZ,zOps,"220px")}</div>
+      </div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:620px">
+        <thead><tr style="background:#FAFCFD">${["Fase","Duración","Zona","FC (lpm)",hayVel?"Velocidad":"",hayW?"Carga":"","Esfuerzo"].filter(Boolean).map(t=>`<th style="text-align:left;padding:5px 8px;color:${MU};font-size:11px;text-transform:uppercase">${t}</th>`).join("")}</tr></thead>
+        <tbody>${fx.fases.map(f=>`<tr style="border-bottom:1px solid #F4F6F7"><td style="padding:5px 8px;font-weight:700;color:${TX}">${f.fase}</td><td style="padding:5px 8px">${f.dur}</td><td style="padding:5px 8px">${f.zona} · ${f.zonaLabel}</td><td style="padding:5px 8px">${ejTxtRango(f.fc)}</td>${hayVel?`<td style="padding:5px 8px">${ejTxtRango(f.vel,true)} km/h</td>`:""}${hayW?`<td style="padding:5px 8px">${ejTxtRango(f.watt)} W</td>`:""}<td style="padding:5px 8px">${f.rpe}</td></tr>`).join("")}</tbody>
+      </table></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${fx.semanas.map((n,i)=>`<span style="background:${i===3?"#ECEFF1":PL};color:${i===3?"#546E7A":P};border-radius:20px;padding:4px 11px;font-size:12px;font-weight:700">Semana ${i+1}${i===3?" · descarga":""}: ${n} intervalos · ${fx.minutos[i]} min</span>`).join("")}</div>`:""}
+    </div>
+    <div style="border:1px solid ${BR};border-radius:10px;padding:12px;margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;color:${TX};cursor:pointer;margin-bottom:${k.activo?10:0}px">
+        <input type="checkbox" ${k.activo?"checked":""} onchange="ejCS('continuo.activo',this.checked)" style="accent-color:${P};width:16px;height:16px">Continuo</label>
+      ${k.activo?`<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:${TX};align-items:center">
+        <div>Sesiones por semana ${nin("continuo.sesiones",k.sesiones,56)}</div>
+        <div>${nin("continuo.min",k.min,60)} minutos en ${sel("continuo.z",k.z,zOps,"240px")}</div>
+        <div style="color:${MU}">Semanas: ${ejContinuoSemanas(k).map((m,i)=>(i===3?"descarga ":"")+m+" min").join(" · ")}</div></div>`:""}
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <p style="font-size:11.5px;color:${MU};line-height:1.6;flex:1;min-width:260px">${p.textos&&p.textos._cardioManual
+        ?`El texto de cardio de «Indicaciones» fue editado a mano y ya no sigue a este menú. Las tablas del PDF sí se actualizan.`
+        :`El texto de cardio de «Indicaciones» se escribe solo a partir de este menú. Si lo editas a mano, deja de seguirlo.`}</p>
+      ${p.textos&&p.textos._cardioManual?btn("Rehacer el texto desde el menú","ejCardioRehacerTexto();ejVistaCardio(document.getElementById('ej-body'))","s"):""}
+    </div>`;
 }
 
 window.ejBien=function(k,v){STATE._ejBienestar=STATE._ejBienestar||{};STATE._ejBienestar[k]=v;ejVistaBienestar(document.getElementById("ej-body"));};
@@ -23769,6 +24875,9 @@ window.pdfPrescripcionEjercicio=async function(){
       </div>`;
     const titulo=s=>`<div style="background:${pale};border-left:3px solid ${az};padding:5px 10px;margin:10px 0 6px;font-size:10.5px;font-weight:bold;color:${az};text-transform:uppercase;letter-spacing:.3px">${s}</div>`;
     const parrafo=s=>`<div style="font-size:9.5px;color:${txt};line-height:1.5;white-space:pre-wrap;margin-bottom:4px">${(s||"").replace(/</g,"&lt;")}</div>`;
+    const esc=x=>String(x||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+    const th=(x,al)=>`<th style="text-align:${al||"left"};padding:3px 5px;border-bottom:1px solid #CFD8DC;color:${sec};font-size:7.5px;text-transform:uppercase">${x}</th>`;
+    const td=(x,al,b)=>`<td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:${al||"left"};vertical-align:top;white-space:normal;word-wrap:break-word;overflow-wrap:anywhere;${b?"font-weight:bold;":""}">${x}</td>`;
 
     const bloques=[];
     bloques.push(`
@@ -23799,7 +24908,10 @@ window.pdfPrescripcionEjercicio=async function(){
         bl.filas.forEach(f=>{
           h+=`<tr>
             <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;font-weight:bold">${f.seq}</td>
-            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;word-wrap:break-word">${f.ejercicio||"—"}${f.fueraSede?' <b style="color:#E65100">*</b>':""}<div style="color:#90A4AE;font-size:7.5px">${f.grupo} · ${f.patron}${f.drop?" · última serie descendente (−25 % al fallo técnico)":""}</div></td>
+            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;word-wrap:break-word">${esc(f.ejercicio)||"—"}${f.fueraSede?' <b style="color:#E65100">*</b>':""}<div style="color:#90A4AE;font-size:7.5px">${f.grupo} · ${f.patron}${f.drop?" · última serie descendente (−25 % al fallo técnico)":""}</div>
+              ${(()=>{const v=ejVideoFila(f);return(v&&f.ejercicio?`<a data-url="${esc(v.url)}" style="color:#C62828;font-weight:bold;font-size:7.5px;text-decoration:none">▶ Ver técnica en video</a>`:"")+
+                (f.alternativa?`<span style="color:${sec};font-size:7.5px">${v&&f.ejercicio?" &nbsp;·&nbsp; ":""}Alternativa: ${esc(f.alternativa)}</span>`:"")})()}
+              ${f.siguiente?`<div style="color:#2E7D32;font-size:7.5px">Cuando la domine, pasar a: ${esc(f.siguiente)}</div>`:""}</td>
             <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:center">${f.series}</td>
             <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:center">${f.repsMin===f.repsMax?f.repsMin:f.repsMin+"–"+f.repsMax}</td>
             <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:center">${f.rir}</td>
@@ -23814,12 +24926,33 @@ window.pdfPrescripcionEjercicio=async function(){
       bloques.push(h);
     });
 
+    bloques.push(`${titulo("Progresión semana a semana")}
+      <div style="font-size:9px;color:${sec};margin-bottom:4px">La tabla de ejercicios es la misma las cuatro semanas; lo que cambia es el esfuerzo. RIR = repeticiones que deben quedar en reserva al terminar cada serie.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed"><colgroup><col style="width:17%"><col style="width:11%"><col style="width:7%"><col style="width:65%"></colgroup>
+        <thead><tr>${th("Semana")}${th("Series")}${th("RIR","center")}${th("Indicación")}</tr></thead>
+        <tbody>${ejSemanas(plan).map(x=>`<tr>${td(x.n+" · "+x.nombre,"left",true)}${td(x.series)}${td(x.rir,"center")}${td(x.texto)}</tr>`).join("")}</tbody></table>`);
     bloques.push(`${titulo("Volumen semanal por grupo")}
       <div style="font-size:9px;color:${sec};margin-bottom:4px">Series que le tocan a cada músculo en la semana completa, sumando todos los días.</div>
       <div style="font-size:9.5px;color:${txt};line-height:1.6">${Object.entries(vol.porGrupo).sort().map(([g,n])=>`${g}: <b>${n}</b>`).join(" · ")}</div>
       ${titulo("Progresión de la carga")}${parrafo(t.progresion)}
       ${t.abdomen?titulo("Abdomen")+parrafo(t.abdomen):""}`);
-    if((t.cardio||"").trim())bloques.push(titulo("Ejercicio cardiopulmonar")+parrafo(t.cardio));
+    const card=plan.cardio;
+    if(card&&((card.hiit&&card.hiit.activo)||(card.continuo&&card.continuo.activo))){
+      const zonas=ejZonasCardio(card);
+      const hayVel=zonas.some(z=>z&&z.vel),hayW=zonas.some(z=>z&&z.watt);
+      let h=titulo("Ejercicio cardiopulmonar")+`<div style="font-size:8.5px;color:${sec};margin-bottom:5px;line-height:1.45">${esc(ejOrigenTexto(card))}</div>
+        <table style="width:100%;border-collapse:collapse;font-size:9px"><thead><tr>${th("Zona")}${th("Frecuencia cardiaca","center")}${hayVel?th("Velocidad","center"):""}${hayW?th("Carga","center"):""}${th("Esfuerzo percibido (0-10)","center")}</tr></thead>
+        <tbody>${EJ_ZONAS.map((z,i)=>{const d=zonas[i]||{};return`<tr>${td(z.n+" · "+z.label,"left",true)}${td(ejTxtRango(d.fc)+" lpm","center")}${hayVel?td(ejTxtRango(d.vel,true)+" km/h","center"):""}${hayW?td(ejTxtRango(d.watt)+" W","center"):""}${td(z.rpe,"center")}</tr>`;}).join("")}</tbody></table>`;
+      if(card.hiit&&card.hiit.activo){
+        const fx=ejHiitFases(card);const pr=EJ_HIIT[card.hiit.protocolo]||{};
+        h+=`<div style="font-size:9.5px;font-weight:bold;color:${txt};margin:8px 0 3px">Sesión de intervalos${pr.label&&card.hiit.protocolo!=="personalizado"?" · "+esc(pr.label):""} · ${parseInt(card.hiit.sesiones)||0} por semana</div>
+          <table style="width:100%;border-collapse:collapse;font-size:9px"><thead><tr>${th("Fase")}${th("Duración","center")}${th("Zona")}${th("FC","center")}${hayVel?th("Velocidad","center"):""}${hayW?th("Carga","center"):""}${th("Esfuerzo","center")}</tr></thead>
+          <tbody>${fx.fases.map(f=>`<tr>${td(f.fase,"left",true)}${td(f.dur,"center")}${td(f.zona+" · "+f.zonaLabel)}${td(ejTxtRango(f.fc)+" lpm","center")}${hayVel?td(ejTxtRango(f.vel,true)+" km/h","center"):""}${hayW?td(ejTxtRango(f.watt)+" W","center"):""}${td(f.rpe,"center")}</tr>`).join("")}</tbody></table>
+          <table style="width:100%;border-collapse:collapse;font-size:9px;margin-top:4px"><tbody><tr>${fx.semanas.map((n,i)=>td(`<b>Semana ${i+1}${i===3?" (descarga)":""}</b><br>${n} intervalos · ${fx.minutos[i]} min`,"center")).join("")}</tr></tbody></table>`;
+      }
+      bloques.push(h);
+      bloques.push(`${(t.cardio||"").trim()?parrafo(t.cardio):""}<a data-url="${esc(EJ_VIDEO_ZONAS)}" style="color:#C62828;font-weight:bold;font-size:8.5px;text-decoration:none">▶ Video: cómo entrenar por zonas de frecuencia cardiaca</a>`);
+    }else if((t.cardio||"").trim())bloques.push(titulo("Ejercicio cardiopulmonar")+parrafo(t.cardio));
     bloques.push(`${titulo("Enfriamiento")}${parrafo(t.enfriamiento)}
       ${titulo("Precauciones")}${parrafo(t.precauciones)}
       ${notas.length?`<div style="background:#FFEBEE;border-left:3px solid #C62828;padding:6px 10px;font-size:8.5px;color:#C62828;margin-top:6px;line-height:1.5"><b>Precauciones clínicas por las condiciones registradas:</b><br>${notas.map(x=>"• "+x).join("<br>")}</div>`:""}
@@ -23838,23 +24971,42 @@ window.pdfPrescripcionEjercicio=async function(){
       c.style.cssText=`position:fixed;left:-99999px;top:0;width:${anchoPx}px;background:#fff;font-family:Arial,system-ui,sans-serif`;
       c.innerHTML=frag;
       document.body.appendChild(c);
-      const cv=await html2canvas(c,{scale:escala,backgroundColor:"#fff",useCORS:true,logging:false,windowWidth:anchoPx});
+      // En la imagen los enlaces ya no son clicables, así que se vuelven a
+      // poner como anotaciones del PDF. Se miden en el CLON que dibuja
+      // html2canvas, no en la página: el clon maqueta distinto (más compacto)
+      // y las posiciones de la página caían fuera de la imagen.
+      c.setAttribute("data-ej-pdf","1");
+      let links=[];
+      const cv=await html2canvas(c,{scale:escala,backgroundColor:"#fff",useCORS:true,logging:false,windowWidth:anchoPx,
+        onclone:docC=>{
+          const cc=docC.querySelector("[data-ej-pdf]");if(!cc)return;
+          const b0=cc.getBoundingClientRect();
+          links=[...cc.querySelectorAll("a[data-url]")].map(a=>{const r=a.getBoundingClientRect();
+            return{x:r.left-b0.left,y:r.top-b0.top,w:r.width,h:r.height,url:a.dataset.url};}).filter(l=>l.url&&l.w>0);
+        }});
       document.body.removeChild(c);
-      return{img:cv.toDataURL("image/jpeg",typeof PDF_CALIDAD!=="undefined"?PDF_CALIDAD:0.9),alto:cv.height*ancho/cv.width};
+      return{img:cv.toDataURL("image/jpeg",typeof PDF_CALIDAD!=="undefined"?PDF_CALIDAD:0.9),alto:cv.height*ancho/cv.width,links};
     };
     const enc=await pintar(encHTML);
     const y0=my+enc.alto+3;
     const limite=hpg-my-7;
     doc.addImage(enc.img,"JPEG",mx,my,ancho,enc.alto);
     let y=y0;
+    const kPx=ancho/anchoPx;
+    const enlazar=(links,top,desde,hasta)=>(links||[]).forEach(l=>{
+      const ly=top+l.y*kPx,lh=l.h*kPx;
+      const medio=ly+lh/2;
+      if(medio>=desde&&medio<=hasta)doc.link(mx+l.x*kPx,ly,l.w*kPx,lh,{url:l.url});
+    });
     for(const frag of bloques){
-      const{img,alto}=await pintar(frag);
+      const{img,alto,links}=await pintar(frag);
       if(alto>limite-y0){
         if(y>y0+1){doc.addPage();doc.addImage(enc.img,"JPEG",mx,my,ancho,enc.alto);}
         let desp=0;
         for(;;){
           const disp=limite-y0;
           doc.addImage(img,"JPEG",mx,y0-desp,ancho,alto);
+          enlazar(links,y0-desp,y0,limite);
           doc.setFillColor(255,255,255);
           doc.rect(0,0,wpg,y0,"F");
           doc.rect(0,limite,wpg,hpg-limite,"F");
@@ -23867,6 +25019,7 @@ window.pdfPrescripcionEjercicio=async function(){
       }
       if(y+alto>limite){doc.addPage();doc.addImage(enc.img,"JPEG",mx,my,ancho,enc.alto);y=y0;}
       doc.addImage(img,"JPEG",mx,y,ancho,alto);
+      enlazar(links,y,y,y+alto);
       y+=alto+2;
     }
     const total=doc.internal.getNumberOfPages();
