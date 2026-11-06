@@ -21390,23 +21390,44 @@ const RES_SECCIONES=[
   {k:"inter",    label:"Interconsultas",                       def:false},
   {k:"fisio",    label:"Fisioterapia",                         def:false},
   {k:"consultas",label:"Consultas y notas de evolución",       def:true},
+  {k:"consent",  label:"Consentimientos informados y aviso de privacidad", def:true},
+  {k:"anexos",   label:"Documentos anexos al expediente",      def:false},
 ];
+
+// Clasifica un renglón de «anexos» para el resumen. Los documentos firmados
+// desde firmar.html quedan con firmado=true; los pendientes llevan el tipo
+// firma_pendiente / firma_pendiente_<clave>.
+function resClaseDoc(d){
+  const tipo=String(d.tipo_documento||""),tit=String(d.titulo||"");
+  if((d.descripcion||"").startsWith("__OBJCAL__:")||tit.startsWith("OBJETIVO CALÓRICO"))return "";
+  if(tipo.startsWith("firma_pendiente")&&!d.firmado)return "pend";
+  if(d.firmado||/consentimiento|privacidad/i.test(tipo+" "+tit))return "consent";
+  return "anexo";
+}
+function resDocTieneArchivo(d){return !!(d.storage_path||d.url_archivo);}
 
 window.abrirResumenMedico=async function(){
   const p=STATE.pat;
   if(!p?.id){showToast("Abre un expediente primero",false);return;}
   loading(true,"Preparando resumen...");
-  let cons=[];
-  try{
-    const{data}=await SB.from("consultas")
-      .select("id,fecha,tipo_nota,medico_nombre").eq("paciente_id",p.id)
-      .order("fecha",{ascending:false});
-    cons=data||[];
-  }catch(e){}
+  let cons=[],docs=[];
+  const errs=[];
+  const [rc,rd]=await Promise.all([
+    SB.from("consultas").select("id,fecha,tipo_nota,medico_nombre").eq("paciente_id",p.id).order("fecha",{ascending:false}),
+    SB.from("anexos").select("id,titulo,tipo_documento,fecha,created_at,firmado,origen,storage_path,url_archivo,descripcion,nombre_firmante,fecha_firma").eq("paciente_id",p.id).order("created_at",{ascending:false}),
+  ]);
+  if(rc.error)errs.push("consultas: "+rc.error.message);else cons=rc.data||[];
+  if(rd.error)errs.push("documentos: "+rd.error.message);else docs=(rd.data||[]).filter(d=>resClaseDoc(d));
   loading(false);
+  if(errs.length)showToast("No se pudo leer la lista de "+errs.join(" · "),false);
   STATE._resSec=STATE._resSec||Object.fromEntries(RES_SECCIONES.map(s=>[s.k,s.def]));
+  RES_SECCIONES.forEach(s=>{if(!(s.k in STATE._resSec))STATE._resSec[s.k]=s.def;});
   STATE._resCons=Object.fromEntries(cons.map(c=>[c.id,true]));
   STATE._resConsLista=cons;
+  STATE._resDocs=docs;
+  // Por omisión se incluyen todos los documentos; los que no tienen archivo
+  // sólo aparecen en el índice.
+  STATE._resDocSel=Object.fromEntries(docs.filter(d=>resClaseDoc(d)!=="pend").map(d=>[d.id,true]));
   document.getElementById("modal-resumen")?.remove();
   const m=document.createElement("div");
   m.id="modal-resumen";
@@ -21419,9 +21440,14 @@ window.abrirResumenMedico=async function(){
     <div style="padding:16px 18px;overflow-y:auto;flex:1">
       <div style="border:1px solid ${BR};border-radius:10px;overflow:hidden;margin-bottom:14px">
         <div style="background:#F8FAFB;padding:9px 14px;border-bottom:1px solid ${BR};font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;letter-spacing:.5px;text-align:center">Secciones del expediente clínico</div>
-        <div id="res-secciones" style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:9px 18px"></div>
+        <div style="padding:8px 14px 0;display:flex;gap:6px;justify-content:flex-end">
+          <button onclick="resumenTodasSec(true)" style="background:#fff;color:${P};border:1px solid ${P};border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">Todas</button>
+          <button onclick="resumenTodasSec(false)" style="background:#fff;color:${MU};border:1px solid ${BR};border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">Ninguna</button>
+        </div>
+        <div id="res-secciones" style="padding:10px 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:9px 18px"></div>
       </div>
       <div id="res-consultas"></div>
+      <div id="res-docs" style="margin-top:12px"></div>
       <p style="text-align:center;font-size:13px;font-weight:700;color:${TX};margin-top:14px">Seleccione las secciones del expediente clínico que desea incluir.</p>
     </div>
     <div style="padding:12px 18px;border-top:1px solid ${BR};display:flex;gap:10px;justify-content:center;background:#FAFCFD">
@@ -21433,9 +21459,15 @@ window.abrirResumenMedico=async function(){
   resumenPintarSecciones();
 };
 
-window.resumenToggle=function(k,v){STATE._resSec[k]=v;if(k==="consultas")resumenPintarConsultas();};
+window.resumenToggle=function(k,v){STATE._resSec[k]=v;if(k==="consultas")resumenPintarConsultas();if(k==="consent"||k==="anexos")resumenPintarDocs();};
+window.resumenTodasSec=function(v){RES_SECCIONES.forEach(s=>STATE._resSec[s.k]=v);resumenPintarSecciones();};
 window.resumenToggleCons=function(id,v){STATE._resCons[id]=v;resumenPintarConsultas();};
 window.resumenTodasCons=function(v){Object.keys(STATE._resCons).forEach(k=>STATE._resCons[k]=v);resumenPintarConsultas();};
+window.resumenToggleDoc=function(id,v){STATE._resDocSel[id]=v;resumenPintarDocs();};
+window.resumenTodosDocs=function(v){
+  (STATE._resDocs||[]).forEach(d=>{const c=resClaseDoc(d);if(c!=="pend"&&STATE._resSec[c==="consent"?"consent":"anexos"])STATE._resDocSel[d.id]=v;});
+  resumenPintarDocs();
+};
 
 function resumenPintarSecciones(){
   const c=document.getElementById("res-secciones");if(!c)return;
@@ -21445,6 +21477,7 @@ function resumenPintarSecciones(){
       <span>${s.label}</span>
     </label>`).join("");
   resumenPintarConsultas();
+  resumenPintarDocs();
 }
 
 function resumenPintarConsultas(){
@@ -21469,6 +21502,41 @@ function resumenPintarConsultas(){
     </div></div>`;
 }
 
+// Lista de documentos (consentimientos / anexos) con su casilla. Los que
+// tienen archivo se adjuntan completos al final del PDF.
+function resumenPintarDocs(){
+  const c=document.getElementById("res-docs");if(!c)return;
+  const sec=STATE._resSec||{};
+  const lista=(STATE._resDocs||[]).filter(d=>{const k=resClaseDoc(d);return (k==="consent"||k==="pend")?sec.consent:sec.anexos;});
+  if(!sec.consent&&!sec.anexos){c.innerHTML="";return;}
+  if(!lista.length){c.innerHTML=`<div style="border:1px dashed ${BR};border-radius:10px;padding:10px 14px;font-size:13px;color:${MU};text-align:center">El expediente no tiene ${sec.consent&&!sec.anexos?"consentimientos ni aviso de privacidad":"documentos anexos"} registrados.</div>`;return;}
+  const elegibles=lista.filter(d=>resClaseDoc(d)!=="pend");
+  const n=elegibles.filter(d=>STATE._resDocSel[d.id]).length;
+  const esc=s=>String(s||"").replace(/</g,"&lt;");
+  c.innerHTML=`<div style="border:1px solid ${BR};border-radius:10px;overflow:hidden">
+    <div style="background:#F8FAFB;padding:9px 14px;border-bottom:1px solid ${BR};display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;letter-spacing:.5px">Documentos a incluir — ${n} de ${elegibles.length}</span>
+      <span style="display:flex;gap:6px">
+        <button onclick="resumenTodosDocs(true)" style="background:#fff;color:${P};border:1px solid ${P};border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">Todos</button>
+        <button onclick="resumenTodosDocs(false)" style="background:#fff;color:${MU};border:1px solid ${BR};border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">Ninguno</button>
+      </span>
+    </div>
+    <div style="padding:6px 14px;font-size:12px;color:${MU};border-bottom:1px solid #F4F6F7">Los PDF e imágenes se anexan completos al final del PDF generado. Los Word y los documentos sin archivo sólo aparecen en el índice.</div>
+    <div style="max-height:200px;overflow-y:auto">
+      ${lista.map(d=>{
+        const k=resClaseDoc(d);
+        const f=(d.fecha||d.created_at||"").split("T")[0].split("-").reverse().join("/");
+        const etq=k==="pend"?`<span style="color:#B26A00;font-weight:700">Pendiente de firma</span>`:(d.firmado?`<span style="color:#2E7D32;font-weight:700">Firmado</span>`:"");
+        const arch=resDocTieneArchivo(d)?"":` <span style="color:#90A4AE">(sin archivo)</span>`;
+        return `<label style="display:flex;align-items:center;gap:9px;padding:7px 14px;border-bottom:1px solid #F4F6F7;cursor:${k==="pend"?"default":"pointer"};font-size:13px">
+          <input type="checkbox" ${k==="pend"?"disabled":(STATE._resDocSel[d.id]?"checked":"")} onchange="resumenToggleDoc('${d.id}',this.checked)" style="accent-color:${P};width:14px;height:14px">
+          <span style="color:${TX};font-weight:600;min-width:80px">${f}</span>
+          <span style="color:${TX};flex:1">${esc(d.titulo||d.tipo_documento||"Documento")}${arch}</span>
+          ${etq}
+        </label>`;}).join("")}
+    </div></div>`;
+}
+
 // Convierte los objetos JSONB de antecedentes en texto legible.
 function resLista(obj,filtro){
   if(!obj)return[];
@@ -21478,30 +21546,61 @@ function resLista(obj,filtro){
     .map(s=>s.charAt(0).toUpperCase()+s.slice(1));
 }
 function resTexto(t){return (t||"").toString().trim();}
+function resFecha(f){return f?String(f).split("T")[0].split("-").reverse().join("/"):"";}
+function resEdad(fnac){
+  if(!fnac)return null;
+  const hoy=new Date(),n=new Date(String(fnac).split("T")[0]+"T12:00:00");
+  if(isNaN(n))return null;
+  let e=hoy.getFullYear()-n.getFullYear();
+  if(hoy.getMonth()<n.getMonth()||(hoy.getMonth()===n.getMonth()&&hoy.getDate()<n.getDate()))e--;
+  return e;
+}
 
 async function resumenDatos(){
   const p=STATE.pat||{};const pid=p.id;
-  const q=(tabla,cols="*",orden=null)=>{
+  // Antes los errores de lectura se convertían en una lista vacía y la sección
+  // decía «NO HAY INFORMACION REGISTRADA» aunque la información existiera
+  // (vacunas, anotaciones e interconsultas se ordenaban por columnas que no
+  // existen). Ahora el error se guarda y la sección lo dice.
+  const errores={};
+  const q=(clave,tabla,cols="*",orden=null)=>{
     let x=SB.from(tabla).select(cols).eq("paciente_id",pid);
     if(orden)x=x.order(orden,{ascending:false});
-    return x.then(r=>r.data||[]).catch(()=>[]);
+    return x.then(r=>{if(r.error){errores[clave]=r.error.message;return[];}return r.data||[];})
+            .catch(e=>{errores[clave]=e.message;return[];});
   };
+  const sec=STATE._resSec||{};
   const ids=Object.entries(STATE._resCons||{}).filter(([,v])=>v).map(([k])=>k);
-  const [interrog,anotac,vac,sv,inbody,lab,usg,inter,fisio,cons]=await Promise.all([
-    STATE._resSec.interrog ? q("interrogatorio_aparatos") : [],
-    STATE._resSec.anotac   ? q("anotaciones","*","created_at") : [],
-    STATE._resSec.vacunas  ? q("vacunas","*","fecha") : [],
-    STATE._resSec.sv       ? q("signos_vitales","*","fecha") : [],
-    STATE._resSec.inbody   ? q("inbody_resultados","*","fecha") : [],
-    STATE._resSec.lab      ? q("resultados_laboratorio","*","fecha") : [],
-    STATE._resSec.usg      ? SB.from("anexos").select("*").eq("paciente_id",pid).ilike("tipo_documento","%ltrasonido%").order("fecha",{ascending:false}).then(r=>r.data||[]).catch(()=>[]) : [],
-    STATE._resSec.inter    ? q("interconsultas","*","fecha") : [],
-    STATE._resSec.fisio    ? q("fisioterapia_prescripciones","*","fecha") : [],
-    (STATE._resSec.consultas&&ids.length)
-      ? SB.from("consultas").select("*").in("id",ids).order("fecha",{ascending:false}).then(r=>r.data||[]).catch(()=>[])
+  const necesitaAnexos=sec.lab||sec.usg||sec.consent||sec.anexos;
+  const [pac,interrog,anotac,vac,sv,inbody,lab,anexos,inter,fisio,disc,cons]=await Promise.all([
+    // La ficha se vuelve a leer: STATE.pat puede venir de antes de guardar el
+    // domicilio, el seguro o el responsable desde otra pestaña u otro equipo.
+    sec.ficha ? SB.from("pacientes").select("*").eq("id",pid).maybeSingle().then(r=>{if(r.error){errores.ficha=r.error.message;return null;}return r.data;}).catch(e=>{errores.ficha=e.message;return null;}) : null,
+    sec.interrog ? q("interrog","interrogatorio_aparatos") : [],
+    sec.anotac   ? q("anotac","anotaciones","*","fecha") : [],
+    sec.vacunas  ? q("vacunas","vacunas","*","fecha_aplicacion") : [],
+    sec.sv       ? q("sv","signos_vitales","*","fecha") : [],
+    sec.inbody   ? q("inbody","inbody_resultados","*","fecha") : [],
+    sec.lab      ? q("lab","resultados_laboratorio","*","fecha") : [],
+    necesitaAnexos ? q("anexos","anexos","*","created_at") : [],
+    sec.inter    ? q("inter","interconsultas","*","fecha_solicitud") : [],
+    sec.fisio    ? q("fisio","fisioterapia_prescripciones","*","fecha") : [],
+    sec.ficha    ? q("disc","discapacidades","categoria,descripcion") : [],
+    (sec.consultas&&ids.length)
+      ? SB.from("consultas").select("*").in("id",ids).order("fecha",{ascending:false}).then(r=>{if(r.error){errores.consultas=r.error.message;return[];}return r.data||[];}).catch(e=>{errores.consultas=e.message;return[];})
       : [],
   ]);
-  return{interrog,anotac,vac,sv,inbody,lab,usg,inter,fisio,cons};
+  if(pac)STATE.pat={...STATE.pat,...pac};
+  const docs=(anexos||[]).filter(d=>resClaseDoc(d));
+  const esLab=d=>/laborator/i.test(d.tipo_documento||"");
+  const esUsg=d=>/ltrasonido/i.test(d.tipo_documento||"");
+  return{
+    interrog,anotac,vac,sv,inbody,lab,inter,fisio,cons,disc,errores,
+    labDocs:docs.filter(esLab),
+    usg:docs.filter(esUsg),
+    consent:docs.filter(d=>{const k=resClaseDoc(d);return k==="consent"||k==="pend";}),
+    anexos:docs.filter(d=>resClaseDoc(d)==="anexo"),
+  };
 }
 
 function resumenHTML(d){
@@ -21513,14 +21612,22 @@ function resumenHTML(d){
   const cedMed=[med.cedula_medico?"Céd. Prof. "+med.cedula_medico:"",med.cedula_esp_1?"Céd. Esp. "+med.cedula_esp_1:""].filter(Boolean).join("  ·  ")||"—";
   const nomPac=`${p.nombre||""} ${p.apellido_paterno||""} ${p.apellido_materno||""}`.trim().toUpperCase();
   const fnac=p.fecha_nacimiento?p.fecha_nacimiento.split("-").reverse().join("/"):"—";
+  const edad=resEdad(p.fecha_nacimiento);
+  const resp=p.responsable||{};
+  const esMenor=(edad!==null&&edad<18)||resp.es_menor===true;
+  const err=d.errores||{};
+  const esc=s=>String(s===null||s===undefined?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
   // El comentario BLOQUE marca dónde se puede cortar la página sin partir texto.
   // TITULO además avisa que ese bloque es un encabezado de sección, para que la
   // paginación no lo deje solo al pie de una página.
   const S=(t)=>`<!--BLOQUE--><!--TITULO--><div style="font-size:11.5px;font-weight:700;color:#fff;background:#37474F;letter-spacing:.6px;margin:0 0 8px;padding:5px 10px;border-radius:3px">${t}</div>`;
-  const T=(t)=>`<div style="font-size:10px;color:#263238;line-height:1.55;white-space:pre-wrap">${(t||"").replace(/</g,"&lt;")}</div>`;
+  const T=(t)=>`<div style="font-size:10px;color:#263238;line-height:1.55;white-space:pre-wrap">${esc(t)}</div>`;
   const VACIO=`<div style="font-size:10px;color:#90A4AE;font-style:italic">NO HAY INFORMACION REGISTRADA</div>`;
-  const campo=(l,v)=>`<div style="flex:1 1 22%;min-width:22%;margin-bottom:7px"><div style="font-size:7.5px;color:#78909C;text-transform:uppercase;font-weight:700">${l}</div><div style="font-size:10px;color:#263238">${v||"—"}</div></div>`;
+  // Si la lectura falló, se dice. Nunca «no hay información» cuando no se pudo leer.
+  const SIN=(clave)=>err[clave]?`<div style="font-size:10px;color:#C62828;font-weight:700">NO SE PUDO LEER ESTA SECCIÓN: ${esc(err[clave])}</div>`:VACIO;
+  const campo=(l,v)=>`<div style="flex:1 1 22%;min-width:22%;margin-bottom:7px"><div style="font-size:7.5px;color:#78909C;text-transform:uppercase;font-weight:700">${l}</div><div style="font-size:10px;color:#263238">${(v===0||v)?esc(v):"—"}</div></div>`;
   const caja=(t,html)=>`<div style="font-size:8.5px;font-weight:700;color:#546E7A;text-transform:uppercase;text-align:center;background:#F5F7F8;padding:3px;margin:9px 0 6px">${t}</div><div style="display:flex;flex-wrap:wrap;gap:0 10px">${html}</div>`;
+  const siNo=v=>v===true||/^(s[ií]|si|true|1)$/i.test(String(v||"").trim())?"SÍ":(v===false||/^(no|false|0)$/i.test(String(v||"").trim())?"NO":"");
   const logo=STATE._resLogo||"";
   const enc=`
     <div style="border-bottom:1.5px solid #263238;padding-bottom:8px;margin-bottom:12px">
@@ -21533,28 +21640,63 @@ function resumenHTML(d){
         ${logo?`<div style="width:42px;flex-shrink:0"></div>`:""}
       </div>
       <table style="width:100%;font-size:9px;color:#263238;line-height:1.5">
-        <tr><td style="width:52%"><b>Paciente:</b> ${nomPac}</td><td><b>Médico responsable:</b> ${nomMed}</td></tr>
-        <tr><td><b>Fecha de nacimiento:</b> ${fnac}</td><td><b>Especialidad:</b> ${espMed}</td></tr>
-        <tr><td><b>No. Expediente:</b> ${p.numero_expediente||"—"}</td><td>${cedMed}</td></tr>
+        <tr><td style="width:52%"><b>Paciente:</b> ${esc(nomPac)}</td><td><b>Médico responsable:</b> ${esc(nomMed)}</td></tr>
+        <tr><td><b>Fecha de nacimiento:</b> ${fnac}${edad!==null?` &nbsp;(${edad} años)`:""}${esMenor?` &nbsp;<b style="color:#C62828">MENOR DE EDAD</b>`:""}</td><td><b>Especialidad:</b> ${esc(espMed)}</td></tr>
+        <tr><td><b>No. Expediente:</b> ${esc(p.numero_expediente||"—")}</td><td>${esc(cedMed)}</td></tr>
       </table>
     </div>`;
   let h="";
   const sec=STATE._resSec||{};
 
   if(sec.ficha){
-    const dom=p.domicilio||{},seg=p.seguro_medico||{};
+    // Domicilio: la ficha guarda un JSONB «domicilio» (vialidad, num_exterior,
+    // asentamiento, entidad, codigo_postal…); el alta de paciente usaba «cp».
+    // Se cae a las columnas planas para expedientes importados.
+    const dom=p.domicilio||{};
+    const sg=p.seguro_medico||{};
+    const calle=[dom.vialidad_tipo&&dom.vialidad?dom.vialidad_tipo:"",dom.vialidad||p.nombre_vialidad||dom.calle,
+      (dom.num_exterior||p.numero_exterior||dom.num_ext)?"No. "+(dom.num_exterior||p.numero_exterior||dom.num_ext):"",
+      (dom.num_interior||p.numero_interior||dom.num_int)?"Int. "+(dom.num_interior||p.numero_interior||dom.num_int):""].filter(Boolean).join(" ");
+    const SNS={"0":"No especificado","1":"Ninguna","2":"IMSS","3":"ISSSTE","4":"PEMEX","5":"SEDENA","6":"SEMAR","8":"Otra","10":"IMSS Bienestar","11":"ISSFAM","14":"OPD IMSS Bienestar","99":"Se ignora"};
+    const aseg=sg.nombre||sg.aseguradora||p.nombre_seguro||"";
+    let tiene=siNo(sg.tiene);
+    if(!tiene)tiene=siNo(p.tiene_seguro);
+    if(!tiene)tiene=aseg?"SÍ":"NO";
+    const vig=[resFecha(sg.vigencia_inicio||sg.inicio),resFecha(sg.vigencia_fin||sg.fin)].filter(Boolean).join(" al ");
+    const discs=(d.disc||[]).map(x=>[x.categoria,x.descripcion].filter(Boolean).join(": ")).filter(Boolean);
+    if(!discs.length&&(STATE.discapacidades||[]).length)discs.push(...STATE.discapacidades);
     h+=S("FICHA DE IDENTIFICACION DEL PACIENTE");
+    if(err.ficha)h+=SIN("ficha");
     h+=caja("Datos generales",
-      campo("No. Expediente",p.numero_expediente)+campo("CURP",p.curp)+campo("Fecha de registro",(p.created_at||"").split("T")[0].split("-").reverse().join("/"))+
+      campo("No. Expediente",p.numero_expediente)+campo("Folio clínica",p.folio_clinica)+campo("Fecha de registro",resFecha(p.created_at))+campo("CURP",p.curp)+
       campo("Nombre",p.nombre)+campo("Apellido paterno",p.apellido_paterno)+campo("Apellido materno",p.apellido_materno)+campo("Fecha de nacimiento",fnac)+
-      campo("Sexo",p.sexo_biologico)+campo("Estado civil",p.estado_civil)+campo("Tipo de sangre",p.tipo_sangre)+campo("Nacionalidad",p.nacionalidad)+
-      campo("Entidad de nacimiento",p.entidad_nacimiento)+campo("Ocupación",p.ocupacion)+campo("Escolaridad",p.escolaridad));
-    h+=caja("Datos del seguro médico",
-      campo("Cuenta con seguro",seg.tiene||"NO")+campo("Aseguradora",seg.aseguradora)+campo("Número de póliza",seg.poliza)+campo("Titular",seg.titular));
+      campo("Edad",edad!==null?edad+" años"+(esMenor?" (menor de edad)":""):"")+campo("Sexo biológico",p.sexo_biologico)+campo("Género",p.genero)+campo("Estado civil",p.estado_civil)+
+      campo("Tipo de sangre",p.tipo_sangre)+campo("País de nacimiento",p.pais_nacimiento)+campo("Entidad de nacimiento",p.entidad_federativa)+campo("Religión",p.religion)+
+      campo("Ocupación",p.ocupacion)+campo("Escolaridad",p.escolaridad)+campo("Indígena / lengua",[p.indigena,p.lengua_indigena].filter(Boolean).join(" · "))+campo("Afromexicano",p.afromexicano)+
+      campo("Migrante",p.migrante)+campo("Referido por",p.referido_por)+campo("Discapacidades",discs.join(", ")||"Ninguna registrada"));
     h+=caja("Domicilio y datos de contacto",
-      campo("Calle y número",[dom.calle,dom.num_ext,dom.num_int].filter(Boolean).join(" "))+campo("Colonia",dom.colonia)+
-      campo("Municipio / Alcaldía",dom.municipio)+campo("Entidad federativa",dom.estado)+campo("Código postal",dom.cp)+
-      campo("Celular",p.celular)+campo("Teléfono",p.telefono)+campo("Correo electrónico",p.email));
+      campo("Calle y número",calle)+campo("Colonia / asentamiento",dom.asentamiento||p.nombre_asentamiento||dom.colonia)+campo("Localidad",dom.localidad||p.localidad)+
+      campo("Municipio / Alcaldía",dom.municipio||p.municipio)+campo("Entidad federativa",dom.entidad||p.entidad_domicilio||dom.estado)+
+      campo("Código postal",dom.codigo_postal||dom.cp||p.codigo_postal)+campo("País",dom.pais||p.pais_domicilio)+
+      campo("Celular",p.celular||dom.celular)+campo("Teléfono",p.telefono_principal||dom.telefono)+campo("Teléfono 2",dom.telefono2||p.telefono_secundario)+campo("Correo electrónico",p.correo||dom.correo));
+    h+=caja("Datos del seguro médico",
+      campo("Cuenta con seguro",tiene)+campo("Aseguradora",aseg+(sg.otro?" ("+sg.otro+")":""))+campo("Tipo",sg.tipo)+campo("Número de póliza",sg.num_poliza||sg.poliza||p.numero_poliza)+
+      campo("Folio / certificado",sg.folio)+campo("Vigencia",vig)+campo("Titular",sg.titular)+campo("Tipo de beneficiario",sg.tipo_beneficiario)+
+      campo("Afiliación SNS",(sg.sns||[]).map(k=>SNS[k]||k).join(", ")));
+    // Persona responsable / tutor. Obligatoria en menores (NOM-004, 4.2 y 10.1).
+    // El alta de paciente guardaba el nombre completo en «nombre»; la pestaña
+    // Responsable lo separa en nombre y apellidos.
+    const nomResp=[resp.nombre,resp.apellido_paterno,resp.apellido_materno].filter(Boolean).join(" ").trim();
+    const domResp=[[resp.vialidad_tipo&&resp.vialidad?resp.vialidad_tipo:"",resp.vialidad,resp.num_exterior?"No. "+resp.num_exterior:"",resp.num_interior?"Int. "+resp.num_interior:""].filter(Boolean).join(" "),
+      resp.asentamiento,resp.localidad,resp.municipio,resp.entidad&&resp.entidad!=="Sin indicar"?resp.entidad:"",resp.codigo_postal?"C.P. "+resp.codigo_postal:""].filter(Boolean).join(", ");
+    if(nomResp||esMenor){
+      h+=caja(esMenor?"Persona responsable / tutor (paciente menor de edad)":"Persona responsable",
+        (nomResp?"":`<div style="flex:1 1 100%;font-size:10px;color:#C62828;font-weight:700;margin-bottom:7px">PACIENTE MENOR DE EDAD SIN PERSONA RESPONSABLE REGISTRADA</div>`)+
+        campo("Nombre",nomResp)+campo("Parentesco / vínculo",resp.vinculo)+campo("Celular",resp.celular)+campo("Teléfono",[resp.telefono,resp.telefono2].filter(Boolean).join(" · "))+
+        campo("Correo electrónico",resp.correo)+`<div style="flex:1 1 72%;min-width:72%;margin-bottom:7px"><div style="font-size:7.5px;color:#78909C;text-transform:uppercase;font-weight:700">Domicilio</div><div style="font-size:10px;color:#263238">${esc(domResp)||"—"}</div></div>`);
+    }
+    h+=caja("Documentos legales",
+      campo("Aviso de privacidad",p.firmo_privacidad?"Firmado":"No registrado")+campo("Consentimiento informado general",p.firmo_consentimiento?"Firmado":"No registrado"));
   }
   if(sec.fam){
     h+=S("ANTECEDENTES FAMILIARES");
@@ -21564,7 +21706,8 @@ function resumenHTML(d){
   if(sec.pat){
     h+=S("ANTECEDENTES PERSONALES PATOLOGICOS");
     const l=resLista(STATE.patData,k=>!k.startsWith("tab_"));
-    h+=(l.length||resTexto(STATE.patOtrasNotes))?T([...l.map(x=>"• "+x),resTexto(STATE.patOtrasNotes)].filter(Boolean).join("\n")):VACIO;
+    const ocOtros=resTexto((STATE.patData||{}).oc_otros);
+    h+=(l.length||resTexto(STATE.patOtrasNotes)||ocOtros)?T([...l.map(x=>"• "+x),ocOtros?"Oculares: "+ocOtros:"",resTexto(STATE.patOtrasNotes)].filter(Boolean).join("\n")):VACIO;
   }
   if(sec.nopat){
     h+=S("ANTECEDENTES PERSONALES NO PATOLOGICOS");
@@ -21574,8 +21717,8 @@ function resumenHTML(d){
   if(sec.gineco){
     h+=S("ANTECEDENTES GINECO-OBSTETRICOS");
     const g=STATE.ginData||{};
-    const pares=Object.entries(g).filter(([k,v])=>v&&!["id","paciente_id","created_at","updated_at"].includes(k));
-    h+=pares.length?`<div style="display:flex;flex-wrap:wrap;gap:0 10px">${pares.map(([k,v])=>campo(k.replace(/_/g," "),v)).join("")}</div>`:VACIO;
+    const pares=Object.entries(g).filter(([k,v])=>v&&typeof v!=="object"&&!["id","paciente_id","created_at","updated_at"].includes(k));
+    h+=pares.length?`<div style="display:flex;flex-wrap:wrap;gap:0 10px">${pares.map(([k,v])=>campo(k.replace(/_/g," "),v===true?"Sí":v)).join("")}</div>`:VACIO;
   }
   if(sec.alergias){
     h+=S("ALERGIAS");
@@ -21590,61 +21733,109 @@ function resumenHTML(d){
   if(sec.interrog){
     h+=S("INTERROGATORIO POR APARATOS Y SISTEMAS");
     // La tabla interrogatorio_aparatos guarda UN CAMPO DE TEXTO POR APARATO
-    // (digestivo, cardiovascular, ...), no un JSONB de casillas. Antes se leia
-    // r.datos / r.seleccionados / r.notas -columnas que no existen- y la
-    // seccion salia siempre "NO HAY INFORMACION REGISTRADA" aunque el
-    // interrogatorio estuviera capturado y guardado.
+    // (digestivo, cardiovascular, ...), no un JSONB de casillas.
     const r=(d.interrog||[])[0]||{};
     const RES_APARATOS=[["digestivo","Aparato digestivo"],["cardiovascular","Aparato cardiovascular"],["respiratorio","Aparato respiratorio"],["urinario","Aparato urinario"],["genital","Aparato genital"],["hematologico","Aparato hematologico"],["endocrino","Sistema endocrino"],["osteomuscular","Sistema osteomuscular"],["nervioso","Sistema nervioso"]];
     const filasInt=RES_APARATOS.map(function(par){
       const v=resTexto(r[par[0]]);
       if(!v)return "";
-      return '<div style="margin-bottom:4px"><span style="font-size:9.5px;font-weight:700;color:#546E7A">'+par[1]+': </span><span style="font-size:10px;color:#263238;white-space:pre-wrap">'+v.replace(/</g,"&lt;")+'</span></div>';
+      return '<div style="margin-bottom:4px"><span style="font-size:9.5px;font-weight:700;color:#546E7A">'+par[1]+': </span><span style="font-size:10px;color:#263238;white-space:pre-wrap">'+esc(v)+'</span></div>';
     }).filter(Boolean);
-    h+=filasInt.length?('<div style="line-height:1.55">'+filasInt.join("")+'</div>'):VACIO;
+    h+=filasInt.length?('<div style="line-height:1.55">'+filasInt.join("")+'</div>'):SIN("interrog");
   }
   if(sec.anotac){
+    // anotaciones: fecha, titulo, tipo, texto (no hay created_at ni contenido).
     h+=S("ANOTACIONES GENERALES");
-    h+=(d.anotac||[]).length?(d.anotac.map(a=>T(`${(a.created_at||"").split("T")[0].split("-").reverse().join("/")} — ${a.texto||a.contenido||""}`)).join("")):VACIO;
+    h+=(d.anotac||[]).length?(d.anotac.map(a=>`<!--BLOQUE-->`+T(`${resFecha(a.fecha)} — ${[a.titulo,a.tipo].filter(Boolean).join(" · ")}\n${a.texto||""}`)).join("")):SIN("anotac");
   }
   if(sec.vacunas){
+    // vacunas: nombre, fecha_aplicacion, dosis, lote, laboratorio.
     h+=S("INMUNIZACIONES / VACUNAS");
-    h+=(d.vac||[]).length?T(d.vac.map(v=>`• ${v.vacuna||v.nombre||""} — ${(v.fecha||"").split("T")[0].split("-").reverse().join("/")} ${v.dosis?"("+v.dosis+")":""}`).join("\n")):VACIO;
+    h+=(d.vac||[]).length?T(d.vac.map(v=>`• ${v.nombre||""} — ${resFecha(v.fecha_aplicacion)}${v.dosis?" · Dosis: "+v.dosis:""}${v.lote?" · Lote: "+v.lote:""}${v.laboratorio?" · "+v.laboratorio:""}${v.observaciones?"\n   "+v.observaciones:""}`).join("\n")):SIN("vacunas");
   }
   if(sec.sv){
     h+=S("SIGNOS VITALES");
     // La tabla signos_vitales guarda presion_sistolica / presion_diastolica.
-    // Aqui se leia tension_sistolica / tension_diastolica —columnas que no
-    // existen— y la tension arterial salia siempre como "TA —/—".
-    h+=(d.sv||[]).length?T(d.sv.slice(0,20).map(s=>`${(s.fecha||"").split("T")[0].split("-").reverse().join("/")} — TA ${s.presion_sistolica||"—"}/${s.presion_diastolica||"—"} mmHg · FC ${s.frecuencia_cardiaca||"—"} lpm · FR ${s.frecuencia_respiratoria||"—"} rpm · Temp ${s.temperatura||"—"} °C · SpO₂ ${s.saturacion_o2||"—"}% · Glucosa ${s.glucosa||"—"} mg/dL · Peso ${s.peso||"—"} kg`).join("\n")):VACIO;
+    const svL=s=>{const t=[];
+      if(s.presion_sistolica||s.presion_diastolica)t.push(`TA ${s.presion_sistolica||"—"}/${s.presion_diastolica||"—"} mmHg`);
+      if(s.frecuencia_cardiaca)t.push(`FC ${s.frecuencia_cardiaca} lpm`);
+      if(s.frecuencia_respiratoria)t.push(`FR ${s.frecuencia_respiratoria} rpm`);
+      if(s.temperatura)t.push(`Temp ${s.temperatura} °C`);
+      if(s.saturacion_o2)t.push(`SpO₂ ${s.saturacion_o2}%`);
+      if(s.glucosa)t.push(`Glucosa ${s.glucosa} mg/dL`);
+      if(s.peso)t.push(`Peso ${s.peso} kg`);
+      if(s.talla)t.push(`Talla ${s.talla}`);
+      if(s.imc)t.push(`IMC ${s.imc}`);
+      if(s.perimetro_abdominal)t.push(`P. abd. ${s.perimetro_abdominal} cm`);
+      return `${resFecha(s.fecha)} — ${t.join(" · ")||"sin constantes"}`;};
+    h+=(d.sv||[]).length?T(d.sv.slice(0,20).map(svL).join("\n")):SIN("sv");
   }
   if(sec.inbody){
     h+=S("INBODY / COMPOSICION CORPORAL");
     // La talla vive en la columna "altura" y el nivel de grasa visceral en
-    // "grasa_visceral"; faltaban las dos y el Dr. Polanco las pidió en el
-    // resumen porque son las que se comparan entre estudios.
-    h+=(d.inbody||[]).length?T(d.inbody.slice(0,12).map(b=>`${(b.fecha||"").split("T")[0].split("-").reverse().join("/")} — Talla ${b.altura||"—"} cm · Peso ${b.peso||"—"} kg · IMC ${b.imc||"—"} · Grasa ${b.pgc||"—"}% · Grasa visceral ${b.grasa_visceral||"—"} · Músculo ${b.masa_musculo||"—"} kg · TMB ${b.tmb||"—"} kcal`).join("\n")):VACIO;
+    // "grasa_visceral". Se omite lo que no se capturó.
+    const ibL=b=>{const t=[];const a=(l,v,u="")=>{if(v!==null&&v!==undefined&&v!=="")t.push(`${l} ${v}${u}`);};
+      a("Talla",b.altura," cm");a("Peso",b.peso," kg");a("IMC",b.imc);a("Grasa",b.pgc,"%");a("Masa grasa",b.masa_grasa," kg");
+      a("Músculo esq.",b.masa_musculo," kg");a("Agua",b.agua_corporal," L");a("Grasa visceral",b.grasa_visceral);a("TMB",b.tmb," kcal");a("Puntuación",b.puntuacion);
+      return `${resFecha(b.fecha)}${b.modelo?" ("+b.modelo+")":""} — ${t.join(" · ")}${b.notas?"\n   "+b.notas:""}`;};
+    h+=(d.inbody||[]).length?T(d.inbody.slice(0,12).map(ibL).join("\n")):SIN("inbody");
   }
   if(sec.lab){
     h+=S("RESULTADOS DE LABORATORIO");
-    h+=(d.lab||[]).length?T(d.lab.slice(0,30).map(x=>`${(x.fecha||"").split("T")[0].split("-").reverse().join("/")} — ${x.estudio||x.panel||""}: ${x.resultado||x.valor||""} ${x.unidad||""}`).join("\n")):VACIO;
+    // Dos fuentes: los paneles capturados por analito (resultados_laboratorio,
+    // con el arreglo JSONB «analitos») y los PDF subidos como anexo, cuyo
+    // análisis por IA queda en descripcion con el prefijo __IA__:.
+    const INT={N:"Normal",A:"Alterado",H:"Alto",L:"Bajo",C:"Crítico",Normal:"Normal",Alto:"Alto",Bajo:"Bajo",Critico:"Crítico",NoInterpretable:""};
+    const tabla=(analitos)=>`<table style="width:100%;border-collapse:collapse;font-size:9.5px;color:#263238;margin:3px 0 4px">
+      <tr style="background:#F5F7F8"><th style="text-align:left;padding:2px 5px">Analito</th><th style="text-align:left;padding:2px 5px">Resultado</th><th style="text-align:left;padding:2px 5px">Unidad</th><th style="text-align:left;padding:2px 5px">Referencia</th><th style="text-align:left;padding:2px 5px">Interpretación</th></tr>
+      ${analitos.map(a=>{const it=INT[a.interpretacion]??(a.interpretacion||"");const ref=a.referencia||[a.ref_min,a.ref_max].filter(x=>x!==""&&x!=null).join(" – ");
+        return `<tr style="border-top:1px solid #ECEFF1"><td style="padding:2px 5px">${esc(a.nombre)}</td><td style="padding:2px 5px;font-weight:700;color:${it&&it!=="Normal"?"#C62828":"#263238"}">${esc(a.valor)}</td><td style="padding:2px 5px">${esc(a.unidad)}</td><td style="padding:2px 5px">${esc(ref)}</td><td style="padding:2px 5px">${esc(it)}</td></tr>`;}).join("")}
+    </table>`;
+    const items=[];
+    (d.lab||[]).forEach(x=>{
+      const an=Array.isArray(x.analitos)?x.analitos:[];
+      items.push({f:x.fecha,html:`<!--BLOQUE--><div style="margin-bottom:6px"><div style="font-size:9.5px;font-weight:700;color:#546E7A">${resFecha(x.fecha)} — ${esc(x.panel||"Panel")}${x.laboratorio?" · "+esc(x.laboratorio):""}</div>${an.length?tabla(an):""}${x.observaciones?T("Observaciones: "+x.observaciones):""}</div>`});
+    });
+    (d.labDocs||[]).forEach(x=>{
+      let ia=null;
+      if((x.descripcion||"").startsWith("__IA__:")){try{ia=JSON.parse(x.descripcion.substring(7));}catch(e){}}
+      const an=ia&&Array.isArray(ia.analitos)?ia.analitos:[];
+      items.push({f:x.fecha||x.created_at,html:`<!--BLOQUE--><div style="margin-bottom:6px"><div style="font-size:9.5px;font-weight:700;color:#546E7A">${resFecha(x.fecha||x.created_at)} — ${esc(x.titulo||x.tipo_documento)}${ia&&ia.laboratorio?" · "+esc(ia.laboratorio):""} <span style="font-weight:400;color:#78909C">(documento anexo${ia?", interpretado por IA":""})</span></div>${an.length?tabla(an):(ia?"":T("Resultado en documento anexo; no se ha extraído su contenido."))}${ia&&ia.resumen_clinico?T("Interpretación: "+ia.resumen_clinico):""}</div>`});
+    });
+    items.sort((a,b)=>String(b.f||"").localeCompare(String(a.f||"")));
+    h+=items.length?items.map(i=>i.html).join(""):SIN(err.lab?"lab":"anexos");
   }
   if(sec.usg){
     h+=S("ULTRASONIDO");
-    h+=(d.usg||[]).length?d.usg.map(u=>T(`${(u.fecha||"").split("T")[0].split("-").reverse().join("/")} — ${u.titulo||u.tipo_documento||""}`)).join(""):VACIO;
+    h+=(d.usg||[]).length?d.usg.map(u=>T(`${resFecha(u.fecha||u.created_at)} — ${u.titulo||u.tipo_documento||""}${u.descripcion&&!u.descripcion.startsWith("__")?"\n"+u.descripcion:""}`)).join(""):SIN("anexos");
   }
   if(sec.inter){
+    // interconsultas: fecha_solicitud, especialidad, motivos, diagnostico,
+    // medico_interconsultante, estatus, hallazgos, recomendaciones, tratamiento.
     h+=S("INTERCONSULTAS");
-    h+=(d.inter||[]).length?d.inter.map(i=>T(`${(i.fecha||"").split("T")[0].split("-").reverse().join("/")} — ${i.especialidad||""} · ${i.estatus||""}\nMotivo: ${i.motivo||""}`)).join(""):VACIO;
+    h+=(d.inter||[]).length?d.inter.map(i=>`<!--BLOQUE-->`+T([
+      `${resFecha(i.fecha_solicitud||i.created_at)} — ${i.especialidad||""}${i.medico_interconsultante?" · "+i.medico_interconsultante:""}${i.estatus?" · "+i.estatus:""}${i.prioridad?" · Prioridad "+i.prioridad:""}`,
+      i.motivos?"Motivo: "+i.motivos:"",i.diagnostico?"Diagnóstico: "+i.diagnostico:"",
+      i.fecha_respuesta?"Respuesta ("+resFecha(i.fecha_respuesta)+")"+(i.medico_responde?" — "+i.medico_responde:""):"",
+      i.hallazgos?"Hallazgos: "+i.hallazgos:"",i.diagnostico_interconsultante?"Diagnóstico del interconsultante: "+i.diagnostico_interconsultante:"",
+      i.recomendaciones?"Recomendaciones: "+i.recomendaciones:"",i.tratamiento?"Tratamiento: "+i.tratamiento:""].filter(Boolean).join("\n"))).join(""):SIN("inter");
   }
   if(sec.fisio){
+    // fisioterapia_prescripciones: diagnostico, region, lateralidad, objetivo,
+    // tratamiento, num_sesiones, frecuencia, sesiones_completadas, eva…
     h+=S("FISIOTERAPIA");
-    h+=(d.fisio||[]).length?d.fisio.map(f=>T(`${(f.fecha||"").split("T")[0].split("-").reverse().join("/")} — ${f.diagnostico||""}\n${f.plan||f.objetivos||""}`)).join(""):VACIO;
+    h+=(d.fisio||[]).length?d.fisio.map(f=>`<!--BLOQUE-->`+T([
+      `${resFecha(f.fecha||f.fecha_inicio)} — ${f.diagnostico||""}${f.region?" · "+f.region:""}${f.lateralidad?" ("+f.lateralidad+")":""}`,
+      [f.num_sesiones?f.num_sesiones+" sesiones":"",f.frecuencia,f.sesiones_completadas!=null&&f.sesiones_completadas!==""?"completadas: "+f.sesiones_completadas:"",f.eva!=null&&f.eva!==""?"EVA inicial "+f.eva:"",f.eva_alta!=null&&f.eva_alta!==""?"EVA al alta "+f.eva_alta:"",f.fisioterapeuta?"Fisioterapeuta: "+f.fisioterapeuta:""].filter(Boolean).join(" · "),
+      f.objetivo?"Objetivo: "+f.objetivo:"",
+      f.tratamiento?"Tratamiento: "+(typeof f.tratamiento==="object"?JSON.stringify(f.tratamiento):f.tratamiento):"",
+      f.contraindicaciones?"Contraindicaciones: "+f.contraindicaciones:"",
+      f.evolucion?"Evolución: "+(typeof f.evolucion==="object"?JSON.stringify(f.evolucion):f.evolucion):""].filter(Boolean).join("\n"))).join(""):SIN("fisio");
   }
   if(sec.consultas){
     h+=S("CONSULTAS");
     const cs=(d.cons||[]);
-    if(!cs.length)h+=VACIO;
+    if(!cs.length)h+=SIN("consultas");
     // Signos vitales de la nota en un solo renglon, al modo del InBody. Se omite
     // lo que no se tomo para que el renglon no se llene de guiones. Ojo: la
     // columna es presion_sistolica / presion_diastolica.
@@ -21679,8 +21870,8 @@ function resumenHTML(d){
       const f=(c.fecha||"").split("T");
       const sub=(t,v)=>v?`<div style="font-size:9px;font-weight:700;color:#546E7A;margin-top:5px">${t}</div>${T(v)}`:"";
       h+=`<!--BLOQUE--><div style="border-top:1px solid #CFD8DC;margin-top:10px;padding-top:7px">
-        <div style="font-size:10px;font-weight:700;color:#006BB6">${(c.tipo_nota||"CONSULTA").toUpperCase()}</div>
-        <div style="font-size:9px;color:#546E7A;margin-top:2px">FECHA: ${(f[0]||"").split("-").reverse().join("/")} &nbsp; HORA: ${(f[1]||"").slice(0,5)} &nbsp; REGISTRADA POR: ${c.medico_nombre||"—"}</div>
+        <div style="font-size:10px;font-weight:700;color:#006BB6">${esc((c.tipo_nota||"CONSULTA").toUpperCase())}</div>
+        <div style="font-size:9px;color:#546E7A;margin-top:2px">FECHA: ${(f[0]||"").split("-").reverse().join("/")} &nbsp; HORA: ${(f[1]||"").slice(0,5)} &nbsp; REGISTRADA POR: ${esc(c.medico_nombre||"—")}</div>
         ${sub("SIGNOS VITALES",svLinea(c))}
         ${sub("MOTIVO DE CONSULTA / SUBJETIVO",c.subjetivo)}
         ${sub("EXPLORACION FISICA",c.exploracion_fisica)}
@@ -21693,11 +21884,36 @@ function resumenHTML(d){
       </div>`;
     });
   }
-  h+=`<div style="margin-top:22px;border-top:1px solid #CFD8DC;padding-top:6px;font-size:7.5px;color:#78909C;text-align:center">
+  // Índice de documentos. Sólo los elegidos en la ventana; los pendientes de
+  // firma se enlistan siempre, para que quede constancia de que faltan.
+  const ADJ=[];
+  const sel=STATE._resDocSel||{};
+  const filaDoc=(x)=>{
+    const k=resClaseDoc(x);
+    let n="";
+    if(k!=="pend"&&resDocTieneArchivo(x)&&!/\.docx?$/i.test(x.storage_path||x.url_archivo||"")){ADJ.push(x);n=`Anexo ${ADJ.length}`;}
+    const est=k==="pend"?"PENDIENTE DE FIRMA":(x.firmado?"Firmado"+(x.fecha_firma?" el "+resFecha(x.fecha_firma):"")+(x.nombre_firmante?" por "+x.nombre_firmante:""):"");
+    return `<tr style="border-top:1px solid #ECEFF1"><td style="padding:3px 5px;white-space:nowrap">${resFecha(x.fecha||x.created_at)}</td><td style="padding:3px 5px">${esc(x.titulo||x.tipo_documento||"Documento")}</td><td style="padding:3px 5px;color:${k==="pend"?"#B26A00":"#2E7D32"};font-weight:700">${esc(est)}</td><td style="padding:3px 5px;color:#546E7A;white-space:nowrap">${n||(resDocTieneArchivo(x)?"Sólo en expediente":"Sin archivo")}</td></tr>`;
+  };
+  const tablaDocs=(lista)=>`<table style="width:100%;border-collapse:collapse;font-size:9.5px;color:#263238">
+    <tr style="background:#F5F7F8"><th style="text-align:left;padding:3px 5px">Fecha</th><th style="text-align:left;padding:3px 5px">Documento</th><th style="text-align:left;padding:3px 5px">Estado</th><th style="text-align:left;padding:3px 5px">En este PDF</th></tr>
+    ${lista.map(filaDoc).join("")}</table>`;
+  if(sec.consent){
+    h+=S("CONSENTIMIENTOS INFORMADOS Y AVISO DE PRIVACIDAD");
+    const l=(d.consent||[]).filter(x=>resClaseDoc(x)==="pend"||sel[x.id]);
+    h+=l.length?tablaDocs(l):SIN("anexos");
+  }
+  if(sec.anexos){
+    h+=S("DOCUMENTOS ANEXOS AL EXPEDIENTE");
+    const l=(d.anexos||[]).filter(x=>sel[x.id]);
+    h+=l.length?tablaDocs(l):SIN("anexos");
+  }
+  h+=`<!--BLOQUE--><div style="margin-top:22px;border-top:1px solid #CFD8DC;padding-top:6px;font-size:7.5px;color:#78909C;text-align:center">
     ${brand().nombre} · ${sedeDir()} · ${sedeTelsPie()}<br>
-    Documento generado el ${new Date().toLocaleString("es-MX")} por ${nomMed}. Contiene información confidencial protegida por la Ley Federal de Protección de Datos Personales.</div>`;
+    Documento generado el ${new Date().toLocaleString("es-MX")} por ${esc(nomMed)}. Contiene información confidencial protegida por la Ley Federal de Protección de Datos Personales.</div>`;
   const bloques=h.split("<!--BLOQUE-->").map(x=>x.trim()).filter(Boolean);
-  return{enc,bloques,html:enc+h};
+  const fallidas=Object.keys(err);
+  return{enc,bloques,html:enc+h,adjuntos:ADJ,fallidas};
 }
 
 window.resumenSalida=async function(modo){
@@ -21727,6 +21943,8 @@ window.resumenSalida=async function(modo){
       </head><body>${html}</body></html>`);
     w.document.close();
     setTimeout(()=>{w.focus();w.print();},400);
+    if(R.fallidas.length)showToast("⚠ No se pudieron leer: "+R.fallidas.join(", ")+". Se indica en el documento.",false);
+    else if(R.adjuntos.length)showToast("La impresión incluye el índice de documentos; los archivos anexos sólo se adjuntan con «Generar PDF».");
     try{await logBitacora("RESUMEN_MEDICO","Impresión · Paciente "+p.id);}catch(e){}
     return;
   }
@@ -21871,11 +22089,79 @@ window.resumenSalida=async function(modo){
       doc.text(`Página ${i} de ${total}`,W/2,H-8,{align:"center"});
     }
 
-    loading(false);
     const nom=`${p.nombre||"paciente"}_${p.apellido_paterno||""}`.replace(/\s+/g,"_");
-    doc.save(`Expediente_${nom}_${new Date().toISOString().split("T")[0].replace(/-/g,"")}.pdf`);
-    showToast(`PDF generado · ${total} página${total!==1?"s":""}`);
-    try{await logBitacora("RESUMEN_MEDICO","PDF · Paciente "+p.id);}catch(e){}
+    const archivo=`Expediente_${nom}_${new Date().toISOString().split("T")[0].replace(/-/g,"")}.pdf`;
+    // Consentimientos, aviso de privacidad y anexos: se agregan completos al
+    // final, en el orden del índice (Anexo 1, 2…). jsPDF no puede unir PDF, así
+    // que el documento se pasa a pdf-lib, que ya usa el módulo de Seguros.
+    let anexados=0;const noAnexados=[];
+    if(R.adjuntos.length){
+      loading(true,`Adjuntando ${R.adjuntos.length} documento${R.adjuntos.length!==1?"s":""}...`);
+      try{
+        if(!window.PDFLib){
+          await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";s.onload=res;s.onerror=()=>rej(new Error("no se pudo cargar pdf-lib"));document.head.appendChild(s);});
+        }
+        const {PDFDocument,StandardFonts,rgb}=window.PDFLib;
+        const fin=await PDFDocument.load(doc.output("arraybuffer"));
+        const fuente=await fin.embedFont(StandardFonts.Helvetica);
+        for(let i=0;i<R.adjuntos.length;i++){
+          const a=R.adjuntos[i];
+          // Helvetica estándar sólo codifica WinAnsi: un emoji en el título haría
+          // fallar drawText después de haber pegado ya las páginas.
+          const etiqueta=`Anexo ${i+1} - ${a.titulo||a.tipo_documento||"Documento"}`.replace(/[^\x20-\x7E\xA0-\xFF]/g,"");
+          try{
+            let url=a.url_archivo||"";
+            if(a.storage_path){
+              const {data:su,error:se}=await SB.storage.from("expedientes").createSignedUrl(a.storage_path,300);
+              if(se||!su?.signedUrl)throw new Error(se?.message||"sin enlace al archivo");
+              url=su.signedUrl;
+            }
+            const r=await fetch(url);
+            if(!r.ok)throw new Error("HTTP "+r.status);
+            const tipo=(r.headers.get("content-type")||"").toLowerCase();
+            const bytes=await r.arrayBuffer();
+            const ruta=(a.storage_path||a.url_archivo||"").toLowerCase().split("?")[0];
+            const u8=new Uint8Array(bytes.slice(0,4));
+            const esPdf=tipo.includes("pdf")||ruta.endsWith(".pdf")||(u8[0]===0x25&&u8[1]===0x50);
+            const esPng=tipo.includes("png")||ruta.endsWith(".png")||(u8[0]===0x89&&u8[1]===0x50);
+            const esJpg=tipo.includes("jpeg")||tipo.includes("jpg")||/\.jpe?g$/.test(ruta)||(u8[0]===0xFF&&u8[1]===0xD8);
+            if(esPdf){
+              const src=await PDFDocument.load(bytes,{ignoreEncryption:true});
+              const pags=await fin.copyPages(src,src.getPageIndices());
+              pags.forEach((pg,j)=>{fin.addPage(pg);if(j===0){pg.drawText(etiqueta.slice(0,110),{x:18,y:pg.getHeight()-12,size:7,font:fuente,color:rgb(0.47,0.56,0.61)});}});
+            } else if(esPng||esJpg){
+              const img=esPng?await fin.embedPng(bytes):await fin.embedJpg(bytes);
+              const pg=fin.addPage([612,792]);
+              const esc=Math.min((612-60)/img.width,(792-80)/img.height,1);
+              const w=img.width*esc,hh=img.height*esc;
+              pg.drawText(etiqueta.slice(0,110),{x:30,y:770,size:8,font:fuente,color:rgb(0.33,0.43,0.48)});
+              pg.drawImage(img,{x:(612-w)/2,y:760-hh,width:w,height:hh});
+            } else throw new Error("formato no admitido");
+            anexados++;
+          }catch(e){noAnexados.push(`${etiqueta} (${e.message})`);}
+        }
+        const out=await fin.save();
+        const bl=new Blob([out],{type:"application/pdf"});
+        const lnk=document.createElement("a");
+        lnk.href=URL.createObjectURL(bl);lnk.download=archivo;
+        document.body.appendChild(lnk);lnk.click();lnk.remove();
+        setTimeout(()=>URL.revokeObjectURL(lnk.href),60000);
+      }catch(e){
+        console.error(e);
+        doc.save(archivo);
+        noAnexados.length=0;anexados=0;
+        noAnexados.push("todos ("+e.message+")");
+      }
+    } else {
+      doc.save(archivo);
+    }
+    loading(false);
+    const avisos=[];
+    if(R.fallidas.length)avisos.push("No se pudieron leer: "+R.fallidas.join(", "));
+    if(noAnexados.length)avisos.push("No se adjuntaron: "+noAnexados.join("; "));
+    if(avisos.length){console.warn("Resumen médico:",avisos);showToast("⚠ PDF generado con faltantes. "+avisos.join(" · "),false);}
+    else showToast(`PDF generado · ${total} página${total!==1?"s":""}${anexados?` + ${anexados} documento${anexados!==1?"s":""} anexo${anexados!==1?"s":""}`:""}`);
+    try{await logBitacora("RESUMEN_MEDICO","PDF · Paciente "+p.id+(anexados?" · "+anexados+" anexos":""));}catch(e){}
   }catch(err){loading(false);console.error(err);showToast("Error al generar PDF: "+err.message,false);}
 };
 
