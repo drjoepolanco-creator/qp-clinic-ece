@@ -2423,6 +2423,7 @@ window.actualizarTipoNota=function(tipo){
   const _ia=document.getElementById("btn-ia-nota");if(_ia)_ia.style.display=esNotaSinSOAP(tipo)?"none":"inline-flex";
   const _ins=document.getElementById("btn-insumos-qx");if(_ins)_ins.style.display=qxNotaLlevaInsumos(tipo)?"inline-flex":"none";
   if(tipo==="Nota nutricional"&&typeof nutriRecalcular==="function")setTimeout(nutriRecalcular,30);
+  if(tipo==="Nota de neuropediatría")setTimeout(npDenverRecalcular,30);
   // Re-init GCS if urgencias
   if(tipo==="Nota de urgencias")actualizarGCS();
 }
@@ -2465,6 +2466,10 @@ function leerDatosClinicos(){
     "dc_nu_prot_gkg","dc_nu_lip_gkg","dc_nu_prot_g","dc_nu_lip_g","dc_nu_hc_g",
     "dc_nu_desayuno","dc_nu_col1","dc_nu_comida","dc_nu_col2","dc_nu_cena","dc_nu_hidratacion",
     "dc_nu_fase_famel","dc_nu_educacion","dc_nu_adherencia","dc_nu_proxima_cita","dc_nu_metas",
+    // Neuropediatría — Escala de Denver II
+    "dc_np_den_fecha","dc_np_den_edad","dc_np_den_sdg","dc_np_den_edad_corr","dc_np_den_aplicador",
+    "dc_np_den_ps","dc_np_den_ps_res","dc_np_den_mf","dc_np_den_mf_res","dc_np_den_len","dc_np_den_len_res","dc_np_den_mg","dc_np_den_mg_res",
+    "dc_np_den_global","dc_np_den_conducta_prueba","dc_np_den_plan",
     // Urgencias
     "dc_va_urg","dc_resp_urg","dc_circ_urg","dc_neuro_urg","dc_exposicion_urg",
     "dc_triaje","dc_mecanismo","dc_tiempo_urg","dc_hora_atencion_urg",
@@ -2646,13 +2651,108 @@ const CAMPOS_OCULTOS_NOTA={"Orden de Internamiento":["subj","eva","expl","anal",
 function esNotaSinSOAP(tipo){return (CAMPOS_OCULTOS_NOTA[tipo]||[]).includes("subj");}
 // Tipos de nota que puede redactar la unidad activa. amfa solo hace nota
 // nutricional y responde interconsultas.
-const TIPOS_NOTA_TODOS=["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de urgencias","Orden de Internamiento","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"];
+const TIPOS_NOTA_TODOS=["Nota de evolución","Nota nutricional","Nota de primera vez (Historia clínica)","Nota de neuropediatría","Nota de urgencias","Orden de Internamiento","Nota preoperatoria","Nota posoperatoria","Nota de egreso","Nota de referencia / traslado","Nota de interconsulta","Nota de valoración preanestésica","Nota de anestesia transoperatoria","Nota postanestésica"];
 function tiposNotaDisponibles(){return esAmfa()?["Nota nutricional","Nota de interconsulta"]:TIPOS_NOTA_TODOS;}
 // Devuelve un tipo de nota válido para la sede: si el guardado no está en la
 // lista (p. ej. "Nota de evolución" por omisión en amfa), cae al primero.
 function tipoNotaValido(t){const L=tiposNotaDisponibles();return L.includes(t)?t:L[0];}
 window.tipoNotaValido=tipoNotaValido;
 window.esNotaSinSOAP=esNotaSinSOAP;
+// ── NOTA DE NEUROPEDIATRÍA: Escala de Denver II ───────────────────────────────
+// Denver II es un tamizaje del desarrollo de 0 a 6 años. Se aplica en una fecha
+// y a una edad concretas y se repite en cada revisión, por eso vive en la nota y
+// no en Antecedentes neonatales (ahí sólo se consulta la última aplicación).
+// En prematuros (<37 SDG) se usa la edad corregida hasta los 24 meses.
+const NP_DENVER_AREAS=[
+  ["ps","Personal-social","Ej: sonríe espontáneamente, mira su mano, juega a las escondidas, toma de la taza, se quita la ropa, se lava y seca las manos…"],
+  ["mf","Motor fino-adaptativo","Ej: sigue objetos más allá de la línea media, toma una pasa, pinza fina, torre de 4 cubos, copia un círculo…"],
+  ["len","Lenguaje","Ej: responde a la campana, vocaliza, balbucea, dice «papá/mamá» específico, combina 2 palabras, nombra 4 dibujos…"],
+  ["mg","Motor grueso","Ej: levanta la cabeza a 90°, se sienta sin apoyo, se para solo, camina bien, patea la pelota, salta en un pie…"],
+];
+// SDG al nacer: el campo de la nota manda; si está vacío se toma de Antecedentes
+// neonatales («38 SDG», «36.5», «34+3» → semanas con decimales).
+function npSdgNum(txt){
+  const m=String(txt||"").match(/(\d{2})(?:\s*(?:\+|\.|,)\s*(\d))?/);
+  if(!m)return null;
+  const s=parseInt(m[1]),dd=m[2]?parseInt(m[2]):0;
+  if(s<20||s>45)return null;
+  return String(txt).includes("+")?s+dd/7:s+dd/10;
+}
+function npEdadTexto(dias){
+  if(dias==null||dias<0)return"";
+  const meses=Math.floor(dias/30.4375),rest=Math.round(dias-meses*30.4375);
+  const a=Math.floor(meses/12),m=meses%12;
+  const largo=a?`${a} año${a!==1?"s":""}${m?` ${m} mes${m!==1?"es":""}`:""}`:`${m} mes${m!==1?"es":""}`;
+  return `${largo} (${meses} m ${rest} d)`;
+}
+function npDenverEdades(fnac,fApl,sdgTxt){
+  const out={crono:"",corr:""};
+  if(!fnac||!fApl)return out;
+  const n=new Date(String(fnac).split("T")[0]+"T12:00:00"),f=new Date(String(fApl).split("T")[0]+"T12:00:00");
+  if(isNaN(n)||isNaN(f)||f<n)return out;
+  const dias=Math.round((f-n)/86400000);
+  out.crono=npEdadTexto(dias);
+  const sdg=npSdgNum(sdgTxt);
+  if(sdg&&sdg<37&&dias<730){
+    const dc=dias-Math.round((40-sdg)*7);
+    out.corr=dc<0?"Aún no cumple las 40 semanas corregidas":npEdadTexto(dc);
+  } else if(sdg&&sdg<37){
+    out.corr="No aplica (mayor de 24 meses)";
+  } else if(sdg){
+    out.corr="No aplica (a término)";
+  }
+  return out;
+}
+window.npDenverRecalcular=function(){
+  const g=id=>document.getElementById(id);
+  const e=npDenverEdades(STATE.pat?.fecha_nacimiento,g("dc_np_den_fecha")?.value,g("dc_np_den_sdg")?.value);
+  if(g("dc_np_den_edad"))g("dc_np_den_edad").value=e.crono;
+  if(g("dc_np_den_edad_corr"))g("dc_np_den_edad_corr").value=e.corr;
+  // Sugerencia de interpretación según lo marcado por área. Denver se interpreta
+  // por ítem; aquí sólo se avisa, la interpretación global la elige el médico.
+  const res=NP_DENVER_AREAS.map(([k])=>g("dc_np_den_"+k+"_res")?.value||"");
+  const nRet=res.filter(v=>v==="Retraso").length,nPre=res.filter(v=>v==="Precaución").length,nNe=res.filter(v=>v==="No evaluable").length;
+  const hint=g("np-den-sugerencia");
+  if(hint){
+    let t="",c="#546E7A";
+    if(nRet||nPre>=2){const pl=(n,a,b)=>n+" "+(n===1?a:b);t=`Con ${[nRet?pl(nRet,"área con retraso","áreas con retraso"):"",nPre?pl(nPre,"con precaución","con precaución"):""].filter(Boolean).join(" y ")}, el resultado probable es SOSPECHOSO.`;c="#C62828";}
+    else if(nNe){t="Hay áreas no evaluables: valore si el resultado es NO EVALUABLE y reprograme en 1–2 semanas.";c="#E65100";}
+    else if(res.some(v=>v==="Normal")){t=nPre?"Una sola precaución: compatible con resultado NORMAL.":"Áreas sin precauciones ni retrasos: compatible con resultado NORMAL.";c="#2E7D32";}
+    hint.textContent=t;hint.style.color=c;hint.style.display=t?"block":"none";
+  }
+};
+// Antecedentes neonatales: muestra (sólo lectura) las últimas aplicaciones de
+// Denver II registradas en notas de neuropediatría.
+window.npCargarDenverNeo=async function(){
+  const c=document.getElementById("neo-denver");
+  const pid=STATE.pat?.id;
+  if(!c||!pid)return;
+  const {data,error}=await SB.from("consultas").select("id,fecha,medico_nombre,datos_clinicos")
+    .eq("paciente_id",pid).eq("tipo_nota","Nota de neuropediatría").order("fecha",{ascending:false}).limit(6);
+  if(error){c.innerHTML=`<p style="font-size:13px;color:#C62828">No se pudo leer la escala de Denver II: ${error.message}</p>`;return;}
+  const evals=(data||[]).filter(x=>{const d=x.datos_clinicos||{};return d.np_den_global||NP_DENVER_AREAS.some(([k])=>d["np_den_"+k]||d["np_den_"+k+"_res"]);});
+  const esc=s=>String(s||"").replace(/</g,"&lt;");
+  const val=v=>(v&&v!=="—")?v:"";
+  const COL={Normal:"#2E7D32",Sospechoso:"#C62828","No evaluable":"#E65100"};
+  c.innerHTML=evals.length?evals.map((x,i)=>{
+    const d=x.datos_clinicos||{};
+    const f=resFecha(d.np_den_fecha||x.fecha);
+    const g=val(d.np_den_global);
+    return `<div style="border:1px solid ${BR};border-radius:8px;padding:10px 12px;margin-bottom:8px;background:${i===0?"#FAF8FF":"#fff"}">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+        <b style="font-size:13.5px;color:${TX}">${f}${d.np_den_edad?` · ${esc(d.np_den_edad)}`:""}${val(d.np_den_edad_corr)&&!/^No aplica/.test(d.np_den_edad_corr)?` · corregida ${esc(d.np_den_edad_corr)}`:""}</b>
+        <span style="font-size:13px;font-weight:700;color:${COL[g]||MU}">${g?"Resultado: "+esc(g):"Sin interpretación global"}${i===0?" · última":""}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 14px">
+        ${NP_DENVER_AREAS.map(([k,l])=>`<div style="font-size:13px"><span style="font-weight:700;color:${MU}">${l}:</span> ${val(d["np_den_"+k+"_res"])?`<b>${esc(d["np_den_"+k+"_res"])}</b>`:""}${d["np_den_"+k]?`<div style="color:${TX};white-space:pre-wrap">${esc(d["np_den_"+k])}</div>`:""}${!val(d["np_den_"+k+"_res"])&&!d["np_den_"+k]?"—":""}</div>`).join("")}
+      </div>
+      <div style="font-size:12px;color:${MU};margin-top:6px">Registrada por ${esc(x.medico_nombre||"—")}</div>
+    </div>`;}).join(""):`<p style="font-size:13px;color:${MU}">Sin aplicaciones registradas. La escala se captura en una nota de neuropediatría.</p>`;
+};
+window.npNuevaNotaNeuro=function(){
+  STATE.consultaActual={tipo_nota:"Nota de neuropediatría"};
+  go("consulta");
+};
 function renderSeccionEspecial(tipo,d){
   d=d||{};
   const SI=`width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none;font-size:14px`;
@@ -3072,6 +3172,60 @@ function renderSeccionEspecial(tipo,d){
   // NOTA DE INTERCONSULTA
   // Redirige al módulo de interconsultas del expediente
   // ══════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
+  // NOTA DE NEUROPEDIATRÍA — Escala de Denver II
+  // Conserva el SOAP completo (interrogatorio, exploración neurológica,
+  // diagnóstico y plan) y agrega el tamizaje del desarrollo.
+  // ══════════════════════════════════════════════════════════
+  if(tipo==="Nota de neuropediatría"){
+    const NP="#5E35B1";
+    const hoyISO=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().split("T")[0];
+    const fApl=d.np_den_fecha||hoyISO;
+    const sdg=d.np_den_sdg||(STATE.neoData?.semanas_gest||"");
+    const ed=npDenverEdades(STATE.pat?.fecha_nacimiento,fApl,sdg);
+    const RO=(id,val,ph)=>`<input id="${id}" value="${val||""}" placeholder="${ph}" readonly style="${SI};background:#F5F7F8;font-weight:700;color:${NP}">`;
+    const RES=[["","—"],["Normal","Normal"],["Precaución","Con precaución"],["Retraso","Con retraso"],["No evaluable","No evaluable (rechazo / no aplicado)"]];
+    const sinFnac=!STATE.pat?.fecha_nacimiento;
+    // Pinta la sugerencia de interpretación una vez que el HTML ya está en la página.
+    setTimeout(()=>window.npDenverRecalcular&&npDenverRecalcular(),60);
+    return`<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px #00000012;overflow:hidden">
+      <div style="padding:9px 14px;border-bottom:1px solid ${BR};background:linear-gradient(90deg,#EDE7F6,#fff)">
+        <b style="font-size:14px;color:${NP}">Nota de neuropediatría — Escala de Denver II</b>
+      </div>
+      <div style="padding:14px">
+        ${ALERTA("Tamizaje del desarrollo de 0 a 6 años. En prematuros (menos de 37 SDG) se interpreta con la edad corregida hasta los 24 meses. El interrogatorio, la exploración neurológica, el diagnóstico y el plan van en los campos SOAP de la nota.")}
+        ${sinFnac?ALERTA("El paciente no tiene fecha de nacimiento en la ficha de identificación: la edad no se puede calcular.","warn"):""}
+        ${H("Datos de aplicación",NP)}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px">
+          ${fld("Fecha de aplicación",`<input id="dc_np_den_fecha" type="date" value="${fApl}" oninput="npDenverRecalcular()" style="${SI}">`)}
+          ${fld("Edad cronológica (auto)",RO("dc_np_den_edad",ed.crono||d.np_den_edad,"—"))}
+          ${fld("SDG al nacer",`<input id="dc_np_den_sdg" value="${sdg}" placeholder="Ej: 34+3 SDG" oninput="npDenverRecalcular()" style="${SI}">`)}
+          ${fld("Edad corregida (auto)",RO("dc_np_den_edad_corr",ed.corr||d.np_den_edad_corr,"—"))}
+          ${fld("Aplicada por",INP("dc_np_den_aplicador",d.np_den_aplicador,"Nombre de quien aplicó la prueba"))}
+        </div>
+        ${H("Áreas del desarrollo",NP)}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px;margin-bottom:14px">
+          ${NP_DENVER_AREAS.map(([k,l,ph])=>`<div style="border:1.5px solid ${BR};border-radius:10px;padding:10px 12px;background:#FCFBFF">
+            <div style="font-size:13.5px;font-weight:700;color:${NP};margin-bottom:6px;text-transform:uppercase">${l}</div>
+            ${TA("dc_np_den_"+k,d["np_den_"+k],ph,4)}
+            <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+              <span style="font-size:12.5px;color:${MU};white-space:nowrap">Resultado del área</span>
+              <div style="flex:1" oninput="npDenverRecalcular()" onchange="npDenverRecalcular()">${SEL("dc_np_den_"+k+"_res",RES,d["np_den_"+k+"_res"]||"")}</div>
+            </div>
+          </div>`).join("")}
+        </div>
+        ${H("Interpretación",NP)}
+        <div id="np-den-sugerencia" style="display:none;font-size:13px;font-weight:700;margin-bottom:10px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${fld("Interpretación global",SEL("dc_np_den_global",[["","—"],["Normal","Normal"],["Sospechoso","Sospechoso"],["No evaluable","No evaluable"]],d.np_den_global||""))}
+          ${fld("Comportamiento durante la prueba",INP("dc_np_den_conducta_prueba",d.np_den_conducta_prueba,"Ej: cooperador, atento, temeroso, somnoliento"))}
+        </div>
+        <p style="font-size:12.5px;color:${MU};margin:-4px 0 12px;line-height:1.5"><b>Normal:</b> ningún retraso y como máximo una precaución. <b>Sospechoso:</b> dos o más precauciones y/o uno o más retrasos. <b>No evaluable:</b> tantos rechazos que, contados como fallas, el resultado sería sospechoso; repetir en 1 a 2 semanas.</p>
+        ${fld("Conducta a seguir",TA("dc_np_den_plan",d.np_den_plan,"Ej: repetir Denver II en 3 meses, programa de estimulación temprana, referir a terapia de lenguaje, potenciales evocados auditivos…",3))}
+      </div>
+    </div>`;
+  }
+
   if(tipo==="Nota de interconsulta"){
     return`<div style="background:#E0F2F1;border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px">
       <span style="font-size:22px">🔁</span>
@@ -6264,7 +6418,14 @@ function renderAB(){
       ${fld("Primeras palabras (meses)",`<input id="n_pal" value="${n.primeras_pal||""}" placeholder="Ej: 12" style="width:100%;padding:10px 13px;border:1.5px solid ${BR};border-radius:8px;outline:none">`)}
     </div>
     <div style="margin-bottom:16px">${fld("Observaciones generales del período neonatal",ta("n_obs",n.observaciones||"","Observaciones adicionales relevantes...",3))}</div>
+    <div style="background:#EDE7F6;padding:6px 12px;border-radius:6px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <b style="font-size:14px;color:#5E35B1;text-transform:uppercase">Escala de Denver II</b>
+      <button type="button" onclick="npNuevaNotaNeuro()" style="background:#5E35B1;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">Nueva nota de neuropediatría</button>
+    </div>
+    <p style="font-size:12.5px;color:${MU};margin-bottom:8px">Sólo lectura. Cada aplicación se registra con su fecha en una nota de neuropediatría.</p>
+    <div id="neo-denver" style="margin-bottom:16px"><p style="font-size:13px;color:${MU}">Cargando…</p></div>
     <div class="sticky-save">${btn("💾 Guardar antecedentes neonatales","guardarNeonatales()","ok",1)}</div>`;
+    setTimeout(()=>npCargarDenverNeo(),0);
   }
   else if(STATE.antTab==="oc"){
     const ocList=["Alergias oculares","Ambliopía","Astenopía (fatiga visual)","Astigmatismo","Atrofia óptica","Blefaritis","Catarata congénita","Catarata senil","Catarata traumática","Celulitis orbitaria","Cirugía refractiva previa","Chalación","Conjuntivitis alérgica","Conjuntivitis bacteriana","Conjuntivitis viral","Coroiditis","Degeneración macular","Desprendimiento de retina","Distrofia corneal","Edema corneal","Edema de papila","Ectropión","Enfermedad ocular","Entropión","Episcleritis","Escleritis","Estrabismo","Glaucoma","Glaucoma congénito","Glaucoma de ángulo abierto","Glaucoma de ángulo cerrado","Glaucoma secundario","Hemorragia subconjuntival","Hipermetropía","Iridociclitis","Leucoma corneal","Luxación del cristalino","Melanoma uveal","Miopía","Neuritis óptica","Nistagmo","Oclusión arterial de retina","Oclusión venosa de retina","Ojo seco","Orzuelo","Pingüécula","Presbicia","Ptosis palpebral","Pterigión","Pseudofaquia (operado de Catarata)","Queratitis","Queratocono","Retinitis pigmentosa","Retinoblastoma","Retinopatía diabética","Trauma ocular","Tumores palpebrales","Uveítis","Úlcera corneal","Xantelasma"];
@@ -6488,7 +6649,7 @@ async function cargarConsultas(){
   }
 
   // Colores por tipo de nota
-  const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de urgencias":"#C62828","Orden de Internamiento":"#00838F","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C","Nota de valoración preanestésica":"#004D99","Nota de anestesia transoperatoria":"#283593","Nota postanestésica":"#0277BD"};
+  const TIPO_COLOR={"Nota de primera vez (Historia clínica)":"#006BB6","Nota de neuropediatría":"#5E35B1","Nota de urgencias":"#C62828","Orden de Internamiento":"#00838F","Nota preoperatoria":"#6A1B9A","Nota posoperatoria":"#2E7D32","Nota de egreso":"#E65100","Nota de referencia / traslado":"#546E7A","Nota de interconsulta":"#00695C","Nota de valoración preanestésica":"#004D99","Nota de anestesia transoperatoria":"#283593","Nota postanestésica":"#0277BD"};
 
   // Construir filas de consultas
   const filaConsultas=(data||[]).map(c=>{
@@ -12351,6 +12512,14 @@ window.descargarNotaPDF=async function(){
     const _svHTML=(()=>{const filas=_svPairs.map(([id,lbl])=>{const v=document.getElementById(id)?.value||"";return v?`<div style="margin-bottom:3px;margin-right:16px"><span style="font-size:6.8px;color:${SEC};text-transform:uppercase;font-weight:bold">${lbl}: </span><span style="font-size:9.2px;color:${TXT};font-weight:700">${v}</span></div>`:"";}).filter(Boolean);return filas.length?secBar("SIGNOS VITALES INICIALES")+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:9px 13px;display:flex;flex-wrap:wrap">${filas.join("")}</div>`:"";})();
     const _regTransHTML=(()=>{const R=dc.registros_trans;if(!Array.isArray(R)||!R.length)return"";const rows=R.map(r=>`<tr>${[r.hora,r.ta,r.fc,r.spo2,r.etco2,r.temp,r.fr,r.nota].map(x=>`<td style="padding:3px 6px;border-bottom:1px solid ${BRD};font-size:8.5px;color:${TXT}">${x||""}</td>`).join("")}</tr>`).join("");return secBar("REGISTRO TEMPORAL DE SIGNOS VITALES")+`<div style="background:#fff;border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:6px 10px"><table style="width:100%;border-collapse:collapse"><thead><tr>${["Hora","TA","FC","SpO₂","EtCO₂","Temp","FR","Evento"].map(h=>`<th style="text-align:left;font-size:7px;color:${SEC};text-transform:uppercase;padding:3px 6px;border-bottom:1px solid ${BRD}">${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;})();
     const SEC_QX={
+      "Nota de neuropediatría":[
+        ["Escala de Denver II — datos de aplicación",[["np_den_fecha","Fecha de aplicación"],["np_den_edad","Edad cronológica"],["np_den_sdg","SDG al nacer"],["np_den_edad_corr","Edad corregida"],["np_den_aplicador","Aplicada por"]]],
+        ["Denver II — Personal-social",[["np_den_ps_res","Resultado del área"],["np_den_ps","Observaciones"]]],
+        ["Denver II — Motor fino-adaptativo",[["np_den_mf_res","Resultado del área"],["np_den_mf","Observaciones"]]],
+        ["Denver II — Lenguaje",[["np_den_len_res","Resultado del área"],["np_den_len","Observaciones"]]],
+        ["Denver II — Motor grueso",[["np_den_mg_res","Resultado del área"],["np_den_mg","Observaciones"]]],
+        ["Denver II — Interpretación",[["np_den_global","Interpretación global"],["np_den_conducta_prueba","Comportamiento durante la prueba"],["np_den_plan","Conducta a seguir"]]]
+      ],
       "Nota nutricional":[
         ["Antropometría y composición corporal",[["nu_peso","Peso actual (kg)"],["nu_talla","Talla (cm)"],["nu_imc","IMC"],["nu_dx","Diagnóstico nutricional"],["nu_peso_hab","Peso habitual (kg)"],["nu_peso_meta","Peso meta (kg)"],["nu_cambio_peso","Cambio de peso"],["nu_cintura","Cintura (cm)"],["nu_cadera","Cadera (cm)"],["nu_icc","Índice cintura/cadera"],["nu_riesgo_cintura","Riesgo por cintura"],["nu_pgc","% Grasa corporal"],["nu_masa_musc","Masa muscular (kg)"],["nu_grasa_visc","Grasa visceral"]]],
         ["Datos bioquímicos y clínicos",[["nu_bioq","Laboratorios de interés nutricional"],["nu_clinico","Medicamentos y condiciones relevantes"],["nu_alergias","Alergias alimentarias"],["nu_intolerancias","Intolerancias / restricciones"],["nu_apetito","Apetito"],["nu_evac","Evacuaciones"],["nu_gi","Síntomas gastrointestinales"],["nu_sueno","Horas de sueño"]]],
@@ -21866,6 +22035,16 @@ function resumenHTML(d){
       if(dc.pronostico_egreso)t.push(`Al egreso: ${dc.pronostico_egreso}`);
       return t.join(" · ");
     };
+    // Escala de Denver II de las notas de neuropediatría (datos_clinicos.np_den_*).
+    const denverTxt=(c)=>{
+      const dc=c.datos_clinicos||{};
+      const v=x=>(x&&x!=="—")?String(x):"";
+      const areas=NP_DENVER_AREAS.map(([k,l])=>(v(dc["np_den_"+k+"_res"])||v(dc["np_den_"+k]))?`${l}: ${[v(dc["np_den_"+k+"_res"]),v(dc["np_den_"+k])].filter(Boolean).join(" — ")}`:"").filter(Boolean);
+      const cab=[v(dc.np_den_fecha)?"Aplicada el "+resFecha(dc.np_den_fecha):"",v(dc.np_den_edad)?"edad "+dc.np_den_edad:"",v(dc.np_den_edad_corr)&&!/^No aplica/.test(dc.np_den_edad_corr)?"corregida "+dc.np_den_edad_corr:""].filter(Boolean).join(" · ");
+      const fin=[v(dc.np_den_global)?"Interpretación global: "+dc.np_den_global:"",v(dc.np_den_conducta_prueba)?"Comportamiento: "+dc.np_den_conducta_prueba:"",v(dc.np_den_plan)?"Conducta a seguir: "+dc.np_den_plan:""].filter(Boolean);
+      if(!areas.length&&!fin.length)return"";
+      return T([cab,...areas,...fin].filter(Boolean).join("\n"));
+    };
     cs.forEach(c=>{
       const f=(c.fecha||"").split("T");
       const sub=(t,v)=>v?`<div style="font-size:9px;font-weight:700;color:#546E7A;margin-top:5px">${t}</div>${T(v)}`:"";
@@ -21881,6 +22060,7 @@ function resumenHTML(d){
         ${sub("GABINETE",c.gabinete)}
         ${sub("PLAN",c.plan)}
         ${sub("PRONOSTICO",progLinea(c))}
+        ${denverTxt(c)?`<div style="font-size:9px;font-weight:700;color:#546E7A;margin-top:5px">ESCALA DE DENVER II</div>`+denverTxt(c):""}
       </div>`;
     });
   }
