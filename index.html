@@ -25524,10 +25524,10 @@ if("serviceWorker" in navigator){
 // = 0.779 de la talla), por eso son «estimadas».
 // ══════════════════════════════════════════════════════════════════════════
 
-const CAR_MOTOR_VERSION="carrera-pose 0.1 · MediaPipe Pose Landmarker full 0.10.14";
+const CAR_MOTOR_VERSION="carrera-pose 0.3 · MediaPipe Pose Landmarker full 0.10.14";
 
 // Índices de MediaPipe Pose (33 puntos).
-const CAR_LM={nariz:0,hombro:[11,12],codo:[13,14],cadera:[23,24],rodilla:[25,26],tobillo:[27,28],talon:[29,30],punta:[31,32]};
+const CAR_LM={nariz:0,ojo:[2,5],oreja:[7,8],muneca:[15,16],hombro:[11,12],codo:[13,14],cadera:[23,24],rodilla:[25,26],tobillo:[27,28],talon:[29,30],punta:[31,32]};
 // lado 0 = izquierdo, 1 = derecho
 const CAR_LADO=["izq","der"];
 
@@ -25540,6 +25540,8 @@ const CAR_LIMITES={
   tibia_contacto:[-20,35], tronco:[-20,40], oscilacion:[2,20], apoyo:[-35,45],
   caida_pelvica:[-10,25], valgo_rodilla:[-30,40], ancho_paso:[-20,40],
   cruce_linea_media:[0,100], eversion_retropie:[-25,35],
+  sobrezancada_ang:[-20,45], rodilla_trasera:[30,180], codo:[30,180], cabeza:[-60,60],
+  eversion_contacto:[-35,45], eversion_despegue:[-35,45],
 };
 
 // Rangos de referencia PROVISIONALES para carrera recreativa en banda
@@ -25561,7 +25563,17 @@ const CAR_REFERENCIAS={
   ancho_paso:{min:3,max:12,u:"cm",et:"Ancho de paso (estimado)"},
   cruce_linea_media:{min:0,max:10,u:"%",et:"Cruce de la línea media"},
   eversion_retropie:{min:0,max:10,u:"°",et:"Eversión del retropié (baja confianza)"},
+  // Motor 0.3 — SIN rango todavía: primero hay que comprobar contra Ochy que
+  // se mide lo mismo que él reporta (la definición exacta de Ochy no es pública).
+  sobrezancada_ang:{u:"°",et:"Ángulo de sobrezancada (cadera→tobillo al contacto)"},
+  rodilla_trasera:{u:"°",et:"Rodilla trasera en el contacto"},
+  codo:{u:"°",et:"Ángulo de codo"},
+  cabeza:{u:"°",et:"Posición de la cabeza (mirada)"},
+  eversion_contacto:{u:"°",et:"Eversión del retropié al contacto (baja confianza)"},
+  eversion_despegue:{u:"°",et:"Eversión del retropié al despegue (baja confianza)"},
 };
+const CAR_VARS_03=["sobrezancada_ang","rodilla_trasera","codo","cabeza","eversion_contacto","eversion_despegue"];
+const CAR_PEND="Sin rango: pendiente de validar contra Ochy.";
 
 // ── utilidades numéricas ────────────────────────────────────────────────
 const carMed=a=>{const s=a.filter(Number.isFinite).sort((x,y)=>x-y);if(!s.length)return NaN;const m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
@@ -25776,7 +25788,7 @@ function carAnalizar(frames,opts){
       const cs=porLado(lado);
       if(cs.length<minZ){calidad.avisos.push(`Solo ${cs.length} contactos del pie ${lado?"derecho":"izquierdo"}: no se calculan sus métricas.`);continue;}
       const L=CAR_LADO[lado];
-      const ct=[],kIC=[],kMax=[],os=[],tib=[],ap=[];
+      const ct=[],kIC=[],kMax=[],os=[],tib=[],ap=[],osA=[],kTras=[];
       // Puntos en el instante exacto del contacto: interpolados entre el último
       // cuadro en el aire y el primero en el suelo (a 8 km/h el pie avanza ~4 cm
       // entre dos cuadros de 60 fps; tomar el cuadro siguiente sesga la medida).
@@ -25794,6 +25806,10 @@ function carAnalizar(frames,opts){
         for(let i=c.i0;i<=c.i1;i++){const f=fr[i];const v=180-carAngInt(carPt(f,"cadera",lado),carPt(f,"rodilla",lado),carPt(f,"tobillo",lado));if(v>mx){mx=v;iMx=i;}}
         kMax.push(mx);c.iMedio=iMx;
         os.push(cm(dir*(tal[0]-carMedio(f0,"cadera")[0])));
+        // Sobrezancada como ángulo: la recta centro de cadera → tobillo respecto a la vertical (+ = pie por delante)
+        const cc=carMedio(f0,"cadera");osA.push(carGrados(Math.atan2(dir*(tob[0]-cc[0]),tob[1]-cc[1])));
+        // Rodilla de la OTRA pierna (la que viene atrás) en ese instante: ángulo interno, 180° = extendida
+        kTras.push(carAngInt(carPt(f0,"cadera",1-lado),carPt(f0,"rodilla",1-lado),carPt(f0,"tobillo",1-lado)));
         tib.push(carGrados(Math.atan2(dir*(tob[0]-rod[0]),tob[1]-rod[1])));
         // Ángulo del pie al contacto menos el del pie plano a mitad del apoyo
         const angPie=f=>carGrados(Math.atan2(carPt(f,"talon",lado)[1]-carPt(f,"punta",lado)[1],Math.abs(carPt(f,"punta",lado)[0]-carPt(f,"talon",lado)[0])));
@@ -25804,7 +25820,9 @@ function carAnalizar(frames,opts){
       add(carMetricaAuto("rodilla_contacto",L,kIC));
       add(carMetricaAuto("rodilla_apoyo",L,kMax));
       if(esc.cmPx)add(carMetricaAuto("sobrezancada",L,os));
+      add(carMetricaAuto("sobrezancada_ang",L,osA,1,{interpretacion:CAR_PEND}));
       add(carMetricaAuto("tibia_contacto",L,tib));
+      add(carMetricaAuto("rodilla_trasera",CAR_LADO[1-lado],kTras,1,{interpretacion:`Rodilla ${lado?"izquierda":"derecha"} cuando el pie ${lado?"derecho":"izquierdo"} toca el suelo; menor = talón más recogido. ${CAR_PEND}`}));
       const mAp=carMetricaAuto("apoyo",L,ap);
       if(mAp&&!mAp.artefacto){mAp.interpretacion=[mAp.valor>8?"Talón":mAp.valor<-5?"Antepié":"Medio pie",mAp.interpretacion].filter(Boolean).join(". ");}
       add(mAp);
@@ -25817,6 +25835,20 @@ function carAnalizar(frames,opts){
       clave.push({evento:"apoyo_medio",lado:L,t:fr[mejor.iMedio].t,etiqueta:`Apoyo medio ${lado?"derecho":"izquierdo"}`});
     }
     add(carMetricaAuto("tronco","ambos",fr.map(f=>{const h=carMedio(f,"cadera"),s=carMedio(f,"hombro");return carGrados(Math.atan2(dir*(s[0]-h[0]),h[1]-s[1]));})));
+    // Codo: ángulo interno hombro-codo-muñeca, promedio de todo el ciclo. El brazo lejano a la cámara suele quedar tapado.
+    for(const lado of [0,1]){
+      const v=fr.filter(f=>Math.min(carPt(f,"hombro",lado)[2],carPt(f,"codo",lado)[2],carPt(f,"muneca",lado)[2])>=0.6)
+        .map(f=>carAngInt(carPt(f,"hombro",lado),carPt(f,"codo",lado),carPt(f,"muneca",lado)));
+      if(v.length>=Math.max(30,fr.length*0.3))add(carMetricaAuto("codo",CAR_LADO[lado],v,1,{interpretacion:`Promedio de todo el ciclo (${Math.round(v.length/fr.length*100)} % de los cuadros con el brazo visible). ${CAR_PEND}`}));
+    }
+    // Cabeza: línea oreja→ojo del lado que ve la cámara, respecto a la horizontal (+ = mirada hacia arriba).
+    {
+      const ladoC=carMed(fr.map(f=>carPt(f,"oreja",0)[2]))>=carMed(fr.map(f=>carPt(f,"oreja",1)[2]))?0:1;
+      const v=fr.filter(f=>Math.min(carPt(f,"oreja",ladoC)[2],carPt(f,"ojo",ladoC)[2])>=0.6)
+        .map(f=>{const o=carPt(f,"oreja",ladoC),e=carPt(f,"ojo",ladoC);return carGrados(Math.atan2(o[1]-e[1],dir*(e[0]-o[0])));});
+      if(v.length>=Math.max(30,fr.length*0.3))add(carMetricaAuto("cabeza","ambos",v,1,{interpretacion:`Línea oreja–ojo respecto a la horizontal; mayor = mirada más alta. ${CAR_PEND}`}));
+      else calidad.avisos.push("Posición de la cabeza: no se vieron con claridad la oreja y el ojo; no se calcula.");
+    }
     if(esc.cmPx){
       const osc=[];
       for(let k=0;k+1<contactos.length;k++){
@@ -25835,9 +25867,9 @@ function carAnalizar(frames,opts){
       const cs=porLado(lado);
       if(cs.length<minZ){calidad.avisos.push(`Solo ${cs.length} apoyos del pie ${lado?"derecho":"izquierdo"}: no se calculan sus métricas.`);continue;}
       const L=CAR_LADO[lado],medial=lado===0?1:-1;   // desde atrás: hacia la línea media
-      const caida=[],valgo=[],ever=[];let mejor=null,mejorV=-Infinity;
+      const caida=[],valgo=[],ever=[],everIC=[],everTO=[];let mejor=null,mejorV=-Infinity;
       for(const c of cs){
-        let pk=-Infinity,vk=-Infinity,iV=c.i0;const ev=[];let visOk=0,n=0;
+        let pk=-Infinity,vk=-Infinity,iV=c.i0;const ev=[],evIC=[],evTO=[];let visOk=0,n=0;
         for(let i=c.i0;i<=c.i1;i++){
           const f=fr[i];
           const o=oblicuidad(f)-sesgo;pk=Math.max(pk,lado===1?o:-o);   // apoyo der → cae la izquierda
@@ -25848,16 +25880,18 @@ function carAnalizar(frames,opts){
           const v=(180-carAngInt(cad_,rod,tob))*(s||1);
           if(v>vk){vk=v;iV=i;}
           const fase=(i-c.i0)/Math.max(1,c.i1-c.i0);
+          // retropié: desviación del talón respecto a la prolongación de la pierna (+ = talón hacia afuera = eversión)
+          const angRetro=()=>carGrados(Math.atan2(tal[0]-tob[0],tal[1]-tob[1])-Math.atan2(tob[0]-rod[0],tob[1]-rod[1]))*-medial;
           if(fase>=0.25&&fase<=0.75){
             n++;if(Math.min(tob[2],tal[2])>=0.75)visOk++;
-            // retropié: desviación del talón respecto a la prolongación de la pierna
-            const sx=tob[0]-rod[0],sy=tob[1]-rod[1];
-            const ang=carGrados(Math.atan2(tal[0]-tob[0],tal[1]-tob[1])-Math.atan2(sx,sy));
-            ev.push(ang*-medial);   // + = talón hacia afuera = eversión
+            ev.push(angRetro());
+          }else if(Math.min(tob[2],tal[2])>=0.75){
+            // Por fase: primer y último quinto del apoyo, para ver si prona al caer y resupina al despegar
+            if(fase<=0.2)evIC.push(angRetro());else if(fase>=0.8)evTO.push(angRetro());
           }
         }
         caida.push(pk);valgo.push(vk);
-        if(n&&visOk/n>=0.7)ever.push(carMed(ev));
+        if(n&&visOk/n>=0.7){ever.push(carMed(ev));if(evIC.length)everIC.push(carMed(evIC));if(evTO.length)everTO.push(carMed(evTO));}
         if(vk>mejorV){mejorV=vk;mejor=iV;}
         const xs=[];for(let i=c.i0;i<=c.i1;i++)xs.push(carPt(fr[i],"tobillo",lado)[0]);   // el tobillo, no el talón: la eversión mueve el talón
         const xm=[];for(let i=c.i0;i<=c.i1;i++)xm.push(carMedio(fr[i],"cadera")[0]);
@@ -25866,7 +25900,9 @@ function carAnalizar(frames,opts){
       add(carMetricaAuto("caida_pelvica",L,caida,1,{interpretacion:`Cadera ${lado?"izquierda":"derecha"} durante el apoyo ${lado?"derecho":"izquierdo"}.`}));
       add(carMetricaAuto("valgo_rodilla",L,valgo));
       if(ever.length>=minZ)add(carMetricaAuto("eversion_retropie",L,ever,1,{interpretacion:"Baja confianza: el modelo de pose no marca el calcáneo, solo el talón."}));
-      else calidad.avisos.push(`Eversión del retropié ${lado?"derecho":"izquierdo"}: el talón no se vio con claridad suficiente; no se calcula.`);
+      if(ever.length>=minZ&&everIC.length>=minZ)add(carMetricaAuto("eversion_contacto",L,everIC,1,{interpretacion:`Primer quinto del apoyo. ${CAR_PEND}`}));
+      if(ever.length>=minZ&&everTO.length>=minZ)add(carMetricaAuto("eversion_despegue",L,everTO,1,{interpretacion:`Último quinto del apoyo; menor que en apoyo medio = el pie resupina al despegar. ${CAR_PEND}`}));
+      if(ever.length<minZ)calidad.avisos.push(`Eversión del retropié ${lado?"derecho":"izquierdo"}: el talón no se vio con claridad suficiente; no se calcula.`);
       add(carMetricaAuto("cruce_linea_media",L,[pies.filter(p=>p.lado===lado).filter(p=>p.cruza).length/Math.max(1,pies.filter(p=>p.lado===lado).length)*100],0));
       clave.push({evento:"apoyo_medio_posterior",lado:L,t:fr[mejor??cs[0].i0].t,etiqueta:`Apoyo ${lado?"derecho":"izquierdo"} desde atrás`});
     }
@@ -25901,8 +25937,8 @@ const CAR_BUCKET="carrera";   // bucket privado propio (CARRERA_3_bucket.sql), n
 const CAR_MP_VER="0.10.14";
 const CAR_MP_MODELO="https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
 const CAR_OKL="#E8F5E9",CAR_DAL="#FFEBEE",CAR_WA="#E65100",CAR_WAT="#BF360C",CAR_WAL="#FFF3E0",CAR_BI="#78909C";
-const CAR_ORDEN={sagital:["cadencia","long_paso","contacto","vuelo","rodilla_contacto","rodilla_apoyo","sobrezancada","tibia_contacto","tronco","oscilacion","apoyo"],
-                 frontal:["caida_pelvica","valgo_rodilla","ancho_paso","cruce_linea_media","eversion_retropie"]};
+const CAR_ORDEN={sagital:["cadencia","long_paso","contacto","vuelo","rodilla_contacto","rodilla_apoyo","rodilla_trasera","sobrezancada","sobrezancada_ang","tibia_contacto","tronco","cabeza","codo","oscilacion","apoyo"],
+                 frontal:["caida_pelvica","valgo_rodilla","ancho_paso","cruce_linea_media","eversion_contacto","eversion_retropie","eversion_despegue"]};
 const CAR_HUESOS=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[27,29],[29,31],[27,31],[24,26],[26,28],[28,30],[30,32],[28,32]];
 // Estado de la captura en curso (fuera de STATE: lleva blobs y la cámara)
 let CAR={};
@@ -26076,8 +26112,13 @@ function carDibujarPaciente(){
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid ${BR};background:#F8FAFB;padding:10px 16px">
         <b style="font-size:14px;color:${TX}">Pruebas</b>${CAR_EXPERIMENTAL}</div>
       <div id="car-capturas" style="padding:16px"><p style="color:${MU};font-size:13px"><i class="ti ti-loader-2 spin" aria-hidden="true"></i> Cargando pruebas…</p></div>
+    </div>
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 6px #00000012;overflow:hidden;margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid ${BR};background:#F8FAFB;padding:10px 16px">
+        <b style="font-size:14px;color:${TX}">Fotos para integrar el análisis</b><span id="car-fotos-cuenta" style="font-size:13px;color:${MU}"></span></div>
+      <div id="car-fotos" style="padding:16px"><p style="color:${MU};font-size:13px"><i class="ti ti-loader-2 spin" aria-hidden="true"></i> Cargando fotos…</p></div>
     </div>`;
-  carCargarCapturas();
+  carCargarCapturas();carFotosCargar();
 }
 async function carCargarCapturas(){
   const el=document.getElementById("car-capturas");if(!el||!STATE.carPac)return;
@@ -26085,6 +26126,8 @@ async function carCargarCapturas(){
     .select("id,fecha,tipo,estado,created_at,carrera_analisis(id,vista,fuente,velocidad_kmh,video_fps,calidad,cuadros,carrera_mediciones(*))")
     .eq("paciente_id",STATE.carPac.id).order("created_at",{ascending:false});
   if(error){el.innerHTML=`<p style="color:${DA};font-size:13px">No se pudieron leer las pruebas: ${carEsc(error.message)}</p>`;return;}
+  // Métricas del motor 0.3 que la base no aceptó en su tabla viajan en calidad.metricas_extra
+  for(const ev of data||[])for(const a of ev.carrera_analisis||[])if(Array.isArray(a.calidad?.metricas_extra))a.carrera_mediciones=[...(a.carrera_mediciones||[]),...a.calidad.metricas_extra];
   STATE._carCapturas=data||[];
   if(!data.length){el.innerHTML=carVacio("ti-run","Sin pruebas todavía","Con «Nueva prueba» se graba la vista lateral y la posterior en la banda desde el teléfono.");return;}
   el.innerHTML=data.map((ev,i)=>{
@@ -26121,6 +26164,98 @@ async function carDibujarPrueba(){
     }
   }
 }
+
+// ── Fotos para integrar el análisis ─────────────────────────────────────
+// Cuatro fotos fijas del paciente (plantoscopio y pierna-tobillo-pie en tres
+// planos). Van al bucket privado «carrera», en <paciente>/fotos/, y el propio
+// almacenamiento es el registro: no hay tabla. El nombre lleva el tipo y la
+// fecha; la más reciente de cada tipo es la vigente y las anteriores se conservan.
+const CAR_FOTOS=[
+  {k:"plantoscopio",et:"Pies en el plantoscopio",guia:"Huella completa de ambos pies, del talón a los dedos. Cámara de frente al cristal, sin inclinar."},
+  {k:"frente",et:"Pierna, tobillo y pies · de frente",guia:"De pie, descalzo, peso repartido en ambos pies. Piernas completas, con rodillas, tobillos y pies."},
+  {k:"lado",et:"Pierna, tobillo y pies · de lado",guia:"De pie, descalzo, de perfil. Cámara a la altura de la rodilla; que se vean rodilla, tobillo y el arco del pie."},
+  {k:"atras",et:"Pierna, tobillo y pies · de atrás",guia:"De pie, descalzo, de espaldas. Que se vean pantorrillas, tendón de Aquiles y talones completos."},
+];
+const carFotoFecha=n=>{const m=/_(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/.exec(n||"");return m?`${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`:"";};
+async function carFotosCargar(){
+  const el=document.getElementById("car-fotos");const pac=STATE.carPac;if(!el||!pac)return;
+  const dir=`${pac.id}/fotos`;
+  const {data,error}=await SB.storage.from(CAR_BUCKET).list(dir,{limit:200,sortBy:{column:"name",order:"desc"}});
+  if(!document.getElementById("car-fotos")||STATE.carPac?.id!==pac.id)return;
+  if(error){el.innerHTML=`<p style="color:${DA};font-size:13px">No se pudieron leer las fotos: ${carEsc(error.message)}</p>`;return;}
+  const arch=(data||[]).filter(f=>f&&f.name&&/\.jpe?g$/i.test(f.name)).sort((a,b)=>a.name<b.name?1:-1);
+  const vig={};for(const c of CAR_FOTOS){const mias=arch.filter(f=>f.name.startsWith(c.k+"_"));if(mias.length)vig[c.k]={name:mias[0].name,path:`${dir}/${mias[0].name}`,previas:mias.length-1};}
+  const rutas=Object.values(vig).map(v=>v.path);
+  const urls={};
+  if(rutas.length){
+    const {data:firmadas}=await SB.storage.from(CAR_BUCKET).createSignedUrls(rutas,900);
+    for(const u of firmadas||[])if(u&&u.signedUrl&&!u.error)urls[u.path]=u.signedUrl;
+    if(!document.getElementById("car-fotos")||STATE.carPac?.id!==pac.id)return;
+  }
+  STATE._carFotos=vig;
+  const cuenta=document.getElementById("car-fotos-cuenta");if(cuenta)cuenta.textContent=`${Object.keys(vig).length} de ${CAR_FOTOS.length}`;
+  const bt=`padding:9px 14px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px`;
+  el.innerHTML=`<p style="font-size:13px;color:${MU};margin:0 0 12px">Tómalas con el teléfono o súbelas desde la computadora. Se guardan en el almacenamiento privado del módulo y solo las ven los usuarios de prueba.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${CAR_FOTOS.map(c=>{
+    const v=vig[c.k],url=v&&urls[v.path];
+    return`<div id="car-foto-${c.k}" style="border:1px solid ${BR};border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">
+      <b style="font-size:14px;color:${TX}">${c.et}</b>
+      ${v?(url?`<a href="${carEsc(url)}" target="_blank" rel="noopener" title="Abrir en grande"><img src="${carEsc(url)}" alt="${c.et}" style="width:100%;height:220px;object-fit:contain;background:#F5F7F9;border-radius:8px;display:block"></a>`
+            :`<div style="height:220px;display:flex;align-items:center;justify-content:center;background:#F5F7F9;border-radius:8px;font-size:13px;color:${DA}">La foto está guardada pero no se pudo abrir</div>`)
+          +`<span style="font-size:13px;color:${MU}">${carEsc(carFotoFecha(v.name))}${v.previas?` · ${v.previas} anterior${v.previas>1?"es":""} conservada${v.previas>1?"s":""}`:""}</span>`
+        :`<div style="height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#F5F7F9;border:1.5px dashed ${CAR_BI};border-radius:8px;padding:12px;text-align:center">
+            <i class="ti ti-camera-plus" style="font-size:30px;color:${MU}" aria-hidden="true"></i><span style="font-size:13px;color:${MU}">Falta esta foto</span></div>`}
+      <span style="font-size:13px;color:${MU};line-height:1.45">${c.guia}</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:auto">
+        <label style="${bt};background:${P};color:#fff;border:none"><i class="ti ti-camera" aria-hidden="true"></i> ${v?"Reemplazar":"Tomar o subir foto"}
+          <input type="file" accept="image/*" data-foto="${c.k}" onchange="carFotoSubir(this)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></label>
+        ${v?`<button onclick="carFotoQuitar('${c.k}')" style="${bt};background:#fff;color:${DA};border:1.5px solid ${DA}">Quitar</button>`:""}
+      </div></div>`;}).join("")}</div>`;
+}
+// Reduce la foto a JPEG de lado largo ≤ 2200 px (suficiente para medir y ~10 veces más ligera que la original).
+async function carFotoReducir(file){
+  let img,w,h;
+  try{img=await createImageBitmap(file,{imageOrientation:"from-image"});w=img.width;h=img.height;}
+  catch(e){
+    img=await new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{URL.revokeObjectURL(u);res(im);};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("este navegador no pudo leer la imagen"));};im.src=u;});
+    w=img.naturalWidth;h=img.naturalHeight;
+  }
+  if(!w||!h)throw new Error("la imagen está vacía");
+  const k=Math.min(1,2200/Math.max(w,h)),c=document.createElement("canvas");
+  c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+  if(img.close)img.close();
+  const blob=await new Promise(res=>c.toBlob(res,"image/jpeg",0.88));
+  c.width=c.height=0;
+  if(!blob)throw new Error("no se pudo preparar la imagen");
+  return blob;
+}
+window.carFotoSubir=async function(inp){
+  const f=inp.files&&inp.files[0],k=inp.dataset.foto;inp.value="";
+  const pac=STATE.carPac,def=CAR_FOTOS.find(c=>c.k===k);if(!f||!pac||!def)return;
+  if(!carEsPrueba(pac)){showToast(`Durante el piloto solo se guardan expedientes «${CAR_PILOTO_PREFIJO} …»`,false);return;}
+  if(f.type&&!f.type.startsWith("image/")){showToast("Elige una imagen",false);return;}
+  loading(true,"Subiendo foto…");
+  try{
+    const blob=await carFotoReducir(f);
+    const d=new Date(),z=n=>String(n).padStart(2,"0");
+    const nombre=`${k}_${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.jpg`;
+    const {error}=await SB.storage.from(CAR_BUCKET).upload(`${pac.id}/fotos/${nombre}`,blob,{contentType:"image/jpeg",upsert:false});
+    if(error)throw new Error(error.message);
+    logBitacora("CARRERA_FOTO",def.et,pac.id);
+    showToast("Foto guardada: "+def.et);
+  }catch(e){showToast("No se guardó la foto: "+(e.message||e),false);}
+  loading(false);
+  carFotosCargar();
+};
+window.carFotoQuitar=async function(k){
+  const v=STATE._carFotos?.[k],def=CAR_FOTOS.find(c=>c.k===k),pac=STATE.carPac;if(!v||!def||!pac)return;
+  if(!await qpConfirm(`¿Quitar la foto «${def.et}»?${v.previas?" Volverá a verse la anterior.":""}`,{title:"Fotos del análisis",okLabel:"Quitar",danger:true}))return;
+  const {data,error}=await SB.storage.from(CAR_BUCKET).remove([v.path]);
+  // Sin permiso de borrado, Storage no da error: simplemente no borra nada.
+  if(error||!(data||[]).length)showToast("No se pudo quitar la foto"+(error?": "+error.message:" (el almacenamiento no permite borrar). Puedes reemplazarla."),false);
+  else{logBitacora("CARRERA_FOTO_QUITAR",def.et,pac.id);showToast("Foto quitada");}
+  carFotosCargar();
+};
 
 // ── Lista de usuarios de prueba (solo el responsable) ───────────────────
 async function carProbadoresPanel(){
@@ -26165,16 +26300,30 @@ window.carProbadorQuitar=async function(id){
 };
 
 // ══ CAPTURA GUIADA ═════════════════════════════════════════════════════
-// Siluetas dibujadas para este módulo (trazo grueso = silueta).
+// Siluetas dibujadas para este módulo: cuerpo translúcido con contorno,
+// línea del piso (banda) y un blanco en la cadera para centrar al corredor.
+const CAR_SIL_FILTRO=`<defs><filter id="s" x="-20%" y="-10%" width="140%" height="120%"><feMorphology in="SourceAlpha" operator="dilate" radius="3" result="d"/><feComposite in="d" in2="SourceAlpha" operator="out" result="aro"/><feFlood flood-color="#fff" result="blanco"/><feComposite in="blanco" in2="aro" operator="in" result="linea"/><feComponentTransfer in="SourceGraphic" result="cuerpo"><feFuncA type="linear" slope=".28"/></feComponentTransfer><feMerge><feMergeNode in="cuerpo"/><feMergeNode in="linea"/></feMerge></filter></defs>`;
+const CAR_SIL_BLANCO=(x,y)=>`<g fill="none" stroke="#24B1DA"><circle cx="${x}" cy="${y}" r="15" stroke-width="3"/><circle cx="${x}" cy="${y}" r="6" stroke-width="3" fill="#24B1DA" fill-opacity=".55"/></g>`;
 const CAR_SILUETA={
-  sagital:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"><circle cx="112" cy="40" r="22" fill="#fff"/><path d="M108 72 L96 190"/><path d="M104 92 L132 140 L162 124"/><path d="M104 92 L76 140 L60 178"/><path d="M96 190 L136 268 L116 360 L144 366"/><path d="M96 190 L70 270 L36 314"/></g><path d="M10 372 H190" stroke="#fff" stroke-width="4" stroke-dasharray="10 8"/></svg>`,
-  frontal:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"><circle cx="100" cy="40" r="22" fill="#fff"/><path d="M100 70 V190"/><path d="M68 92 H132"/><path d="M68 92 L50 150 L56 196"/><path d="M132 92 L150 150 L144 196"/><path d="M80 190 L76 280 L80 366"/><path d="M120 190 L126 270 L118 330"/></g><path d="M100 10 V390" stroke="#fff" stroke-width="3" stroke-dasharray="8 8"/><path d="M10 372 H190" stroke="#fff" stroke-width="4" stroke-dasharray="10 8"/></svg>`,
+  sagital:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400">${CAR_SIL_FILTRO}<g filter="url(#s)"><g fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"><circle cx="112" cy="40" r="21" fill="#fff" stroke-width="6"/><path d="M108 76 L96 190" stroke-width="34"/><path d="M104 92 L132 140 L162 124" stroke-width="16"/><path d="M104 92 L76 140 L60 178" stroke-width="16"/><path d="M96 190 L136 268 L116 356 L146 362"/><path d="M96 190 L70 270 L36 314"/></g></g><path d="M4 376 H196" stroke="#fff" stroke-width="3" stroke-dasharray="10 8" opacity=".8"/>${CAR_SIL_BLANCO(96,190)}</svg>`,
+  frontal:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400">${CAR_SIL_FILTRO}<g filter="url(#s)"><g fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"><circle cx="100" cy="40" r="21" fill="#fff" stroke-width="6"/><path d="M100 84 V180" stroke-width="58"/><path d="M66 94 L50 150 L58 194" stroke-width="15"/><path d="M134 94 L150 150 L142 194" stroke-width="15"/><path d="M84 190 L78 280 L82 362"/><path d="M116 190 L124 272 L118 330"/></g></g><path d="M100 6 V394" stroke="#fff" stroke-width="2" stroke-dasharray="6 8" opacity=".6"/><path d="M4 376 H196" stroke="#fff" stroke-width="3" stroke-dasharray="10 8" opacity=".8"/>${CAR_SIL_BLANCO(100,190)}</svg>`,
 };
 const CAR_GUIA={
-  sagital:"LATERAL · teléfono de lado a la banda, a la altura de la cadera, a 2.5–3 m. Que se vea el cuerpo completo, de la cabeza a los pies.",
-  frontal:"POSTERIOR · teléfono detrás del corredor, centrado, a la altura de la cadera, a 2.5–3 m. Cuerpo completo, pies incluidos.",
+  sagital:"LATERAL · teléfono de lado a la banda, a la altura de la cadera, a 2.5–3 m. Cuerpo completo, de la cabeza a los pies, con la cadera en el círculo.",
+  frontal:"POSTERIOR · teléfono detrás del corredor, centrado, a la altura de la cadera, a 2.5–3 m. Cuerpo completo, pies incluidos, con la cadera en el círculo.",
 };
-
+// Motor de pose: primero la copia publicada en qpclinic.org (carpeta /mp del
+// repositorio) y, si no está, el CDN. El lado largo del cuadro que se analiza
+// se limita para que el teléfono alcance a procesar cada cuadro.
+const CAR_MP_FUENTES=[
+  {nombre:"qpclinic.org",mjs:"/mp/vision_bundle.js",wasm:"/mp/wasm",modelo:"/mp/pose_landmarker_full.task",local:true},
+  {nombre:"CDN",mjs:`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${CAR_MP_VER}/vision_bundle.mjs`,wasm:`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${CAR_MP_VER}/wasm`,modelo:CAR_MP_MODELO},
+];
+const CAR_LADO_ANALISIS=960;
+let CAR_TURNO=0;   // cambia al cerrar la captura: lo que siga corriendo de una captura anterior se detiene
+const carEsIOS=()=>/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const carEsSafari=()=>/^((?!chrome|chromium|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent);
+function carPlazo(prom,ms,msg){let h;return Promise.race([prom,new Promise((_,rej)=>{h=setTimeout(()=>rej(new Error(msg)),ms);})]).finally(()=>clearTimeout(h));}
 window.carCapturaAbrir=async function(){
   if(!STATE.carPac){showToast("Selecciona un paciente primero",false);return;}
   if(!carEsPrueba(STATE.carPac)){showToast(`Durante el piloto solo se graban expedientes «${CAR_PILOTO_PREFIJO} …»`,false);return;}
@@ -26196,17 +26345,44 @@ window.carCapturaAbrir=async function(){
   await carAbrirCamara();
 };
 function carOpcionesVelocidad(sel){let h="";for(let i=40;i<=200;i++){const v=(i/10).toFixed(1);h+=`<option value="${v}" ${v===sel?"selected":""}>${v} km/h</option>`;}return h;}
+function carCamposHTML(){
+  return`<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
+        <label style="font-size:12px;color:#CFD8DC">Velocidad de la banda<br>
+          <select id="car-vel" onchange="CAR.velocidad=this.value" style="padding:8px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:16px;margin-top:3px">${carOpcionesVelocidad(CAR.velocidad)}</select></label>
+        <label style="font-size:12px;color:#CFD8DC">Talla (cm)<br>
+          <input id="car-talla" type="number" inputmode="numeric" min="100" max="230" value="${CAR.talla||""}" placeholder="Ej. 172" onchange="CAR.talla=this.value" style="width:96px;padding:8px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:16px;margin-top:3px"></label>
+        <span style="font-size:11px;color:#90A4AE;flex-basis:100%">Sin talla no se calculan las distancias en cm. El video no sale del teléfono.</span>
+      </div>`;
+}
+// Botón «Galería»: un <label> sobre un <input type=file>, que es lo que iOS abre sin trabas.
+function carBotonGaleria(txt="Galería"){
+  return`<label for="car-archivo" id="car-galeria" style="padding:12px 16px;border:1.5px solid #B3E5FC;border-radius:10px;background:transparent;color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><i class="ti ti-photo-video" aria-hidden="true"></i> ${txt}</label>
+    <input id="car-archivo" type="file" accept="video/*" onchange="carGaleriaElegida(this)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">`;
+}
+function carGaleriaBloquear(si){
+  const l=document.getElementById("car-galeria"),i=document.getElementById("car-archivo"),e=document.getElementById("car-espejo");
+  if(l){l.style.opacity=si?".4":"1";l.style.pointerEvents=si?"none":"auto";}
+  if(i)i.disabled=!!si;if(e)e.style.display=si?"none":"";
+}
+function carLeerCampos(){
+  const vel=gv("car-vel");if(vel)CAR.velocidad=vel;
+  if(document.getElementById("car-talla")){const t=parseFloat(gv("car-talla"));CAR.talla=t>=100&&t<=230?t:null;}
+}
 function carCapturaDibujar(){
   const ov=document.getElementById("car-captura");if(!ov)return;
+  const vistaTxt=CAR.vista==="sagital"?"lateral":"posterior";
   const cab=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${PD};flex-shrink:0">
     <button id="car-volver" onclick="carCapturaCerrar()" style="${CAR_VOLVER_ST};flex-shrink:0">← Volver al paciente</button>
-    <div style="min-width:0"><b style="font-size:15px;color:#fff">Nueva prueba</b>
+    <div style="min-width:0"><b style="font-size:15px;color:#fff">Nueva prueba · vista ${vistaTxt}</b>
     <div style="font-size:12px;color:#B0BEC5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${carEsc(carNombre(STATE.carPac))}</div></div></div>`;
   if(CAR.paso==="abriendo"||CAR.paso==="sincamara"){
     ov.innerHTML=cab+`<div style="padding:30px 18px;max-width:520px;margin:0 auto;width:100%;text-align:center">
       ${CAR.paso==="abriendo"?`<i class="ti ti-loader-2 spin" style="font-size:36px;color:#24B1DA" aria-hidden="true"></i><div style="margin-top:10px;font-size:15px">Abriendo la cámara…</div>`
         :`<i class="ti ti-camera-off" style="font-size:36px;color:#FFB74D" aria-hidden="true"></i><div style="margin:10px 0 16px;font-size:15px">${carEsc(CAR.errorCamara||"No se pudo abrir la cámara")}</div>
-          <button onclick="CAR.paso='abriendo';carCapturaDibujar();carAbrirCamara()" style="padding:12px 20px;border:none;border-radius:10px;background:${P};color:#fff;font-size:15px;font-weight:700;cursor:pointer"><i class="ti ti-refresh" aria-hidden="true"></i> Reintentar</button>`}
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+          <button onclick="CAR.paso='abriendo';carCapturaDibujar();carAbrirCamara()" style="padding:12px 20px;border:none;border-radius:10px;background:${P};color:#fff;font-size:15px;font-weight:700;cursor:pointer"><i class="ti ti-refresh" aria-hidden="true"></i> Reintentar</button>
+          ${carBotonGaleria("Elegir un video ya grabado")}</div>
+          <div style="font-size:13px;color:#B0BEC5;margin-top:14px;line-height:1.5">También puedes grabar con la cámara del teléfono (sin cámara lenta) y elegir aquí el video de la vista ${vistaTxt}.</div>`}
     </div>`;
     return;
   }
@@ -26214,21 +26390,17 @@ function carCapturaDibujar(){
     const v=CAR.vista;
     ov.innerHTML=cab+`<div style="position:relative;flex:1;min-height:0;background:#000" id="car-escena">
       <video id="car-vivo" playsinline muted autoplay style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain"></video>
-      <img id="car-silueta" alt="" src="data:image/svg+xml,${encodeURIComponent(CAR_SILUETA[v])}" style="position:absolute;left:50%;top:50%;height:86%;transform:translate(-50%,-50%);opacity:.32;pointer-events:none">
+      <img id="car-silueta" alt="" src="data:image/svg+xml,${encodeURIComponent(CAR_SILUETA[v])}" style="position:absolute;left:50%;top:50%;height:86%;transform:translate(-50%,-50%)${v==="sagital"&&CAR.espejo?" scaleX(-1)":""};opacity:.9;pointer-events:none">
       <canvas id="car-lienzo" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
       <div id="car-hud" style="position:absolute;left:10px;right:10px;top:10px;display:flex;flex-direction:column;gap:6px;pointer-events:none"></div>
+      ${v==="sagital"?`<button id="car-espejo" onclick="carEspejo()" title="Voltear la silueta" aria-label="Voltear la silueta según hacia dónde corre" style="position:absolute;right:10px;bottom:10px;z-index:2;padding:8px 12px;border:1.5px solid #fff;border-radius:10px;background:rgba(0,0,0,.55);color:#fff;font-size:13px;font-weight:700;cursor:pointer">⇄ Voltear silueta</button>`:""}
       <div id="car-cuenta" aria-live="assertive" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:120px;font-weight:800;text-shadow:0 2px 12px #000;pointer-events:none"></div>
     </div>
     <div style="padding:10px 14px;background:#16252D;flex-shrink:0">
       <div style="font-size:13px;color:#ECEFF1;margin-bottom:8px">${carEsc(CAR_GUIA[v])}</div>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
-        <label style="font-size:12px;color:#CFD8DC">Velocidad de la banda<br>
-          <select id="car-vel" onchange="CAR.velocidad=this.value" style="padding:8px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:16px;margin-top:3px">${carOpcionesVelocidad(CAR.velocidad)}</select></label>
-        <label style="font-size:12px;color:#CFD8DC">Talla (cm)<br>
-          <input id="car-talla" type="number" inputmode="numeric" min="100" max="230" value="${CAR.talla||""}" placeholder="Ej. 172" onchange="CAR.talla=this.value" style="width:96px;padding:8px;border-radius:8px;border:1.5px solid ${CAR_BI};font-size:16px;margin-top:3px"></label>
-        <span style="font-size:11px;color:#90A4AE;flex-basis:100%">Sin talla no se calculan las distancias en cm. El video no sale del teléfono.</span>
-      </div>
+      ${carCamposHTML()}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${carBotonGaleria()}
         <span id="car-fps" style="font-size:12px;color:#B0BEC5"></span>
         <button id="car-grabar" onclick="carGrabar()" style="margin-left:auto;padding:12px 18px;border:none;border-radius:10px;background:${DA};color:#fff;font-size:15px;font-weight:700;cursor:pointer"><i class="ti ti-player-record" aria-hidden="true"></i> Grabar ${v==="sagital"?"LATERAL":"POSTERIOR"} (${CAR_SEG_GRABACION} s)</button>
       </div>
@@ -26239,13 +26411,45 @@ function carCapturaDibujar(){
     carVivoIniciar();
     return;
   }
+  if(CAR.paso==="galeria"){
+    const g=CAR.galeria;
+    ov.innerHTML=cab+`<div style="position:relative;flex:1;min-height:220px;background:#000">
+      <video id="car-previo" src="${g.url}" controls playsinline muted preload="metadata" onloadedmetadata="carGaleriaMeta(this)" onerror="carGaleriaMeta(this,true)" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain"></video>
+    </div>
+    <div style="padding:10px 14px;background:#16252D;flex-shrink:0">
+      <div style="font-size:13px;color:#ECEFF1;margin-bottom:8px">Video de la galería para la vista <b>${vistaTxt}</b>. Debe ser de teléfono fijo, cuerpo completo y a velocidad normal (sin cámara lenta).</div>
+      <div id="car-gal-info" style="font-size:13px;color:#B0BEC5;margin-bottom:8px">Leyendo el video…</div>
+      ${carCamposHTML()}
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button onclick="carVolverACamara()" style="padding:12px 16px;border:1.5px solid #B3E5FC;border-radius:10px;background:transparent;color:#fff;font-size:15px;font-weight:700;cursor:pointer">← Cámara</button>
+        <button id="car-gal-analizar" onclick="carGaleriaAnalizar()" style="margin-left:auto;padding:12px 18px;border:none;border-radius:10px;background:${P};color:#fff;font-size:15px;font-weight:700;cursor:pointer"><i class="ti ti-player-play" aria-hidden="true"></i> Analizar este video</button>
+      </div>
+    </div>`;
+    return;
+  }
   if(CAR.paso==="analizando"){
+    ov.innerHTML=cab+`<div style="padding:16px 18px;max-width:520px;margin:0 auto;width:100%;text-align:center">
+      <div style="font-size:16px;font-weight:700;margin:4px 0 10px">Analizando vista ${vistaTxt} en el teléfono…</div>
+      <div id="car-visor" style="position:relative;width:100%;height:42vh;min-height:200px;background:#000;border-radius:10px;overflow:hidden">
+        <canvas id="car-lienzo-an" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1"></canvas>
+      </div>
+      <div id="car-prog-txt" style="font-size:13px;color:#B0BEC5;margin-top:10px">Cargando…</div>
+      <div style="height:8px;background:#263238;border-radius:4px;margin-top:10px;overflow:hidden"><div id="car-prog" style="height:100%;width:0;background:#24B1DA;transition:width .2s"></div></div>
+      <div style="font-size:12px;color:#B0BEC5;margin-top:12px">No cierres esta pantalla. El video no se sube a ningún servidor.</div>
+      <button id="car-cancelar" onclick="carCancelarAnalisis()" style="margin-top:14px;padding:10px 16px;border:1.5px solid #B3E5FC;border-radius:10px;background:transparent;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Cancelar análisis</button>
+    </div>`;
+    return;
+  }
+  if(CAR.paso==="fallo"){
     ov.innerHTML=cab+`<div style="padding:30px 18px;max-width:520px;margin:0 auto;width:100%;text-align:center">
-      <i class="ti ti-loader-2 spin" style="font-size:40px;color:#24B1DA" aria-hidden="true"></i>
-      <div style="font-size:16px;font-weight:700;margin:12px 0 6px">Analizando vista ${CAR.vista==="sagital"?"lateral":"posterior"} en el teléfono…</div>
-      <div id="car-prog-txt" style="font-size:13px;color:#B0BEC5">Cargando…</div>
-      <div style="height:8px;background:#263238;border-radius:4px;margin-top:14px;overflow:hidden"><div id="car-prog" style="height:100%;width:0;background:#24B1DA;transition:width .2s"></div></div>
-      <div style="font-size:12px;color:#B0BEC5;margin-top:14px">No cierres esta pantalla. El video no se sube a ningún servidor.</div>
+      <i class="ti ti-alert-triangle" style="font-size:36px;color:#FFB74D" aria-hidden="true"></i>
+      <div style="font-size:16px;font-weight:700;margin:10px 0 6px">No se pudo analizar la vista ${vistaTxt}</div>
+      <div id="car-fallo-txt" style="font-size:14px;color:#ECEFF1;line-height:1.5;margin-bottom:16px">${carEsc(CAR.errorAnalisis||"Error desconocido")}</div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button id="car-reintentar" onclick="carEjecutarAnalisis()" style="padding:12px 20px;border:none;border-radius:10px;background:${P};color:#fff;font-size:15px;font-weight:700;cursor:pointer"><i class="ti ti-refresh" aria-hidden="true"></i> Reintentar el análisis</button>
+        <button onclick="carVolverACamara()" style="padding:12px 16px;border:1.5px solid #B3E5FC;border-radius:10px;background:transparent;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Grabar de nuevo</button>
+      </div>
+      <div style="font-size:12px;color:#B0BEC5;margin-top:14px">La grabación sigue en el teléfono: «Reintentar» no obliga a grabar otra vez.</div>
     </div>`;
     return;
   }
@@ -26274,17 +26478,26 @@ function carCapturaDibujar(){
 }
 
 // ── Cámara, nivel y encuadre ────────────────────────────────────────────
+function carApagarCamara(){
+  CAR.vivo=false;
+  if(CAR.stream){CAR.stream.getTracks().forEach(t=>t.stop());CAR.stream=null;}
+}
 window.carAbrirCamara=async function(){
-  const sinCam=m=>{if(!document.getElementById("car-captura"))return;CAR.errorCamara=m;CAR.paso="sincamara";carCapturaDibujar();};
+  const turno=CAR_TURNO;
+  const sinCam=m=>{if(turno!==CAR_TURNO||!document.getElementById("car-captura"))return;CAR.errorCamara=m;CAR.paso="sincamara";carCapturaDibujar();};
+  carApagarCamara();
   if(!navigator.mediaDevices?.getUserMedia){sinCam("Este navegador no da acceso a la cámara");return;}
   // 60 cuadros/s como ideal, sin mínimo: un mínimo que la cámara no alcanza (poca luz) la deja sin abrir.
   const pedir=video=>navigator.mediaDevices.getUserMedia({audio:false,video});
+  let stream;
   try{
-    try{CAR.stream=await pedir({facingMode:{ideal:"environment"},frameRate:{ideal:60},width:{ideal:1280},height:{ideal:720}});}
-    catch(e){if(e.name!=="OverconstrainedError")throw e;CAR.stream=await pedir({facingMode:{ideal:"environment"}});}
-  }catch(e){sinCam("No se pudo abrir la cámara: "+(e.name==="NotAllowedError"?"permiso negado":e.message));return;}
-  // Si salió mientras se abría la cámara, apagarla
-  if(!document.getElementById("car-captura")){CAR.stream.getTracks().forEach(t=>t.stop());CAR.stream=null;return;}
+    try{stream=await pedir({facingMode:{ideal:"environment"},frameRate:{ideal:60},width:{ideal:1280},height:{ideal:720}});}
+    catch(e){if(e.name!=="OverconstrainedError")throw e;stream=await pedir({facingMode:{ideal:"environment"}});}
+  }catch(e){sinCam("No se pudo abrir la cámara: "+(e.name==="NotAllowedError"?"permiso negado":e.name==="NotFoundError"?"este equipo no tiene cámara":e.message));return;}
+  // Si salió (o cambió de paso) mientras se abría la cámara, apagarla
+  if(turno!==CAR_TURNO||!document.getElementById("car-captura")||CAR.paso!=="abriendo"){stream.getTracks().forEach(t=>t.stop());return;}
+  CAR.stream=stream;
+  stream.getVideoTracks()[0].onended=()=>{if(CAR.stream===stream&&CAR.paso==="camara"&&!CAR.grabando)sinCam("La cámara se interrumpió.");};
   CAR.nivel={roll:null,pitch:null,ts:0};
   CAR.onMotion=ev=>{
     const g=ev.accelerationIncludingGravity;if(!g||g.x==null)return;
@@ -26295,26 +26508,105 @@ window.carAbrirCamara=async function(){
   if(CAR.onMotion0)window.removeEventListener("devicemotion",CAR.onMotion0);
   CAR.onMotion0=CAR.onMotion;window.addEventListener("devicemotion",CAR.onMotion);
   CAR.paso="camara";carCapturaDibujar();
-  carPoseCargar().catch(e=>carHud([{tipo:"error",txt:"No se pudo cargar el modelo de pose: "+e.message}]));
+  carPoseCargar().catch(()=>{});   // el aviso lo pinta la vista previa con CAR_POSE.error
 };
-// MediaPipe se carga solo cuando se usa (unos 10 MB la primera vez; luego el navegador lo guarda).
+
+// ── Motor de pose (MediaPipe) ───────────────────────────────────────────
+// Se carga solo cuando se usa (unos 19 MB la primera vez; luego el navegador
+// lo guarda). Todo paso tiene plazo y avance visible: nunca se queda girando.
+const CAR_POSE={lmk:null,prom:null,ts:0,txt:"",pct:0,delegado:null,fuente:null,error:null};
+function carPoseAviso(txt,pct){
+  CAR_POSE.txt=txt;CAR_POSE.pct=pct;
+  if(CAR.paso==="analizando")carProgreso(pct*0.15,txt);
+}
+// Descarga con avance; se rinde si pasan 25 s sin recibir datos.
+async function carDescargar(url,alAvance,esperado){
+  const ctl=new AbortController();let reloj;
+  const vigia=()=>{clearTimeout(reloj);reloj=setTimeout(()=>ctl.abort(),25000);};
+  vigia();
+  try{
+    const r=await fetch(url,{signal:ctl.signal});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const total=Number(r.headers.get("content-length"))||esperado;
+    if(!r.body||!r.body.getReader)return new Uint8Array(await r.arrayBuffer());
+    const rd=r.body.getReader(),partes=[];let n=0;
+    for(;;){const {done,value}=await rd.read();if(done)break;partes.push(value);n+=value.length;vigia();alAvance(Math.min(1,n/total),n);}
+    const out=new Uint8Array(n);let o=0;for(const p of partes){out.set(p,o);o+=p.length;}
+    return out;
+  }catch(e){throw new Error(e.name==="AbortError"?"la descarga se detuvo (25 s sin recibir datos)":"no se pudo descargar ("+e.message+")");}
+  finally{clearTimeout(reloj);}
+}
+// Un .task es un ZIP: termina con el índice «PK\x05\x06» (una página HTML de error no lo trae).
+function carEsZip(b){for(let i=b.length-22,fin=Math.max(0,b.length-66000);i>=fin;i--)if(b[i]===0x50&&b[i+1]===0x4B&&b[i+2]===5&&b[i+3]===6)return true;return false;}
+function carLienzoNegro(ctx,cv){
+  try{const d=ctx.getImageData(0,0,cv.width,cv.height).data;let s=0,n=0;for(let i=0;i<d.length;i+=4*97){s+=d[i]+d[i+1]+d[i+2];n++;}return s/n<6;}catch(e){return false;}
+}
+const carMB=n=>(n/1048576).toFixed(1)+" MB";
+async function carPoseDesde(f){
+  carPoseAviso("Cargando el motor de pose…",0.02);
+  const mp=await carPlazo(import(f.mjs),30000,"el motor de pose no cargó en 30 s").catch(e=>{throw new Error(/30 s/.test(e.message)?e.message:"no se pudo descargar el motor de pose");});
+  const fs=await carPlazo(mp.FilesetResolver.forVisionTasks(f.wasm),15000,"el motor de pose no respondió");
+  // El WASM y el modelo se bajan aquí (con avance) y se entregan ya en memoria.
+  const wasm=await carDescargar(fs.wasmBinaryPath,(p,n)=>carPoseAviso(`Descargando el motor de pose… ${carMB(n)}`,0.05+p*0.4),9400000);
+  if(wasm.length<1e6||wasm[0]!==0||wasm[1]!==0x61||wasm[2]!==0x73||wasm[3]!==0x6D)throw new Error("el motor de pose llegó incompleto");
+  let modelo=null,eMod=null;
+  for(const url of [...new Set([f.modelo,CAR_MP_MODELO])]){
+    try{
+      const m=await carDescargar(url,(p,n)=>carPoseAviso(`Descargando el modelo de pose… ${carMB(n)}`,0.45+p*0.4),9400000);
+      if(m.length<1e6||!carEsZip(m))throw new Error("el modelo de pose llegó incompleto");
+      modelo=m;break;
+    }catch(e){eMod=e;}
+  }
+  if(!modelo)throw eMod;
+  const wasmUrl=URL.createObjectURL(new Blob([wasm],{type:"application/wasm"}));
+  const fs2={wasmLoaderPath:fs.wasmLoaderPath,wasmBinaryPath:wasmUrl};
+  // En iPhone/iPad el modo GPU de MediaPipe se queda colgado o falla: ahí va directo a CPU.
+  let pref=null;try{pref=localStorage.getItem("carDelegado");}catch(e){}
+  const orden=pref==="GPU"||pref==="CPU"?[pref,pref==="GPU"?"CPU":"GPU"]:(carEsIOS()||carEsSafari())?["CPU"]:["GPU","CPU"];
+  let ultimo=null;
+  try{
+    for(const d of orden){
+      try{
+        carPoseAviso(`Iniciando el análisis de pose (${d})…`,0.88);
+        const lmk=await carPlazo(mp.PoseLandmarker.createFromOptions(fs2,{baseOptions:{modelAssetBuffer:modelo,delegate:d},runningMode:"VIDEO",numPoses:1}),d==="GPU"?20000:60000,`el modo ${d} no arrancó a tiempo`);
+        // Prueba en seco: si el modo no funciona en este equipo, falla aquí y no a media grabación.
+        const c=document.createElement("canvas");c.width=96;c.height=96;c.getContext("2d").fillRect(0,0,96,96);
+        lmk.detectForVideo(c,carPoseTs());
+        CAR_POSE.delegado=d;CAR_POSE.fuente=f.nombre;
+        return lmk;
+      }catch(e){ultimo=e;}
+    }
+  }finally{setTimeout(()=>URL.revokeObjectURL(wasmUrl),60000);}
+  throw ultimo||new Error("no arrancó el análisis de pose");
+}
 async function carPoseCargar(){
   if(CAR_POSE.lmk)return CAR_POSE.lmk;
   if(!CAR_POSE.prom){
+    CAR_POSE.error=null;
     CAR_POSE.prom=(async()=>{
-      const mp=await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${CAR_MP_VER}/vision_bundle.mjs`);
-      const fs=await mp.FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${CAR_MP_VER}/wasm`);
-      const crear=delegate=>mp.PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:CAR_MP_MODELO,delegate},runningMode:"VIDEO",numPoses:1});
-      try{CAR_POSE.lmk=await crear("GPU");}catch(e){CAR_POSE.lmk=await crear("CPU");}
-      return CAR_POSE.lmk;
+      const errores=[];
+      for(const f of CAR_MP_FUENTES){
+        if(f.local){
+          // ¿Está publicada la copia propia? Si no (404 o respuesta que no es JavaScript), sigue el CDN.
+          // Sin red no se descarta: el service worker puede tenerla guardada.
+          try{const r=await carPlazo(fetch(f.mjs,{method:"HEAD",cache:"no-store"}),8000,"sin respuesta");
+            if(!r.ok||!/javascript/i.test(r.headers.get("content-type")||""))continue;}
+          catch(e){}
+        }
+        try{CAR_POSE.lmk=await carPoseDesde(f);carPoseAviso("Modelo de pose listo",1);return CAR_POSE.lmk;}
+        catch(e){errores.push(`${f.nombre}: ${e.message}`);console.warn("[carrera] motor de pose desde "+f.nombre+":",e);}
+      }
+      throw new Error("No se pudo cargar el modelo de pose ("+(errores.join(" · ")||"sin conexión")+"). Revisa la conexión a internet y reintenta.");
     })();
-    CAR_POSE.prom.catch(()=>{CAR_POSE.prom=null;});
+    CAR_POSE.prom.catch(e=>{CAR_POSE.prom=null;CAR_POSE.error=e.message;});
   }
   return CAR_POSE.prom;
 }
-const CAR_POSE={lmk:null,prom:null,ts:0};
 // MediaPipe en modo VIDEO exige marcas de tiempo siempre crecientes, también entre grabaciones.
 function carPoseTs(){CAR_POSE.ts=Math.max(CAR_POSE.ts+1,performance.now());return CAR_POSE.ts;}
+// Al analizar una grabación la marca es el tiempo DEL VIDEO (no el reloj): así el suavizado del
+// modelo no depende de qué tan despacio lea el equipo ni del modo de lectura.
+function carPoseTsVideo(base,t){CAR_POSE.ts=Math.max(CAR_POSE.ts+1,base+Math.round(t*1000));return CAR_POSE.ts;}
 function carRectVideo(v){
   const W=v.clientWidth,H=v.clientHeight,vw=v.videoWidth||1,vh=v.videoHeight||1,s=Math.min(W/vw,H/vh);
   return{x:(W-vw*s)/2,y:(H-vh*s)/2,w:vw*s,h:vh*s};
@@ -26330,6 +26622,8 @@ function carEncuadre(lm){
   if([11,12].some(fuera))av.push({tipo:"aviso",txt:"Los hombros no caben: aléjate o sube el teléfono"});
   const top=Math.min(lm[0].y,lm[11].y,lm[12].y),pie=Math.max(lm[29].y,lm[30].y,lm[31].y,lm[32].y);
   if(!av.length&&pie-top<0.45)av.push({tipo:"aviso",txt:"El cuerpo se ve pequeño: acércate"});
+  const cx=(lm[23].x+lm[24].x)/2,cy=(lm[23].y+lm[24].y)/2;
+  if(!av.length&&(cx<0.32||cx>0.68||cy<0.33||cy>0.63))av.push({tipo:"aviso",txt:"Centra la cadera del corredor en el círculo"});
   return av;
 }
 function carNivelAvisos(){
@@ -26351,20 +26645,37 @@ function carDibujarEsqueleto(ctx,lm,rect,{grosor=3,colorIzq="#24B1DA",colorDer="
   }
 }
 // Vista previa: esqueleto simple y avisos, 1 de cada 3 cuadros (solo para encuadrar).
+// Vista previa: esqueleto simple y avisos (solo para encuadrar). La pose se
+// calcula sobre una copia reducida del cuadro: más ligero y, en iPhone, más
+// confiable que entregarle el <video> directo al modelo.
 function carVivoIniciar(){
   const v=document.getElementById("car-vivo"),cv=document.getElementById("car-lienzo");if(!v||!cv)return;
   CAR.vivo=true;let n=0;
-  const paso=async()=>{
-    if(!CAR.vivo||!document.getElementById("car-vivo"))return;
+  const mini=document.createElement("canvas"),mctx=mini.getContext("2d");
+  const paso=()=>{
+    if(!CAR.vivo||!document.getElementById("car-vivo")||v!==document.getElementById("car-vivo"))return;
     n++;
-    if(n%3===0&&CAR_POSE.lmk&&v.readyState>=2&&!CAR.analizando){
-      const r=CAR_POSE.lmk.detectForVideo(v,carPoseTs());
-      const lm=r.landmarks?.[0];
-      cv.width=cv.clientWidth;cv.height=cv.clientHeight;
-      const ctx=cv.getContext("2d");ctx.clearRect(0,0,cv.width,cv.height);
-      if(lm)carDibujarEsqueleto(ctx,lm,carRectVideo(v),{grosor:2,colorIzq:"#fff",colorDer:"#fff"});
-      if(!CAR.grabando){const av=[...carNivelAvisos(),...carEncuadre(lm)];carHud(av.length?av:[{tipo:"ok",txt:"Nivel y encuadre correctos"}]);}
-    }else if(!CAR_POSE.lmk&&!CAR.grabando&&n%15===0)carHud([{tipo:"aviso",txt:"Cargando modelo de pose…"},...carNivelAvisos()]);
+    const cada=CAR_POSE.delegado==="CPU"?(CAR.grabando?12:6):3;
+    // Descanso proporcional a lo que tarda cada detección: la cuenta regresiva y los botones no se traban.
+    if(n%cada===0&&performance.now()>=(CAR.vivoSig||0)&&CAR_POSE.lmk&&v.readyState>=2&&v.videoWidth&&!CAR.analizando){
+      try{
+        const k=Math.min(1,480/Math.max(v.videoWidth,v.videoHeight));
+        const w=Math.max(2,Math.round(v.videoWidth*k)),h=Math.max(2,Math.round(v.videoHeight*k));
+        if(mini.width!==w||mini.height!==h){mini.width=w;mini.height=h;}
+        mctx.drawImage(v,0,0,w,h);
+        const tDet=performance.now();
+        const r=CAR_POSE.lmk.detectForVideo(mini,carPoseTs());
+        CAR.vivoSig=performance.now()+2*(performance.now()-tDet);
+        const lm=r.landmarks?.[0];
+        cv.width=cv.clientWidth;cv.height=cv.clientHeight;
+        const ctx=cv.getContext("2d");ctx.clearRect(0,0,cv.width,cv.height);
+        if(lm)carDibujarEsqueleto(ctx,lm,carRectVideo(v),{grosor:2,colorIzq:"#fff",colorDer:"#fff"});
+        if(!CAR.grabando){const av=[...carNivelAvisos(),...carEncuadre(lm)];carHud(av.length?av:[{tipo:"ok",txt:"Nivel y encuadre correctos"}]);}
+      }catch(e){CAR_POSE.error="La vista previa de pose falló: "+e.message;}
+    }else if(!CAR_POSE.lmk&&!CAR.grabando&&n%15===0){
+      carHud([CAR_POSE.error?{tipo:"error",txt:CAR_POSE.error+" Puedes grabar: se reintenta al analizar."}
+        :{tipo:"aviso",txt:`${CAR_POSE.txt||"Cargando modelo de pose…"} ${Math.round((CAR_POSE.pct||0)*100)} %`},...carNivelAvisos()]);
+    }
     if(v.requestVideoFrameCallback)v.requestVideoFrameCallback(paso);else requestAnimationFrame(paso);
   };
   paso();
@@ -26376,94 +26687,311 @@ function carMimeGrabacion(){
 }
 window.carGrabar=async function(){
   if(CAR.grabando)return;
-  const vel=gv("car-vel");if(vel)CAR.velocidad=vel;
-  const t=parseFloat(gv("car-talla"));CAR.talla=t>=100&&t<=230?t:null;
-  if(!window.MediaRecorder){showToast("Este navegador no puede grabar video",false);return;}
-  if(!HTMLVideoElement.prototype.requestVideoFrameCallback){showToast("Este navegador no permite analizar cuadro por cuadro. Usa Chrome o Safari actualizados.",false);return;}
+  carLeerCampos();
+  if(!window.MediaRecorder){showToast("Este navegador no puede grabar video. Usa «Galería» con un video ya grabado.",false);return;}
+  const turno=CAR_TURNO;
   const b=document.getElementById("car-grabar");if(b)b.disabled=true;
+  carGaleriaBloquear(true);   // mientras cuenta y graba no se puede cambiar a Galería
   const cuenta=document.getElementById("car-cuenta");cuenta.style.display="flex";
-  for(const n of[3,2,1]){cuenta.textContent=n;await new Promise(r=>setTimeout(r,1000));}
+  for(const n of[3,2,1]){cuenta.textContent=n;await new Promise(r=>setTimeout(r,1000));if(turno!==CAR_TURNO||!CAR.stream||CAR.paso!=="camara")return;}
   const mime=carMimeGrabacion(),trozos=[];
-  let rec;try{rec=new MediaRecorder(CAR.stream,mime?{mimeType:mime,videoBitsPerSecond:8000000}:{videoBitsPerSecond:8000000});}
-  catch(e){cuenta.style.display="none";if(b)b.disabled=false;showToast("No se pudo iniciar la grabación: "+e.message,false);return;}
-  rec.ondataavailable=e=>{if(e.data&&e.data.size)trozos.push(e.data);};
-  const fin=new Promise(r=>rec.onstop=r);
-  CAR.grabando=true;rec.start(1000);
+  let rec,fin;
+  try{
+    if(CAR.stream.getVideoTracks()[0]?.readyState!=="live")throw new Error("la cámara se interrumpió");
+    rec=new MediaRecorder(CAR.stream,mime?{mimeType:mime,videoBitsPerSecond:8000000}:{videoBitsPerSecond:8000000});
+    rec.ondataavailable=e=>{if(e.data&&e.data.size)trozos.push(e.data);};
+    fin=new Promise(r=>{rec.onstop=r;rec.onerror=r;});
+    rec.start(1000);
+  }catch(e){
+    cuenta.style.display="none";carGaleriaBloquear(false);if(b)b.disabled=false;
+    showToast("No se pudo iniciar la grabación: "+e.message+". Sal y vuelve a entrar a la cámara.",false);return;
+  }
+  CAR.grabando=true;
   const t0=performance.now();
   carHud([{tipo:"error",txt:"● Grabando"}]);
   const reloj=setInterval(()=>{const q=CAR_SEG_GRABACION-Math.floor((performance.now()-t0)/1000);cuenta.textContent=Math.max(0,q);cuenta.style.fontSize="72px";},200);
   setTimeout(()=>{try{rec.stop();}catch(e){}},CAR_SEG_GRABACION*1000);
-  await fin;clearInterval(reloj);CAR.grabando=false;cuenta.style.display="none";cuenta.style.fontSize="120px";
+  await carPlazo(fin,(CAR_SEG_GRABACION+8)*1000,"x").catch(()=>{});
+  clearInterval(reloj);CAR.grabando=false;
+  if(turno!==CAR_TURNO||CAR.paso!=="camara")return;
+  carGaleriaBloquear(false);
+  cuenta.style.display="none";cuenta.style.fontSize="120px";
   const blob=new Blob(trozos,{type:rec.mimeType||mime||"video/webm"});
   if(!blob.size){showToast("La grabación quedó vacía. Intenta de nuevo.",false);if(b)b.disabled=false;return;}
-  CAR.fpsCamara=CAR.stream.getVideoTracks()[0].getSettings().frameRate||null;
-  CAR.analizando=true;CAR.paso="analizando";carCapturaDibujar();
-  try{CAR.res[CAR.vista]=await carAnalizarGrabacion(blob,CAR.vista);}
-  catch(e){CAR.res[CAR.vista]={ok:false,metricas:[],cuadros:[],calidad:{avisos:["El análisis falló: "+e.message]}};}
-  CAR.analizando=false;CAR.paso="revision";carCapturaDibujar();
+  const fps=CAR.stream?.getVideoTracks()[0]?.getSettings().frameRate||null;
+  // La cámara se apaga antes de analizar: libera memoria y quita el aviso de grabación del teléfono.
+  carApagarCamara();
+  CAR.pendiente={blob,vista:CAR.vista,origen:"camara",ini:0,dur:CAR_SEG_GRABACION,fps};
+  await carEjecutarAnalisis();
+};
+
+// ── Video de la galería ─────────────────────────────────────────────────
+window.carEspejo=function(){
+  CAR.espejo=!CAR.espejo;
+  const im=document.getElementById("car-silueta");if(im)im.style.transform=`translate(-50%,-50%)${CAR.espejo?" scaleX(-1)":""}`;
+};
+window.carGaleriaElegida=function(inp){
+  const f=inp.files&&inp.files[0];inp.value="";if(!f||CAR.grabando||CAR.analizando)return;
+  if(f.type&&!f.type.startsWith("video/")){showToast("Elige un archivo de video",false);return;}
+  carLeerCampos();carApagarCamara();
+  if(CAR.galeria)URL.revokeObjectURL(CAR.galeria.url);
+  CAR.galeria={file:f,url:URL.createObjectURL(f),ini:0,dur:null};
+  CAR.paso="galeria";carCapturaDibujar();
+};
+window.carGaleriaMeta=function(v,error){
+  const info=document.getElementById("car-gal-info"),g=CAR.galeria;if(!info||!g)return;
+  const bt=document.getElementById("car-gal-analizar");
+  if(error){info.innerHTML=`<span style="color:#FFB74D">Este navegador no puede leer ese video. Prueba con otro, o grábalo en formato «Más compatible» (H.264).</span>`;if(bt)bt.disabled=true;return;}
+  const d=isFinite(v.duration)?v.duration:null;g.dur=d;
+  const S=CAR_SEG_GRABACION;
+  let h=`${v.videoWidth}×${v.videoHeight}${d?` · dura ${d.toFixed(1)} s`:""}.`;
+  if(d&&d<5)h+=` <span style="color:#FFB74D">Es corto: se necesitan al menos 5 s de carrera continua para medir bien.</span>`;
+  if(d&&d>S+0.5){
+    h+=` Se analizan ${S} s: elige desde dónde.<br><label style="display:flex;align-items:center;gap:8px;margin-top:6px;color:#ECEFF1">Inicio
+      <input id="car-gal-ini" type="range" min="0" max="${(d-S).toFixed(1)}" step="0.1" value="0" oninput="carGaleriaInicio(this.value)" style="flex:1">
+      <b id="car-gal-ini-txt" style="min-width:110px;text-align:right">0.0 – ${S.toFixed(1)} s</b></label>`;
+  }
+  info.innerHTML=h;
+};
+window.carGaleriaInicio=function(val){
+  const g=CAR.galeria;if(!g)return;g.ini=parseFloat(val)||0;
+  const t=document.getElementById("car-gal-ini-txt");if(t)t.textContent=`${g.ini.toFixed(1)} – ${(g.ini+CAR_SEG_GRABACION).toFixed(1)} s`;
+  const v=document.getElementById("car-previo");if(v){try{v.pause();v.currentTime=g.ini;}catch(e){}}
+};
+window.carGaleriaAnalizar=async function(){
+  const g=CAR.galeria;if(!g)return;
+  carLeerCampos();
+  const v=document.getElementById("car-previo");if(v){try{v.pause();v.removeAttribute("src");v.load();}catch(e){}}   // un solo decodificador a la vez
+  CAR.pendiente={blob:g.file,vista:CAR.vista,origen:"galeria",ini:g.ini||0,dur:CAR_SEG_GRABACION,fps:null};
+  await carEjecutarAnalisis();
 };
 
 // ── Análisis de la grabación (en el teléfono) ───────────────────────────
 function carProgreso(f,txt){const b=document.getElementById("car-prog"),t=document.getElementById("car-prog-txt");if(b)b.style.width=Math.round(f*100)+"%";if(t)t.textContent=txt;}
-function carVideoDeBlob(blob){
-  const v=document.createElement("video");v.muted=true;v.playsInline=true;v.preload="auto";
-  v.src=URL.createObjectURL(blob);
-  return new Promise((res,rej)=>{v.onloadeddata=()=>res(v);v.onerror=()=>rej(new Error("no se pudo leer la grabación"));});
-}
-async function carAnalizarGrabacion(blob,vista){
-  carProgreso(0,"Cargando el modelo de pose…");
-  const lmk=await carPoseCargar();
-  const v=await carVideoDeBlob(blob);
-  const fps=CAR.fpsCamara||30,dur=CAR_SEG_GRABACION;
-  // Paso 1: reproducir despacio y detectar la pose en cada cuadro presentado.
-  // La velocidad se ajusta sola para que el teléfono alcance a procesar cada cuadro.
-  const frames=[];
-  await new Promise((res,rej)=>{
-    let rate=0.25;v.playbackRate=rate;
-    const cb=(ahora,meta)=>{
-      const t0=performance.now();
-      const r=lmk.detectForVideo(v,carPoseTs());
-      const ms=performance.now()-t0;
-      const lm=r.landmarks?.[0];
-      frames.push({t:meta.mediaTime,lm:lm?lm.map(p=>[p.x,p.y,p.visibility??1]):null});
-      const necesaria=(1/fps)/(ms/1000*1.3);
-      if(necesaria<rate){rate=Math.max(0.1,necesaria);v.playbackRate=rate;}
-      carProgreso(Math.min(0.85,meta.mediaTime/dur*0.85),`Cuadro ${frames.length} · ${Math.round(meta.mediaTime*10)/10} de ${dur} s`);
-      if(!v.ended)v.requestVideoFrameCallback(cb);
-    };
-    v.requestVideoFrameCallback(cb);
-    v.onended=()=>res();v.onerror=()=>rej(new Error("se interrumpió la lectura del video"));
-    v.play().catch(rej);
+window.carCancelarAnalisis=function(){CAR.cancelar=true;const b=document.getElementById("car-cancelar");if(b){b.disabled=true;b.textContent="Cancelando…";}};
+// Corre (o reintenta) el análisis de CAR.pendiente. Nunca deja la pantalla
+// girando: termina en «revisión», en «fallo» con Reintentar, o de vuelta en la cámara.
+window.carEjecutarAnalisis=async function(){
+  const p=CAR.pendiente;if(!p||CAR.analizando)return;
+  const turno=CAR_TURNO;
+  CAR.cancelar=false;CAR.analizando=true;CAR.paso="analizando";carCapturaDibujar();
+  // Que no se apague la pantalla a medio análisis. Sin esperar la respuesta: en la app instalada de iPhone puede no llegar nunca.
+  let wl=null,soltar=false;
+  try{navigator.wakeLock?.request("screen").then(l=>{if(soltar)l.release().catch(()=>{});else wl=l;}).catch(()=>{});}catch(e){}
+  let fallo=null,r=null;
+  try{r=await carAnalizarGrabacion(p.blob,p.vista,p,turno);}catch(e){fallo=e;}
+  soltar=true;try{if(wl)wl.release().catch(()=>{});}catch(e){}
+  if(turno!==CAR_TURNO)return;   // cerraron la captura mientras analizaba
+  CAR.analizando=false;
+  if(fallo&&CAR.cancelar){
+    CAR.cancelar=false;
+    // Cancelar un video de galería regresa a su vista previa, sin perder el archivo elegido.
+    if(p.origen==="galeria"&&CAR.galeria){CAR.pendiente=null;CAR.paso="galeria";carCapturaDibujar();return;}
+    return carVolverACamara();
+  }
+  if(fallo){CAR.errorAnalisis=fallo.message||String(fallo);CAR.paso="fallo";}
+  else{
+    r.calidad.origen=p.origen;CAR.res[p.vista]=r;CAR.pendiente=null;
+    if(CAR.galeria){URL.revokeObjectURL(CAR.galeria.url);CAR.galeria=null;}
+    CAR.paso="revision";
+  }
+  carCapturaDibujar();
+};
+function carEsperarEvento(el,ev,ms,msg){
+  return new Promise((res,rej)=>{
+    const lim=()=>{clearTimeout(h);el.removeEventListener(ev,ok);el.removeEventListener("error",mal);};
+    const ok=()=>{lim();res();};
+    const mal=()=>{lim();rej(new Error("este navegador no pudo leer el video"+(el.error?` (código ${el.error.code})`:"")));};
+    const h=setTimeout(()=>{lim();rej(new Error(msg));},ms);
+    el.addEventListener(ev,ok);el.addEventListener("error",mal);
   });
-  const W=v.videoWidth,H=v.videoHeight;
-  const r=carAnalizar(frames,{vista,W,H,talla_cm:CAR.talla,velocidad_kmh:parseFloat(CAR.velocidad)});
-  if(CAR.fpsCamara&&r.calidad.fps_real<CAR.fpsCamara*0.8)r.calidad.avisos.push(`El teléfono solo alcanzó a analizar ${r.calidad.fps_real} de ${Math.round(CAR.fpsCamara)} cuadros/s.`);
-  r.calidad.fps_camara=CAR.fpsCamara?Math.round(CAR.fpsCamara):null;
-  // Paso 2: volver a reproducir para sacar los cuadros clave con el esqueleto.
-  carProgreso(0.88,"Preparando cuadros clave…");
-  r.cuadros=r.ok?await carSacarCuadros(v,frames,r.cuadrosClave,vista):[];
-  URL.revokeObjectURL(v.src);v.removeAttribute("src");v.load();   // el video se descarta aquí
-  carProgreso(1,"Listo");
-  return r;
+}
+// El <video> de trabajo va DENTRO de la página (debajo del lienzo): Safari no
+// decodifica ni avisa de cuadros nuevos en un video que no está en pantalla.
+async function carVideoDeBlob(blob){
+  const v=document.createElement("video");
+  v.muted=true;v.defaultMuted=true;v.playsInline=true;v.controls=false;v.preload="auto";
+  v.setAttribute("playsinline","");v.setAttribute("webkit-playsinline","");v.setAttribute("muted","");
+  const visor=document.getElementById("car-visor");
+  v.style.cssText=visor?"position:absolute;inset:0;width:100%;height:100%;object-fit:contain":"position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none";
+  (visor||document.body).appendChild(v);
+  v.src=URL.createObjectURL(blob);
+  const listo=carEsperarEvento(v,"loadedmetadata",20000,"el video no abrió en 20 s");
+  v.load();
+  // «Cebar»: en iPhone un video que nunca se ha reproducido no carga ni pinta cuadros.
+  const cebo=v.play();if(cebo&&cebo.catch)cebo.catch(()=>{});
+  try{await listo;}catch(e){carSoltarVideo(v);throw e;}
+  try{v.pause();}catch(e){}
+  return v;
+}
+function carSoltarVideo(v){try{v.pause();}catch(e){}try{URL.revokeObjectURL(v.src);}catch(e){}v.removeAttribute("src");try{v.load();}catch(e){}v.remove();}
+// Lleva el video al segundo t y espera a que el cuadro esté pintado. Devuelve el tiempo real del cuadro.
+function carIrA(v,t,ms=4000){
+  return new Promise((res,rej)=>{
+    let hecho=false;
+    const fin=x=>{if(hecho)return;hecho=true;clearTimeout(h);v.removeEventListener("seeked",alLlegar);res(x);};
+    const alLlegar=()=>setTimeout(()=>fin(v.currentTime),80);   // margen para que pinte el cuadro
+    const h=setTimeout(()=>{if(hecho)return;hecho=true;v.removeEventListener("seeked",alLlegar);rej(new Error("el video no avanzó al segundo "+t.toFixed(2)));},ms);
+    v.addEventListener("seeked",alLlegar);
+    // Solo vale el cuadro de ESTE salto: uno pendiente de antes trae otro tiempo y se ignora.
+    if(v.requestVideoFrameCallback)v.requestVideoFrameCallback((_,m)=>{if(Math.abs(m.mediaTime-t)<=0.5)fin(m.mediaTime);});
+    try{v.currentTime=t;}catch(e){fin(v.currentTime);}
+  });
+}
+// Lee los cuadros del tramo [ini, fin) y detecta la pose en cada uno.
+// 1) Reproduce despacio y toma cada cuadro que el navegador presenta; la
+//    velocidad se ajusta sola para que el equipo alcance a procesarlos.
+// 2) Si la reproducción se atora (pasa en iPhone), sigue saltando de cuadro
+//    en cuadro: más lento, pero no depende de que el video «corra».
+async function carLeerCuadros(v,lmk,{ini,fin,fps0,turno},alCuadro){
+  const k=Math.min(1,CAR_LADO_ANALISIS/Math.max(v.videoWidth,v.videoHeight,1));
+  const cv=document.createElement("canvas");cv.width=Math.max(2,Math.round(v.videoWidth*k));cv.height=Math.max(2,Math.round(v.videoHeight*k));
+  const ctx=cv.getContext("2d");
+  const frames=[],dts=[];let tUlt=-1,ultimo=performance.now(),msDet=0,lmPrev=null,nulos=0;
+  const base=Math.max(CAR_POSE.ts,performance.now())+1000-Math.round(ini*1000);
+  const cancelado=()=>turno!==CAR_TURNO||CAR.cancelar;
+  const procesar=(t,porSalto)=>{
+    if(t<=tUlt+1e-4)return false;   // el mismo cuadro otra vez
+    ctx.drawImage(v,0,0,cv.width,cv.height);
+    const t0=performance.now();
+    const r=lmk.detectForVideo(cv,carPoseTsVideo(base,t));
+    msDet=performance.now()-t0;
+    const lm=r.landmarks?.[0];
+    // Saltando, el navegador puede devolver la misma imagen dos veces: no cuenta como cuadro nuevo.
+    if(porSalto&&lm&&lmPrev&&[0,11,12,23,24,27,28].every(i=>Math.abs(lm[i].x-lmPrev[i].x)<1e-6&&Math.abs(lm[i].y-lmPrev[i].y)<1e-6))return false;
+    lmPrev=lm||lmPrev;
+    // Si los primeros cuadros salen todos vacíos, lo más probable es que el video no se esté pintando.
+    if(!lm){if(++nulos>=40&&nulos===frames.length+1&&carLienzoNegro(ctx,cv))throw new Error("el video no se pudo dibujar en este navegador (cuadros en negro)");}
+    if(tUlt>=0)dts.push(t-tUlt);
+    frames.push({t,lm:lm?lm.map(p=>[p.x,p.y,p.visibility??1]):null});
+    tUlt=t;ultimo=performance.now();alCuadro(cv,lm,t,frames.length);
+    return true;
+  };
+  const dtCuadro=()=>dts.length>=8?carPct(dts.slice(-60),0.1):1/(fps0||30);
+  const porReproduccion=()=>new Promise((res,rej)=>{
+    let rate=0.25,vivo=true,lento=0;
+    const acabar=(f,x)=>{if(!vivo)return;vivo=false;clearInterval(vigia);v.removeEventListener("ended",alFin);try{v.pause();}catch(e){}f(x);};
+    const alFin=()=>acabar(res,"fin");
+    const vigia=setInterval(()=>{
+      if(cancelado())return acabar(rej,new Error("cancelado"));
+      if(document.hidden){ultimo=performance.now();return;}   // en segundo plano el video se pausa solo: no cuenta como atorón
+      if(v.paused&&!v.ended)v.play().catch(()=>{});
+      if(performance.now()-ultimo>4000)acabar(res,"atorado");
+    },500);
+    const cb=(ahora,meta)=>{
+      if(!vivo)return;
+      ultimo=performance.now();
+      try{
+        const t=meta.mediaTime;
+        if(t>=fin-1e-3)return acabar(res,"fin");
+        if(t>=ini-1e-3&&procesar(t)){
+          const necesaria=dtCuadro()/(msDet/1000*1.4+0.004);
+          if(necesaria<rate){rate=Math.max(0.1,necesaria);v.playbackRate=rate;}
+          // Ni a la velocidad mínima alcanza: se estarían perdiendo cuadros. Mejor uno por uno.
+          if(necesaria<0.1){if(++lento>=6)return acabar(res,"lento");}else lento=0;
+        }
+      }catch(e){return acabar(rej,e);}
+      v.requestVideoFrameCallback(cb);
+    };
+    v.playbackRate=rate;v.addEventListener("ended",alFin);
+    v.requestVideoFrameCallback(cb);
+    v.play().catch(()=>acabar(res,"atorado"));
+  });
+  const porSaltos=async desde=>{
+    const paso=Math.max(1/60,Math.min(1/24,dtCuadro()));
+    let fallos=0,repetidos=0;
+    for(let t=desde;t<fin-1e-3;t+=paso){
+      if(cancelado())throw new Error("cancelado");
+      while(document.hidden){fallos=0;await new Promise(r=>setTimeout(r,500));if(cancelado())throw new Error("cancelado");}   // pantalla bloqueada: espera
+      let real;
+      // Se apunta a la mitad del cuadro: caer justo en el borde alterna repetidos y saltados.
+      try{real=await carIrA(v,t+paso/2,3000);fallos=0;}
+      catch(e){if(++fallos>=4)throw new Error("no se pudo leer el video cuadro por cuadro");continue;}
+      if(procesar(Math.abs(real-t)<paso?Math.max(real,t):t,true))repetidos=0;
+      else if(++repetidos>=6)break;   // ya no hay cuadros nuevos: se acabó el video
+      if(frames.length%4===0)await new Promise(r=>setTimeout(r,0));   // deja respirar a la pantalla
+    }
+  };
+  if(ini>0.05){try{await carIrA(v,ini,5000);}catch(e){}}
+  ultimo=performance.now();
+  const como=v.requestVideoFrameCallback?await porReproduccion():"atorado";
+  let modo="reproducción";
+  if(como!=="fin"){modo="cuadro por cuadro";await porSaltos(tUlt>=0?tUlt+Math.max(1/60,Math.min(1/24,dtCuadro())):ini);}
+  cv.width=cv.height=0;   // libera la memoria del lienzo (en iPhone no sobra)
+  return{frames,modo};
+}
+async function carAnalizarGrabacion(blob,vista,{ini=0,dur=CAR_SEG_GRABACION,fps=null}={},turno=CAR_TURNO){
+  carProgreso(0.01,CAR_POSE.txt||"Cargando el modelo de pose…");
+  let vig;
+  const lmk=await Promise.race([carPoseCargar(),new Promise((_,rej)=>{vig=setInterval(()=>{if(turno!==CAR_TURNO||CAR.cancelar)rej(new Error("cancelado"));},300);})]).finally(()=>clearInterval(vig));
+  if(turno!==CAR_TURNO||CAR.cancelar)throw new Error("cancelado");
+  carProgreso(0.15,"Abriendo el video…");
+  const v=await carVideoDeBlob(blob);
+  try{
+    if(!v.videoWidth||!v.videoHeight)throw new Error("el video no tiene imagen que este navegador pueda leer");
+    const total=isFinite(v.duration)&&v.duration>0?v.duration:null;
+    const fin=Math.min(total??Infinity,ini+dur),largo=(isFinite(fin)?fin:ini+dur)-ini;
+    const lz=document.getElementById("car-lienzo-an"),lctx=lz?lz.getContext("2d"):null;
+    if(lz){lz.width=Math.round(v.videoWidth*Math.min(1,CAR_LADO_ANALISIS/Math.max(v.videoWidth,v.videoHeight)));lz.height=Math.round(lz.width*v.videoHeight/v.videoWidth);}
+    const {frames,modo}=await carLeerCuadros(v,lmk,{ini,fin,fps0:fps,turno},(cv,lm,t,n)=>{
+      if(lctx&&(n%2===0||n===1)){
+        lctx.drawImage(cv,0,0,lz.width,lz.height);
+        if(lm)carDibujarEsqueleto(lctx,lm,{x:0,y:0,w:lz.width,h:lz.height},{grosor:Math.max(2,Math.round(lz.width/240))});
+      }
+      carProgreso(0.15+Math.min(1,(t-ini)/largo)*0.72,`Cuadro ${n} · ${(Math.round((t-ini)*10)/10).toFixed(1)} de ${largo.toFixed(1)} s`);
+    });
+    if(frames.length<10)throw new Error("no se pudieron leer los cuadros del video"+(frames.length?` (solo ${frames.length})`:""));
+    const W=v.videoWidth,H=v.videoHeight;
+    const r=carAnalizar(frames,{vista,W,H,talla_cm:CAR.talla,velocidad_kmh:parseFloat(CAR.velocidad)});
+    if(fps&&r.calidad.fps_real<fps*0.8)r.calidad.avisos.push(`El teléfono solo alcanzó a analizar ${r.calidad.fps_real} de ${Math.round(fps)} cuadros/s.`);
+    r.calidad.fps_camara=fps?Math.round(fps):null;
+    r.calidad.lectura=modo;r.calidad.delegado=CAR_POSE.delegado;r.calidad.fuente_modelo=CAR_POSE.fuente;
+    r.calidad.segundos=Math.round(largo*10)/10;
+    if(largo<5)r.calidad.avisos.push(`El video dura ${largo.toFixed(1)} s: con menos de 5 s hay muy pocas zancadas para promediar.`);
+    carProgreso(0.88,"Preparando cuadros clave…");
+    r.cuadros=r.ok?await carSacarCuadros(v,frames,r.cuadrosClave,vista,turno):[];
+    if(r.ok&&r.cuadrosClave.length&&!r.cuadros.length)r.calidad.avisos.push("No se pudieron extraer los cuadros clave del video; las métricas sí se calcularon.");
+    carProgreso(1,"Listo");
+    return r;
+  }finally{carSoltarVideo(v);}   // el video se descarta aquí
 }
 function carFrameMasCercano(frames,t){let m=null,d=Infinity;for(const f of frames){const x=Math.abs(f.t-t);if(f.lm&&x<d){d=x;m=f;}}return m;}
-async function carSacarCuadros(v,frames,objetivos,vista){
+// Cuadros clave: se va directo al instante de cada uno. Si el video no deja
+// saltar (pasa con algunas grabaciones del navegador), se vuelve a reproducir.
+async function carSacarCuadros(v,frames,objetivos,vista,turno=CAR_TURNO){
   if(!objetivos.length)return[];
   const pend=[...objetivos].sort((a,b)=>a.t-b.t),salida=[];
-  v.currentTime=0;v.playbackRate=1;
-  await new Promise(res=>{
-    const cb=(ahora,meta)=>{
-      while(pend.length&&meta.mediaTime>=pend[0].t-0.004){
-        const o=pend.shift();salida.push(carCuadroJPG(v,carFrameMasCercano(frames,meta.mediaTime),o,vista));
-      }
-      if(pend.length&&!v.ended)v.requestVideoFrameCallback(cb);else res();
-    };
-    v.requestVideoFrameCallback(cb);v.onended=()=>res();
-    v.play().catch(()=>res());
-  });
+  try{v.pause();}catch(e){}
+  let porSalto=true;
+  while(pend.length&&porSalto){
+    if(turno!==CAR_TURNO||CAR.cancelar)throw new Error("cancelado");
+    const o=pend[0];
+    try{
+      const real=await carIrA(v,o.t,3000);
+      if(Math.abs(real-o.t)>0.25)throw new Error("salto impreciso");
+      salida.push(carCuadroJPG(v,carFrameMasCercano(frames,Math.abs(real-o.t)<0.05?real:o.t),o,vista));pend.shift();
+    }catch(e){porSalto=false;}
+  }
+  if(pend.length&&v.requestVideoFrameCallback){
+    await new Promise(res=>{
+      let vivo=true,ultimo=performance.now();
+      const fin=()=>{if(!vivo)return;vivo=false;clearInterval(vigia);try{v.pause();}catch(e){}res();};
+      const vigia=setInterval(()=>{if(turno!==CAR_TURNO||performance.now()-ultimo>4000)fin();},500);
+      const cb=(ahora,meta)=>{
+        if(!vivo)return;ultimo=performance.now();
+        while(pend.length&&meta.mediaTime>=pend[0].t-0.004){
+          const o=pend.shift();salida.push(carCuadroJPG(v,carFrameMasCercano(frames,meta.mediaTime),o,vista));
+        }
+        if(pend.length&&!v.ended)v.requestVideoFrameCallback(cb);else fin();
+      };
+      v.playbackRate=1;v.addEventListener("ended",fin,{once:true});
+      try{v.currentTime=Math.max(0,pend[0].t-0.5);}catch(e){}
+      v.requestVideoFrameCallback(cb);
+      v.play().catch(fin);
+    });
+  }
   return (await Promise.all(salida)).filter(Boolean);
 }
-// Cuadro JPG: imagen + esqueleto + cara pixelada + leyenda «Experimental».
 function carCuadroJPG(v,f,obj,vista){
   const lado=Math.max(v.videoWidth,v.videoHeight),k=Math.min(1,1280/lado);
   const c=document.createElement("canvas");c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);
@@ -26485,29 +27013,37 @@ function carCuadroJPG(v,f,obj,vista){
   ctx.fillStyle="rgba(0,0,0,.6)";ctx.fillRect(0,c.height-fs*2.4,c.width,fs*2.4);
   ctx.fillStyle="#fff";ctx.font=`700 ${fs}px system-ui,sans-serif`;ctx.fillText(`${obj.etiqueta} · ${CAR.velocidad} km/h`,fs*0.6,c.height-fs*1.25);
   ctx.fillStyle="#FFB74D";ctx.font=`600 ${Math.round(fs*0.8)}px system-ui,sans-serif`;ctx.fillText("EXPERIMENTAL, EN VALIDACIÓN · izq. azul / der. naranja",fs*0.6,c.height-fs*0.35);
-  return new Promise(res=>c.toBlob(b=>res(b?{...obj,vista,blob:b,url:URL.createObjectURL(b)}:null),"image/jpeg",0.82));
+  return new Promise(res=>c.toBlob(b=>{c.width=c.height=0;res(b?{...obj,vista,blob:b,url:URL.createObjectURL(b)}:null);},"image/jpeg",0.82));
 }
 
+
+// Vuelve a la pantalla de la cámara (la cámara se apagó al analizar: se abre otra vez).
+window.carVolverACamara=function(){
+  CAR.pendiente=null;CAR.errorAnalisis=null;
+  if(CAR.galeria){URL.revokeObjectURL(CAR.galeria.url);CAR.galeria=null;}
+  CAR.paso="abriendo";carCapturaDibujar();
+  return carAbrirCamara();
+};
 window.carRepetirVista=function(){
   (CAR.res[CAR.vista]?.cuadros||[]).forEach(q=>URL.revokeObjectURL(q.url));
-  delete CAR.res[CAR.vista];CAR.paso="camara";carCapturaDibujar();
+  delete CAR.res[CAR.vista];carVolverACamara();
 };
-window.carSiguienteVista=function(){CAR.vista="frontal";CAR.paso="camara";carCapturaDibujar();};
+window.carSiguienteVista=function(){CAR.vista="frontal";carVolverACamara();};
 window.carVerResultados=function(){
-  CAR.vivo=false;
-  if(CAR.stream)CAR.stream.getTracks().forEach(t=>t.stop());CAR.stream=null;
+  carApagarCamara();
   CAR.paso="resultados";carCapturaDibujar();
 };
 function carLiberar(){
-  CAR.vivo=false;
-  if(CAR.stream)CAR.stream.getTracks().forEach(t=>t.stop());
+  CAR_TURNO++;
+  carApagarCamara();
   if(CAR.onMotion)window.removeEventListener("devicemotion",CAR.onMotion);
+  if(CAR.galeria)URL.revokeObjectURL(CAR.galeria.url);
   Object.values(CAR.res||{}).forEach(r=>(r.cuadros||[]).forEach(q=>q.url&&URL.revokeObjectURL(q.url)));
   document.getElementById("car-captura")?.remove();
   CAR={};
 }
 window.carCapturaCerrar=async function(){
-  const hay=Object.keys(CAR.res||{}).length;
+  const hay=Object.keys(CAR.res||{}).length||CAR.analizando;
   if(hay&&!await qpConfirm("Se perderá la prueba sin guardar. ¿Volver al paciente?",{title:"Nueva prueba",okLabel:"Salir sin guardar",danger:true}))return;
   carLiberar();
 };
@@ -26515,7 +27051,6 @@ window.carDescartar=async function(){
   if(!await qpConfirm("¿Descartar esta prueba? No se guardará nada.",{title:"Nueva prueba",okLabel:"Descartar",danger:true}))return;
   carLiberar();
 };
-
 // ── Guardar: métricas + cuadros clave (nunca el video) ──────────────────
 window.carGuardarCaptura=async function(){
   const pac=STATE.carPac;if(!pac||!carEsPrueba(pac)){showToast(`Durante el piloto solo se guardan expedientes «${CAR_PILOTO_PREFIJO} …»`,false);return;}
@@ -26548,7 +27083,14 @@ window.carGuardarCaptura=async function(){
       rango_clinica_min:m.rango_clinica_min,rango_clinica_max:m.rango_clinica_max,
       interpretacion:m.interpretacion||null,artefacto:!!m.artefacto,motivo_correccion:m.motivo_correccion||null}));
     if(filas.length){
-      const {error:e3}=await SB.from("carrera_mediciones").insert(filas);
+      let {error:e3}=await SB.from("carrera_mediciones").insert(filas);
+      if(e3&&filas.some(f=>CAR_VARS_03.includes(f.variable))){
+        // La base puede no aceptar todavía las variables del motor 0.3: se guardan las de siempre
+        // en su tabla y las nuevas dentro de «calidad» del análisis, para no perder la prueba.
+        const carFilasDeSiempre=filas.filter(f=>!CAR_VARS_03.includes(f.variable)),carFilasNuevas=filas.filter(f=>CAR_VARS_03.includes(f.variable)).map(({analisis_id,...m})=>m);
+        e3=carFilasDeSiempre.length?(await SB.from("carrera_mediciones").insert(carFilasDeSiempre)).error:null;
+        if(!e3)e3=(await SB.from("carrera_analisis").update({calidad:{...r.calidad,metricas_extra:carFilasNuevas}}).eq("id",an.id)).error;
+      }
       if(e3){await deshacer(e3.message);return;}
     }
   }

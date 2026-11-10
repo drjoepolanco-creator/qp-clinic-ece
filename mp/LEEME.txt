@@ -1,0 +1,12 @@
+Motor de pose del módulo Carrera (QP Clinic ECE)
+================================================
+Esta carpeta va en la raíz del repositorio (junto a index.html) y se publica tal cual.
+
+vision_bundle.js y wasm/     @mediapipe/tasks-vision 0.10.14 (paquete oficial de Google en npm;
+                             vision_bundle.js es vision_bundle.mjs renombrado).
+pose_landmarker_full.task    Modelo "Pose Landmarker full" de Google, float16, versión 1
+                             (9,398,198 bytes).
+                             SHA-256 4eaa5eb7a98365221087693fcc286334cf0858e2eb6e15b506aa4a7ecdcec4ad
+                             Original: https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task
+
+Si se actualiza cualquier archivo de esta carpeta, cambiar el nombre de CACHE en sw.js.

@@ -937,3 +937,82 @@ el fijo no estaba y `tel` guardaba el celular). amfa: 5594628295 / 5594628296 y 
 +52 55 2267 5255. QP Surgery: 5592247091 y WhatsApp +52 1 55 6479 4394. Nadie debe leer `B.tel`
 suelto para un membrete: se usan `sedeTelsTexto()` / `sedeTelsPie()`, que juntan ambos y no
 repiten el número cuando coinciden.
+
+## Módulo Carrera 0.2 — arreglo para iPhone y video de galería (9 de noviembre de 2026)
+
+**Qué pasaba.** En iPhone (Safari y la app instalada) la primera prueba real se quedó para siempre
+en «Cargando el modelo de pose…», con la barra en 0 y la cámara encendida. La versión 0.1 cargaba
+MediaPipe desde un CDN sin plazos, intentaba primero el modo GPU (que en iOS se cuelga), y leía la
+grabación con un `<video>` fuera de la página esperando `loadeddata`, evento que Safari no dispara
+si el video no está en pantalla y no se ha reproducido. Cualquiera de las tres cosas la dejaba
+girando sin error.
+
+**Qué cambió** (todo entre `// ══ CAPTURA GUIADA` y `// ── Guardar: métricas`; el motor
+`carAnalizar()` NO se tocó, solo `CAR_MOTOR_VERSION` pasó a `carrera-pose 0.2`):
+
+- **Motor de pose propio en `/mp/`** (carpeta nueva del repo: `vision_bundle.js`, `wasm/` y
+  `pose_landmarker_full.task`, de `@mediapipe/tasks-vision` 0.10.14). `CAR_MP_FUENTES` prueba
+  primero `/mp/` y, si no está publicada, el CDN. `sw.js` guarda `/mp/` cache-first: si algún día
+  se actualiza esa carpeta hay que cambiar el nombre de `CACHE` en `sw.js`.
+- **`carPoseCargar()` / `carPoseDesde()`**: descarga WASM y modelo con avance real
+  (`carDescargar`, se rinde a los 25 s sin datos), plazo en cada paso, **CPU en iPhone/iPad** y
+  GPU→CPU en lo demás (`localStorage.carDelegado = "GPU"|"CPU"` lo fuerza para pruebas), y una
+  detección en seco antes de dar el motor por bueno. Los errores quedan en `CAR_POSE.error`.
+- **La cámara se apaga antes de analizar** (`carApagarCamara`) y se vuelve a abrir al regresar
+  (`carVolverACamara`).
+- **Lectura de cuadros (`carLeerCuadros`)**: el `<video>` de trabajo va dentro de `#car-visor`;
+  cada cuadro se copia a un lienzo (lado largo ≤ `CAR_LADO_ANALISIS` = 960 px) y la pose se
+  calcula sobre el lienzo. Primero por reproducción lenta + `requestVideoFrameCallback`; si se
+  atora 4 s o el equipo no alcanza ni a 0.1×, sigue **cuadro por cuadro** con `carIrA()`.
+  `calidad.lectura`, `calidad.delegado` y `calidad.fuente_modelo` guardan cómo se hizo.
+- **Nunca se queda girando**: `carEjecutarAnalisis()` termina en `revision`, en el paso nuevo
+  `fallo` (mensaje + «Reintentar el análisis», sin volver a grabar) o de vuelta en la cámara
+  («Cancelar análisis»). `CAR_TURNO` detiene lo que siga corriendo si se cierra la captura.
+- **Galería** (como Ochy): botón «Galería» en la pantalla de la cámara y también cuando la cámara
+  no abre. Paso nuevo `galeria`: vista previa, velocidad y talla, y si el video dura más de 15 s
+  un deslizador para elegir el tramo. Sirve también desde la computadora.
+- **Siluetas nuevas** (`CAR_SILUETA`): cuerpo translúcido con contorno, línea del piso y un círculo
+  en la cadera; «Voltear silueta» en la vista lateral; aviso «Centra la cadera en el círculo».
+
+**Pruebas hechas** (Playwright + Chromium, con el video del Dr. Polanco): grabación con cámara
+simulada, galería, caída al CDN sin `/mp/`, sin red → fallo → Reintentar, reproducción atorada →
+cuadro por cuadro, cancelar y cerrar a medio análisis. **No se pudo probar en un iPhone real ni en
+WebKit**: la primera prueba en iPhone sigue siendo la prueba de verdad.
+
+**Pendiente.** Validar métricas contra Ochy con corredores reales (siguen «Experimental»). El
+video de prueba era una caminata a 2.7 km/h con mascarilla y cámara en mano: sirvió para probar el
+flujo, no la exactitud. El motor asume carrera (nunca dos pies en el suelo): para marcha haría
+falta otro detector de contactos.
+
+## Módulo Carrera 0.3 — métricas que faltaban y fotos (9 de noviembre de 2026, noche)
+
+Pedido del Dr. Polanco tras comparar con su informe de Ochy + Claude (paciente con dolor de pies,
+2-nov-2026): que la app mida lo que aquel informe trae y que pida las fotos para integrarlo.
+
+**Métricas nuevas en `carAnalizar()`** (`CAR_MOTOR_VERSION` = `carrera-pose 0.3`; lista en
+`CAR_VARS_03`). Todas salen **«Sin rango»** a propósito (`CAR_PEND`): la definición exacta de Ochy
+no es pública y poner un rango antes de comparar daría «Alterado» falsos.
+- Lateral: `sobrezancada_ang` (recta centro de cadera→tobillo contra la vertical, al contacto),
+  `rodilla_trasera` (ángulo interno de la rodilla contraria en ese instante; se rotula con el lado
+  de ESA rodilla), `codo` (hombro-codo-muñeca, promedio del ciclo, solo si el brazo se ve en ≥30 %
+  de los cuadros) y `cabeza` (línea oreja→ojo contra la horizontal; + = mirada alta).
+- Posterior: `eversion_contacto` y `eversion_despegue` (primer y último quinto del apoyo), junto a
+  la `eversion_retropie` de apoyo medio que ya existía. Signo propio: **+ = eversión/pronación**
+  (Ochy la reporta en negativo).
+- Comprobadas con un corredor sintético de ángulos conocidos (ambas direcciones de carrera). La
+  rama posterior solo se ejercitó para ver que no truena: **falta un video posterior real**.
+- **Guardar:** si `carrera_mediciones` rechazara las variables nuevas (no se pudo ver si la tabla
+  tiene un CHECK sobre `variable`), `carGuardarCaptura()` guarda las de siempre en su tabla y las
+  nuevas en `carrera_analisis.calidad.metricas_extra`; `carCargarCapturas()` las vuelve a juntar.
+
+**Fotos para integrar el análisis** (`CAR_FOTOS`, `carFotosCargar`, `carFotoSubir`,
+`carFotoQuitar`): tarjeta nueva en la página del paciente de Carrera, debajo de «Pruebas», con
+cuatro espacios: plantoscopio, pierna-tobillo-pies de frente, de lado y de atrás. Se toman con el
+teléfono o se suben desde la computadora; se reducen a JPEG de lado largo ≤ 2200 px. **No hay
+tabla**: van al bucket privado `carrera` en `<paciente_id>/fotos/<tipo>_<AAAAMMDD-HHMMSS>.jpg` y
+la más reciente de cada tipo es la vigente (las anteriores se conservan). Depende de que las
+políticas del bucket dejen **listar, subir y borrar** en esa ruta: no se pudo comprobar contra
+producción; si falta alguna, la tarjeta muestra el error de Supabase.
+
+**Sigue sin construir:** medir sobre las fotos (Chippaux-Smirak, Staheli, ejes de rodilla y
+retropié), la puntuación global y el informe integrado con membrete.

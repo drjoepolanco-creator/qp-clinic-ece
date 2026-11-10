@@ -28,6 +28,25 @@ self.addEventListener("fetch", (e) => {
   // Solo manejar GET
   if (e.request.method !== "GET") return;
 
+  // Motor de pose del módulo Carrera (/mp/): unos 19 MB que no cambian.
+  // Cache-first: después de la primera vez carga al instante y sin depender
+  // de la red. Si se actualiza la carpeta /mp, cambiar el nombre de CACHE.
+  if (url.origin === self.location.origin && url.pathname.startsWith("/mp/")) {
+    e.respondWith(
+      caches.open(CACHE).then((c) =>
+        c.match(e.request).then(
+          (hit) =>
+            hit ||
+            fetch(e.request).then((res) => {
+              if (res.ok) c.put(e.request, res.clone());
+              return res;
+            })
+        )
+      )
+    );
+    return;
+  }
+
   // Network-first: intenta red, guarda copia, cae al cache sin conexión
   e.respondWith(
     fetch(e.request)
