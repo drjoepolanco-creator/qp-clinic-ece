@@ -22878,6 +22878,7 @@ const EJ_BIBLIO_AMPLIACION={
       "Escaladores (mountain climbers)",
     ],
     "Isométricos":[
+      "Curl-up de McGill",
       "Pallof press con ligas",
       "Pallof press en polea",
       "Caminata del granjero unilateral con mancuerna",
@@ -23155,8 +23156,14 @@ const EJ_AJUSTES=[
 const EJ_CONTRA=[
   {k:"hombro",label:"Hombro doloroso / manguito rotador",re:/(tr[aá]s de nuca|jal[oó]n vertical.*nuca|press militar tras|fondos|dips|lagartijas en anillas|lagartijas en pica|ment[oó]n|arranque|envi[oó]n)/i,
    nota:"Evitar rotación externa forzada y abducción sobre 90°. Preferir plano escapular y agarre neutro."},
-  {k:"lumbalgia",label:"Lumbalgia / hernia discal",re:/(peso muerto(?! rumano unilateral)|sentadilla trasera|buenos d[ií]as|remo de pie con barra|remo inclinado|hiperextensi|sentadilla frontal|swing)/i,
-   nota:"Evitar carga axial y flexión lumbar cargada. Preferir variantes con apoyo o en máquina."},
+  // Columna lumbar: lista de base (vale en las dos fases). Ver «Protocolo de columna lumbar».
+  {k:"lumbalgia",label:"Columna lumbar: protrusión / hernia discal / radiculopatía",
+   re:/(peso muerto con barra(?! hexagonal)|peso muerto (con t-|en d[eé]ficit|sumo con barra)|rumano.*con barra|buenos d[ií]as|swing|sentadilla trasera|sentadilla frontal con barra|sentadilla frontal en m[aá]quina smith|(desplantes?|b[uú]lgara|split|step up) con barra|remo de pie con barra|remo con barra en t|remo inclinado|remo renegado|extensi[oó]n de tronco|hiperextensi|banco romano|^abdominal|crunch|elevaci[oó]n de (piernas|rodillas)|escaladores|militar (de pie|sentado) con barra|sentadilla hack|^prensa para pierna(?! con rango parcial))/i,
+   nota:"Columna lumbar: evitar flexión lumbar cargada, carga axial pesada y remos sin apoyo. Preferir variantes con la columna neutra o apoyada."},
+  // Fase sintomática: se suma a la anterior. No sale como botón; la activa ejContras().
+  {k:"lumbar_sint",oculto:true,label:"Columna lumbar · fase sintomática",
+   re:/(peso muerto|kickstand|bisagra de cadera con (mancuerna|ligas)|pull through|^sentadilla (trasera|frontal|goblet|hack|hind[uú]|sissy|pistol|cosaco|skater|con mancuernas|con pesa rusa|con salto|con pausa \(2 segundos\) con mancuernas)|^prensa para pierna|desplante en caminata|militar (de pie|con ligas|sentado con barra)|press arnold con|remo de pie|remo con pesa rusa|remo a 1 mano con pesa rusa|remo sentado con (polea|ligas)|remo sentado unilateral con ligas|granjero|pallof|toque de hombro|brazos alejados|plancha lateral con elevaci|talones de pie en m[aá]quina|talones.*smith|tipo burro|salto|pliom)/i,
+   nota:"Columna lumbar, fase sintomática: sin bisagra cargada, sin carga sobre los hombros ni prensa, y remos sólo con el pecho apoyado."},
   {k:"rodilla",label:"Gonartrosis / prótesis de rodilla",re:/(sentadilla profunda|sentadilla sissy|hack|extensi[oó]n de rodilla|salto|pliom|desplante en caminata)/i,
    nota:"Limitar flexión de rodilla a rango indoloro. Evitar impacto y cizallamiento."},
   {k:"cadera",label:"Prótesis de cadera",re:/(sentadilla profunda|abducci[oó]n|aducci[oó]n|desplante|zancada|peso muerto sumo|cosaco)/i,
@@ -23428,17 +23435,175 @@ function ejPuntuar(c,ctx){
   return p+c.jitter*1.5;
 }
 
+// ── Protocolo de columna lumbar ──────────────────────────────────────────────
+// Protrusión o hernia discal lumbar, con o sin radiculopatía. Al marcar la
+// condición «lumbalgia» el generador (1) retira lo que carga el disco en
+// flexión, compresión axial o cizalla, (2) lo sustituye por medios del mismo
+// patrón que dejan la columna neutra o apoyada, (3) cambia el abdomen de
+// flexión por un bloque de estabilidad (curl-up de McGill, plancha lateral,
+// bird dog) y (4) añade las reglas y señales de alarma a los textos.
+// Dos fases, porque lo que se tolera con dolor irradiado activo no es lo mismo
+// que cuando el dolor ya centralizó:
+//   · sintomática (por omisión, la más prudente): sin bisagra cargada, sin
+//     carga sobre los hombros, sin prensa, remos sólo con el pecho apoyado,
+//     RIR ≥ 3 y sin series descendentes.
+//   · estable: vuelve la bisagra con carga moderada (rumano con mancuerna,
+//     barra hexagonal, pull through), goblet, prensa de rango parcial, Pallof
+//     y acarreos; RIR ≥ 2.
+// Fuentes: George SZ et al., J Orthop Sports Phys Ther 2021;51(11):CPG1-60
+// (ejercicio general + movilización neural + educación en dolor irradiado;
+// centralización); Kreiner DS et al. (NASS), Spine J 2014;14(1):180-91;
+// NICE NG59 (2016, act. 2020); McGill SM, Low Back Disorders 3.ª ed. (2016);
+// protocolo conservador de desplazamiento discal lumbar de Mass General Brigham.
+const ejEsLumbar=cfg=>!!(cfg&&(cfg.condiciones||[]).includes("lumbalgia"));
+const ejLumbarFase=cfg=>cfg&&cfg.lumbarFase==="estable"?"estable":"sintomatica";
+// Contraindicaciones vigentes para una configuración. La fase sintomática de
+// columna lumbar suma su propia lista (más estricta) a la de base.
+function ejContras(cfg){
+  const ks=[...((cfg&&cfg.condiciones)||[])];
+  if(ks.includes("lumbalgia")&&ejLumbarFase(cfg)==="sintomatica")ks.push("lumbar_sint");
+  return ks.map(k=>EJ_CONTRA.find(c=>c.k===k)).filter(Boolean);
+}
+const EJ_LUMBAR={
+  fases:{
+    sintomatica:{label:"Fase sintomática · dolor, hormigueo o adormecimiento hacia la pierna",rir:3,
+      desc:"Dolor irradiado activo o que aún baja por la pierna. Se entrena todo el cuerpo con la columna apoyada o neutra y cargas submáximas."},
+    estable:{label:"Fase estable · sin dolor irradiado o ya centralizado en la espalda",rir:2,
+      desc:"El dolor de la pierna cedió o se concentró en la espalda. Se reintroduce la bisagra de cadera y la carga, de forma graduada."},
+  },
+  // Criterios para pasar de sintomática a estable (protocolo MGB, fases I-II → III)
+  criterios:"Pasar a fase estable cuando ya no hay dolor por debajo de la rodilla, tolera 20 a 30 minutos sentado y 30 minutos de caminata, y sostiene la columna neutra en bird dog y plancha lateral.",
+  cambios:[
+    {evitar:"Flexión de tronco repetida o con carga",ej:"crunch, abdominales con rueda, polea o máquina, elevaciones de piernas o rodillas, escaladores",
+     porque:"Flexionar la columna bajo carga, una y otra vez, es el mecanismo que empuja el núcleo del disco hacia atrás.",
+     sintomatica:"Core de estabilidad: curl-up de McGill, media plancha lateral, bird dog, dead bug.",
+     estable:"Lo anterior con plancha lateral completa, más press Pallof y caminata del granjero unilateral."},
+    {evitar:"Bisagra de cadera con carga y sin apoyo",ej:"peso muerto convencional, sumo o en déficit, buenos días, swing, extensiones de tronco en banco romano",
+     porque:"Suman compresión y cizalla anterior sobre L4-L5 y L5-S1, sobre todo si la espalda se redondea al final del recorrido.",
+     sintomatica:"Bisagra de cadera con palo (sólo el patrón), puente de glúteo, hip thrust, puente isquiosural y curl femoral.",
+     estable:"Peso muerto rumano con mancuerna o pesa rusa, kickstand, pull through y peso muerto con barra hexagonal o elevado, con carga moderada."},
+    {evitar:"Carga pesada sobre los hombros o sobre la cabeza",ej:"sentadilla trasera o frontal con barra, desplantes con barra, prensa militar de pie",
+     porque:"La compresión axial aumenta la presión dentro del disco.",
+     sintomatica:"Levantarse de una silla, sentadilla a cajón, asistida o en pared, step up, sentadilla split; press de hombro sentado en máquina.",
+     estable:"Sentadilla goblet, búlgara o split con mancuernas; press de hombro sentado con respaldo."},
+    {evitar:"Prensa de pierna profunda y sentadilla hack",ej:"cuando la pelvis se despega del respaldo al fondo del recorrido",
+     porque:"Al enrollarse la pelvis, la columna lumbar se flexiona con toda la carga encima.",
+     sintomatica:"Se retiran; el cuádriceps se trabaja con extensión de rodilla en máquina y las variantes anteriores.",
+     estable:"Prensa con rango parcial, sin que la pelvis se despegue."},
+    {evitar:"Remos sin apoyo del tronco",ej:"remo de pie con barra, en T, inclinado o renegado",
+     porque:"El tronco inclinado sostiene la carga con los extensores lumbares durante toda la serie.",
+     sintomatica:"Remo con el pecho apoyado, remo sentado en máquina, remo en suspensión y jalón al pecho.",
+     estable:"Se añaden remo sentado en polea con el tronco quieto y remo a una mano con apoyo en banco."},
+    {evitar:"Impacto y giros rápidos del tronco",ej:"saltos, pliometría, carrera, intervalos de alta intensidad, remo en máquina",
+     porque:"Suman cargas repetidas de compresión y torsión mientras la raíz está irritada.",
+     sintomatica:"Caminata en sesiones cortas y frecuentes, elíptica, natación o bicicleta con el tronco erguido.",
+     estable:"Regreso gradual al trote; los giros se entrenan primero como anti-rotación (Pallof)."},
+  ],
+  core:{
+    sintomatica:["Gato-camello","Curl-up de McGill","Media plancha lateral","Bird dog","Deslizamiento neural del nervio ciático","Extensión en prono (McKenzie)"],
+    estable:["Gato-camello","Curl-up de McGill","Plancha lateral","Bird dog","Dead bug","Press Pallof","Caminata del granjero unilateral","Puente de glúteo"],
+  },
+  reglas:[
+    "Columna neutra en todos los ejercicios: el movimiento sale de la cadera y de las rodillas, no de la cintura.",
+    "Se acepta molestia lumbar leve (hasta 3 de 10) que cede en minutos. No se acepta dolor, hormigueo ni adormecimiento que aparezca o baje por la pierna: ese ejercicio se suspende.",
+    "Si el dolor de la pierna sube hacia la espalda (centraliza), el ejercicio va bien aunque la espalda moleste un poco más.",
+    "Sin maniobra de Valsalva sostenida y lejos del fallo.",
+    "Evitar estar sentado más de 30 minutos seguidos.",
+  ],
+  alarma:"Enviar a valoración urgente ante pérdida de fuerza progresiva (pie caído), anestesia en silla de montar, retención o incontinencia urinaria o fecal, o dolor en ambas piernas: sospecha de síndrome de cauda equina.",
+  refs:"George SZ et al., <i>J Orthop Sports Phys Ther</i> 2021;51(11):CPG1-60 · Kreiner DS et al. (NASS), <i>Spine J</i> 2014;14(1):180-91 · NICE NG59 (2016, act. 2020) · McGill SM, <i>Low Back Disorders</i>, 3.ª ed. (2016) · Protocolo conservador de desplazamiento discal lumbar, Mass General Brigham.",
+};
+// Texto del bloque de core que sustituye al abdomen (va al PDF del paciente).
+// Cada renglón «• Nombre — dosis» se enlaza solo con su video en el PDF.
+function ejLumbarCoreTexto(fase){
+  const piramide="6, 4 y 2 repeticiones de 8 a 10 segundos";
+  if(fase==="estable")return"Core de estabilidad lumbar en cada sesión (15 minutos). Se siguen sin hacer abdominales que flexionen la columna (crunch, rueda, elevaciones de piernas). En los ejercicios sostenidos, cada repetición dura 8 a 10 segundos respirando normal: hacer 6, descansar 20 segundos, luego 4 y luego 2.\n"+
+    "• Gato-camello — 6 a 8 ciclos lentos antes de empezar, sin forzar los extremos.\n"+
+    "• Curl-up de McGill — "+piramide+"; cambiar la pierna flexionada a la mitad.\n"+
+    "• Plancha lateral — "+piramide+" por lado.\n"+
+    "• Bird dog — "+piramide+" por lado.\n"+
+    "• Dead bug — 3 series de 8 repeticiones lentas por lado, sin despegar la espalda baja.\n"+
+    "• Press Pallof — 3 series de 10 repeticiones por lado, sosteniendo 2 segundos con los brazos extendidos.\n"+
+    "• Caminata del granjero unilateral — 3 recorridos de 20 a 30 metros por lado, con el tronco derecho.\n"+
+    "• Puente de glúteo — 3 series de 12 repeticiones con pausa de 2 segundos arriba.";
+  return"Core de estabilidad lumbar: en cada sesión y también los días sin entrenamiento (10 a 15 minutos). No hacer abdominales, crunch ni elevaciones de piernas. Cada repetición se sostiene 8 a 10 segundos respirando normal: hacer 6, descansar 20 segundos, luego 4 y luego 2.\n"+
+    "• Gato-camello — 6 a 8 ciclos lentos antes de empezar, sin forzar los extremos.\n"+
+    "• Curl-up de McGill — "+piramide+"; cambiar la pierna flexionada a la mitad.\n"+
+    "• Media plancha lateral — "+piramide+" por lado.\n"+
+    "• Bird dog — "+piramide+" por lado.\n"+
+    "• Deslizamiento neural del nervio ciático — 10 a 15 repeticiones suaves, 2 a 3 veces al día, sólo si hay dolor hacia la pierna; nunca provocar dolor ni hormigueo.\n"+
+    "• Extensión en prono (McKenzie) — 10 repeticiones cada 2 a 3 horas ÚNICAMENTE si al repetirla el dolor de la pierna disminuye o se concentra en la espalda; si el dolor baja por la pierna, suspenderla.\n"+
+    "• Caminata — 5 a 10 minutos, 3 veces al día, a paso cómodo.";
+}
+// Ajusta los textos del plan cuando la condición está marcada.
+function ejLumbarTextos(tx,cfg){
+  if(!ejEsLumbar(cfg))return tx;
+  const fase=ejLumbarFase(cfg);
+  tx.calentamiento+="\nColumna lumbar: antes de las series, 5 minutos de caminata y 6 a 8 ciclos suaves de gato-camello.";
+  tx.abdomen=ejLumbarCoreTexto(fase);
+  // La reserva del protocolo manda sobre la general («1 a 2 repeticiones en reserva»).
+  tx.progresion=tx.progresion.replace(/terminar cada serie con (1 a 2|3 o más) repeticiones en reserva/,"terminar cada serie con "+EJ_LUMBAR.fases[fase].rir+" o más repeticiones en reserva");
+  if(tx.cardio)tx.cardio+="\nColumna lumbar: "+(fase==="sintomatica"
+    ?"hacer el trabajo cardiopulmonar caminando, en elíptica, nadando o en bicicleta con el tronco erguido. No correr, saltar ni usar la máquina de remo mientras haya dolor hacia la pierna."
+    :"preferir caminata, elíptica, natación o bicicleta; el trote se retoma de forma gradual y sólo si no despierta dolor hacia la pierna.");
+  const lineas=tx.precauciones.split("\n");
+  const i=lineas.findIndex(l=>/^detener/i.test(l));
+  lineas.splice(i<0?lineas.length:i,0,
+    "Columna lumbar: mantener la espalda en posición neutra en todos los ejercicios; el movimiento sale de la cadera y las rodillas, no de la cintura.",
+    "Columna lumbar: se acepta una molestia leve en la espalda (hasta 3 de 10) que cede en minutos. Si aparece o aumenta dolor, hormigueo o adormecimiento hacia la pierna, suspender ese ejercicio.",
+    "Columna lumbar: terminar cada serie con "+EJ_LUMBAR.fases[fase].rir+" o más repeticiones en reserva y sin aguantar la respiración.",
+    "Columna lumbar: evitar estar sentado más de 30 minutos seguidos; levantarse y caminar.");
+  lineas.push("Detener el ejercicio y acudir a urgencias si aparece pérdida de fuerza en una pierna o en el pie, adormecimiento en la zona genital o entre las piernas, o dificultad para orinar o para controlar esfínteres.");
+  tx.precauciones=lineas.join("\n");
+  return tx;
+}
+// Tarjeta que se despliega en la configuración al marcar la condición.
+function ejPintarLumbar(){
+  const el=document.getElementById("ej-lumbar");if(!el)return;
+  const c=ejCfg();
+  if(!ejEsLumbar(c)){el.innerHTML="";return;}
+  const fase=ejLumbarFase(c),F=EJ_LUMBAR.fases;
+  const vid=n=>{const v=ejVideo(n,"Abdomen/Psoas");return v&&v.tipo==="catalogo"?` <a href="${v.url}" target="_blank" rel="noopener" style="color:${P};font-weight:700;white-space:nowrap">Ver video</a>`:"";};
+  const th=`padding:8px 10px;text-align:left;font-size:12px;text-transform:uppercase;color:${MU};background:#F8FAFB;border-bottom:2px solid ${BR}`;
+  const td=`padding:9px 10px;font-size:13px;line-height:1.5;vertical-align:top;border-bottom:1px solid ${BR}`;
+  el.innerHTML=`<div style="border:1.5px solid #C62828;border-radius:10px;margin:-6px 0 18px;overflow:hidden">
+    <div style="background:#FFEBEE;padding:11px 14px">
+      <b style="font-size:14px;color:#B71C1C">Protocolo de columna lumbar: protrusión o hernia discal, con o sin radiculopatía</b>
+      <div style="font-size:13px;color:${TX};margin-top:3px;line-height:1.5">Al generar el mes se retiran los ejercicios que cargan el disco, se sustituyen por otros del mismo grupo muscular y el abdomen se cambia por un bloque de estabilidad. Todo queda editable en el plan.</div>
+    </div>
+    <div style="padding:14px">
+      <label style="display:block;font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin-bottom:6px">Fase clínica</label>
+      <select id="ej-lumbar-fase" onchange="ejSetLumbarFase(this.value)" style="width:100%;padding:9px 11px;border:1.5px solid ${BR};border-radius:8px;font-size:14px;background:#fff">
+        ${Object.entries(F).map(([k,f])=>`<option value="${k}" ${fase===k?"selected":""}>${f.label}</option>`).join("")}</select>
+      <p style="font-size:13px;color:${MU};margin:8px 0 14px;line-height:1.55">${F[fase].desc} Reserva mínima: <b style="color:${TX}">${F[fase].rir} repeticiones</b>${fase==="sintomatica"?", sin series descendentes":""}. ${fase==="sintomatica"?EJ_LUMBAR.criterios:""}</p>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:560px">
+        <tr><th style="${th};width:34%">Se evita</th><th style="${th};width:28%">Por qué</th><th style="${th}">Se cambia por</th></tr>
+        ${EJ_LUMBAR.cambios.map(x=>`<tr><td style="${td}"><b style="color:#B71C1C">${x.evitar}</b><br><span style="color:${MU}">${x.ej}</span></td><td style="${td};color:${MU}">${x.porque}</td><td style="${td}">${x[fase]}</td></tr>`).join("")}
+      </table></div>
+      <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin:16px 0 8px">Bloque de core que sustituye al abdomen</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${EJ_LUMBAR.core[fase].map(n=>`<span style="border:1px solid ${BR};border-radius:8px;padding:6px 10px;font-size:13px;background:#fff">${n}${vid(n)}</span>`).join("")}</div>
+      <p style="font-size:13px;color:${MU};margin:8px 0 0;line-height:1.55">La dosis de cada uno queda escrita en el campo «Core» de los textos del plan y sale en el PDF con su video.${fase==="sintomatica"?" La extensión en prono sólo se indica si centraliza el dolor; si lo periferiza, bórrala del texto.":""}</p>
+      <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin:16px 0 8px">Reglas de carga</p>
+      <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.6;color:${TX}">${EJ_LUMBAR.reglas.map(r=>`<li>${r}</li>`).join("")}</ul>
+      <div style="background:#FFEBEE;border-left:4px solid #C62828;border-radius:6px;padding:10px 12px;margin-top:14px;font-size:13px;line-height:1.55;color:#B71C1C"><b>Señales de alarma.</b> ${EJ_LUMBAR.alarma}</div>
+      <p style="font-size:12px;color:${MU};margin:12px 0 0;line-height:1.55">Referencias: ${EJ_LUMBAR.refs}</p>
+    </div></div>`;
+}
+window.ejSetLumbarFase=function(v){ejCfg().lumbarFase=v==="estable"?"estable":"sintomatica";ejPintarLumbar();};
+
 // ── Selección de medios ──────────────────────────────────────────────────────
 // Filtra la biblioteca por el equipo del lugar, la complejidad que admite el
 // nivel del paciente y las contraindicaciones marcadas. Si el lugar elegido no
 // ofrece ningún medio para ese patrón, amplía el equipamiento y marca la fila
 // para que el clínico lo vea, en vez de dejarla vacía.
 function ejCandidatos(grupo,patron,cfg){
+  // Columna lumbar: el abdomen de flexión (de tronco o de cadera) se cambia por el de estabilidad.
+  if(ejEsLumbar(cfg)&&grupo==="Abdomen/Psoas")patron="Isométricos";
   const nodo=(EJ_BIBLIO[grupo]||{})[patron];
   if(!nodo)return{comp:false,lista:[],fuera:false};
   const sede=EJ_SEDES[ejNormSede(cfg.sede||cfg.lugar)]||EJ_SEDES.pesas;
   const maxCx=Math.min(EJ_NIVEL_MAX[cfg.nivel]||3,sede.maxCx);
-  const contras=(cfg.condiciones||[]).map(k=>EJ_CONTRA.find(c=>c.k===k)).filter(Boolean);
+  const contras=ejContras(cfg);
   const todos=nodo.ejs.map(n=>{
     const choca=contras.filter(c=>c.re.test(n));
     const f=ejFamilia(n);
@@ -23451,6 +23616,9 @@ function ejCandidatos(grupo,patron,cfg){
   if(!lista.length){lista=todos.filter(e=>e.cx<=maxCx);fuera=lista.length>0;}
   if(!lista.length){lista=todos.slice();fuera=true;}
   const limpios=lista.filter(e=>!e.contra.length);
+  // Columna lumbar: la pantorrilla con la cadera flexionada (tipo burro, en prensa) puede quedarse
+  // sin ningún medio seguro en el lugar elegido; entonces se trabaja de pie.
+  if(!limpios.length&&ejEsLumbar(cfg)&&grupo==="Pantorrilla"&&patron!=="Rodilla en extensión")return ejCandidatos(grupo,"Rodilla en extensión",cfg);
   return{comp:!!nodo.comp,lista:limpios.length?limpios:lista,fuera};
 }
 
@@ -23463,6 +23631,12 @@ function ejCandidatos(grupo,patron,cfg){
 // rompe. El médico puede pegar en cada fila el enlace que prefiera —por
 // ejemplo, uno de su propio canal— y ése es el que se guarda e imprime.
 const EJ_VIDEOS=[
+  // Columna lumbar (bloque de core y movilidad). Enlaces reunidos por búsqueda en YouTube el 10-nov-2026.
+  [/(curl-?up|mcgill)/,null,"https://www.youtube.com/watch?v=3pd_MLk5018","McGill Curl Up Exercise Español"],
+  [/gato.?(y )?camello/,null,"https://www.youtube.com/watch?v=J99uL4J5khE","Dolor lumbar: Ejercicio del gato camello"],
+  [/(deslizamiento neural|neurodinami)/,null,"https://www.youtube.com/watch?v=aO2LnBYx_qw","Neurodinamia del Nervio Ciático"],
+  [/(extension en prono|mckenzie)/,null,"https://www.youtube.com/watch?v=RoW3MpEMDf4","Extensiones lumbares de McKenzie"],
+  [/bisagra de cadera/,null,"https://www.youtube.com/watch?v=FmWsCfUs9DI","Bisagra de cadera con pica"],
   [/remo al menton/,null,"",""],
   [/talones.*(sentado|costurera|cuclillas)/,"Pantorrilla","https://www.youtube.com/watch?v=Hq7ZnmkuZWM","Seated Calf Raise (Elevación de talones sentado en máquina) // Técnica y Puntos clave"],
   [/talones/,"Pantorrilla","https://www.youtube.com/watch?v=JDfWLEipMOc","Cómo hacer ELEVACIÓN DE TALONES correctamente"],
@@ -23591,10 +23765,11 @@ function ejAlternativa(lista,pick,ctx){
 // prescripción del día.
 function ejSiguienteVariante(grupo,patron,cfg,pick){
   if(!pick||(pick.carga>1&&!pick.regresion))return null;
+  if(ejEsLumbar(cfg)&&grupo==="Abdomen/Psoas")patron="Isométricos";
   const nodo=(EJ_BIBLIO[grupo]||{})[patron];if(!nodo)return null;
   const sede=EJ_SEDES[ejNormSede(cfg.sede||cfg.lugar)]||EJ_SEDES.pesas;
   const maxCx=Math.min(sede.maxCx,(EJ_NIVEL_MAX[cfg.nivel]||3)+1);
-  const contras=(cfg.condiciones||[]).map(k=>EJ_CONTRA.find(c=>c.k===k)).filter(Boolean);
+  const contras=ejContras(cfg);
   const d0=ejDificultad(pick);
   let mejor=null,mv=Infinity;
   nodo.ejs.forEach(n=>{
@@ -23752,7 +23927,7 @@ function ejTextos(cfg,claveMet,nDias){
   const aprox=claveMet==="rectas"?"":"\nAntes del primer ejercicio de cada bloque realizar 2 series de aproximación con el 50 % y el 70 % de la carga de trabajo, de 8 y 5 repeticiones respectivamente, sin llegar al esfuerzo máximo.";
   const sup=sede.rirMin>=3?1.25:2.5, inf=sede.rirMin>=3?2.5:5;
   const cardio=EJ_CARDIO[cfg.cardio||"mixto"]||EJ_CARDIO.mixto;
-  return{
+  return ejLumbarTextos({
     metodo:m.desc,
     calentamiento:"Calentamiento (10 minutos): realizar movilización activa suave y ejercicios de estiramiento activos-asistidos de 8 segundos."+aprox,
     progresion:"Progresión de la carga (doble progresión): cuando complete el límite superior del rango de repeticiones en todas las series con técnica correcta, incrementar la carga "+sup+" % en tren superior y "+inf+" % en tren inferior, y regresar al límite inferior del rango. Salvo las series descendentes indicadas, terminar cada serie con "+(sede.rirMin>=3?"3 o más":"1 a 2")+" repeticiones en reserva.\nRegistrar carga y repeticiones de cada ejercicio en una bitácora en cada sesión.",
@@ -23762,7 +23937,7 @@ function ejTextos(cfg,claveMet,nDias){
     cardio:(cardio.texto||"").replace("{DIAS}",String(nDias))+(cardio.texto?"\nRealizar el trabajo cardio-pulmonar siempre al terminar el entrenamiento de fuerza, o bien separado de éste por al menos 6 horas. No realizarlo antes del entrenamiento de fuerza.":""),
     enfriamiento:"Enfriamiento: realizar estiramientos activos-asistidos de tipo inhibitorio (12 segundos) durante 10 minutos, principalmente en los músculos ejercitados previamente.",
     precauciones:"Realizar el ejercicio en el orden indicado.\nLa técnica y el rango de movimiento completo tienen prioridad sobre la carga.\nA la cuarta semana realizar una semana de descarga: los mismos ejercicios y la misma carga, reduciendo a la mitad el número de series y suspendiendo las series descendentes.\nDetener la actividad física en caso de mareo, náusea, vómito, fatiga excesiva, dolor de cabeza, sensación de desvanecimiento o desmayo, dolor en el pecho, falta excesiva de aire, dolor muscular o articular.\nTomar 250 mL de agua cada 15 minutos a temperatura ambiente durante el entrenamiento.\nDormir 8 horas diariamente."+(sede.nota?"\n"+sede.nota:""),
-  };
+  },cfg);
 }
 
 // ── Generador del mes ────────────────────────────────────────────────────────
@@ -23780,7 +23955,8 @@ function ejGenerarPlan(cfg){
   const rot=cfg.rotacion||0;
   const nd=seq.dias.length;
 
-  const crudos=seq.dias.map((filas,d)=>({modo:ejModoDelDia(claveMet,d,nd),filas:filas.map(f=>({g:f.g,p:f.p}))}));
+  const lumbar=ejEsLumbar(cfg),rirLumbar=lumbar?EJ_LUMBAR.fases[ejLumbarFase(cfg)].rir:0;
+  const crudos=seq.dias.map((filas,d)=>({modo:ejModoDelDia(claveMet,d,nd),filas:filas.map(f=>({g:f.g,p:lumbar&&f.g==="Abdomen/Psoas"?"Isométricos":f.p}))}));
 
   if(claveMet==="rectas"){
     const apar={};
@@ -23856,14 +24032,14 @@ function ejGenerarPlan(cfg){
           fueraSede:!!cand.fuera,
           series:f.series||m.series||3,
           repsMin:rango[0],repsMax:rango[1],
-          rir:Math.max(m.rir||0,sede.rirMin),
+          rir:Math.max(m.rir||0,sede.rirMin,rirLumbar),
           tempo:m.tempo,
           descanso:cand.comp?m.descanso.comp:m.descanso.ais,
           drop:false,peso:"",nota:"",ajuste:"",
           alternativa:alt?alt.n:"",siguiente:sig||"",video:""
         };
       });
-      if(m.drop&&filas.length)filas[filas.length-1].drop=true;
+      if(m.drop&&filas.length&&!(lumbar&&ejLumbarFase(cfg)==="sintomatica"))filas[filas.length-1].drop=true;
       return{n:bi+1,tipo:m.tipo,modo:dia.modo,
         descanso:filas.reduce((a,f)=>Math.max(a,f.descanso),0),
         entre:m.descansoEntre||0,filas};
@@ -24146,6 +24322,7 @@ const EJ_MODALIDAD={
 // Condiciones del cuestionario de contraindicaciones que piden cautela con la
 // intensidad alta, y lo que se le dice al médico en pantalla.
 const EJ_CARDIO_RIESGO={
+  lumbalgia:"Columna lumbar: los intervalos en zona 4-5 suelen hacerse corriendo o en remo, que suman impacto y flexión. Mientras haya dolor irradiado, preferir caminata, elíptica, natación o bicicleta erguida en zona 1-3.",
   cardiopatia:"Cardiopatía isquémica: los intervalos en zona 4-5 requieren prueba de esfuerzo reciente que descarte isquemia a esa intensidad y, de preferencia, supervisión. Considere intervalos de umbral o aeróbicos.",
   has:"Hipertensión no controlada: no prescribir intervalos en zona 4-5 hasta controlar la presión arterial.",
   retinopatia:"Retinopatía proliferativa: evitar picos de presión arterial; preferir zona 1-3.",
@@ -24356,6 +24533,7 @@ window.ejSetCond=function(k,on){
   const c=ejCfg();c.condiciones=c.condiciones||[];
   if(on&&!c.condiciones.includes(k))c.condiciones.push(k);
   if(!on)c.condiciones=c.condiciones.filter(x=>x!==k);
+  if(k==="lumbalgia")ejPintarLumbar();   // despliega u oculta el protocolo de columna lumbar
 };
 function ejPintarBanda(){
   const box=document.getElementById("ej-banda");if(!box)return;
@@ -24422,7 +24600,7 @@ window.ejEditar=function(d,b,i,campo,val){
     const alt=ejAlternativa(cand.lista,yo,{posicion:fila.pos||0,cxDeseada:2,nivelNum:EJ_NIVEL_NUM[cfgE.nivel]??2,permiteRegresion:true,usadas:new Set(),historial:STATE._ejHist||{}});
     fila.alternativa=alt?alt.n:"";
     fila.siguiente=ejSiguienteVariante(fila.grupo,fila.patron,cfgE,yo)||"";
-    const contras=(ejCfg().condiciones||[]).map(k=>EJ_CONTRA.find(c=>c.k===k)).filter(Boolean).filter(c=>c.re.test(val));
+    const contras=ejContras(cfgE).filter(c=>c.re.test(val));
     fila.contra=contras.map(c=>c.k);fila.notasContra=contras.map(c=>c.nota);
     pgEjercicio();return;
   }
@@ -24566,12 +24744,13 @@ function ejVistaConfig(cb){
     </div>
     <p style="font-size:12px;font-weight:700;color:${MU};text-transform:uppercase;margin:14px 0 8px">Contraindicaciones clínicas</p>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
-      ${EJ_CONTRA.map(x=>`<label style="display:flex;align-items:center;gap:6px;padding:6px 11px;border:1.5px solid ${(c.condiciones||[]).includes(x.k)?"#C62828":BR};border-radius:20px;cursor:pointer;background:${(c.condiciones||[]).includes(x.k)?"#FFEBEE":"#fff"};font-size:12.5px">
+      ${EJ_CONTRA.filter(x=>!x.oculto).map(x=>`<label style="display:flex;align-items:center;gap:6px;padding:6px 11px;border:1.5px solid ${(c.condiciones||[]).includes(x.k)?"#C62828":BR};border-radius:20px;cursor:pointer;background:${(c.condiciones||[]).includes(x.k)?"#FFEBEE":"#fff"};font-size:12.5px">
         <input type="checkbox" ${(c.condiciones||[]).includes(x.k)?"checked":""} onchange="ejSetCond('${x.k}',this.checked)" style="accent-color:#C62828;width:14px;height:14px">${x.label}</label>`).join("")}
     </div>
+    <div id="ej-lumbar"></div>
     <button onclick="ejGenerar()" style="background:${P};color:#fff;border:none;border-radius:9px;padding:12px 24px;font-size:15px;font-weight:700;cursor:pointer;width:100%">⚡ Generar el mes de entrenamiento</button>
     <p style="font-size:11px;color:${MU};margin-top:10px;line-height:1.6">En series rectas el volumen se reparte con ondulación diaria por grupo; en los métodos por bloques las series las fija el método y lo que se ajusta es el número de ejercicios, hasta caber en la banda VME–VMR. Tope de ${(EJ_SEDES[ejNormSede(c.sede||c.lugar)]||EJ_SEDES.pesas).tope} series directas por grupo y sesión. Referencias: ACSM Guidelines 11.ª ed. (2021); Schoenfeld et al., <i>J Sports Sci</i> 2017 y <i>Med Sci Sports Exerc</i> 2019; Baz-Valle et al., <i>PLoS One</i> 2022; Grgic et al., <i>J Sport Health Sci</i> 2018.</p>`;
-  ejPintarBanda();
+  ejPintarBanda();ejPintarLumbar();
 }
 
 // Los grupos que no caben en la secuencia comparten causa y salida, así que
@@ -24697,7 +24876,7 @@ function ejVistaTextos(cb){
     ${campo("volumen","Explicación del volumen (en lenguaje llano, para el paciente)",6)}
     ${campo("calentamiento","Calentamiento",3)}
     ${campo("progresion","Progresión de la carga",4)}
-    ${campo("abdomen","Abdomen",2)}
+    ${campo("abdomen",ejEsLumbar(p.cfg)?"Core · estabilidad lumbar (sustituye al abdomen; cada renglón «• Nombre — dosis» sale con su video)":"Abdomen",ejEsLumbar(p.cfg)?10:2)}
     ${campo("cardio","Ejercicio cardiopulmonar"+(t._cardioManual?" · editado a mano":" · se escribe desde la pestaña Cardio"),7)}
     ${t._cardioManual?`<div style="margin:-8px 0 14px">${btn("Rehacer el texto de cardio desde el menú","ejCardioRehacerTexto()","s",1)}</div>`:""}
     ${campo("enfriamiento","Enfriamiento",2)}
@@ -25471,7 +25650,23 @@ window.pdfPrescripcionEjercicio=async function(){
 
     // ── Cómo progresar ──
     if((t.progresion||"").trim()){seccion("Cómo subir de peso");parrafos(t.progresion,{pt:10});}
-    if((t.abdomen||"").trim()){seccion("Abdomen");parrafos(t.abdomen,{pt:10});}
+    if((t.abdomen||"").trim()){
+      seccion(ejEsLumbar(plan.cfg)?"Core: estabilidad de la columna lumbar":"Abdomen");
+      // Los renglones «• Nombre — dosis» salen como lista, con el nombre en negrita y su video.
+      for(const ln of t.abdomen.split(/\n+/).map(z=>z.trim()).filter(Boolean)){
+        const m=/^[•\-]\s*(.+?)\s+—\s+(.+)$/.exec(ln);
+        if(!m){parrafos(ln,{pt:10});continue;}
+        const v=ejVideo(m[1],"Abdomen/Psoas"),conV=v&&v.tipo==="catalogo";
+        F(10,false);const ds=partir(m[2],AN-6-(conV?24:0));
+        pedir(alto(10)*(1+ds.length)+2);
+        doc.setFillColor(...C.azul);doc.circle(MX+1.4,y+alto(10)*0.5,0.75,"F");
+        F(10.4,true,C.marino);doc.text(lat(m[1]),MX+5,y+alto(10)*0.76);
+        if(conV)enlace("Ver video",W-MX-20,y+alto(10)*0.76,v.url);
+        y+=alto(10);
+        F(10,false,C.txt);for(const d of ds){doc.text(d,MX+5,y+alto(10)*0.76);y+=alto(10);}
+        y+=1.6;
+      }
+    }
     {
       const tv=(t.volumen===undefined?ejTextoVolumen(plan):t.volumen).trim();
       if(tv){
