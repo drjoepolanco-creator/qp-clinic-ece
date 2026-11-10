@@ -17577,22 +17577,18 @@ function getCredLines(med){
 // ── Helper: hex color → [r,g,b] para jsPDF ──────────────────────────────────
 function hexRGB(h){h=h.replace("#","");if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 
-// ── PDF Generator ────────────────────────────────────────────────────────────
+// ── PDF del reporte de ultrasonido ───────────────────────────────────────────
+// Mismo estilo que el programa de ejercicio: texto y líneas VECTORIALES con
+// jsPDF (antes el reporte y la firma eran fotos de la página hechas con
+// html2canvas), membrete claro, secciones con barra azul y pie discreto.
+// Las imágenes del estudio van como JPEG, cuatro por hoja.
 window.generarPDFUltrasonido=async function(){
-  const {jsPDF}=window.jspdf;
+  const {jsPDF}=window.jspdf||{};
   if(!jsPDF){showToast("jsPDF no disponible",false);return;}
-  if(typeof html2canvas==="undefined"){
-    await new Promise((res,rej)=>{
-      const s=document.createElement("script");
-      s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      s.onload=res;s.onerror=rej;document.head.appendChild(s);
-    });
-  }
   try{
-    loading(true,"Generando PDF... (puede tardar 15-20 seg)");
+    loading(true,"Generando PDF...");
     const datos=usRecolectarDatos();
     const tipo=STATE.usActivo?.tipo||"Ultrasonido";
-    const plantilla=STATE.usActivo?.plantilla;
     const imgs=STATE.usActivo?.imagenes||[];
     const med=STATE.medProfile||STATE.userProfile||{};
 
@@ -17603,238 +17599,174 @@ window.generarPDFUltrasonido=async function(){
     const nomMedFallback=STATE.userProfile?`${STATE.userProfile.titulo||"Dra."} ${STATE.userProfile.nombre||""} ${STATE.userProfile.apellidos||""}`.trim():"Médico Radiólogo";
     const nomMed=(datos.medico||nomMedFallback).trim();
 
-    // Logo QP Clinic y Firma
-    let logoQPB64=null,firmaB64=null;
-    try{
-      const rLogo=await fetch(brand().logo);
-      const blLogo=await rLogo.blob();
-      logoQPB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blLogo);});
-    }catch(e){}
-    if(med.firma_digital){try{const r=await fetch(med.firma_digital);const bl=await r.blob();firmaB64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});}catch(e){}}
-
-    // Hallazgos
-    const camposHallazgo=(plantilla?.campos||[]).filter(c=>!["us_impresion","us_recom","us_motivo","us_dc","us_psa"].includes(c.id));
-    const hallazgosFilas=camposHallazgo.filter(c=>datos[c.id]&&datos[c.id]!==c.label).map(c=>({l:c.label,v:datos[c.id]}));
-    if(datos.hallazgos_extra&&datos.hallazgos_extra.trim())hallazgosFilas.push({l:"Descripción del ultrasonido",v:datos.hallazgos_extra});
-
-    // ── PALETA ────────────────────────────────────────────────
-    const AZ="#0077B6",AZDK="#023E8A",AZLT="#EAF6FB",BG="#F4F8FB",BRD="#D9E4EC",TXT="#1F2933",SEC="#5F6B73",FTR="#6B7280";
-
-    // ── HTML→Canvas helper (ancho fijo 720px = ~190mm a 96dpi) ─
-    const CW_PX=720;   // px del div (aprox 190mm × 3.78)
-    const HCSC=3;      // html2canvas scale → 2160px wide canvas
-    const PX_PER_MM=CW_PX*HCSC/189.9; // canvas px por mm
-
-    const renderHTML=async(html)=>{
-      const wrap=document.createElement("div");
-      wrap.style.cssText=`position:fixed;left:-9999px;top:0;width:${CW_PX}px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:${TXT};line-height:1.4;box-sizing:border-box`;
-      wrap.innerHTML=html;
-      document.body.appendChild(wrap);
-      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-      const cv=await html2canvas(wrap,{scale:HCSC,useCORS:true,backgroundColor:"#fff",logging:false,imageTimeout:10000,allowTaint:true});
-      document.body.removeChild(wrap);
-      return cv;  // cv.width=CW_PX*HCSC, cv.height=contenido*HCSC
+    // Logo de la unidad y firma del médico (se incrustan tal cual)
+    const aImagen=async url=>{
+      const r=await fetch(url);const bl=await r.blob();
+      const u=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
+      const dim=await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res({w:im.naturalWidth,h:im.naturalHeight});im.onerror=rej;im.src=u;});
+      if(!dim.w||!dim.h)throw new Error("imagen vacía");
+      return{url:u,...dim,tipo:/png/i.test(bl.type)?"PNG":"JPEG"};
     };
+    let logo=null,firma=null;
+    try{logo=await aImagen(brand().logo);}catch(e){}
+    if(med.firma_digital){try{firma=await aImagen(med.firma_digital);}catch(e){}}
 
-    // ── Constantes PDF ────────────────────────────────────────
-    const PW=215.9,PH=279.4,ML=13,MR=PW-13,CWMM=PW-26,FH=10;
-    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+    const TIPOS_L=[
+      {id:"nodulo",label:"Nódulo",color:"#0D47A1"},
+      {id:"lesion_no_masa",label:"Lesión no masa",color:"#1565C0"},
+      {id:"quiste_simple",label:"Quiste simple",color:"#2E7D32"},
+      {id:"quiste_complic",label:"Quiste complicado",color:"#F9A825"},
+      {id:"sospechoso",label:"Lesión sospechosa",color:"#C62828"},
+      {id:"ganglio_axilar",label:"Ganglio axilar",color:"#6A1B9A"},
+      {id:"ganglio_intramam",label:"Ganglio intramam.",color:"#AD1457"},
+    ];
+    const lesionesEd=STATE.usActivo?.lesiones||[];
+    const imgDiag=imgs.filter(i=>i.etiqueta==="Diagrama BI-RADS");
+    const imgsNorm=imgs.filter(i=>i.etiqueta!=="Diagrama BI-RADS");
+    // Lo propio de mama (número de imagen, mama, tipo de lesión y la leyenda «Tipos») sólo sale
+    // en estudios de mama: en un ultrasonido de hombro o de abdomen no significa nada.
+    const esMama=/mama|mamari|mastograf/i.test(tipo+" "+(STATE.usActivo?.cat||""))||lesionesEd.length>0||imgDiag.length>0;
 
-    const addFooter=(pg,total)=>{
-      doc.setFillColor(238,244,248);doc.rect(0,PH-FH,PW,FH,"F");
-      doc.setDrawColor(217,228,236);doc.setLineWidth(0.2);doc.line(0,PH-FH,PW,PH-FH);
-      doc.setTextColor(107,114,128);doc.setFont("helvetica","normal");doc.setFontSize(6);
-      doc.text(`${sedePie()}  |  ${tipo}  |  ${datos.paciente||"—"}  |  ${datos.fecha||""}  |  Página ${pg} de ${total}`,PW/2,PH-3.5,{align:"center",maxWidth:PW-4});
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter",compress:true});
+    const W=215.9,H=279.4,MX=15,MB=15,AN=W-MX*2;
+    const C={azul:[11,111,179],marino:[31,56,100],claro:[232,243,250],zebra:[246,250,252],linea:[205,219,229],
+             txt:[31,41,51],sec:[84,98,110],blanco:[255,255,255]};
+    // Las fuentes estándar del PDF sólo traen el alfabeto latino: lo que no existe ahí se traduce o se quita.
+    const lat=s=>String(s??"").replace(/−/g,"-").replace(/≥/g,">=").replace(/≤/g,"<=").replace(/[→➜]/g,"->")
+      .replace(/ /g," ").replace(/[^\x09\x0a\x20-\x7e\xa1-\xff–—‘’“”•…]/g,"");
+    const F=(pt,negr,col)=>{doc.setFont("helvetica",negr?"bold":"normal");doc.setFontSize(pt);doc.setTextColor(...(col||C.txt));};
+    const alto=pt=>pt*0.3528*1.32;
+    const partir=(s,ancho)=>doc.splitTextToSize(lat(s),ancho);
+    const caja=(x,y,w,h,relleno,borde,r=1.6)=>{
+      if(relleno)doc.setFillColor(...relleno);
+      if(borde){doc.setDrawColor(...borde);doc.setLineWidth(0.25);}
+      doc.roundedRect(x,y,w,h,r,r,relleno&&borde?"FD":relleno?"F":"S");
     };
-
-    // Pegar canvas en PDF, rompiendo en páginas si excede altura disponible
-    const AVAIL_H=PH-FH-ML; // mm disponibles de contenido por página
-    let pgNum=1;const pages=[];
-
-    const canvasToPDFPages=async(cv)=>{
-      const totalMM=cv.height/PX_PER_MM;
-      let yPx=0;
-      while(yPx<cv.height){
-        const sliceH=Math.min(Math.round(AVAIL_H*PX_PER_MM),cv.height-yPx);
-        if(sliceH<=0)break;
-        const sl=document.createElement("canvas");
-        sl.width=cv.width;sl.height=sliceH;
-        sl.getContext("2d").drawImage(cv,0,-yPx);
-        pages.push(sl);
-        yPx+=sliceH;
+    let y=0;
+    const encCorrido=()=>{
+      F(8,true,C.marino);doc.text(lat(brand().nombre),MX,11);
+      F(8,false,C.sec);doc.text(partir(`${datos.paciente||"—"} · ${tipo}`,AN-40)[0]||"",W-MX,11,{align:"right"});
+      doc.setDrawColor(...C.azul);doc.setLineWidth(0.5);doc.line(MX,13,W-MX,13);
+      y=20;
+    };
+    const pagina=()=>{doc.addPage();encCorrido();};
+    const cabe=h=>y+h<=H-MB;
+    const pedir=h=>{if(!cabe(h))pagina();};
+    const seccion=(txt,min=20,derecha="")=>{
+      pedir(min);y+=2.5;
+      doc.setFillColor(...C.azul);doc.rect(MX,y,1.3,6,"F");
+      F(12.5,true,C.marino);doc.text(lat(txt),MX+4,y+4.7);
+      if(derecha){F(9,false,C.sec);doc.text(lat(derecha),W-MX,y+4.5,{align:"right"});}
+      y+=9;
+    };
+    // Renglón con tramos en negrita y normales, partido por palabras.
+    const flujo=(tramos,{x=MX,ancho=AN,pt=10.5,sangria=0}={})=>{
+      const lh=alto(pt);let cx=x;
+      pedir(lh);
+      for(const tr of tramos){
+        F(pt,!!tr.b,tr.col);
+        const esp=doc.getTextWidth(" ");
+        for(const pal of lat(tr.t).split(/\s+/).filter(Boolean)){
+          const w=doc.getTextWidth(pal);
+          if(cx>x+sangria+0.01&&cx+w>x+ancho){y+=lh;pedir(lh);cx=x+sangria;F(pt,!!tr.b,tr.col);}
+          doc.text(pal,cx,y+lh*0.76);cx+=w+esp;
+        }
       }
+      y+=lh;
     };
 
-    // ── Secciones HTML ────────────────────────────────────────
-    const secBar=(t)=>`<div style="background:${AZ};padding:6px 12px;border-radius:4px 4px 0 0;margin-top:12px"><b style="color:#fff;font-size:11px">${t}</b></div>`;
-    const secBox=(c)=>`<div style="border:1px solid ${BRD};border-top:none;border-radius:0 0 4px 4px;padding:11px 13px;background:#fff;font-size:11px;line-height:1.6;color:${TXT}">${c}</div>`;
+    // ── Hoja 1: membrete ──
+    {
+      const hL=17;let x=MX;
+      if(logo){const wL=Math.min(34,hL*logo.w/logo.h);try{doc.addImage(logo.url,logo.tipo,MX,12,wL,wL*logo.h/logo.w);x=MX+wL+5;}catch(e){}}
+      F(13.5,true,C.marino);doc.text(lat(sedeTitulo()),x,17);
+      F(7.6,false,C.sec);let yy=21;
+      for(const ln of partir([sedeDir(),sedeTelsTexto()].filter(Boolean).join("  |  "),W-MX-x)){doc.text(ln,x,yy);yy+=3.2;}
+      F(9.6,true,C.txt);doc.text(lat(nomMed),x,yy+1.6);yy+=5.2;
+      F(7.6,false,C.sec);
+      for(const ln of partir(credsToShow.join("  ·  "),W-MX-x)){doc.text(ln,x,yy);yy+=3.2;}
+      y=Math.max(12+hL,yy-1.2)+2.5;
+      doc.setDrawColor(...C.azul);doc.setLineWidth(0.9);doc.line(MX,y,W-MX,y);
+      y+=6.5;
+    }
+    // Título del estudio
+    F(8.6,true,C.azul);doc.text("REPORTE DE ULTRASONIDO",MX,y+2.6);y+=5;
+    F(18,true,C.marino);
+    for(const ln of partir(tipo,AN)){doc.text(ln,MX,y+6);y+=8;}
+    y+=2;
+    // Datos del paciente
+    {
+      const campos=[["Paciente",datos.paciente||"—",2.1],["Expediente",datos.expediente||"—",0.9],["F. de nacimiento",datos.fnac||"—",1.1],["Edad",datos.edad||"—",0.8],["Fecha del estudio",datos.fecha||"—",1.1]];
+      const tot=campos.reduce((s,c)=>s+c[2],0),pad=4;
+      F(10.2,true,C.txt);
+      const cs=campos.map(([l,v,p])=>{const w=(AN-pad*2)*p/tot;return{l,w,ls:partir(v,w-3).slice(0,2)};});
+      const hB=9+Math.max(...cs.map(c=>c.ls.length))*4.4+2.4;
+      caja(MX,y,AN,hB,C.claro,null,2);
+      let x=MX+pad;
+      for(const c of cs){
+        F(7,true,C.sec);doc.text(lat(c.l.toUpperCase()),x,y+5);
+        F(10.2,true,C.txt);doc.text(c.ls,x,y+10,{lineHeightFactor:1.22});
+        x+=c.w;
+      }
+      y+=hB+4;
+    }
 
-    const transductor=(STATE.usActivo?.cat==="Abdomen")?"convexo":"lineal";
-
-    const pag1=`
-    <!-- HEADER -->
-    <div style="background:${AZ};padding:14px 16px;display:flex;gap:12px;align-items:flex-start;border-radius:4px">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:16px;font-weight:bold;color:#fff;margin-bottom:3px">${brand().nombre.toUpperCase()}</div>
-        <div style="font-size:8.5px;color:rgba(255,255,255,.85);margin-bottom:6px">${sedeDir()}${sedeTelsTexto()?" &nbsp;|&nbsp; "+sedeTelsTexto():""}</div>
-        <div style="font-size:11px;font-weight:bold;color:#fff;margin-bottom:3px">${nomMed.toUpperCase()}</div>
-        <div style="font-size:8px;color:rgba(255,255,255,.85);line-height:1.5">${credsToShow.join(" &nbsp;·&nbsp; ")}</div>
-      </div>
-      <div style="background:#fff;border-radius:6px;padding:8px 12px;min-width:120px;max-width:150px;text-align:center;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px">
-        ${logoQPB64?`<img src="${logoQPB64}" style="max-height:36px;max-width:120px;object-fit:contain">`:""}
-        <div style="font-size:9px;font-weight:bold;color:${AZ};line-height:1.5">${tipo.toUpperCase()}</div>
-      </div>
-    </div>
-    <!-- PACIENTE -->
-    <div style="background:${BG};border:1px solid ${BRD};border-radius:4px;padding:9px 12px;display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">
-      ${[["Paciente",datos.paciente||"—"],["Expediente",datos.expediente||"—"],["F. Nacimiento",datos.fnac||"—"],["Edad",datos.edad||"—"],["Fecha del Estudio",datos.fecha||"—"]].map(([l,v])=>`
-      <div style="flex:1;min-width:80px">
-        <div style="font-size:7px;color:${SEC};text-transform:uppercase;font-weight:bold;margin-bottom:2px">${l}</div>
-        <div style="font-size:10px;font-weight:bold;color:${TXT}">${v}</div>
-      </div>`).join("")}
-    </div>
-    ${(()=>{
-      // ── Render del reporte de texto libre con formato profesional ──
+    // ── Reporte (texto libre del editor, con formato) ──
+    {
       const raw=(datos.hallazgos_extra||"").trim();
-      if(!raw) return secBar("REPORTE")+secBox("<i>Sin contenido — escriba el reporte en el editor.</i>");
-      const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      seccion("Reporte",22);
+      if(!raw){F(10.5,false,C.sec);doc.setFont("helvetica","italic");doc.text("Sin contenido — escriba el reporte en el editor.",MX,y+4);y+=8;}
       const HEADERS=["hallazgos","conclusión","conclusion","mama derecha","mama izquierda","técnica","tecnica","indicación del estudio","indicacion del estudio","comparación con estudios previos","comparacion con estudios previos","recomendación","recomendacion","recuerde","impresión diagnóstica","impresion diagnostica"];
-      const html=raw.split("\n").map(line=>{
-        const t=line.trim();
-        if(!t) return `<div style="height:7px"></div>`;
-        const lower=t.toLowerCase().replace(/:$/,"").replace(/:.*/,"");
-        const idxColon=t.indexOf(":");
-        // Encabezado de sección (línea corta que es solo un header conocido)
-        if(HEADERS.some(h=>t.toLowerCase().startsWith(h))&&idxColon!==-1){
-          const label=esc(t.slice(0,idxColon+1));
-          const rest=esc(t.slice(idxColon+1)).trim();
-          if(!rest||t.toLowerCase().replace(":","").trim()==="hallazgos")
-            return `<div style="font-size:11px;font-weight:bold;color:#023E8A;margin-top:6px;margin-bottom:2px">${label}</div>`;
-          return `<div style="margin-bottom:2px"><b style="color:#023E8A">${label}</b> ${rest}</div>`;
+      for(const linea of raw?raw.split("\n"):[]){
+        const t=linea.trim();
+        if(!t){y+=2.4;continue;}
+        const iC=t.indexOf(":");
+        // Encabezado de sección conocido
+        if(HEADERS.some(h=>t.toLowerCase().startsWith(h))&&iC!==-1){
+          const rot=t.slice(0,iC+1),resto=t.slice(iC+1).trim();
+          if(!resto||t.toLowerCase().replace(":","").trim()==="hallazgos"){
+            pedir(alto(11.4)+alto(10.5)+2);y+=1.8;
+            F(11.4,true,C.marino);doc.text(lat(rot),MX,y+alto(11.4)*0.76);y+=alto(11.4)+0.4;
+          }else flujo([{t:rot,b:true,col:C.marino},{t:resto}]);
+          continue;
         }
         // Viñetas
         if(t.startsWith("•")||t.startsWith("-")){
-          const body=esc(t.replace(/^[•\-]\s*/,""));
-          const iC=body.indexOf(":");
-          if(iC>0&&iC<40) return `<div style="padding-left:14px;margin-bottom:2px">• <b>${body.slice(0,iC+1)}</b>${body.slice(iC+1)}</div>`;
-          return `<div style="padding-left:14px;margin-bottom:2px">• ${body}</div>`;
+          const cuerpo=t.replace(/^[•\-]\s*/,""),k=cuerpo.indexOf(":");
+          pedir(alto(10.5));
+          doc.setFillColor(...C.azul);doc.circle(MX+3.6,y+alto(10.5)*0.5,0.75,"F");
+          if(k>0&&k<40)flujo([{t:cuerpo.slice(0,k+1),b:true},{t:cuerpo.slice(k+1)}],{x:MX+7,ancho:AN-7});
+          else flujo([{t:cuerpo}],{x:MX+7,ancho:AN-7});
+          continue;
         }
-        // Línea "Etiqueta: valor" (datos del encabezado del reporte)
-        if(idxColon>0&&idxColon<45) return `<div style="margin-bottom:2px"><b>${esc(t.slice(0,idxColon+1))}</b>${esc(t.slice(idxColon+1))}</div>`;
-        return `<div style="margin-bottom:2px">${esc(t)}</div>`;
-      }).join("");
-      return secBar(tipo.toUpperCase())+secBox(html);
-    })()}
-    `;
-
-    // ── Firma HTML ────────────────────────────────────────────
-    const firmaPage=`
-    <div style="display:flex;gap:20px;align-items:flex-start;margin-top:8px">
-      <div style="flex:1;background:#fff;border:1px solid ${BRD};border-radius:8px;padding:24px 20px;text-align:center">
-        ${firmaB64?`<img src="${firmaB64}" style="height:48px;object-fit:contain;margin-bottom:8px"><br>`:`<div style="height:54px"></div>`}
-        <div style="border-top:1.5px solid ${TXT};width:200px;margin:0 auto 10px"></div>
-        <div style="font-size:12px;font-weight:bold;color:${TXT};margin-bottom:8px">${nomMed}</div>
-        ${credsToShow.map(c=>`<div style="font-size:8.5px;color:${SEC};margin-bottom:3px">${c}</div>`).join("")}
-      </div>
-      <div style="background:${AZLT};border-radius:8px;padding:18px 16px;min-width:160px;text-align:center">
-        ${logoQPB64?`<img src="${logoQPB64}" style="max-height:40px;max-width:130px;object-fit:contain;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto">`:""}
-        <div style="font-size:11px;font-weight:bold;color:${AZ};margin-bottom:8px">${brand().nombre.toUpperCase()}</div>
-        <div style="font-size:8.5px;color:${SEC};margin-bottom:4px">${sedeDir()}</div>
-        <div style="font-size:8.5px;color:${SEC}">${sedeTelsTexto()}</div>
-      </div>
-    </div>
-    <div style="margin-top:12px;background:#F8FAFC;border:1px solid ${BRD};border-radius:4px;padding:9px 13px">
-      <div style="font-size:8.5px;color:${SEC};line-height:1.6;font-style:italic">Este reporte debe interpretarse en conjunto con la historia clínica, exploración física y evolución del paciente.</div>
-    </div>`;
-
-    // ── RENDER pág 1 ──────────────────────────────────────────
-    const cv1=await renderHTML(pag1);
-    await canvasToPDFPages(cv1);
-
-    // ── Galería de imágenes ───────────────────────────────────
-    if(imgs.length>0){
-      // Separar diagrama BI-RADS del resto
-      const imgDiagrama=imgs.filter(i=>i.etiqueta==="Diagrama BI-RADS");
-      const imgsNormales=imgs.filter(i=>i.etiqueta!=="Diagrama BI-RADS");
-
-      // Diagrama BI-RADS → hoja completa propia
-      for(const diag of imgDiagrama){
-        const gc=document.createElement("canvas");
-        const galW=CW_PX*HCSC;
-        const TBAR=Math.round(28*HCSC/3);
-        gc.width=galW;gc.height=Math.round(galW*1.05);
-        const gx=gc.getContext("2d");
-        gx.fillStyle="#fff";gx.fillRect(0,0,gc.width,gc.height);
-        gx.fillStyle=AZ;gx.fillRect(0,0,galW,TBAR);
-        gx.fillStyle="#fff";
-        gx.font=`bold ${Math.round(11*HCSC/3.78*0.8)}px Arial`;
-        gx.fillText("DIAGRAMA BI-RADS — MARCADO DE LESIONES",12*HCSC/3,TBAR*0.72);
-        try{
-          const im=new Image();
-          await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=diag.b64;});
-          const avW=galW-20*HCSC/3;
-          const avH=gc.height-TBAR-10*HCSC/3;
-          const asp=im.naturalWidth/im.naturalHeight;
-          let dw=avW,dh=Math.round(avW/asp);
-          if(dh>avH){dh=avH;dw=Math.round(avH*asp);}
-          const dx=(galW-dw)/2;
-          gx.drawImage(im,dx,TBAR+5*HCSC/3,dw,dh);
-        }catch(e){}
-        pages.push(gc);
+        // «Etiqueta: valor»
+        if(iC>0&&iC<45){flujo([{t:t.slice(0,iC+1),b:true},{t:t.slice(iC+1)}]);continue;}
+        flujo([{t}]);
       }
+    }
 
-      // Imágenes normales: 4 columnas, 4 por página (2 filas × 2 cols → se ajusta a 4 cols)
-      if(imgsNormales.length>0){
-        const COLS=4;
-        const GAP=6;
-        const IMG_PX=Math.floor((CW_PX*HCSC-(COLS-1)*GAP*HCSC/3)/COLS);
-        const IMG_H=Math.floor(IMG_PX*0.78);
-        const CAP_H=Math.round(22*HCSC/3);
-        const CARD_H=IMG_H+CAP_H;
-        const TBAR=Math.round(28*HCSC/3);
-        const galW=CW_PX*HCSC;
-        const PERPAGE=4;
-        for(let pg=0;pg<imgsNormales.length;pg+=PERPAGE){
-          const batch=imgsNormales.slice(pg,pg+PERPAGE);
-          const bROWS=Math.ceil(batch.length/COLS);
-          const bH=TBAR+bROWS*(CARD_H+GAP*HCSC/3)+GAP*HCSC/3;
-          const gc=document.createElement("canvas");
-          gc.width=galW;gc.height=bH;
-          const gx=gc.getContext("2d");
-          gx.fillStyle="#fff";gx.fillRect(0,0,galW,bH);
-          gx.fillStyle=AZ;gx.fillRect(0,0,galW,TBAR);
-          gx.fillStyle="#fff";
-          const fSz=Math.round(11*HCSC/3.78*0.8);
-          gx.font=`bold ${fSz}px Arial`;
-          gx.fillText("IMÁGENES DEL ESTUDIO"+(pg>0?" (continuación)":""),12*HCSC/3,TBAR*0.72);
-          const gy=TBAR+GAP*HCSC/3;
-          for(let j=0;j<batch.length;j++){
-            const col=j%COLS,row=Math.floor(j/COLS);
-            const x=col*(IMG_PX+GAP*HCSC/3);
-            const y=gy+row*(CARD_H+GAP*HCSC/3);
-            gx.fillStyle="#fff";gx.strokeStyle=BRD;gx.lineWidth=2;
-            gx.beginPath();gx.roundRect(x,y,IMG_PX,CARD_H,6);gx.fill();gx.stroke();
-            try{
-              const im=new Image();
-              await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=batch[j].b64;});
-              const asp=im.naturalWidth/im.naturalHeight;
-              let dw=IMG_PX,dh=IMG_H,dx=x,dy=y;
-              if(asp>IMG_PX/IMG_H){dh=Math.round(IMG_PX/asp);dy=y+Math.round((IMG_H-dh)/2);}
-              else{dw=Math.round(IMG_H*asp);dx=x+Math.round((IMG_PX-dw)/2);}
-              gx.fillStyle="#111";gx.fillRect(x,y,IMG_PX,IMG_H);
-              gx.drawImage(im,dx,dy,dw,dh);
-            }catch(e){gx.fillStyle="#222";gx.fillRect(x,y,IMG_PX,IMG_H);}
-            gx.fillStyle=AZ;gx.fillRect(x,y+IMG_H,IMG_PX,CAP_H);
-            gx.fillStyle="#fff";
-            const cfSz=Math.round(8.5*HCSC/3.78*0.8);
-            gx.font=`bold ${cfSz}px Arial`;
-            gx.textAlign="center";
-            gx.fillText(batch[j].etiqueta||("Imagen "+(pg+j+1)),x+IMG_PX/2,y+IMG_H+CAP_H*0.7);
-            gx.textAlign="left";
-          }
-          pages.push(gc);
-        }
-      }
+    // ── Firma (cierra el reporte; las imágenes van después, como anexo) ──
+    let firmaEnHojaNueva=false;
+    const hojaAnexo=()=>{if(firmaEnHojaNueva){firmaEnHojaNueva=false;y+=5;}else pagina();};
+    {
+      F(8.2,false,C.sec);
+      const cr=credsToShow.flatMap(c=>partir(c,AN-40));
+      // Si el espacio holgado no cabe, se aprieta antes de mandar la firma sola a otra hoja.
+      const minimo=(firma?19:0)+9+cr.length*3.5+10;
+      const holgado=cabe(minimo+(firma?4:12));
+      const hojasAntes=doc.internal.getNumberOfPages();
+      pedir(minimo+(firma?2:5));
+      // Si la firma tuvo que pasar a otra hoja, esa hoja se aprovecha para lo que sigue (diagrama o imágenes).
+      firmaEnHojaNueva=doc.internal.getNumberOfPages()>hojasAntes;
+      y+=firma?(holgado?4:2):(holgado||firmaEnHojaNueva?12:5);
+      if(firma){const hh=16,ww=Math.min(60,hh*firma.w/firma.h);try{doc.addImage(firma.url,firma.tipo,W/2-ww/2,y,ww,ww*firma.h/firma.w);}catch(e){}y+=hh+1;}
+      doc.setDrawColor(...C.txt);doc.setLineWidth(0.3);doc.line(W/2-42,y,W/2+42,y);
+      F(10,true,C.txt);doc.text(lat(nomMed),W/2,y+4.8,{align:"center"});
+      F(8.2,false,C.sec);let yy=y+8.6;for(const ln of cr){doc.text(ln,W/2,yy,{align:"center"});yy+=3.5;}
+      y=yy+3;
+      F(8.4,false,C.sec);doc.setFont("helvetica","italic");
+      doc.text("Este reporte debe interpretarse en conjunto con la historia clínica, exploración física y evolución del paciente.",W/2,y+2,{align:"center"});
+      y+=6;
     }
 
     // ── Helper comprimir imagen a JPEG ───────────────────────
@@ -17851,183 +17783,118 @@ window.generarPDFUltrasonido=async function(){
       im.src=b64;
     });
 
-    const TIPOS_L=[
-      {id:"nodulo",label:"Nódulo",color:"#0D47A1"},
-      {id:"lesion_no_masa",label:"Lesión no masa",color:"#1565C0"},
-      {id:"quiste_simple",label:"Quiste simple",color:"#2E7D32"},
-      {id:"quiste_complic",label:"Quiste complicado",color:"#F9A825"},
-      {id:"sospechoso",label:"Lesión sospechosa",color:"#C62828"},
-      {id:"ganglio_axilar",label:"Ganglio axilar",color:"#6A1B9A"},
-      {id:"ganglio_intramam",label:"Ganglio intramam.",color:"#AD1457"},
-    ];
-    const lesionesEd=STATE.usActivo?.lesiones||[];
-    const imgDiag=imgs.filter(i=>i.etiqueta==="Diagrama BI-RADS");
-    const imgsNorm=imgs.filter(i=>i.etiqueta!=="Diagrama BI-RADS");
-
-    // ── Construir doc2 (jsPDF con texto vectorial) ────────────
-    const doc2=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
-    let curPg=1;
-    let jpegQ=0.82,jpegMaxW=1400;
-
-    const addFtr2=(n,tot)=>{
-      doc2.setFillColor(238,244,248);doc2.rect(0,PH-FH,PW,FH,"F");
-      doc2.setDrawColor(217,228,236);doc2.setLineWidth(0.2);doc2.line(0,PH-FH,PW,PH-FH);
-      doc2.setTextColor(107,114,128);doc2.setFont("helvetica","normal");doc2.setFontSize(6);
-      doc2.text(sedePie()+"  |  "+tipo+"  |  "+(datos.paciente||"—")+"  |  "+(datos.fecha||"")+"  |  Página "+n+" de "+tot,PW/2,PH-3.5,{align:"center",maxWidth:PW-4});
-    };
-
-    // Pre-render pág1 y firma
-    const p1slices=[],fmSlices=[];
-    {
-      let yPx=0;const cv1x=await renderHTML(pag1);
-      while(yPx<cv1x.height){const sH=Math.min(Math.round(AVAIL_H*PX_PER_MM),cv1x.height-yPx);if(sH<=0)break;const sl=document.createElement("canvas");sl.width=cv1x.width;sl.height=sH;sl.getContext("2d").drawImage(cv1x,0,-yPx);p1slices.push(sl);yPx+=sH;}
-    }
-    {
-      let yPx=0;const cvFx=await renderHTML(firmaPage);
-      while(yPx<cvFx.height){const sH=Math.min(Math.round(AVAIL_H*PX_PER_MM),cvFx.height-yPx);if(sH<=0)break;const sl=document.createElement("canvas");sl.width=cvFx.width;sl.height=sH;sl.getContext("2d").drawImage(cvFx,0,-yPx);fmSlices.push(sl);yPx+=sH;}
-    }
-
-    const totalPg=p1slices.length+imgDiag.length+Math.ceil(imgsNorm.length/4)+fmSlices.length;
-
-    // Pág 1
-    for(let i=0;i<p1slices.length;i++){
-      if(i>0)doc2.addPage();
-      const hmm=p1slices[i].height/PX_PER_MM;
-      doc2.addImage(p1slices[i].toDataURL("image/jpeg",0.92),"JPEG",ML,ML,CWMM,hmm,undefined,"MEDIUM");
-      addFtr2(curPg++,totalPg);
-    }
-
-    // Diagrama BI-RADS (hoja completa + tabla de lesiones vectorial)
+    // ── Diagrama BI-RADS (hoja completa + tabla de lesiones) ──
     for(const diag of imgDiag){
-      doc2.addPage();
-      const [r1,g1,b1]=hexRGB(AZ);doc2.setFillColor(r1,g1,b1);doc2.rect(ML,ML,CWMM,7,"F");
-      doc2.setTextColor(255,255,255);doc2.setFont("helvetica","bold");doc2.setFontSize(9);
-      doc2.text("DIAGRAMA BI-RADS — MARCADO DE LESIONES",ML+3,ML+5);
+      hojaAnexo();
+      seccion("Diagrama BI-RADS: marcado de lesiones");
       const {jpeg:dJpeg,w:dW,h:dH}=await comprimgB64(diag.b64,1400,0.88);
-      const legBlock=lesionesEd.length>0?lesionesEd.length*5+22:14;
-      const dAvH=PH-FH-ML-10-legBlock;
+      const legBlock=lesionesEd.length>0?lesionesEd.length*5.4+26:14;
+      const dAvH=H-MB-y-legBlock;
       const dAsp=dW/dH;
-      let dImgW=CWMM,dImgH=CWMM/dAsp;
+      let dImgW=AN,dImgH=AN/dAsp;
       if(dImgH>dAvH){dImgH=dAvH;dImgW=dAvH*dAsp;}
-      doc2.addImage(dJpeg,"JPEG",ML+(CWMM-dImgW)/2,ML+9,dImgW,dImgH,"","MEDIUM");
+      doc.addImage(dJpeg,"JPEG",MX+(AN-dImgW)/2,y,dImgW,dImgH,"","MEDIUM");
       // Leyenda
-      let legY=ML+9+dImgH+5;
-      doc2.setFontSize(7);doc2.setFont("helvetica","bold");
-      const [r2,g2,b2]=hexRGB(AZ);doc2.setTextColor(r2,g2,b2);doc2.text("Leyenda:",ML,legY);
-      let lx=ML+19;
+      let legY=y+dImgH+6;
+      F(7.6,true,C.marino);doc.text("Leyenda:",MX,legY);
+      let lx=MX+17;
       for(const tp of TIPOS_L){
-        const [lr,lg,lb]=hexRGB(tp.color);doc2.setFillColor(lr,lg,lb);doc2.circle(lx+2,legY-1.2,2,"F");
-        doc2.setTextColor(30,30,30);doc2.setFont("helvetica","normal");doc2.setFontSize(6.5);
-        doc2.text(tp.label,lx+5.5,legY);lx+=doc2.getTextWidth(tp.label)+14;
-        if(lx>ML+CWMM-25){lx=ML+19;legY+=6;}
+        F(7.2,false,C.txt);
+        const wT=doc.getTextWidth(lat(tp.label));
+        if(lx+wT+8>W-MX){lx=MX+17;legY+=5;}
+        doc.setFillColor(...hexRGB(tp.color));doc.circle(lx+1.8,legY-1.1,1.6,"F");
+        doc.text(lat(tp.label),lx+4.6,legY);lx+=wT+11;
       }
-      // Tabla lesiones marcadas
+      // Tabla de lesiones marcadas
       if(lesionesEd.length>0){
-        legY+=7;
-        const [r3,g3,b3]=hexRGB(AZ);doc2.setFillColor(r3,g3,b3);doc2.rect(ML,legY,CWMM,6,"F");
-        doc2.setTextColor(255,255,255);doc2.setFont("helvetica","bold");doc2.setFontSize(7.5);doc2.text("LESIONES MARCADAS",ML+3,legY+4.2);
+        legY+=6;
         const tCols=["#","Tipo","Mama","Hora","Cuadrante","Radio","Medidas","Descripción"];
-        const tW=[7,26,18,10,18,14,30,CWMM-7-26-18-10-18-14-30];
-        let tY=legY+6;doc2.setFontSize(6.5);doc2.setFont("helvetica","bold");doc2.setTextColor(80,80,80);
-        let tcx=ML;
-        for(let ci=0;ci<tCols.length;ci++){doc2.setFillColor(234,245,251);doc2.rect(tcx,tY,tW[ci],5,"F");doc2.text(tCols[ci],tcx+1,tY+3.5);tcx+=tW[ci];}
-        tY+=5;doc2.setFont("helvetica","normal");
+        const tW=[7,28,19,11,20,15,30,AN-7-28-19-11-20-15-30];
+        caja(MX,legY,AN,6.4,C.claro,null,1.4);
+        F(7.2,true,C.marino);let tcx=MX;
+        for(let ci=0;ci<tCols.length;ci++){doc.text(lat(tCols[ci].toUpperCase()),tcx+1.5,legY+4.3);tcx+=tW[ci];}
+        let tY=legY+6.4;
         for(let li=0;li<lesionesEd.length;li++){
           const les=lesionesEd[li];
-          if(li%2===0)doc2.setFillColor(244,248,251);else doc2.setFillColor(255,255,255);
-          doc2.rect(ML,tY,CWMM,5,"F");
+          if(li%2){doc.setFillColor(...C.zebra);doc.rect(MX,tY,AN,5.4,"F");}
           const row=[String(li+1),TIPOS_L.find(t=>t.id===les.tipo)?.label||les.tipo||"—",les.lado==="derecho"?"Derecha":"Izquierda",les.radio||"—",les.cuadrante||"—",les.radio_cm?les.radio_cm+" cm":"—",les.etiqueta||"—",les.descripcion||"—"];
-          tcx=ML;
-          for(let ci=0;ci<row.length;ci++){doc2.setTextColor(40,40,40);const lines=doc2.splitTextToSize(String(row[ci]),tW[ci]-2);doc2.text(lines[0],tcx+1,tY+3.5);tcx+=tW[ci];}
-          doc2.setDrawColor(210,225,235);doc2.line(ML,tY+5,ML+CWMM,tY+5);tY+=5;
+          tcx=MX;F(7.6,false,C.txt);
+          for(let ci=0;ci<row.length;ci++){doc.text(partir(String(row[ci]),tW[ci]-2.5)[0]||"",tcx+1.5,tY+3.8);tcx+=tW[ci];}
+          doc.setDrawColor(...C.linea);doc.setLineWidth(0.15);doc.line(MX,tY+5.4,MX+AN,tY+5.4);tY+=5.4;
         }
       }
-      addFtr2(curPg++,totalPg);
     }
 
-    // Páginas 2×2 imágenes (jsPDF nativo — texto 100% vectorial)
-    const GAPX2=6,GAPY2=6,HDRHH=8,CAPH=22;
-    const aY2=ML+HDRHH+2,aH2=PH-aY2-FH-2;
-    const CL2=2,RW2=2,PP=4;
-    const cW2=(CWMM-(CL2-1)*GAPX2)/CL2;
-    const cH2=(aH2-(RW2-1)*GAPY2)/RW2;
-    const imgH2=cH2-CAPH;
-
+    // ── Imágenes del estudio: cuatro por hoja ──
+    const PP=4,GX=5,GY=5;
+    const tiposPresentes=esMama?TIPOS_L.filter(tp=>lesionesEd.some(l=>l.tipo===tp.id)):[];
     for(let pg=0;pg<imgsNorm.length;pg+=PP){
-      const batch=imgsNorm.slice(pg,pg+PP);
-      doc2.addPage();
-      const [ar,ag,ab]=hexRGB(AZ);doc2.setFillColor(ar,ag,ab);doc2.rect(ML,ML,CWMM,HDRHH,"F");
-      doc2.setTextColor(255,255,255);doc2.setFont("helvetica","bold");doc2.setFontSize(8.5);
-      doc2.text("IMÁGENES DEL ESTUDIO"+(pg>0?" (cont.)":""),ML+3,ML+5.8);
-      doc2.setFontSize(7);doc2.text((pg+1)+"–"+Math.min(pg+PP,imgsNorm.length)+" / "+imgsNorm.length,ML+CWMM-3,ML+5.8,{align:"right"});
-
-      for(let j=0;j<batch.length;j++){
-        const col=j%CL2,row=Math.floor(j/CL2);
-        const cx=ML+col*(cW2+GAPX2),cy=aY2+row*(cH2+GAPY2);
-        const idx=pg+j;
-        doc2.setDrawColor(214,226,236);doc2.setLineWidth(0.3);doc2.setFillColor(255,255,255);
-        doc2.roundedRect(cx,cy,cW2,cH2,2,2,"FD");
-        // Imagen JPEG
+      const lote=imgsNorm.slice(pg,pg+PP);
+      hojaAnexo();
+      seccion("Imágenes del estudio"+(pg>0?" (continúa)":""),20,`${pg+1}–${Math.min(pg+PP,imgsNorm.length)} de ${imgsNorm.length}`);
+      // Pie de foto: en mama lleva número, mama, tipo de lesión y medidas; en los demás estudios,
+      // sólo lo que el médico escribió en «Región / Proyección / Notas» (si no escribió nada, no hay pie).
+      const hLey=tiposPresentes.length?7:0;
+      const altoZona=H-MB-y-hLey,wC=(AN-GX)/2,hC=(altoZona-GY)/2;
+      for(let j=0;j<lote.length;j++){
+        const cx=MX+(j%2)*(wC+GX),cy=y+Math.floor(j/2)*(hC+GY),idx=pg+j;
+        const etq=(lote[j].etiqueta||"").trim();
+        const CAPH=esMama?22:etq?10:0,hImg=hC-CAPH;
+        caja(cx,cy,wC,hC,C.blanco,C.linea,2);
         try{
-          const {jpeg,w:iW,h:iH}=await comprimgB64(batch[j].b64,jpegMaxW,jpegQ);
-          const asp=iW/iH;let dw=cW2-4,dh=(cW2-4)/asp;
-          if(dh>imgH2-4){dh=imgH2-4;dw=dh*asp;}
-          doc2.addImage(jpeg,"JPEG",cx+2+(cW2-4-dw)/2,cy+2+(imgH2-4-dh)/2,dw,dh,"","MEDIUM");
+          const {jpeg,w:iW,h:iH}=await comprimgB64(lote[j].b64,1400,0.82);
+          const asp=iW/iH;let dw=wC-4,dh=(wC-4)/asp;
+          if(dh>hImg-4){dh=hImg-4;dw=dh*asp;}
+          doc.addImage(jpeg,"JPEG",cx+2+(wC-4-dw)/2,cy+2+(hImg-4-dh)/2,dw,dh,"","MEDIUM");
         }catch(e){}
-        // Caption vectorial
-        const capY=cy+imgH2;
-        const [ccr,ccg,ccb]=hexRGB(AZLT);doc2.setFillColor(ccr,ccg,ccb);doc2.rect(cx,capY,cW2,CAPH,"F");
-        doc2.setDrawColor(180,210,225);doc2.setLineWidth(0.2);doc2.line(cx,capY,cx+cW2,capY);
-        const lesIdx=batch[j].lesion_idx!=null?batch[j].lesion_idx:idx;const les=lesionesEd[lesIdx]||null;const etq=batch[j].etiqueta||"";
-        // L1: Imagen · Mama · Tipo
-        doc2.setFont("helvetica","bold");doc2.setFontSize(7.2);
-        const [atr,atg,atb]=hexRGB(AZDK);doc2.setTextColor(atr,atg,atb);
+        if(!CAPH)continue;
+        const capY=cy+hImg;
+        doc.setFillColor(...C.claro);doc.rect(cx+0.3,capY,wC-0.6,CAPH-1.8,"F");
+        doc.setDrawColor(...C.linea);doc.setLineWidth(0.2);doc.line(cx,capY,cx+wC,capY);
+        if(!esMama){
+          if(etq){F(8.6,true,C.marino);doc.text(partir(etq,wC-6).slice(0,2),cx+3,capY+4,{lineHeightFactor:1.15});}
+          continue;
+        }
+        // Mama: la lesión es la que el médico asoció a la imagen en el selector (ya no se supone por orden).
+        const les=lote[j].lesion_idx!=null?(lesionesEd[lote[j].lesion_idx]||null):null;
         let l1="Img "+(idx+1);
         if(les?.lado)l1+=" · Mama "+(les.lado==="derecho"?"Derecha":"Izquierda");
         else if(etq)l1+=" · "+etq;
         if(les?.tipo){const tl=TIPOS_L.find(t=>t.id===les.tipo);if(tl)l1+=" · "+tl.label;}
-        doc2.text(l1,cx+2.5,capY+4.5,{maxWidth:cW2-5});
-        // L2: Hora · Cuadrante · Radio
-        doc2.setFont("helvetica","normal");doc2.setFontSize(6.8);doc2.setTextColor(60,80,100);
+        F(8.2,true,C.marino);doc.text(partir(l1,wC-6)[0]||"",cx+3,capY+4.4);
         const p2=[];
-        if(les?.radio)p2.push("H"+les.radio);if(les?.cuadrante)p2.push(les.cuadrante);if(les?.radio_cm)p2.push("R:"+les.radio_cm+"cm");
-        if(p2.length)doc2.text(p2.join(" · "),cx+2.5,capY+9.2,{maxWidth:cW2-5});
-        // L3: Medidas
-        doc2.setFontSize(6.5);doc2.setTextColor(80,90,100);
+        if(les?.radio)p2.push("H"+les.radio);if(les?.cuadrante)p2.push(les.cuadrante);if(les?.radio_cm)p2.push("R: "+les.radio_cm+" cm");
+        let ly=capY+8.6;
+        if(p2.length){F(7.8,false,C.sec);doc.text(lat(p2.join(" · ")),cx+3,ly);ly+=4;}
         const medStr=(les?.etiqueta||"").trim();
-        if(medStr)doc2.text("Med: "+medStr,cx+2.5,capY+13.5,{maxWidth:cW2-5});
-        // L4: Descripción
-        const descStr=(les?.descripcion||"").trim()||(!les?etq:"");
-        if(descStr){doc2.setTextColor(50,60,70);const dl=doc2.splitTextToSize(descStr,cW2-5);doc2.text(dl.slice(0,2),cx+2.5,capY+(medStr?17.5:13.5));}
+        if(medStr){F(7.8,false,C.txt);doc.text(partir("Medidas: "+medStr,wC-6)[0]||"",cx+3,ly);ly+=4;}
+        const descStr=(les?.descripcion||"").trim();
+        if(descStr){F(7.8,false,C.txt);doc.text(partir(descStr,wC-6).slice(0,ly>capY+13?1:2),cx+3,ly,{lineHeightFactor:1.15});}
       }
-      // Leyenda pie — solo tipos presentes en el diagrama
-      const tiposPresentes=lesionesEd.length>0
-        ? TIPOS_L.filter(tp=>lesionesEd.some(l=>l.tipo===tp.id))
-        : TIPOS_L; // si no hay diagrama, muestra todos
-      if(tiposPresentes.length>0){
-        const legY2=PH-FH-8;
-        doc2.setFontSize(6);doc2.setFont("helvetica","bold");doc2.setTextColor(90,100,110);doc2.text("Tipos:",ML,legY2);
-        let lx2=ML+11;
+      // Leyenda de tipos: sólo en mama y sólo los tipos que sí se marcaron en el diagrama
+      if(tiposPresentes.length){
+        const ly=H-MB-1.5;
+        F(7.2,true,C.sec);doc.text("Tipos:",MX,ly);
+        let lx=MX+12;
         for(const tp of tiposPresentes){
-          const [tpr,tpg,tpb]=hexRGB(tp.color);doc2.setFillColor(tpr,tpg,tpb);doc2.circle(lx2+1.5,legY2-1,1.5,"F");
-          doc2.setTextColor(50,50,50);doc2.setFont("helvetica","normal");doc2.setFontSize(5.8);
-          doc2.text(tp.label,lx2+4.5,legY2);lx2+=doc2.getTextWidth(tp.label)+9;
-          if(lx2>ML+CWMM-18){lx2=ML+11;}
+          doc.setFillColor(...hexRGB(tp.color));doc.circle(lx+1.5,ly-1,1.5,"F");
+          F(7.2,false,C.txt);doc.text(lat(tp.label),lx+4.3,ly);lx+=doc.getTextWidth(lat(tp.label))+10;
         }
       }
-      addFtr2(curPg++,totalPg);
+      y=H-MB;
     }
 
-    // Firma
-    for(let i=0;i<fmSlices.length;i++){
-      doc2.addPage();
-      const hmm=fmSlices[i].height/PX_PER_MM;
-      doc2.addImage(fmSlices[i].toDataURL("image/jpeg",0.92),"JPEG",ML,ML,CWMM,hmm,undefined,"MEDIUM");
-      addFtr2(curPg++,totalPg);
+    // Pie de todas las hojas
+    const totalPg=doc.internal.getNumberOfPages();
+    for(let i=1;i<=totalPg;i++){
+      doc.setPage(i);
+      F(7.6,false,C.sec);
+      doc.text(partir(`${datos.paciente||"—"} · ${tipo} · ${datos.fecha||""}`,AN-30)[0]||"",MX,H-7);
+      doc.text(`Página ${i} de ${totalPg}`,W-MX,H-7,{align:"right"});
     }
 
     // Control peso ≤20 MB
-    const pdfBlob2=doc2.output("blob");
+    const pdfBlob2=doc.output("blob");
     if(pdfBlob2.size>20*1024*1024){
       showToast("⚠️ PDF supera 20 MB — sube imágenes en menor resolución para optimizar",false);
     }
@@ -18048,7 +17915,7 @@ window.generarPDFUltrasonido=async function(){
 
     loading(false);
     const nom=(datos.paciente||"reporte").replace(/[^a-zA-Z0-9]/g,"_").substring(0,25);
-    doc2.save("US_"+tipo.replace(/[^a-zA-Z0-9]/g,"_").substring(0,20)+"_"+nom+"_"+(datos.fecha||"")+".pdf");
+    doc.save("US_"+tipo.replace(/[^a-zA-Z0-9]/g,"_").substring(0,20)+"_"+nom+"_"+(datos.fecha||"")+".pdf");
     showToast("✓ Reporte de ultrasonido generado");
 
   }catch(err){
