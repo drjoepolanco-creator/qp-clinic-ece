@@ -1016,3 +1016,35 @@ producción; si falta alguna, la tarjeta muestra el error de Supabase.
 
 **Sigue sin construir:** medir sobre las fotos (Chippaux-Smirak, Staheli, ejes de rodilla y
 retropié), la puntuación global y el informe integrado con membrete.
+
+## Ejercicio — PDF del paciente rediseñado (9 de noviembre de 2026, noche)
+
+Pedido del Dr. Polanco: el PDF que se entrega al paciente debía ser más explicativo y sencillo,
+más nítido y mejor diseñado. Se reescribió completo `pdfPrescripcionEjercicio()`; no cambió nada
+del motor, del plan ni de los textos guardados.
+
+- **Nitidez:** ya no es una foto de la página (html2canvas → JPEG). Ahora jsPDF dibuja texto y
+  líneas **vectoriales** con Helvetica: nítido a cualquier aumento, texto seleccionable, enlaces
+  reales (`doc.link`) y ~75 KB en vez de ~2 MB. Helvetica sólo trae alfabeto latino: `lat()`
+  traduce o quita lo que no existe ahí (−, ≥, →, ▶…). Si algún texto nuevo usa otro símbolo, pasa
+  por `lat()` y desaparece en vez de salir roto.
+- **Orden pensado para el paciente:** hoja 1 = membrete claro, «Su semana de entrenamiento» (una
+  tarjeta por día con sus músculos), «Cómo leer su tabla» (series × repeticiones, reserva, ritmo,
+  descanso, peso usado, video) y «Las 4 semanas de este mes» (Aprender, Trabajar, Exigirse,
+  Recuperarse, con la reserva de cada semana tomada de `ejSemanas()`). Después **una hoja por
+  día** (si un día no cabe en lo que queda, empieza hoja nueva), y al final: antes y después de la
+  sesión, cómo subir de peso, abdomen, por qué ese número de series, cardio y cuidados con firma.
+- **Tabla del día:** «5 × 6–8» en una sola columna, descanso en minutos (2:30 min), cuatro cuadros
+  S1–S4 para anotar el peso de cada semana, «Si el equipo está ocupado: …» en vez de
+  «Alternativa», sólo el músculo (sin el patrón de movimiento). Las columnas **Reserva** y
+  **Ritmo** sólo aparecen si varían entre ejercicios; si son iguales en todo el plan se explican
+  una vez en la hoja 1.
+- **Cardio:** tabla de zonas con color y columna «Cómo se siente» (prueba del habla); si hay
+  velocidad y carga y no cabe, esa descripción va en un renglón debajo. Tarjetas por semana para
+  intervalos y para la sesión continua.
+- **Lo técnico** (método, volumen semanal, series por grupo) quedó en un renglón chico «Para su
+  médico o entrenador». El renglón de `t.precauciones` que empieza con «Detener…» sale en recuadro
+  rojo; `notasContra` en otro.
+- Probado en Chromium con dos planes (4 días en gimnasio con series rectas; 3 días en casa con
+  bi-series, ritmo y reserva variables, serie descendente, peso indicado, zonas con velocidad y
+  carga y notas clínicas). **Falta verlo con un plan real guardado** y en el visor del iPhone.

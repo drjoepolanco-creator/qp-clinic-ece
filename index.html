@@ -25295,15 +25295,17 @@ function ejVistaLegacy(cb,o){
 // lienzo único y se rebanaba cada 297 mm a ciegas, que es lo que partía las
 // filas por la mitad. Un bloque más alto que una página se reparte en
 // rebanadas tapando con blanco lo que sobresale del área útil.
+// ══ PDF del programa de ejercicio para el paciente ═══════════════════════
+// Texto y líneas VECTORIALES dibujados con jsPDF (antes era una foto de la
+// página hecha con html2canvas): nítido a cualquier tamaño, el texto se puede
+// seleccionar y buscar, los enlaces a video son enlaces de verdad y el archivo
+// pesa una fracción. Está escrito para el paciente: primero cómo leer la tabla
+// y qué cambia cada semana; cada día trae cuadros para anotar el peso usado.
 window.pdfPrescripcionEjercicio=async function(){
   const plan=STATE._ejPlanActual;
   if(!plan||plan.version!==3){showToast("Genera o abre el plan del mes antes de imprimir",false);return;}
   const{jsPDF}=window.jspdf||{};
   if(!jsPDF){showToast("jsPDF no disponible",false);return;}
-  if(typeof html2canvas==="undefined"){
-    try{await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
-    catch(e){showToast("No se pudo cargar el generador de PDF",false);return;}
-  }
   const pac=STATE.pat||{};
   const med=STATE.medProfile||STATE.userProfile||{};
   // La tabla usuarios guarda el apellido en un solo campo "apellidos".
@@ -25321,178 +25323,430 @@ window.pdfPrescripcionEjercicio=async function(){
   const t=plan.textos||{};
   loading(true,"Generando PDF...");
   try{
+    // Logo de la unidad: se incrusta tal cual (sin volver a comprimirlo).
     let logo=null;
     try{
       const r=await fetch(brand().logo);
       const bl=await r.blob();
-      logo=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
+      const url=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(bl);});
+      const dim=await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res({w:im.naturalWidth,h:im.naturalHeight});im.onerror=rej;im.src=url;});
+      if(dim.w&&dim.h)logo={url,...dim,tipo:/png/i.test(bl.type)?"PNG":"JPEG"};
     }catch(e){}
 
-    const az="#0B6FB3",pale="#F4FAFD",brd="#D7E3EA",txt="#1F2933",sec="#5F6B73";
-    const encHTML=`
-      <div style="background:${az};padding:12px 15px;display:flex;gap:12px;align-items:center;border-radius:4px">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:2px">${sedeTitulo()}</div>
-          <div style="font-size:7.5px;color:rgba(255,255,255,.85);margin-bottom:6px">${sedeContacto(" &nbsp;|&nbsp; ")}</div>
-          <div style="font-size:10.5px;font-weight:bold;color:#fff">${nomMed}</div>
-          <div style="font-size:7.5px;color:rgba(255,255,255,.85)">${[cred1,cred2].filter(Boolean).join(" &nbsp;·&nbsp; ")}</div>
-        </div>
-        ${logo?`<div style="background:#fff;border-radius:4px;padding:5px;flex-shrink:0"><img src="${logo}" style="height:36px;display:block;object-fit:contain"></div>`:""}
-      </div>`;
-    const titulo=s=>`<div style="background:${pale};border-left:3px solid ${az};padding:5px 10px;margin:10px 0 6px;font-size:10.5px;font-weight:bold;color:${az};text-transform:uppercase;letter-spacing:.3px">${s}</div>`;
-    const parrafo=s=>`<div style="font-size:9.5px;color:${txt};line-height:1.5;white-space:pre-wrap;margin-bottom:4px">${(s||"").replace(/</g,"&lt;")}</div>`;
-    const esc=x=>String(x||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
-    const th=(x,al)=>`<th style="text-align:${al||"left"};padding:3px 5px;border-bottom:1px solid #CFD8DC;color:${sec};font-size:7.5px;text-transform:uppercase">${x}</th>`;
-    const td=(x,al,b)=>`<td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:${al||"left"};vertical-align:top;white-space:normal;word-wrap:break-word;overflow-wrap:anywhere;${b?"font-weight:bold;":""}">${x}</td>`;
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter",compress:true});
+    const W=215.9,H=279.4,MX=15,MB=15,AN=W-MX*2;
+    const C={azul:[11,111,179],marino:[31,56,100],claro:[232,243,250],zebra:[246,250,252],linea:[205,219,229],
+             txt:[31,41,51],sec:[84,98,110],rojo:[183,28,28],rojoCl:[255,236,238],verde:[46,125,50],ambar:[191,54,12],blanco:[255,255,255]};
+    // Las fuentes estándar del PDF sólo traen el alfabeto latino: lo que no
+    // existe ahí se traduce o se quita, para que nunca salga un símbolo roto.
+    const lat=s=>String(s??"").replace(/−/g,"-").replace(/≥/g,"al menos ").replace(/≤/g,"hasta ").replace(/[→➜]/g,"->")
+      .replace(/ /g," ").replace(/[^\x09\x0a\x20-\x7e\xa1-\xff–—‘’“”•…]/g,"");
+    const F=(pt,negr,col)=>{doc.setFont("helvetica",negr?"bold":"normal");doc.setFontSize(pt);doc.setTextColor(...(col||C.txt));};
+    const alto=pt=>pt*0.3528*1.28;                      // alto de renglón en mm
+    const partir=(s,ancho)=>doc.splitTextToSize(lat(s),ancho);
+    const caja=(x,y,w,h,relleno,borde,r=1.6)=>{
+      if(relleno)doc.setFillColor(...relleno);
+      if(borde){doc.setDrawColor(...borde);doc.setLineWidth(0.25);}
+      doc.roundedRect(x,y,w,h,r,r,relleno&&borde?"FD":relleno?"F":"S");
+    };
+    let y=0;
+    const encCorrido=()=>{
+      F(8,true,C.marino);doc.text(lat(brand().nombre),MX,11);
+      F(8,false,C.sec);doc.text(lat(`${nomPac} · Programa de ejercicio · Mes ${plan.mes||1}`),W-MX,11,{align:"right"});
+      doc.setDrawColor(...C.azul);doc.setLineWidth(0.5);doc.line(MX,13,W-MX,13);
+      y=20;
+    };
+    const pagina=()=>{doc.addPage();encCorrido();};
+    const cabe=h=>y+h<=H-MB;
+    const pedir=h=>{if(!cabe(h))pagina();};
+    // Párrafos (respeta los saltos de línea del texto) con salto de página renglón por renglón.
+    const parrafos=(s,{pt=10,col=C.txt,x=MX,ancho=AN,negr=false,sep=1.4}={})=>{
+      for(const p of String(s||"").split(/\n+/).map(z=>z.trim()).filter(Boolean)){
+        F(pt,negr,col);
+        for(const ln of partir(p,ancho)){pedir(alto(pt));F(pt,negr,col);doc.text(ln,x,y+alto(pt)*0.76);y+=alto(pt);}
+        y+=sep;
+      }
+    };
+    const vinetas=(s,{pt=10,col=C.txt}={})=>{
+      for(const p of String(s||"").split(/\n+/).map(z=>z.trim()).filter(Boolean)){
+        F(pt,false,col);const ls=partir(p,AN-5);
+        pedir(alto(pt)*Math.min(2,ls.length));
+        doc.setFillColor(...C.azul);doc.circle(MX+1.4,y+alto(pt)*0.5,0.75,"F");
+        for(const ln of ls){pedir(alto(pt));F(pt,false,col);doc.text(ln,MX+5,y+alto(pt)*0.76);y+=alto(pt);}
+        y+=1.2;
+      }
+    };
+    const seccion=(txt,min=24)=>{
+      pedir(min);y+=2.5;
+      doc.setFillColor(...C.azul);doc.rect(MX,y,1.3,6,"F");
+      F(12.5,true,C.marino);doc.text(lat(txt),MX+4,y+4.7);
+      y+=9;
+    };
+    const enlace=(txt,x,yy,url,pt=8.5)=>{
+      F(pt,true,C.azul);
+      doc.setFillColor(...C.azul);doc.triangle(x,yy-2.4,x,yy-0.2,x+2,yy-1.3,"F");
+      doc.text(lat(txt),x+3,yy);
+      const w=3+doc.getTextWidth(lat(txt));
+      doc.setDrawColor(...C.azul);doc.setLineWidth(0.15);doc.line(x+3,yy+0.6,x+w,yy+0.6);
+      if(url)doc.link(x,yy-3,w,4.2,{url});
+      return w;
+    };
+    const min=s=>{s=parseInt(s)||0;const m=Math.floor(s/60),r=s%60;return m?`${m}:${String(r).padStart(2,"0")} min`:`${r} s`;};
+    const reps=f=>f.repsMin===f.repsMax?String(f.repsMin):f.repsMin+"–"+f.repsMax;
+    const filas=plan.dias.flatMap(d=>d.bloques.flatMap(b=>b.filas));
+    const unico=a=>[...new Set(a.filter(v=>v!==undefined&&v!==null&&v!==""))];
+    const tempos=unico(filas.map(f=>f.tempo)),rirs=unico(filas.map(f=>String(f.rir)));
+    const colTempo=tempos.length>1,colRir=rirs.length>1;
+    const sem=ejSemanas(plan);
+    const hayDrop=filas.some(f=>f.drop);
 
-    const bloques=[];
-    bloques.push(`
-      <table style="width:100%;font-size:9.5px;color:${txt};margin-top:10px;border-collapse:collapse">
-        <tr><td style="padding:2px 0"><b>Paciente:</b> ${nomPac}</td><td style="padding:2px 0"><b>Fecha:</b> ${hoy}</td></tr>
-        <tr><td style="padding:2px 0"><b>Programa:</b> ${plan.label}</td><td style="padding:2px 0"><b>Mes:</b> ${plan.mes||1}</td></tr>
-        <tr><td style="padding:2px 0"><b>Método:</b> ${plan.metodoLabel}</td><td style="padding:2px 0"><b>Lugar:</b> ${plan.sedeLabel}</td></tr>
-        <tr><td style="padding:2px 0" colspan="2"><b>Volumen semanal:</b> ${Math.round(plan.vol.vme)} a ${Math.round(plan.vol.vmr)} series por músculo · este programa: ${plan.objetivoSeries}</td></tr>
-      </table>
-      <div style="font-size:12.5px;font-weight:bold;color:${txt};text-align:center;margin:10px 0 4px">Prescripción de ejercicio</div>
-      ${parrafo(t.metodo)}
-      ${(t.volumen===undefined?ejTextoVolumen(plan):t.volumen).trim()?`<div style="background:${pale};border-radius:4px;padding:7px 10px;margin-top:6px">${parrafo(t.volumen===undefined?ejTextoVolumen(plan):t.volumen)}</div>`:""}
-      ${titulo("Calentamiento")}${parrafo(t.calentamiento)}`);
+    // ── Página 1: membrete ──
+    {
+      const hL=17;let x=MX;
+      if(logo){const wL=Math.min(34,hL*logo.w/logo.h);try{doc.addImage(logo.url,logo.tipo,MX,12,wL,wL*logo.h/logo.w);x=MX+wL+5;}catch(e){}}
+      F(13.5,true,C.marino);doc.text(lat(sedeTitulo()),x,17);
+      F(7.6,false,C.sec);let yy=21;for(const ln of partir(sedeContacto("  |  "),W-MX-x)){doc.text(ln,x,yy);yy+=3.2;}
+      F(9.6,true,C.txt);doc.text(lat(nomMed),x,yy+1.6);
+      F(7.6,false,C.sec);doc.text(partir([cred1,cred2].filter(Boolean).join("  ·  "),W-MX-x)[0]||"",x,yy+5.2);
+      y=Math.max(12+hL,yy+6.4)+2.5;
+      doc.setDrawColor(...C.azul);doc.setLineWidth(0.9);doc.line(MX,y,W-MX,y);
+      y+=6.5;
+    }
+    // Título y datos
+    F(21,true,C.marino);doc.text("Programa de ejercicio",MX,y+5);
+    F(11,false,C.sec);doc.text(lat(`Mes ${plan.mes||1}  ·  ${hoy}`),W-MX,y+5,{align:"right"});
+    y+=10;
+    F(12.5,true,C.txt);doc.text(lat(nomPac),MX,y+3);y+=6.5;
+    {
+      const fichas=[`${plan.dias.length} ${plan.dias.length===1?"día":"días"} de fuerza por semana`,plan.sedeLabel].filter(Boolean);
+      const c=plan.cardio,nC=c?((c.hiit&&c.hiit.activo?parseInt(c.hiit.sesiones)||0:0)+(c.continuo&&c.continuo.activo?parseInt(c.continuo.sesiones)||0:0)):0;
+      if(nC)fichas.push(`Cardio ${nC} ${nC===1?"vez":"veces"} por semana`);
+      let x=MX;F(9.5,true,C.marino);
+      for(const f of fichas){const w=doc.getTextWidth(lat(f))+7;if(x+w>W-MX){x=MX;y+=8;}caja(x,y,w,6.4,C.claro,null,3.2);F(9.5,true,C.marino);doc.text(lat(f),x+3.5,y+4.4);x+=w+3;}
+      y+=9;
+    }
 
-    plan.dias.forEach(dia=>{
-      // Una sola tabla por sesión: si cada bloque llevara la suya, el
-      // encabezado de columnas se repetiría en cada ejercicio y las columnas
-      // no alinearían entre bloques.
-      const cols=["4%","39%","8%","9%","6%","9%","12%","13%"];
-      const enc=["#","Ejercicio","Series","Reps","RIR","Tempo","Descanso","Peso"];
-      let h=titulo(`Día ${dia.etiqueta}${dia.subtitulo?" · "+dia.subtitulo:""}`);
-      h+=`<table style="width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed">
-        <colgroup>${cols.map(w=>`<col style="width:${w}">`).join("")}</colgroup>
-        <thead><tr style="background:#FAFCFD">${enc.map((x,k)=>`<th style="text-align:${k===1?"left":k===0?"left":"center"};padding:3px 5px;border-bottom:1px solid #CFD8DC;color:${sec};font-size:7.5px;text-transform:uppercase">${x}</th>`).join("")}</tr></thead><tbody>`;
-      dia.bloques.forEach(bl=>{
-        const rotulo=ejNombreBloque(bl);
-        if(rotulo)h+=`<tr><td colspan="8" style="padding:5px 5px 2px;font-size:8.5px;font-weight:bold;color:${az}">${rotulo} — ${ejSeriesBloque(bl)} · ${bl.descanso} s de descanso al completar el bloque${bl.entre?` · ${bl.entre} s entre bloques`:""}</td></tr>`;
-        bl.filas.forEach(f=>{
-          h+=`<tr>
-            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;font-weight:bold">${f.seq}</td>
-            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;word-wrap:break-word">${esc(f.ejercicio)||"—"}${f.fueraSede?' <b style="color:#E65100">*</b>':""}<div style="color:#90A4AE;font-size:7.5px">${f.grupo} · ${f.patron}${f.drop?" · última serie descendente (−25 % al fallo técnico)":""}</div>
-              ${(()=>{const v=ejVideoFila(f);return(v&&f.ejercicio?`<a data-url="${esc(v.url)}" style="color:#C62828;font-weight:bold;font-size:7.5px;text-decoration:none">▶ Ver técnica en video</a>`:"")+
-                (f.alternativa?`<span style="color:${sec};font-size:7.5px">${v&&f.ejercicio?" &nbsp;·&nbsp; ":""}Alternativa: ${esc(f.alternativa)}</span>`:"")})()}
-              ${f.siguiente?`<div style="color:#2E7D32;font-size:7.5px">Cuando la domine, pasar a: ${esc(f.siguiente)}</div>`:""}</td>
-            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:center">${f.series}</td>
-            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:center">${f.repsMin===f.repsMax?f.repsMin:f.repsMin+"–"+f.repsMax}</td>
-            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:center">${f.rir}</td>
-            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:center">${f.tempo||"—"}</td>
-            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:center">${f.descanso} s</td>
-            <td style="padding:3px 5px;border-bottom:1px solid #ECEFF1;text-align:center">${f.peso||"____"}</td></tr>`;
+    // ── Su semana ──
+    seccion("Su semana de entrenamiento");
+    {
+      const n=plan.dias.length,porFila=Math.min(n,n>4?Math.ceil(n/2):4),gap=3,wC=(AN-gap*(porFila-1))/porFila;
+      for(let i=0;i<n;i+=porFila){
+        const grupo=plan.dias.slice(i,i+porFila);
+        const datos=grupo.map(d=>{
+          const fs=d.bloques.flatMap(b=>b.filas);
+          F(8.6,false,C.sec);
+          return{d,n:fs.length,ls:partir(d.subtitulo||unico(fs.map(f=>f.grupo)).join(", "),wC-6)};
         });
+        const hC=13+Math.max(...datos.map(z=>z.ls.length))*3.7+2;
+        pedir(hC+3);
+        datos.forEach((z,k)=>{
+          const x=MX+k*(wC+gap);
+          caja(x,y,wC,hC,C.blanco,C.linea,2);
+          doc.setFillColor(...C.azul);doc.roundedRect(x,y,wC,1.6,0.8,0.8,"F");
+          F(12,true,C.marino);doc.text(lat("Día "+z.d.etiqueta),x+3,y+7.4);
+          F(8.4,false,C.sec);doc.text(`${z.n} ejercicios`,x+wC-3,y+7.2,{align:"right"});
+          F(8.6,false,C.txt);doc.text(z.ls,x+3,y+12.6,{lineHeightFactor:1.22});
+        });
+        y+=hC+3;
+      }
+      F(9,false,C.sec);
+      parrafos("Deje al menos un día de descanso entre dos sesiones que trabajen los mismos músculos. Si falta un día, no lo duplique: siga con la sesión que tocaba.",{pt:9,col:C.sec});
+    }
+
+    // ── Cómo leer su tabla ──
+    seccion("Cómo leer su tabla de ejercicios",70);
+    {
+      const tp=tempos.length===1?String(tempos[0]):"";
+      const m=/^(\d+)\D+(\d+)\D+(\d+)/.exec(tp);
+      const ritmo=m?`Su ritmo es ${tp}: mueva el peso en ${m[1]} ${m[1]==="1"?"segundo":"segundos"} en un sentido, ${m[2]==="0"?"sin pausa":"pausa de "+m[2]+" s"}, y regrese en ${m[3]} ${m[3]==="1"?"segundo":"segundos"}. Sin impulso ni rebotes.`
+        :"Los tres números son segundos: bajar el peso, pausa y subirlo. Muévalo siempre con control, sin impulso ni rebotes.";
+      const guia=[
+        ["Series × repeticiones","«5 × 6–8» quiere decir 5 series de 6 a 8 repeticiones cada una. Elija un peso con el que le cueste trabajo llegar a ese número con buena técnica."],
+        ["Reserva","No llegue a su límite. Termine cada serie sintiendo que todavía podría hacer unas repeticiones más; cuántas, depende de la semana (vea «Las 4 semanas de este mes»)."],
+        ["Ritmo",ritmo],
+        ["Descanso","Es el tiempo entre una serie y la siguiente. Respételo: el músculo lo necesita para rendir en la serie que sigue."],
+        ["Peso usado","Anote en los cuadros S1 a S4 el peso que usó cada semana. Así sabrá cuándo le toca subirlo."],
+        ["Video","En su teléfono, toque «Ver video» para ver cómo se hace cada ejercicio."],
+      ];
+      const gap=3,wC=(AN-gap*2)/3,pad=3.2;
+      for(let i=0;i<guia.length;i+=3){
+        const par=guia.slice(i,i+3).map(([a,b])=>{F(9.3,false,C.txt);return{a,ls:partir(b,wC-pad*2)};});
+        const hC=pad+5+Math.max(...par.map(p=>p.ls.length))*3.95+pad-1;
+        pedir(hC+2.5);
+        par.forEach((p,k)=>{
+          const x=MX+k*(wC+gap);
+          caja(x,y,wC,hC,C.zebra,null,2);
+          F(10.3,true,C.marino);doc.text(lat(p.a),x+pad,y+pad+3.3);
+          F(9.3,false,C.txt);doc.text(p.ls,x+pad,y+pad+8.2,{lineHeightFactor:1.2});
+        });
+        y+=hC+2.5;
+      }
+    }
+
+    // ── Las 4 semanas ──
+    {
+      const llano=[
+        ["Aprender","Aprenda bien cada ejercicio y encuentre el peso con el que trabaja cómodo."+(hayDrop?" Sin series descendentes.":"")],
+        ["Trabajar","Use el peso que encontró. Anote peso y repeticiones de cada ejercicio."],
+        ["Exigirse","La semana más fuerte: haga una repetición más por serie o, si ya completa todas, suba un poco el peso."],
+        ["Recuperarse","Mismos ejercicios y mismo peso, pero sólo la MITAD de las series"+(hayDrop?", sin series descendentes":"")+". Su cuerpo se recupera para el mes siguiente."],
+      ];
+      const gap=3,wC=(AN-gap*3)/4,pad=3;
+      const cs=sem.slice(0,4).map((s,i)=>{F(8.8,false,C.txt);return{s,nom:llano[i][0],ls:partir(llano[i][1],wC-pad*2)};});
+      const hC=25+Math.max(...cs.map(c=>c.ls.length))*3.75+pad-1;
+      // Título, frase y tarjetas van juntos: si no caben, pasan completos a la hoja siguiente.
+      seccion("Las 4 semanas de este mes",hC+19);
+      parrafos("Los ejercicios son los mismos las cuatro semanas. Lo que cambia es qué tanto se exige.",{pt:9.5,col:C.sec,sep:1.6});
+      cs.forEach((c,k)=>{
+        const x=MX+k*(wC+gap),ult=k===3;
+        caja(x,y,wC,hC,ult?C.zebra:C.blanco,C.linea,2);
+        F(8.4,true,C.azul);doc.text(("SEMANA "+c.s.n),x+pad,y+5);
+        F(11.5,true,C.marino);doc.text(lat(c.nom),x+pad,y+10.2);
+        caja(x+pad,y+12.2,wC-pad*2,9,C.claro,null,1.6);
+        F(7.6,false,C.sec);doc.text("Termine cada serie con",x+pad+2,y+15.5);
+        F(10,true,C.marino);doc.text(lat(`${c.s.rir} de reserva`),x+pad+2,y+19.7);
+        F(8.8,false,C.txt);doc.text(c.ls,x+pad,y+25,{lineHeightFactor:1.2});
       });
-      h+=`</tbody></table>`;
-      if(dia.bloques.some(bl=>bl.filas.some(f=>f.fueraSede)))
-        h+=`<div style="font-size:8px;color:#E65100;margin-top:3px">* No hay ningún medio para ese patrón con el equipo de ${plan.sedeLabel}: este ejercicio exige equipo adicional.</div>`;
-      bloques.push(h);
+      y+=hC+4;
+    }
+
+    // ── Un día por tabla ──
+    const wPeso=44,wDesc=21,wTempo=colTempo?17:0,wRir=colRir?17:0,wSxR=27,wNum=9;
+    const xPeso=W-MX-wPeso,xDesc=xPeso-wDesc,xTempo=xDesc-wTempo,xRir=xTempo-wRir,xSxR=xRir-wSxR,xEj=MX+wNum,wEj=xSxR-xEj-3;
+    const medir=f=>{
+      const v=ejVideoFila(f);
+      F(10.6,true);const nom=partir((f.ejercicio||"—")+(f.fueraSede?" *":""),wEj);
+      F(8.6,false);
+      const sub=[[f.grupo,f.peso?"Peso indicado: "+f.peso:""].filter(Boolean).join("  ·  "),f.drop?"Última serie descendente: baje 25 % el peso y siga hasta el fallo técnico.":""].filter(Boolean).flatMap(x=>partir(x,wEj));
+      const alt=f.alternativa?partir("Si el equipo está ocupado: "+f.alternativa,wEj):[];
+      const sig=f.siguiente?partir("Cuando la domine, pase a: "+f.siguiente,wEj):[];
+      const vid=!!(v&&f.ejercicio);
+      const h=2.6+nom.length*4.5+sub.length*3.7+alt.length*3.7+sig.length*3.7+(vid?4.6:0)+2.2;
+      return{f,v,nom,sub,alt,sig,vid,h:Math.max(h,15)};
+    };
+    const encTabla=()=>{
+      F(7.4,true,C.sec);
+      const yy=y+3.6;
+      doc.text("EJERCICIO",xEj,yy);
+      doc.text("SERIES × REPS",xSxR+wSxR/2,yy,{align:"center"});
+      if(colRir)doc.text("RESERVA",xRir+wRir/2,yy,{align:"center"});
+      if(colTempo)doc.text("RITMO",xTempo+wTempo/2,yy,{align:"center"});
+      doc.text("DESCANSO",xDesc+wDesc/2,yy,{align:"center"});
+      doc.text("PESO USADO CADA SEMANA",xPeso+wPeso/2,yy,{align:"center"});
+      y+=5.4;doc.setDrawColor(...C.linea);doc.setLineWidth(0.3);doc.line(MX,y,W-MX,y);
+    };
+    const encDia=(dia,sigue)=>{
+      const fs=dia.bloques.flatMap(b=>b.filas);
+      caja(MX,y,AN,10,C.claro,null,2);
+      F(14,true,C.marino);const tit=lat("Día "+dia.etiqueta+(sigue?" (continúa)":""));doc.text(tit,MX+4,y+6.9);
+      const wT=doc.getTextWidth(tit);
+      F(9,false,C.sec);
+      const res=partir(dia.subtitulo||unico(fs.map(f=>f.grupo)).join(" · "),AN-wT-14)[0]||"";
+      doc.text(res,W-MX-4,y+6.5,{align:"right"});
+      y+=12;
+      if(!sigue&&((t.calentamiento||"").trim()||(t.enfriamiento||"").trim())){
+        F(8.6,false,C.sec);doc.text("Empiece con su calentamiento y termine con su enfriamiento: vea «Antes y después de cada sesión».",MX+1,y+2.6);y+=5.2;
+      }
+      encTabla();
+    };
+    plan.dias.forEach(dia=>{
+      const items=[];
+      dia.bloques.forEach(bl=>{
+        const rot=ejNombreBloque(bl);
+        if(rot)items.push({rot:`${rot} — ${ejSeriesBloque(bl)} · ${min(bl.descanso)} de descanso al completar el bloque${bl.entre?` · ${min(bl.entre)} entre bloques`:""}`,h:7});
+        bl.filas.forEach(f=>items.push(medir(f)));
+      });
+      const total=24+items.reduce((s,i)=>s+i.h,0);
+      // Cada día empieza en su propia hoja si no cabe completo en lo que queda: se lleva al gimnasio una hoja por día.
+      if(!cabe(Math.min(total,H-MB-20)))pagina();else y+=4;
+      encDia(dia,false);
+      let par=0;
+      for(let q=0;q<items.length;q++){
+        const it=items[q];
+        // El rótulo de un bloque nunca se queda solo al pie de la hoja: viaja con su primer ejercicio.
+        if(!cabe(it.h+(it.rot&&items[q+1]?items[q+1].h:0))){pagina();encDia(dia,true);}
+        if(it.rot){F(9,true,C.azul);doc.text(lat(it.rot),MX+1,y+4.8);y+=it.h;continue;}
+        const f=it.f;
+        if(par++%2)doc.setFillColor(...C.zebra),doc.rect(MX,y,AN,it.h,"F");
+        const cy=y+it.h/2;
+        doc.setFillColor(...C.claro);doc.circle(MX+4.2,y+5.2,3.1,"F");
+        F(String(f.seq).length>1?7.8:9.6,true,C.marino);doc.text(String(f.seq),MX+4.2,y+(String(f.seq).length>1?6.2:6.4),{align:"center"});
+        let yy=y+2.6+3.5;
+        F(10.6,true,C.txt);for(const ln of it.nom){doc.text(ln,xEj,yy);yy+=4.5;}
+        F(8.6,false,C.sec);for(const ln of it.sub){doc.text(ln,xEj,yy-0.4);yy+=3.7;}
+        for(const ln of it.alt){doc.text(ln,xEj,yy-0.4);yy+=3.7;}
+        F(8.6,false,C.verde);for(const ln of it.sig){doc.text(ln,xEj,yy-0.4);yy+=3.7;}
+        if(it.vid)enlace("Ver video",xEj,yy+0.9,it.v.url);
+        F(12,true,C.marino);doc.text(lat(`${f.series} × ${reps(f)}`),xSxR+wSxR/2,cy+1.4,{align:"center"});
+        if(colRir){F(10.5,false,C.txt);doc.text(String(f.rir),xRir+wRir/2,cy+1.3,{align:"center"});}
+        if(colTempo){F(10.5,false,C.txt);doc.text(lat(f.tempo||"—"),xTempo+wTempo/2,cy+1.3,{align:"center"});}
+        F(10.5,false,C.txt);doc.text(min(f.descanso),xDesc+wDesc/2,cy+1.3,{align:"center"});
+        for(let k=0;k<4;k++){
+          const bx=xPeso+1+k*10.8;
+          caja(bx,cy-4.4,9.8,8.8,C.blanco,C.linea,1.2);
+          F(6.2,false,C.sec);doc.text("S"+(k+1),bx+1.1,cy-2);
+        }
+        y+=it.h;
+        doc.setDrawColor(...C.linea);doc.setLineWidth(0.15);doc.line(MX,y,W-MX,y);
+      }
+      if(dia.bloques.some(bl=>bl.filas.some(f=>f.fueraSede))){y+=1.5;parrafos(`* No hay ningún medio para ese patrón con el equipo de ${plan.sedeLabel}: este ejercicio exige equipo adicional.`,{pt:8.5,col:C.ambar});}
+      y+=3;
     });
 
-    bloques.push(`${titulo("Progresión semana a semana")}
-      <div style="font-size:9px;color:${sec};margin-bottom:4px">La tabla de ejercicios es la misma las cuatro semanas; lo que cambia es el esfuerzo. RIR = repeticiones que deben quedar en reserva al terminar cada serie.</div>
-      <table style="width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed"><colgroup><col style="width:17%"><col style="width:11%"><col style="width:7%"><col style="width:65%"></colgroup>
-        <thead><tr>${th("Semana")}${th("Series")}${th("RIR","center")}${th("Indicación")}</tr></thead>
-        <tbody>${ejSemanas(plan).map(x=>`<tr>${td(x.n+" · "+x.nombre,"left",true)}${td(x.series)}${td(x.rir,"center")}${td(x.texto)}</tr>`).join("")}</tbody></table>`);
-    bloques.push(`${titulo("Volumen semanal por grupo")}
-      <div style="font-size:9px;color:${sec};margin-bottom:4px">Series que le tocan a cada músculo en la semana completa, sumando todos los días.</div>
-      <div style="font-size:9.5px;color:${txt};line-height:1.6">${Object.entries(vol.porGrupo).sort().map(([g,n])=>`${g}: <b>${n}</b>`).join(" · ")}</div>
-      ${titulo("Progresión de la carga")}${parrafo(t.progresion)}
-      ${t.abdomen?titulo("Abdomen")+parrafo(t.abdomen):""}`);
+    // ── Antes y después (va después de los días para que cada día quede en su hoja) ──
+    if((t.calentamiento||"").trim()||(t.metodo||"").trim()||(t.enfriamiento||"").trim()){
+      seccion("Antes y después de cada sesión",30);
+      const rot=(a,b)=>{if(!(b||"").trim())return;pedir(12);F(10,true,C.marino);doc.text(a,MX,y+alto(10)*0.76);y+=alto(10)+0.4;parrafos(b,{pt:10,sep:2});};
+      rot("Antes: calentamiento",String(t.calentamiento||"").replace(/^\s*Calentamiento\s*/i,"").replace(/^\((.+?)\):\s*/,(m,d)=>d.charAt(0).toUpperCase()+d.slice(1)+": "));
+      rot("Durante la sesión",t.metodo);
+      rot("Al terminar: enfriamiento",String(t.enfriamiento||"").replace(/^\s*Enfriamiento:\s*/i,"").replace(/^./,c=>c.toUpperCase()));
+    }
+
+    // ── Cómo progresar ──
+    if((t.progresion||"").trim()){seccion("Cómo subir de peso");parrafos(t.progresion,{pt:10});}
+    if((t.abdomen||"").trim()){seccion("Abdomen");parrafos(t.abdomen,{pt:10});}
+    {
+      const tv=(t.volumen===undefined?ejTextoVolumen(plan):t.volumen).trim();
+      if(tv){
+        seccion("¿Por qué este número de series?",40);
+        F(9.6,false,C.txt);
+        const ps=tv.split(/\n+/).map(z=>z.trim()).filter(Boolean).map(p=>partir(p,AN-8));
+        const hB=4+ps.reduce((s,l)=>s+l.length*alto(9.6)+1.6,0)+2;
+        if(cabe(hB)){
+          caja(MX,y,AN,hB,C.zebra,null,2);let yy=y+4;
+          for(const l of ps){F(9.6,false,C.txt);for(const ln of l){doc.text(ln,MX+4,yy+alto(9.6)*0.76);yy+=alto(9.6);}yy+=1.6;}
+          y+=hB+2;
+        }else parrafos(tv,{pt:9.6});
+      }
+      const tec=`Para su médico o entrenador — Programa: ${plan.label} · Método: ${plan.metodoLabel} · Volumen semanal: ${Math.round(plan.vol.vme)} a ${Math.round(plan.vol.vmr)} series por músculo (este programa: ${plan.objetivoSeries}). Series por grupo a la semana: `+
+        Object.entries(vol.porGrupo).sort().map(([g,n])=>`${g} ${n}`).join(" · ")+".";
+      y+=1;parrafos(tec,{pt:8.4,col:C.sec});
+    }
+
+    // ── Cardio ──
     const card=plan.cardio;
     if(card&&((card.hiit&&card.hiit.activo)||(card.continuo&&card.continuo.activo))){
       const zonas=ejZonasCardio(card);
       const hayVel=zonas.some(z=>z&&z.vel),hayW=zonas.some(z=>z&&z.watt);
-      let h=titulo("Ejercicio cardiopulmonar")+`<div style="font-size:8.5px;color:${sec};margin-bottom:5px;line-height:1.45">${esc(ejOrigenTexto(card))}</div>
-        <table style="width:100%;border-collapse:collapse;font-size:9px"><thead><tr>${th("Zona")}${th("Frecuencia cardiaca","center")}${hayVel?th("Velocidad","center"):""}${hayW?th("Carga","center"):""}${th("Esfuerzo percibido (0-10)","center")}</tr></thead>
-        <tbody>${EJ_ZONAS.map((z,i)=>{const d=zonas[i]||{};return`<tr>${td(z.n+" · "+z.label,"left",true)}${td(ejTxtRango(d.fc)+" lpm","center")}${hayVel?td(ejTxtRango(d.vel,true)+" km/h","center"):""}${hayW?td(ejTxtRango(d.watt)+" W","center"):""}${td(z.rpe,"center")}</tr>`;}).join("")}</tbody></table>`;
+      seccion("Cardio: ejercicio para el corazón y los pulmones",72);
+      const ZCOL=[[144,202,249],[165,214,167],[255,224,130],[255,183,77],[239,154,154]];
+      const SIENTE=["Muy cómodo: podría cantar","Cómodo: platica sin problema","Algo pesado: sólo frases cortas","Pesado: unas cuantas palabras","Muy pesado: no puede hablar"];
+      // Tabla de zonas
+      const extra=(hayVel?26:0)+(hayW?22:0);
+      const conSiente=AN-(66+32+extra+30)>=52;   // si no cabe la columna, la descripción va abajo
+      const cols=[{t:"ZONA",w:conSiente?66:AN-32-extra-30,al:"left"},{t:"LATIDOS/MIN",w:32,al:"center"}];
+      if(hayVel)cols.push({t:"VELOCIDAD",w:26,al:"center"});
+      if(hayW)cols.push({t:"CARGA",w:22,al:"center"});
+      cols.push({t:"ESFUERZO 0–10",w:30,al:"center"});
+      if(conSiente)cols.push({t:"CÓMO SE SIENTE",w:AN-cols.reduce((s,c)=>s+c.w,0),al:"left"});
+      const fila=(celdas,{enc=false,h=7.4,color=null,negr0=false}={})=>{
+        pedir(h);let x=MX;
+        celdas.forEach((c,i)=>{
+          const col=cols2[i];
+          F(enc?7.2:9.6,enc||(i===0&&negr0),enc?C.sec:C.txt);
+          let tx=x+(col.al==="center"?col.w/2:1.5);
+          if(!enc&&i===0&&color){doc.setFillColor(...color);doc.circle(x+3,y+h/2,2,"F");tx=x+7;}
+          doc.text(lat(doc.splitTextToSize(lat(c),col.w-(i===0&&color?8:3))[0]||""),tx,y+h/2+(enc?1.1:1.3),{align:col.al==="center"?"center":"left"});
+          x+=col.w;
+        });
+        y+=h;doc.setDrawColor(...C.linea);doc.setLineWidth(enc?0.3:0.15);doc.line(MX,y,W-MX,y);
+      };
+      let cols2=cols;
+      fila(cols.map(c=>c.t),{enc:true,h:6});
+      EJ_ZONAS.forEach((z,i)=>{
+        const d=zonas[i]||{};
+        const cel=[z.n+" · "+z.label,ejTxtRango(d.fc)+" lpm"];
+        if(hayVel)cel.push(ejTxtRango(d.vel,true)+" km/h");
+        if(hayW)cel.push(ejTxtRango(d.watt)+" W");
+        cel.push(z.rpe);if(conSiente)cel.push(SIENTE[i]);
+        fila(cel,{color:ZCOL[i],negr0:true});
+      });
+      if(!conSiente){y+=1.5;parrafos("Cómo se siente cada zona — "+SIENTE.map((x,i)=>`${i+1}: ${x.toLowerCase()}`).join("; ")+".",{pt:9,col:C.txt});}
+      y+=1.5;parrafos(ejOrigenTexto(card),{pt:8.2,col:C.sec});
+      const tarjetasSem=(textos)=>{
+        const gap=3,wC=(AN-gap*3)/4;pedir(15);
+        textos.forEach((tx,k)=>{
+          const x=MX+k*(wC+gap);
+          caja(x,y,wC,12.5,k===3?C.zebra:C.blanco,C.linea,1.8);
+          F(7.8,true,C.azul);doc.text("SEMANA "+(k+1)+(k===3?" · DESCARGA":""),x+3,y+4.6);
+          F(9.6,true,C.marino);doc.text(lat(tx),x+3,y+9.8);
+        });
+        y+=15.5;
+      };
       if(card.hiit&&card.hiit.activo){
         const fx=ejHiitFases(card);const pr=EJ_HIIT[card.hiit.protocolo]||{};
-        h+=`<div style="font-size:9.5px;font-weight:bold;color:${txt};margin:8px 0 3px">Sesión de intervalos${pr.label&&card.hiit.protocolo!=="personalizado"?" · "+esc(pr.label):""} · ${parseInt(card.hiit.sesiones)||0} por semana</div>
-          <table style="width:100%;border-collapse:collapse;font-size:9px"><thead><tr>${th("Fase")}${th("Duración","center")}${th("Zona")}${th("FC","center")}${hayVel?th("Velocidad","center"):""}${hayW?th("Carga","center"):""}${th("Esfuerzo","center")}</tr></thead>
-          <tbody>${fx.fases.map(f=>`<tr>${td(f.fase,"left",true)}${td(f.dur,"center")}${td(f.zona+" · "+f.zonaLabel)}${td(ejTxtRango(f.fc)+" lpm","center")}${hayVel?td(ejTxtRango(f.vel,true)+" km/h","center"):""}${hayW?td(ejTxtRango(f.watt)+" W","center"):""}${td(f.rpe,"center")}</tr>`).join("")}</tbody></table>
-          <table style="width:100%;border-collapse:collapse;font-size:9px;margin-top:4px"><tbody><tr>${fx.semanas.map((n,i)=>td(`<b>Semana ${i+1}${i===3?" (descarga)":""}</b><br>${n} intervalos · ${fx.minutos[i]} min`,"center")).join("")}</tr></tbody></table>`;
+        pedir(60);y+=2;
+        F(10.8,true,C.marino);doc.text(lat(`Sesión de intervalos${pr.label&&card.hiit.protocolo!=="personalizado"?" · "+pr.label:""} · ${parseInt(card.hiit.sesiones)||0} por semana`),MX,y+4);y+=7;
+        const justo=hayVel||hayW;   // con velocidad o carga no cabe el nombre largo de la zona
+        cols2=[{w:44,al:"left"},{w:20,al:"center"},{w:AN-44-20-28-(hayVel?25:0)-(hayW?23:0)-18,al:"left"},{w:28,al:"center"}];
+        if(hayVel)cols2.push({w:25,al:"center"});if(hayW)cols2.push({w:23,al:"center"});
+        cols2.push({w:18,al:"center"});
+        const e=["PARTE","DURACIÓN","ZONA","LATIDOS/MIN"];if(hayVel)e.push("VELOCIDAD");if(hayW)e.push("CARGA");e.push("ESFUERZO");
+        fila(e,{enc:true,h:6});
+        fx.fases.forEach(f=>{
+          const cel=[f.fase,f.dur,f.zona+" · "+(justo?((EJ_ZONAS[(parseInt(f.zona)||1)-1]||{}).corto||f.zonaLabel):f.zonaLabel),ejTxtRango(f.fc)+" lpm"];
+          if(hayVel)cel.push(ejTxtRango(f.vel,true)+" km/h");if(hayW)cel.push(ejTxtRango(f.watt)+" W");
+          cel.push(f.rpe);fila(cel,{negr0:true});
+        });
+        y+=3;tarjetasSem(fx.semanas.map((n,i)=>`${n} intervalos · ${fx.minutos[i]} min`));
       }
-      bloques.push(h);
-      bloques.push(`${(t.cardio||"").trim()?parrafo(t.cardio):""}<a data-url="${esc(EJ_VIDEO_ZONAS)}" style="color:#C62828;font-weight:bold;font-size:8.5px;text-decoration:none">▶ Video: cómo entrenar por zonas de frecuencia cardiaca</a>`);
-    }else if((t.cardio||"").trim())bloques.push(titulo("Ejercicio cardiopulmonar")+parrafo(t.cardio));
-    bloques.push(`${titulo("Enfriamiento")}${parrafo(t.enfriamiento)}
-      ${titulo("Precauciones")}${parrafo(t.precauciones)}
-      ${notas.length?`<div style="background:#FFEBEE;border-left:3px solid #C62828;padding:6px 10px;font-size:8.5px;color:#C62828;margin-top:6px;line-height:1.5"><b>Precauciones clínicas por las condiciones registradas:</b><br>${notas.map(x=>"• "+x).join("<br>")}</div>`:""}
-      <div style="margin-top:26px;text-align:center">
-        <div style="border-top:1px solid ${txt};width:46%;margin:0 auto 6px"></div>
-        <div style="font-size:9.5px;font-weight:bold;color:${txt}">${nomMed}</div>
-        <div style="font-size:8px;color:${sec}">${[cred1,cred2].filter(Boolean).join(" · ")}</div>
-      </div>`);
-
-    // ── Paginación ──
-    const anchoPx=720,escala=3;
-    const wpg=215.9,hpg=279.4,mx=14,my=12,ancho=wpg-mx*2;
-    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
-    const pintar=async(frag)=>{
-      const c=document.createElement("div");
-      c.style.cssText=`position:fixed;left:-99999px;top:0;width:${anchoPx}px;background:#fff;font-family:Arial,system-ui,sans-serif`;
-      c.innerHTML=frag;
-      document.body.appendChild(c);
-      // En la imagen los enlaces ya no son clicables, así que se vuelven a
-      // poner como anotaciones del PDF. Se miden en el CLON que dibuja
-      // html2canvas, no en la página: el clon maqueta distinto (más compacto)
-      // y las posiciones de la página caían fuera de la imagen.
-      c.setAttribute("data-ej-pdf","1");
-      let links=[];
-      const cv=await html2canvas(c,{scale:escala,backgroundColor:"#fff",useCORS:true,logging:false,windowWidth:anchoPx,
-        onclone:docC=>{
-          const cc=docC.querySelector("[data-ej-pdf]");if(!cc)return;
-          const b0=cc.getBoundingClientRect();
-          links=[...cc.querySelectorAll("a[data-url]")].map(a=>{const r=a.getBoundingClientRect();
-            return{x:r.left-b0.left,y:r.top-b0.top,w:r.width,h:r.height,url:a.dataset.url};}).filter(l=>l.url&&l.w>0);
-        }});
-      document.body.removeChild(c);
-      return{img:cv.toDataURL("image/jpeg",typeof PDF_CALIDAD!=="undefined"?PDF_CALIDAD:0.9),alto:cv.height*ancho/cv.width,links};
-    };
-    const enc=await pintar(encHTML);
-    const y0=my+enc.alto+3;
-    const limite=hpg-my-7;
-    doc.addImage(enc.img,"JPEG",mx,my,ancho,enc.alto);
-    let y=y0;
-    const kPx=ancho/anchoPx;
-    const enlazar=(links,top,desde,hasta)=>(links||[]).forEach(l=>{
-      const ly=top+l.y*kPx,lh=l.h*kPx;
-      const medio=ly+lh/2;
-      if(medio>=desde&&medio<=hasta)doc.link(mx+l.x*kPx,ly,l.w*kPx,lh,{url:l.url});
-    });
-    for(const frag of bloques){
-      const{img,alto,links}=await pintar(frag);
-      if(alto>limite-y0){
-        if(y>y0+1){doc.addPage();doc.addImage(enc.img,"JPEG",mx,my,ancho,enc.alto);}
-        let desp=0;
-        for(;;){
-          const disp=limite-y0;
-          doc.addImage(img,"JPEG",mx,y0-desp,ancho,alto);
-          enlazar(links,y0-desp,y0,limite);
-          doc.setFillColor(255,255,255);
-          doc.rect(0,0,wpg,y0,"F");
-          doc.rect(0,limite,wpg,hpg-limite,"F");
-          doc.addImage(enc.img,"JPEG",mx,my,ancho,enc.alto);
-          if(alto-desp-disp<=0.5){y=y0+(alto-desp)+2;break;}
-          desp+=disp;
-          doc.addPage();
+      if(card.continuo&&card.continuo.activo&&typeof ejContinuoSemanas==="function"){
+        const k=card.continuo,s=ejContinuoSemanas(k)||[],z=EJ_ZONAS[(parseInt(k.z)||1)-1]||{},d=zonas[(parseInt(k.z)||1)-1]||{};
+        if(s.length>=4){
+          pedir(28);y+=2;
+          F(10.8,true,C.marino);doc.text(lat(`Sesión continua · ${parseInt(k.sesiones)||0} por semana · zona ${z.n||k.z} (${z.label||""}${d.fc?", "+ejTxtRango(d.fc)+" lpm":""})`),MX,y+4);y+=7;
+          tarjetasSem(s.slice(0,4).map(n=>`${n} min sin parar`));
         }
-        continue;
       }
-      if(y+alto>limite){doc.addPage();doc.addImage(enc.img,"JPEG",mx,my,ancho,enc.alto);y=y0;}
-      doc.addImage(img,"JPEG",mx,y,ancho,alto);
-      enlazar(links,y,y,y+alto);
-      y+=alto+2;
+      if((t.cardio||"").trim()){y+=1;vinetas(t.cardio,{pt:9.6});}
+      pedir(8);enlace("Video: cómo entrenar por zonas de frecuencia cardiaca",MX,y+4,EJ_VIDEO_ZONAS,9.4);y+=9;
+    }else if((t.cardio||"").trim()){seccion("Cardio: ejercicio para el corazón y los pulmones");vinetas(t.cardio,{pt:10});}
+
+    // ── Al terminar y cuidados ──
+    if((t.precauciones||"").trim()){
+      // Cuidados y firma van juntos: si no caben los dos, pasan completos a la hoja siguiente
+      // (así la firma nunca queda sola en una hoja).
+      {
+        F(10,false);
+        const hC=14+t.precauciones.split(/\n+/).filter(z=>z.trim()).reduce((s,l)=>s+partir(l,AN-9).length*alto(10)+2.6,0)
+          +(notas.length?14+notas.reduce((s,n)=>s+partir(n,AN-9).length*alto(9.4),0):0)+26;
+        if(!cabe(hC)&&hC<H-MB-24)pagina();
+      }
+      seccion("Cuidados");
+      const ls=t.precauciones.split(/\n+/).map(z=>z.trim()).filter(Boolean);
+      const alarma=ls.filter(l=>/^deten/i.test(l)),resto=ls.filter(l=>!/^deten/i.test(l));
+      vinetas(resto.join("\n"),{pt:10});
+      for(const a of alarma){
+        F(10,true,C.rojo);const l=partir(a,AN-9);const hB=5+l.length*alto(10)+3;
+        pedir(hB+2);y+=1;
+        caja(MX,y,AN,hB,C.rojoCl,null,2);doc.setFillColor(...C.rojo);doc.rect(MX,y,1.3,hB,"F");
+        F(10,true,C.rojo);doc.text(l,MX+5,y+5+alto(10)*0.5,{lineHeightFactor:1.28});
+        y+=hB+2.5;
+      }
     }
+    if(notas.length){
+      F(9.4,false,C.rojo);
+      const ls=notas.map(n=>partir("• "+n,AN-9));
+      const hB=9.5+ls.reduce((s,l)=>s+l.length*alto(9.4),0)+2.5;
+      pedir(hB+2);y+=1;
+      caja(MX,y,AN,hB,C.rojoCl,null,2);doc.setFillColor(...C.rojo);doc.rect(MX,y,1.3,hB,"F");
+      F(9.6,true,C.rojo);doc.text("Cuidados especiales por sus condiciones de salud:",MX+5,y+5.6);
+      let yy=y+9.5;F(9.4,false,C.rojo);
+      for(const l of ls)for(const ln of l){doc.text(ln,MX+5,yy+alto(9.4)*0.6);yy+=alto(9.4);}
+      y+=hB+2;
+    }
+    // Firma
+    pedir(24);y+=14;
+    doc.setDrawColor(...C.txt);doc.setLineWidth(0.3);doc.line(W/2-42,y,W/2+42,y);
+    F(10,true,C.txt);doc.text(lat(nomMed),W/2,y+4.8,{align:"center"});
+    F(8,false,C.sec);doc.text(lat([cred1,cred2].filter(Boolean).join(" · ")),W/2,y+8.6,{align:"center"});
+
     const total=doc.internal.getNumberOfPages();
     for(let i=1;i<=total;i++){
       doc.setPage(i);
-      doc.setFontSize(7);doc.setTextColor(120,144,156);
-      doc.text(`${nomPac} · Mes ${plan.mes||1} · ${hoy} · Página ${i} de ${total}`,wpg/2,hpg-4.5,{align:"center"});
+      F(7.6,false,C.sec);
+      doc.text(lat(`${nomPac} · Mes ${plan.mes||1} · ${hoy}`),MX,H-7);
+      doc.text(`Página ${i} de ${total}`,W-MX,H-7,{align:"right"});
     }
     loading(false);
     doc.save(`Ejercicio_${(pac.nombre||"paciente").replace(/\s+/g,"_")}_Mes${plan.mes||1}_${new Date().toISOString().split("T")[0].replace(/-/g,"")}.pdf`);
